@@ -1,0 +1,35 @@
+package:
+  name: menpo
+  version: {{ environ['CONDACI_VERSION'] }}
+
+requirements:
+  build:
+    - python
+    - setuptools
+
+  run:
+    - python
+
+    # Scientific Python Stack
+    - numpy 1.9.0
+    - scipy 0.14.0
+    - scikit-learn 0.15.2
+    # Other
+    - wrapt 1.9.0
+
+
+test:
+  requires:
+  - coverage
+  - nose
+  - mock
+
+  imports:
+  - menpo
+
+  commands:
+  - python -c "import nose; nose.main()" -s menpo
+
+about:
+  home: https://github.com/menpo/menpo/
+  license: BSD
