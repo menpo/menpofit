@@ -1,8 +1,8 @@
 from __future__ import division
 
 from menpo.transform import AlignmentSimilarity
-from menpo.transform.modeldriven import OrthoMDTransform, ModelDrivenTransform
 
+from menpofit.transform import ModelDrivenTransform, OrthoMDTransform
 from menpofit.fit.lucaskanade.appearance import AlternatingInverseCompositional
 from menpofit.fitmultilevel.base import name_of_callable
 from menpofit.fitmultilevel.fitter import MultilevelFitter

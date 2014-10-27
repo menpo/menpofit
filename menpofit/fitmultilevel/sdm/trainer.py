@@ -4,11 +4,12 @@ import numpy as np
 
 from menpo.transform import Scale, AlignmentSimilarity
 from menpo.model.modelinstance import PDM, OrthoPDM
-from menpo.transform.modeldriven import ModelDrivenTransform, OrthoMDTransform
+
 from menpo.visualize import print_dynamic, progress_bar_str
 from menpo.shape import mean_pointcloud
 from menpo.feature import sparse_hog, no_op
 
+from menpofit.transform import ModelDrivenTransform, OrthoMDTransform
 from menpofit.fit.regression.trainer import (
     NonParametricRegressorTrainer, ParametricRegressorTrainer,
     SemiParametricClassifierBasedRegressorTrainer)

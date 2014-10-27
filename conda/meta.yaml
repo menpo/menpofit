@@ -9,14 +9,11 @@ requirements:
 
   run:
     - python
-
-    # Scientific Python Stack
+    - menpo 0.4.0
     - numpy 1.9.0
     - scipy 0.14.0
     - scikit-learn 0.15.2
-    # Other
     - wrapt 1.9.0
-
 
 test:
   requires:
@@ -28,7 +25,7 @@ test:
   - menpo
 
   commands:
-  - python -c "import nose; nose.main()" -s menpo
+  - python -c "import nose; nose.main()" -s menpofit
 
 about:
   home: https://github.com/menpo/menpofit/

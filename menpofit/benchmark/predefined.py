@@ -4,7 +4,7 @@ from menpo.feature import sparse_hog
 from menpo.feature import igo
 
 from menpo.landmark import *
-from menpo.transform.modeldriven import OrthoMDTransform
+from menpofit.transform import OrthoMDTransform
 from menpo.model.modelinstance import  OrthoPDM
 from menpofit.fit.gradientdescent import RegularizedLandmarkMeanShift
 from menpofit.fitmultilevel.clm.classifier import linear_svm_lr
