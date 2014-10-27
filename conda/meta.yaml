@@ -1,5 +1,5 @@
 package:
-  name: menpo
+  name: menpofit
   version: {{ environ['CONDACI_VERSION'] }}
 
 requirements:
@@ -31,5 +31,5 @@ test:
   - python -c "import nose; nose.main()" -s menpo
 
 about:
-  home: https://github.com/menpo/menpo/
+  home: https://github.com/menpo/menpofit/
   license: BSD
