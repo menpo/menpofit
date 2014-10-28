@@ -4,7 +4,7 @@ import numpy as np
 from menpo.transform import Scale, AlignmentSimilarity
 from menpo.shape import mean_pointcloud
 from menpo.feature import sparse_hog, no_op
-from menpo.model.modelinstance import PDM, OrthoPDM
+from menpofit.modelinstance import PDM, OrthoPDM
 from menpo.visualize import print_dynamic, progress_bar_str
 
 from menpofit import checks

@@ -1,8 +1,9 @@
 import numpy as np
 
-from menpo.base import Targetable, Vectorizable, DP
-from menpo.model.modelinstance import PDM, GlobalPDM, OrthoPDM
+from menpo.base import Targetable, Vectorizable
+from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM
 from menpo.transform.base import Transform, VComposable, VInvertible
+from .differentiable import DP
 
 
 class ModelDrivenTransform(Transform, Targetable, Vectorizable,
@@ -190,8 +191,6 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
-        lsadl;saj;ls
-
         self.from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
 
     @property

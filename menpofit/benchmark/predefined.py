@@ -5,7 +5,7 @@ from menpo.feature import igo
 
 from menpo.landmark import *
 from menpofit.transform import OrthoMDTransform
-from menpo.model.modelinstance import  OrthoPDM
+from menpofit.modelinstance import OrthoPDM
 from menpofit.gradientdescent import RegularizedLandmarkMeanShift
 from menpofit.clm.classifier import linear_svm_lr
 from .io import import_bounding_boxes

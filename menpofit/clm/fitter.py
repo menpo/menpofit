@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 from menpo.image import Image
 from menpo.transform import AlignmentSimilarity
-from menpo.model.modelinstance import PDM, OrthoPDM
+from menpofit.modelinstance import PDM, OrthoPDM
 
 from menpofit.fitter import MultilevelFitter
 from menpofit.gradientdescent import RegularizedLandmarkMeanShift
