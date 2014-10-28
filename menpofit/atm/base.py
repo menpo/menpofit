@@ -193,7 +193,7 @@ class ATM(DeformableModel):
         popup : `boolean`, optional
             If enabled, the widget will appear as a popup window.
         """
-        from menpo.visualize import visualize_atm
+        from menpofit.visualize import visualize_atm
         visualize_atm(self, n_shape_parameters=n_shape_parameters,
                       parameters_bounds=parameters_bounds, figure_size=(7, 7),
                       mode=mode, popup=popup)

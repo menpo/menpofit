@@ -228,7 +228,7 @@ class CLM(DeformableModel):
         popup : `boolean`, optional
             If enabled, the widget will appear as a popup window.
         """
-        from menpo.visualize import visualize_shape_model
+        from menpofit.visualize import visualize_shape_model
         visualize_shape_model(self.shape_models, n_parameters=n_parameters,
                               parameters_bounds=parameters_bounds,
                               figure_size=(7, 7), mode=mode, popup=popup)

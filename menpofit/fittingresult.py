@@ -208,7 +208,7 @@ class FittingResult(object):
         popup : `boolean`, optional
             If enabled, the widget will appear as a popup window.
         """
-        from menpo.visualize import visualize_fitting_results
+        from menpofit.visualize import visualize_fitting_results
         visualize_fitting_results(self, figure_size=(7, 7), popup=popup)
 
     def as_serializable(self):
