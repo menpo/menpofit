@@ -22,7 +22,7 @@ test:
   - mock
 
   imports:
-  - menpo
+  - menpofit
 
   commands:
   - python -c "import nose; nose.main()" -s menpofit

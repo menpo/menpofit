@@ -1,14 +1,14 @@
 import os
+
 import numpy as np
 
 import menpo.io as mio
 from menpo.visualize.text_utils import print_dynamic, progress_bar_str
 from menpo.landmark import labeller
 from menpo.visualize.base import GraphPlotter
-
-from menpofit.fitmultilevel.aam import AAMBuilder, LucasKanadeAAMFitter
-from menpofit.fitmultilevel.clm import CLMBuilder, GradientDescentCLMFitter
-from menpofit.fitmultilevel.sdm import SDMTrainer
+from menpofit.aam import AAMBuilder, LucasKanadeAAMFitter
+from menpofit.clm import CLMBuilder, GradientDescentCLMFitter
+from menpofit.sdm import SDMTrainer
 
 
 def aam_fit_benchmark(fitting_images, aam, fitting_options=None,
