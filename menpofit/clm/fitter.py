@@ -1,9 +1,9 @@
 from __future__ import division
 import numpy as np
 from menpo.image import Image
-from menpo.transform import AlignmentSimilarity
-from menpofit.modelinstance import PDM, OrthoPDM
 
+from menpofit.transform import DifferentiableAlignmentSimilarity
+from menpofit.modelinstance import PDM, OrthoPDM
 from menpofit.fitter import MultilevelFitter
 from menpofit.gradientdescent import RegularizedLandmarkMeanShift
 
@@ -82,14 +82,6 @@ class GradientDescentCLMFitter(CLMFitter):
             Only :map:`GlobalPDM` and its subclasses are supported.
             :map:`PDM` is not supported at the moment.
 
-    global_transform : subclass of :map:`HomogFamilyAlignment`, optional
-        The global transform class to be used by the previous pdm.
-
-        .. note::
-
-            Only :map:`AlignmentSimilarity` is supported when
-            ``pdm_transform`` is set to :map:`AlignmentSimilarity`.
-
     n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
         previous or ``None``, optional
         The number of shape components or amount of shape variance to be
@@ -109,12 +101,10 @@ class GradientDescentCLMFitter(CLMFitter):
         components will be used for all levels.
     """
     def __init__(self, clm, algorithm=RegularizedLandmarkMeanShift,
-                 pdm_transform=OrthoPDM, global_transform=AlignmentSimilarity,
-                 n_shape=None, **kwargs):
+                 pdm_transform=OrthoPDM, n_shape=None, **kwargs):
         super(GradientDescentCLMFitter, self).__init__(clm)
         self._set_up(algorithm=algorithm, pdm_transform=pdm_transform,
-                     global_transform=global_transform, n_shape=n_shape,
-                     **kwargs)
+                     n_shape=n_shape, **kwargs)
 
     @property
     def algorithm(self):
@@ -126,7 +116,8 @@ class GradientDescentCLMFitter(CLMFitter):
         return 'GD-CLM-' + self._fitters[0].algorithm
 
     def _set_up(self, algorithm=RegularizedLandmarkMeanShift,
-                pdm_transform=OrthoPDM, global_transform=AlignmentSimilarity,
+                pdm_transform=OrthoPDM,
+                global_transform=DifferentiableAlignmentSimilarity,
                 n_shape=None, **kwargs):
         r"""
         Sets up the Gradient Descent Fitter object.
@@ -138,14 +129,6 @@ class GradientDescentCLMFitter(CLMFitter):
 
         pdm_transform : :map:`GlobalPDM` or subclass, optional
             The point distribution class to be used.
-
-        global_transform : subclass of :map:`HomogFamilyAlignment`, optional
-            The global transform class to be used by the previous pdm.
-
-            .. note::
-
-                Only :map:`AlignmentSimilarity` is supported when
-                ``pdm_transform`` is set to :map:`AlignmentSimilarity`.
 
         n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
             previous or ``None``, optional

@@ -269,7 +269,7 @@ def test_similarity_jacobian_3d_raises_dimensionalityerror():
 
 
 @raises(ValueError)
-def test_similarity_2d_points_raises_dimensionalityerror():
+def test_similarity_jacobian_2d_raises_dimensionalityerror():
     params = np.ones(4)
     t = DifferentiableSimilarity.identity(2).from_vector(params)
     t.d_dp(np.ones([2, 3]))

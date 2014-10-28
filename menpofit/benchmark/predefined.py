@@ -1,20 +1,18 @@
-from menpo.transform import PiecewiseAffine
-from menpo.transform import AlignmentSimilarity
-from menpo.feature import sparse_hog
-from menpo.feature import igo
+from menpo.landmark import ibug_face_68_trimesh
+from menpo.feature import sparse_hog, igo
 
-from menpo.landmark import *
-from menpofit.transform import OrthoMDTransform
+from menpofit.lucaskanade import AlternatingInverseCompositional
+from menpofit.transform import OrthoMDTransform, DifferentiablePiecewiseAffine
 from menpofit.modelinstance import OrthoPDM
 from menpofit.gradientdescent import RegularizedLandmarkMeanShift
 from menpofit.clm.classifier import linear_svm_lr
+
 from .io import import_bounding_boxes
-from menpofit.benchmark.base import (load_database,
-                                     aam_build_benchmark, aam_fit_benchmark,
-                                     clm_build_benchmark, clm_fit_benchmark,
-                                     sdm_build_benchmark, sdm_fit_benchmark,
-                                     convert_fitting_results_to_ced,
-                                     plot_fitting_curves)
+from .base import (aam_build_benchmark, aam_fit_benchmark,
+                   clm_build_benchmark, clm_fit_benchmark,
+                   sdm_build_benchmark, sdm_fit_benchmark,
+                   load_database, convert_fitting_results_to_ced,
+                   plot_fitting_curves)
 
 
 def aam_fastest_alternating_noise(training_db_path, fitting_db_path,
@@ -28,7 +26,7 @@ def aam_fastest_alternating_noise(training_db_path, fitting_db_path,
                           }
     training_options = {'group': 'PTS',
                         'features': igo,
-                        'transform': PiecewiseAffine,
+                        'transform': DifferentiablePiecewiseAffine,
                         'trilist': ibug_face_68_trimesh,
                         'normalization_diagonal': None,
                         'n_levels': 3,
@@ -40,7 +38,6 @@ def aam_fastest_alternating_noise(training_db_path, fitting_db_path,
                         }
     fitting_options = {'algorithm': AlternatingInverseCompositional,
                        'md_transform': OrthoMDTransform,
-                       'global_transform': AlignmentSimilarity,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
                        'max_iters': 50,
@@ -100,7 +97,7 @@ def aam_fastest_alternating_bbox(training_db_path, fitting_db_path,
     }
     training_options = {'group': 'PTS',
                         'features': [igo] * 3,
-                        'transform': PiecewiseAffine,
+                        'transform': DifferentiablePiecewiseAffine,
                         'trilist': ibug_face_68_trimesh,
                         'normalization_diagonal': None,
                         'n_levels': 3,
@@ -112,7 +109,6 @@ def aam_fastest_alternating_bbox(training_db_path, fitting_db_path,
     }
     fitting_options = {'algorithm': AlternatingInverseCompositional,
                        'md_transform': OrthoMDTransform,
-                       'global_transform': AlignmentSimilarity,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
                        'max_iters': 50,
@@ -175,7 +171,7 @@ def aam_best_performance_alternating_noise(training_db_path, fitting_db_path,
                           }
     training_options = {'group': 'PTS',
                         'features': igo,
-                        'transform': PiecewiseAffine,
+                        'transform': DifferentiablePiecewiseAffine,
                         'trilist': ibug_face_68_trimesh,
                         'normalization_diagonal': None,
                         'n_levels': 3,
@@ -187,7 +183,6 @@ def aam_best_performance_alternating_noise(training_db_path, fitting_db_path,
                         }
     fitting_options = {'algorithm': AlternatingInverseCompositional,
                        'md_transform': OrthoMDTransform,
-                       'global_transform': AlignmentSimilarity,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
                        'max_iters': 50,
@@ -248,7 +243,7 @@ def aam_best_performance_alternating_bbox(training_db_path, fitting_db_path,
     }
     training_options = {'group': 'PTS',
                         'features': igo,
-                        'transform': PiecewiseAffine,
+                        'transform': DifferentiablePiecewiseAffine,
                         'trilist': ibug_face_68_trimesh,
                         'normalization_diagonal': 200,
                         'n_levels': 3,
@@ -260,7 +255,6 @@ def aam_best_performance_alternating_bbox(training_db_path, fitting_db_path,
     }
     fitting_options = {'algorithm': AlternatingInverseCompositional,
                        'md_transform': OrthoMDTransform,
-                       'global_transform': AlignmentSimilarity,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
                        'max_iters': 50,
@@ -334,7 +328,6 @@ def clm_basic_noise(training_db_path,  fitting_db_path,
                         }
     fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
                        'pdm_transform': OrthoPDM,
-                       'global_transform': AlignmentSimilarity,
                        'n_shape': [3, 6, 12],
                        'max_iters': 50,
                        'error_type': error_type
@@ -406,7 +399,6 @@ def clm_basic_bbox(training_db_path,  fitting_db_path, fitting_bboxes_path,
     }
     fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
                        'pdm_transform': OrthoPDM,
-                       'global_transform': AlignmentSimilarity,
                        'n_shape': [3, 6, 12],
                        'max_iters': 50,
                        'error_type': error_type
@@ -586,7 +578,7 @@ def aam_params_combinations_noise(training_db_path, fitting_db_path,
         error_type = 'me_norm'
         training_options = {'group': 'PTS',
                             'features': igo,
-                            'transform': PiecewiseAffine,
+                            'transform': DifferentiablePiecewiseAffine,
                             'trilist': ibug_face_68_trimesh,
                             'normalization_diagonal': None,
                             'n_levels': 3,
@@ -598,7 +590,6 @@ def aam_params_combinations_noise(training_db_path, fitting_db_path,
                             }
         fitting_options = {'algorithm': AlternatingInverseCompositional,
                            'md_transform': OrthoMDTransform,
-                           'global_transform': AlignmentSimilarity,
                            'n_shape': [3, 6, 12],
                            'n_appearance': 50,
                            'max_iters': 50,
@@ -725,7 +716,6 @@ def clm_params_combinations_noise(training_db_path, fitting_db_path,
                             }
         fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
                            'pdm_transform': OrthoPDM,
-                           'global_transform': AlignmentSimilarity,
                            'n_shape': [3, 6, 12],
                            'max_iters': 50,
                            'error_type': error_type

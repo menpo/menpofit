@@ -1,14 +1,15 @@
 from __future__ import division, print_function
 import abc
 import numpy as np
-from menpo.transform import Scale, AlignmentSimilarity
+from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 from menpo.feature import sparse_hog, no_op
 from menpofit.modelinstance import PDM, OrthoPDM
 from menpo.visualize import print_dynamic, progress_bar_str
 
 from menpofit import checks
-from menpofit.transform import ModelDrivenTransform, OrthoMDTransform
+from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
+                                DifferentiableAlignmentSimilarity)
 from menpofit.regression.trainer import (
     NonParametricRegressorTrainer, ParametricRegressorTrainer,
     SemiParametricClassifierBasedRegressorTrainer)
@@ -636,11 +637,6 @@ class SDAAMTrainer(SDTrainer):
     md_transform: :map:`ModelDrivenTransform`, optional
         The model driven transform class to be used.
 
-    global_transform : :map:`Affine`, optional
-        The global transform class to be used by the previous
-        ``md_transform_cls``. Currently, only
-        :map:`AlignmentSimilarity` is supported.
-
     n_shape : `int` > ``1`` or ``0`` <= `float` <= ``1`` or ``None``, or a list of those, optional
         The number of shape components to be used per fitting level.
 
@@ -696,8 +692,7 @@ class SDAAMTrainer(SDTrainer):
     def __init__(self, aam, regression_type=mlr, regression_features=weights,
                  noise_std=0.04, rotation=False, n_perturbations=10,
                  update='compositional', md_transform=OrthoMDTransform,
-                 global_transform=AlignmentSimilarity, n_shape=None,
-                 n_appearance=None):
+                 n_shape=None, n_appearance=None):
         super(SDAAMTrainer, self).__init__(
             regression_type=regression_type,
             regression_features=regression_features,
@@ -707,7 +702,8 @@ class SDAAMTrainer(SDTrainer):
         self.aam = aam
         self.update = update
         self.md_transform = md_transform
-        self.global_transform = global_transform
+        # hard coded for now as this is the only supported configuration.
+        self.global_transform = DifferentiableAlignmentSimilarity
 
         # check n_shape parameter
         if n_shape is not None:
@@ -880,11 +876,6 @@ class SDCLMTrainer(SDTrainer):
     pdm_transform : :map:`ModelDrivenTransform`, optional
         The point distribution transform class to be used.
 
-    global_transform : :map:`Affine`, optional
-        The global transform class to be used by the previous
-        ``md_transform_cls``. Currently, only
-        :map:`AlignmentSimilarity` is supported.
-
     n_shape : `int` > ``1`` or ``0`` <= `float` <= ``1`` or ``None``, or a list of those, optional
         The number of shape components to be used per fitting level.
 
@@ -913,7 +904,7 @@ class SDCLMTrainer(SDTrainer):
     """
     def __init__(self, clm, regression_type=mlr, noise_std=0.04,
                  rotation=False, n_perturbations=10, pdm_transform=OrthoPDM,
-                 global_transform=AlignmentSimilarity, n_shape=None):
+                 n_shape=None):
         super(SDCLMTrainer, self).__init__(
             regression_type=regression_type,
             regression_features=[None] * clm.n_levels,
@@ -923,7 +914,8 @@ class SDCLMTrainer(SDTrainer):
         self.clm = clm
         self.patch_shape = clm.patch_shape
         self.pdm_transform = pdm_transform
-        self.global_transform = global_transform
+        # hard coded for now as this is the only supported configuration.
+        self.global_transform = DifferentiableAlignmentSimilarity
 
         # check n_shape parameter
         if n_shape is not None:

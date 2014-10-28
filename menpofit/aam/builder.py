@@ -3,7 +3,7 @@ import numpy as np
 
 from menpo.shape import TriMesh
 from menpo.image import MaskedImage
-from menpo.transform import Translation, PiecewiseAffine, ThinPlateSplines
+from menpo.transform import Translation
 from menpo.feature import igo
 from menpo.model import PCAModel
 from menpo.visualize import print_dynamic, progress_bar_str
@@ -12,6 +12,8 @@ from menpofit import checks
 from menpofit.base import create_pyramid
 from menpofit.builder import (DeformableModelBuilder, build_shape_model,
                               normalization_wrt_reference_shape)
+from menpofit.transform import (DifferentiablePiecewiseAffine,
+                                DifferentiableThinPlateSplines)
 
 
 class AAMBuilder(DeformableModelBuilder):
@@ -141,7 +143,7 @@ class AAMBuilder(DeformableModelBuilder):
         ``features`` must be a `function` or a list of those
         containing ``1`` or ``n_levels`` elements
     """
-    def __init__(self, features=igo, transform=PiecewiseAffine,
+    def __init__(self, features=igo, transform=DifferentiablePiecewiseAffine,
                  trilist=None, normalization_diagonal=None, n_levels=3,
                  downscale=2, scaled_shape_models=True,
                  max_shape_components=None, max_appearance_components=None,
@@ -501,7 +503,7 @@ class PatchBasedAAMBuilder(AAMBuilder):
         self.boundary = boundary
 
         # patch-based AAMs can only work with TPS transform
-        self.transform = ThinPlateSplines
+        self.transform = DifferentiableThinPlateSplines
 
     def _build_reference_frame(self, mean_shape):
         r"""

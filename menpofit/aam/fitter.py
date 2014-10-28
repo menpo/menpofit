@@ -1,11 +1,11 @@
 from __future__ import division
 from itertools import chain
-from menpo.transform import AlignmentSimilarity
 
 from menpofit.base import name_of_callable
 from menpofit.fitter import MultilevelFitter
 from menpofit.fittingresult import AMMultilevelFittingResult
-from menpofit.transform import ModelDrivenTransform, OrthoMDTransform
+from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
+                                DifferentiableAlignmentSimilarity)
 from menpofit.lucaskanade.appearance import AlternatingInverseCompositional
 
 
@@ -110,16 +110,6 @@ class LucasKanadeAAMFitter(AAMFitter):
         The Appearance Lucas-Kanade class to be used.
     md_transform : :map:`ModelDrivenTransform` or subclass, optional
         The model driven transform class to be used.
-    global_transform : subclass of :map:`HomogFamilyAlignment`, optional
-        The global transform class to be used by the previous pdm.
-
-        .. note::
-
-            Only :map:`AlignmentSimilarity` is supported when
-            ``pdm_transform`` is set to :map:`AlignmentSimilarity`.
-
-            ``global_transform`` has no effect when ``md_transform`` is
-            specifically set to map:`MDTransform`
     n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
         previous or ``None``, optional
         The number of shape components or amount of shape variance to be
@@ -156,14 +146,11 @@ class LucasKanadeAAMFitter(AAMFitter):
         components will be used for all levels.
     """
     def __init__(self, aam, algorithm=AlternatingInverseCompositional,
-                 md_transform=OrthoMDTransform,
-                 global_transform=AlignmentSimilarity, n_shape=None,
+                 md_transform=OrthoMDTransform, n_shape=None,
                  n_appearance=None, **kwargs):
         super(LucasKanadeAAMFitter, self).__init__(aam)
-        self._set_up(algorithm=algorithm,
-                     md_transform=md_transform,
-                     global_transform=global_transform, n_shape=n_shape,
-                     n_appearance=n_appearance, **kwargs)
+        self._set_up(algorithm=algorithm, md_transform=md_transform,
+                     n_shape=n_shape, n_appearance=n_appearance, **kwargs)
 
     @property
     def algorithm(self):
@@ -176,8 +163,8 @@ class LucasKanadeAAMFitter(AAMFitter):
 
     def _set_up(self, algorithm=AlternatingInverseCompositional,
                 md_transform=OrthoMDTransform,
-                global_transform=AlignmentSimilarity, n_shape=None,
-                n_appearance=None, **kwargs):
+                global_transform=DifferentiableAlignmentSimilarity,
+                n_shape=None, n_appearance=None, **kwargs):
         r"""
         Sets up the Lucas-Kanade fitter object.
 
@@ -188,17 +175,6 @@ class LucasKanadeAAMFitter(AAMFitter):
 
         md_transform : :map:`ModelDrivenTransform` or subclass, optional
             The model driven transform class to be used.
-
-        global_transform : subclass of :map:`HomogFamilyAlignment`, optional
-            The global transform class to be used by the previous pdm.
-
-            .. note::
-
-                Only :map:`AlignmentSimilarity` is supported when
-                ``pdm_transform`` is set to :map:`AlignmentSimilarity`.
-
-                ``global_transform`` has no effect when ``md_transform`` is
-                specifically set to map:`MDTransform`
 
         n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
             previous or ``None``, optional

@@ -6,7 +6,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 from nose.tools import raises
 from menpo.feature import igo
-from menpo.transform import PiecewiseAffine
+from menpofit.transform import DifferentiablePiecewiseAffine
 
 import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
@@ -308,7 +308,7 @@ for i in range(4):
 
 # build atm
 atm1 = ATMBuilder(features=igo,
-                  transform=PiecewiseAffine,
+                  transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=3,
                   downscale=2,
@@ -317,7 +317,7 @@ atm1 = ATMBuilder(features=igo,
                   boundary=3).build(training_shapes, templates[0], group='PTS')
 
 atm2 = ATMBuilder(features=igo,
-                  transform=PiecewiseAffine,
+                  transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=1,
                   downscale=2,
@@ -326,7 +326,7 @@ atm2 = ATMBuilder(features=igo,
                   boundary=3).build(training_shapes, templates[1], group='PTS')
 
 atm3 = ATMBuilder(features=igo,
-                  transform=PiecewiseAffine,
+                  transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=3,
                   downscale=2,
@@ -335,7 +335,7 @@ atm3 = ATMBuilder(features=igo,
                   boundary=3).build(training_shapes, templates[2], group='PTS')
 
 atm4 = ATMBuilder(features=igo,
-                  transform=PiecewiseAffine,
+                  transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=1,
                   downscale=2,

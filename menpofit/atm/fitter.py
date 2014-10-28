@@ -1,9 +1,9 @@
 from __future__ import division
-from menpo.transform import AlignmentSimilarity
 
 from menpofit.fitter import MultilevelFitter
 from menpofit.fittingresult import AMMultilevelFittingResult
-from menpofit.transform import ModelDrivenTransform, OrthoMDTransform
+from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
+                                DifferentiableAlignmentSimilarity)
 from menpofit.lucaskanade.residual import SSD
 from menpofit.lucaskanade.image import ImageInverseCompositional
 from menpofit.base import name_of_callable
@@ -113,17 +113,6 @@ class LucasKanadeATMFitter(ATMFitter):
     md_transform : :map:`ModelDrivenTransform` or subclass, optional
         The model driven transform class to be used.
 
-    global_transform : subclass of :map:`HomogFamilyAlignment`, optional
-        The global transform class to be used by the previous pdm.
-
-        .. note::
-
-            Only :map:`AlignmentSimilarity` is supported when
-            ``pdm_transform`` is set to :map:`AlignmentSimilarity`.
-
-            ``global_transform`` has no effect when ``md_transform`` is
-            specifically set to map:`MDTransform`
-
     n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
         previous or ``None``, optional
         The number of shape components or amount of shape variance to be
@@ -143,14 +132,12 @@ class LucasKanadeATMFitter(ATMFitter):
         components will be used for all levels.
     """
     def __init__(self, atm, algorithm=ImageInverseCompositional,
-                 md_transform=OrthoMDTransform,
-                 global_transform=AlignmentSimilarity, n_shape=None, **kwargs):
+                 md_transform=OrthoMDTransform, n_shape=None, **kwargs):
         super(LucasKanadeATMFitter, self).__init__(atm)
         # TODO: Add residual as parameter, when residuals are properly defined
         residual = SSD
         self._set_up(algorithm=algorithm, residual=residual,
-                     md_transform=md_transform,
-                     global_transform=global_transform, n_shape=n_shape,
+                     md_transform=md_transform, n_shape=n_shape,
                      **kwargs)
 
     @property
@@ -164,7 +151,8 @@ class LucasKanadeATMFitter(ATMFitter):
 
     def _set_up(self, algorithm=ImageInverseCompositional,
                 residual=SSD, md_transform=OrthoMDTransform,
-                global_transform=AlignmentSimilarity, n_shape=None, **kwargs):
+                global_transform=DifferentiableAlignmentSimilarity,
+                n_shape=None, **kwargs):
         r"""
         Sets up the Lucas-Kanade fitter object.
 
@@ -175,17 +163,6 @@ class LucasKanadeATMFitter(ATMFitter):
 
         md_transform : :map:`ModelDrivenTransform` or subclass, optional
             The model driven transform class to be used.
-
-        global_transform : subclass of :map:`HomogFamilyAlignment`, optional
-            The global transform class to be used by the previous pdm.
-
-            .. note::
-
-                Only :map:`AlignmentSimilarity` is supported when
-                ``pdm_transform`` is set to :map:`AlignmentSimilarity`.
-
-                ``global_transform`` has no effect when ``md_transform`` is
-                specifically set to map:`MDTransform`
 
         n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
             previous or ``None``, optional

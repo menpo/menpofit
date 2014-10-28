@@ -6,7 +6,8 @@ import numpy as np
 from numpy.testing import assert_allclose
 from nose.tools import raises
 from menpo.feature import igo
-from menpo.transform import PiecewiseAffine
+from menpofit.transform import DifferentiablePiecewiseAffine
+
 
 import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
@@ -313,7 +314,7 @@ for i in range(4):
 
 # build aam
 aam = AAMBuilder(features=igo,
-                 transform=PiecewiseAffine,
+                 transform=DifferentiablePiecewiseAffine,
                  trilist=training_images[0].landmarks['ibug_face_68_trimesh'].
                  lms.trilist,
                  normalization_diagonal=150,
@@ -325,7 +326,7 @@ aam = AAMBuilder(features=igo,
                  boundary=3).build(training_images, group='PTS')
 
 aam2 = AAMBuilder(features=igo,
-                  transform=PiecewiseAffine,
+                  transform=DifferentiablePiecewiseAffine,
                   trilist=training_images[0].landmarks['ibug_face_68_trimesh'].
                   lms.trilist,
                   normalization_diagonal=150,
