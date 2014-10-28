@@ -714,7 +714,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     # define function that updates info text
     def update_info(aam, instance, level, group):
         # features info
-        from menpo.fitmultilevel.base import name_of_callable
+        from menpofit.base import name_of_callable
 
         lvl_app_mod = aam.appearance_models[level]
         lvl_shape_mod = aam.shape_models[level]
@@ -1055,7 +1055,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
     # define function that updates info text
     def update_info(atm, instance, level, group):
         # features info
-        from menpo.fitmultilevel.base import name_of_callable
+        from menpofit.base import name_of_callable
 
         lvl_shape_mod = atm.shape_models[level]
         tmplt_inst = atm.warped_templates[level]
@@ -1760,7 +1760,7 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
         error_range = [0., 20., 1.] for error_type = 'me'
         error_range = [0., 20., 1.] for error_type = 'rmse'
     """
-    from menpo.fitmultilevel.functions import compute_cumulative_error
+    from menpofit.fittingresult import compute_cumulative_error
 
     # make sure that images is a list even with one image member
     if not isinstance(errors[0], list):
