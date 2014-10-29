@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 from menpo.transform.rbf import R2LogR2RBF, R2LogRRBF
-from .differentiable import DL
+from menpofit.differentiable import DL
 
 
 class DifferentiableR2LogRRBF(R2LogRRBF, DL):

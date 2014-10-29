@@ -1,6 +1,6 @@
 import numpy as np
 from menpo.transform import PiecewiseAffine
-from .differentiable import DL, DX
+from menpofit.differentiable import DL, DX
 
 
 class DifferentiablePiecewiseAffine(PiecewiseAffine, DL, DX):
