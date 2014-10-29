@@ -3,7 +3,7 @@ import numpy as np
 from menpo.base import Targetable, Vectorizable
 from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM
 from menpo.transform.base import Transform, VComposable, VInvertible
-from .differentiable import DP
+from menpofit.differentiable import DP
 
 
 class ModelDrivenTransform(Transform, Targetable, Vectorizable,

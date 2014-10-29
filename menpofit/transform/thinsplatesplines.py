@@ -1,6 +1,6 @@
 import numpy as np
 from menpo.transform import ThinPlateSplines
-from .differentiable import DL, DX
+from menpofit.differentiable import DL, DX
 from .rbf import DifferentiableR2LogR2RBF
 
 

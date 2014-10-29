@@ -1,70 +1,31 @@
 import numpy as np
-from menpo.transform import Affine, Similarity, AlignmentSimilarity
-from .differentiable import DP, DX
+from menpo.transform import (Affine, AlignmentAffine, Similarity,
+                             AlignmentSimilarity)
+from menpofit.differentiable import DP, DX
 
 
 class DifferentiableAffine(Affine, DP, DX):
 
     def d_dp(self, points):
-        r"""The first order derivative of this Affine transform wrt parameter
-        changes evaluated at points.
-
-        The Jacobian generated (for 2D) is of the form::
-
-            x 0 y 0 1 0
-            0 x 0 y 0 1
-
-        This maintains a parameter order of::
-
-          W(x;p) = [1 + p1  p3      p5] [x]
-                   [p2      1 + p4  p6] [y]
-                                        [1]
-
-        Parameters
-        ----------
-        points : (n_points, n_dims) ndarray
-            The set of points to calculate the jacobian for.
-
-
-        Returns
-        -------
-        (n_points, n_params, n_dims) ndarray
-            The jacobian wrt parametrization
-
-        """
-        n_points, points_n_dim = points.shape
-        if points_n_dim != self.n_dims:
-            raise ValueError(
-                "Trying to sample jacobian in incorrect dimensions "
-                "(transform is {0}D, sampling at {1}D)".format(
-                    self.n_dims, points_n_dim))
-        # prealloc the jacobian
-        jac = np.zeros((n_points, self.n_parameters, self.n_dims))
-        # a mask that we can apply at each iteration
-        dim_mask = np.eye(self.n_dims, dtype=np.bool)
-
-        for i, s in enumerate(
-                range(0, self.n_dims * self.n_dims, self.n_dims)):
-            # i is current axis
-            # s is slicing offset
-            # make a mask for a single points jacobian
-            full_mask = np.zeros((self.n_parameters, self.n_dims), dtype=bool)
-            # fill the mask in for the ith axis
-            full_mask[slice(s, s + self.n_dims)] = dim_mask
-            # assign the ith axis points to this mask, broadcasting over all
-            # points
-            jac[:, full_mask] = points[:, i][..., None]
-            # finally, just repeat the same but for the ones at the end
-        full_mask = np.zeros((self.n_parameters, self.n_dims), dtype=bool)
-        full_mask[slice(s + self.n_dims, s + 2 * self.n_dims)] = dim_mask
-        jac[:, full_mask] = 1
-        return jac
+        return affine_d_dp(self, points)
 
     def d_dx(self, points):
         return affine_d_dx(self)
 
 
-class DifferentiableSimilarity(Similarity, DP):
+class DifferentiableAlignmentAffine(AlignmentAffine, DP, DX):
+
+    def as_non_alignment(self):
+        return DifferentiableAffine(self.h_matrix, skip_checks=True)
+
+    def d_dp(self, points):
+        return affine_d_dp(self, points)
+
+    def d_dx(self, points):
+        return affine_d_dx(self)
+
+
+class DifferentiableSimilarity(Similarity, DP, DX):
 
     def d_dp(self, points):
         return similarity_d_dp(self, points)
@@ -73,7 +34,7 @@ class DifferentiableSimilarity(Similarity, DP):
         return affine_d_dx(self)
 
 
-class DifferentiableAlignmentSimilarity(AlignmentSimilarity, DP):
+class DifferentiableAlignmentSimilarity(AlignmentSimilarity, DP, DX):
 
     def as_non_alignment(self):
         return DifferentiableSimilarity(self.h_matrix, skip_checks=True)
@@ -118,6 +79,62 @@ def affine_d_dx(affine):
 
     """
     return affine.linear_component[None, ...]
+
+
+def affine_d_dp(self, points):
+    r"""The first order derivative of this Affine transform wrt parameter
+    changes evaluated at points.
+
+    The Jacobian generated (for 2D) is of the form::
+
+        x 0 y 0 1 0
+        0 x 0 y 0 1
+
+    This maintains a parameter order of::
+
+      W(x;p) = [1 + p1  p3      p5] [x]
+               [p2      1 + p4  p6] [y]
+                                    [1]
+
+    Parameters
+    ----------
+    points : (n_points, n_dims) ndarray
+        The set of points to calculate the jacobian for.
+
+
+    Returns
+    -------
+    (n_points, n_params, n_dims) ndarray
+        The jacobian wrt parametrization
+
+    """
+    n_points, points_n_dim = points.shape
+    if points_n_dim != self.n_dims:
+        raise ValueError(
+            "Trying to sample jacobian in incorrect dimensions "
+            "(transform is {0}D, sampling at {1}D)".format(
+                self.n_dims, points_n_dim))
+    # prealloc the jacobian
+    jac = np.zeros((n_points, self.n_parameters, self.n_dims))
+    # a mask that we can apply at each iteration
+    dim_mask = np.eye(self.n_dims, dtype=np.bool)
+
+    for i, s in enumerate(
+            range(0, self.n_dims * self.n_dims, self.n_dims)):
+        # i is current axis
+        # s is slicing offset
+        # make a mask for a single points jacobian
+        full_mask = np.zeros((self.n_parameters, self.n_dims), dtype=bool)
+        # fill the mask in for the ith axis
+        full_mask[slice(s, s + self.n_dims)] = dim_mask
+        # assign the ith axis points to this mask, broadcasting over all
+        # points
+        jac[:, full_mask] = points[:, i][..., None]
+        # finally, just repeat the same but for the ones at the end
+    full_mask = np.zeros((self.n_parameters, self.n_dims), dtype=bool)
+    full_mask[slice(s + self.n_dims, s + 2 * self.n_dims)] = dim_mask
+    jac[:, full_mask] = 1
+    return jac
 
 
 def similarity_d_dp(sim, points):

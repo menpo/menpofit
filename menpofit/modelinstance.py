@@ -2,7 +2,7 @@ import numpy as np
 
 from menpo.base import Targetable, Vectorizable
 from menpo.model import MeanInstanceLinearModel
-from menpofit.transform.differentiable import DP
+from menpofit.differentiable import DP
 
 
 def similarity_2d_instance_model(shape):
