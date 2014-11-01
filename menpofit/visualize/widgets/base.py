@@ -1642,7 +1642,9 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
 
         # call plot_ced
         plot_ced_widget = plot_ced(errors, figure_size=(9, 5), popup=True,
-                                   error_type=error_type, error_range=None)
+                                   error_type=error_type, error_range=None,
+                                   legend_entries=['Final Fitting',
+                                                   'Initialization'])
 
         # If another tab is selected, then close the widget.
         def close_plot_ced_fun(name, value):
@@ -1731,7 +1733,7 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
 
 
 def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
-             error_range=None):
+             error_range=None, legend_entries=None):
     r"""
     Widget for visualizing the cumulative error curves of the provided errors.
     The generated figures can be saved to files.
@@ -1759,6 +1761,10 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
         error_range = [0., 0.101, 0.005] for error_type = 'me_norm'
         error_range = [0., 20., 1.] for error_type = 'me'
         error_range = [0., 20., 1.] for error_type = 'rmse'
+
+    legend_entries : `list` of `str`
+        The entries of the legend. The list must have the same length as errors.
+        If None, the entries will have the form 'Curve %d'.
     """
     from menpofit.fittingresult import compute_cumulative_error
 
@@ -1768,6 +1774,10 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
 
     # find number of curves
     n_curves = len(errors)
+
+    # fix legend_entries
+    if legend_entries is None:
+        legend_entries = ["Curve {}".format(k) for k in range(n_curves)]
 
     # get horizontal axis errors
     x_label_initial_value = 'Error'
@@ -1792,7 +1802,6 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
     # initialize plot options dictionaries and legend entries
     colors = [np.random.random((3,)) for _ in range(n_curves)]
     plot_options_list = []
-    legend_entries_list = []
     for k in range(n_curves):
         plot_options_list.append({'show_line':True,
                                   'linewidth':2,
@@ -1804,8 +1813,7 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
                                   'markeredgecolor':colors[k],
                                   'markerstyle':'s',
                                   'markeredgewidth':1,
-                                  'legend_entry':"Curve {}".format(k)})
-        legend_entries_list.append("Curve " + str(k))
+                                  'legend_entry':legend_entries[k]})
 
     # define plot function
     def plot_function(name, value):
