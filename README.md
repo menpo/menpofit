@@ -1,4 +1,4 @@
 menpofit
 ========
 
-AAMs CLMs and SDMs in Menpo.
+AAMs, CLMs and SDMs in Menpo.
