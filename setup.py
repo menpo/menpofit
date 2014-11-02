@@ -15,11 +15,15 @@ versioneer.parentdir_prefix = project_name + '-'  # dirname like 'menpo-v1.2.0'
 setup(name=project_name,
       version=versioneer.get_version(),
       cmdclass=versioneer.get_cmdclass(),
-      description='Pickle anything to HDF5',
-      author='James Booth',
+      description="Menpo's image feature point localisation (AAMs, SDMs, "
+                  "CLMs)",
+      author='The Menpo Development Team',
       author_email='james.booth08@imperial.ac.uk',
       packages=find_packages(),
       install_requires=['numpy==1.9.0',
                         'scipy==0.14.0',
-                        'wrapt==1.9.0'
-                        ])
+                        'wrapt==1.9.0',
+                        'menpo==0.4.0a1'
+                        ],
+      tests_require=['nose==1.3.4', 'mock==1.0.1']
+      )
