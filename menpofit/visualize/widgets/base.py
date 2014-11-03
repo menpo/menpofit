@@ -134,7 +134,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
             if mean_wid.value:
                 mean.view(image_view=axis_mode == 1, colour_array='y',
                           **kwargs)
-                plt.hold = True
+                plt.hold(True)
             instance.view(image_view=axis_mode == 1, **kwargs)
 
             # instance range
@@ -147,7 +147,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
 
             # plot
             mean.view(image_view=axis_mode == 1, **kwargs)
-            plt.hold = True
+            plt.hold(True)
             for p in range(mean.n_points):
                 xm = mean.points[p, 0]
                 ym = mean.points[p, 1]
@@ -167,7 +167,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
             # instance range
             tmp_range = mean.range()
 
-        plt.hold = False
+        plt.hold(False)
         plt.gca().axis('equal')
         # set figure size
         plt.gcf().set_size_inches([x_scale, y_scale] * np.asarray(figure_size))
