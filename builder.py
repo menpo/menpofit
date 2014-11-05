@@ -2,21 +2,29 @@ from __future__ import division
 import abc
 from copy import deepcopy
 import numpy as np
+from scipy.stats import multivariate_normal
 
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
-from menpo.transform.piecewiseaffine import PiecewiseAffine
 from menpo.model import PCAModel
 from menpo.shape import mean_pointcloud
 from menpo.visualize import print_dynamic, progress_bar_str
 
-from cvpr2015.utils import fsmooth, build_parts_image, build_reference_frame
+from menpofast.utils import build_parts_image, convert_from_menpo
+
+from menpofit.transform.piecewiseaffine import DifferentiablePiecewiseAffine
+from menpofit.aam.builder import build_reference_frame
+from menpofit.base import build_sampling_grid
+
+from alabortcvpr2015.utils import fsmooth
+from alabortcvpr2015.clm.classifier import (MCF, MultipleMCF,
+                                            LinearSVMLR, MultipleLinearSVMLR)
 
 
 # Abstract Interface for AAM Builders -----------------------------------------
 
-class AAMBuilder(object):
+class UnifiedBuilder(object):
 
-    def build(self, images, group=None, label=None, verbose=False):
+    def build(self, images, group=None, label=None, verbose=False, **kwargs):
         # compute reference shape
         reference_shape = self._compute_reference_shape(images, group, label,
                                                         verbose)
@@ -29,6 +37,7 @@ class AAMBuilder(object):
             print_dynamic('- Building models\n')
         shape_models = []
         appearance_models = []
+        classifiers = []
         # for each pyramid level (high --> low)
         for j, s in enumerate(self.scales):
             if verbose:
@@ -73,7 +82,7 @@ class AAMBuilder(object):
 
             # obtain warped images
             warped_images = self._warp_images(level_images, level_shapes,
-                                              shape_model.mean, level_str,
+                                              shape_model.mean(), level_str,
                                               verbose)
 
             # obtain appearance model
@@ -87,6 +96,43 @@ class AAMBuilder(object):
             # add appearance model to the list
             appearance_models.append(appearance_model)
 
+            if isinstance(self, GlobalUnifiedBuilder):
+                # obtain parts images
+                parts_images = self._parts_images(level_images, level_shapes,
+                                                  level_str, verbose)
+            else:
+                # parts images are warped images
+                parts_images = warped_images
+
+            # build desired responses
+            mvn = multivariate_normal(mean=np.zeros(2), cov=self.covariance)
+            grid = build_sampling_grid(self.parts_shape)
+            Y = [mvn.pdf(grid + offset) for offset in self.offsets]
+
+            # build classifiers
+            n_landmarks = level_shapes[0].n_points
+            level_classifiers = []
+            for l in range(n_landmarks):
+                if verbose:
+                    print_dynamic('{}Building classifiers - {}'.format(
+                        level_str,
+                        progress_bar_str((l + 1.) / n_landmarks,
+                                         show_bar=False)))
+
+                X = [i.pixels[l] for i in parts_images]
+
+                clf = self.classifier(X, Y, **kwargs)
+                level_classifiers.append(clf)
+
+            # build Multiple classifier
+            if self.classifier is MCF:
+                multiple_clf = MultipleMCF(level_classifiers)
+            elif self.classifier is LinearSVMLR:
+                multiple_clf = MultipleLinearSVMLR(level_classifiers)
+
+            # add appearance model to the list
+            classifiers.append(multiple_clf)
+
             if verbose:
                 print_dynamic('{}Done\n'.format(level_str))
 
@@ -94,11 +140,14 @@ class AAMBuilder(object):
         # ordered from lower to higher resolution
         shape_models.reverse()
         appearance_models.reverse()
+        classifiers.reverse()
         self.scales.reverse()
 
-        aam = self._build_aam(shape_models, appearance_models, reference_shape)
+        unified = self._build_unified(shape_models, appearance_models,
+                                   classifiers,
+                                  reference_shape)
 
-        return aam
+        return unified
 
     def _compute_reference_shape(self, images, group, label, verbose):
         # the reference_shape is the mean shape of the images' landmarks
@@ -175,10 +224,10 @@ class AAMBuilder(object):
         """
 
         # centralize shapes
-        centered_shapes = [Translation(-s.centre).apply(s) for s in shapes]
+        centered_shapes = [Translation(-s.centre()).apply(s) for s in shapes]
         # align centralized shape using Procrustes Analysis
         gpa = GeneralizedProcrustesAnalysis(centered_shapes)
-        aligned_shapes = [s.aligned_source for s in gpa.transforms]
+        aligned_shapes = [s.aligned_source() for s in gpa.transforms]
         # build shape model
         shape_model = PCAModel(aligned_shapes)
         if max_components is not None:
@@ -186,6 +235,47 @@ class AAMBuilder(object):
             shape_model.trim_components(max_components)
 
         return shape_model
+
+    @abc.abstractmethod
+    def _build_unified(self, shape_models, appearance_models, classifiers,
+                       reference_shape):
+        pass
+
+
+# Concrete Implementations of AAM Builders ------------------------------------
+
+class GlobalUnifiedBuilder(UnifiedBuilder):
+
+    def __init__(self, classifier=MCF, parts_shape=(17, 17),
+                 offsets=np.array([[0, 0]]), features=None,
+                 normalize_parts=False, covariance=2,
+                 transform=DifferentiablePiecewiseAffine,
+                 trilist=None, diagonal=None, sigma=None, scales=(1, .5),
+                 scale_shapes=True, scale_features=True,
+                 max_shape_components=None, max_appearance_components=None,
+                 boundary=3):
+
+        self.classifier = classifier
+        self.parts_shape = parts_shape
+        self.offsets = offsets
+        self.features = features
+        self.normalize_parts = normalize_parts
+        self.covariance = covariance
+        self.transform = transform
+        self.trilist = trilist
+        self.diagonal = diagonal
+        self.sigma = sigma
+        self.scales = list(scales)
+        self.scale_shapes = scale_shapes
+        self.scale_features = scale_features
+        self.max_shape_components = max_shape_components
+        self.max_appearance_components = max_appearance_components
+        self.boundary = boundary
+
+    def _build_reference_frame(self, mean_shape):
+        return convert_from_menpo(
+            build_reference_frame(mean_shape, boundary=self.boundary,
+                                  trilist=self.trilist))
 
     def _warp_images(self, images, shapes, ref_shape, level_str, verbose):
         # compute transforms
@@ -207,53 +297,47 @@ class AAMBuilder(object):
             warped_images.append(warped_i)
         return warped_images
 
-    @abc.abstractmethod
-    def _build_aam(self, shape_models, appearance_models, reference_shape):
-        pass
+    def _parts_images(self, images, shapes, level_str, verbose):
+
+        # extract parts
+        parts_images = []
+        for c, (i, s) in enumerate(zip(images, shapes)):
+            if verbose:
+                print_dynamic('{}Warping images - {}'.format(
+                    level_str,
+                    progress_bar_str(float(c + 1) / len(images),
+                                     show_bar=False)))
+            parts_image = build_parts_image(
+                i, s, self.parts_shape, offsets=self.offsets,
+                normalize_parts=self.normalize_parts)
+            parts_images.append(parts_image)
+
+        return parts_images
+
+    def _build_unified(self, shape_models, appearance_models,
+                       classifiers, reference_shape, ):
+        return GlobalUnified(shape_models, appearance_models, classifiers,
+                             reference_shape, self.transform, self.parts_shape,
+                             self.features, self.normalize_parts, self.sigma,
+                             self.scales, self.scale_shapes,
+                             self.scale_features)
 
 
-# Concrete Implementations of AAM Builders ------------------------------------
+class PartsUnifiedBuilder(UnifiedBuilder):
 
-class GlobalAAMBuilder(AAMBuilder):
+    def __init__(self, classifier=MCF, parts_shape=(16, 16),
+                 offsets=np.array([[0, 0]]), features=None,
+                 normalize_parts=False, covariance=2, diagonal=None,
+                 sigma=None, scales=(1, .5), scale_shapes=True,
+                 scale_features=True, max_shape_components=None,
+                 max_appearance_components=None):
 
-    def __init__(self, features=None, transform=PiecewiseAffine,
-                 trilist=None, diagonal=None, sigma=None, scales=(1, .5),
-                 scale_shapes=True, scale_features=True,
-                 max_shape_components=None, max_appearance_components=None,
-                 boundary=3):
-
-        self.features = features
-        self.transform = transform
-        self.trilist = trilist
-        self.diagonal = diagonal
-        self.sigma = sigma
-        self.scales = list(scales)
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-        self.max_shape_components = max_shape_components
-        self.max_appearance_components = max_appearance_components
-        self.boundary = boundary
-
-    def _build_reference_frame(self, mean_shape):
-        return build_reference_frame(mean_shape, boundary=self.boundary,
-                                     trilist=self.trilist)
-
-    def _build_aam(self, shape_models, appearance_models, reference_shape):
-        return GlobalAAM(shape_models, appearance_models, reference_shape,
-                         self.transform, self.features, self.sigma,
-                         self.scales, self.scale_shapes, self.scale_features)
-
-
-class PartsAAMBuilder(AAMBuilder):
-
-    def __init__(self, parts_shape=(16, 16), features=None,
-                 normalize_parts=False, diagonal=None, sigma=None,
-                 scales=(1, .5), scale_shapes=True, scale_features=True,
-                 max_shape_components=None, max_appearance_components=None):
-
+        self.classifier = classifier
         self.parts_shape = parts_shape
+        self.offsets = offsets
         self.features = features
         self.normalize_parts = normalize_parts
+        self.covariance = covariance
         self.diagonal = diagonal
         self.sigma = sigma
         self.scales = list(scales)
@@ -273,18 +357,19 @@ class PartsAAMBuilder(AAMBuilder):
                     progress_bar_str(float(c + 1) / len(images),
                                      show_bar=False)))
             parts_image = build_parts_image(
-                i, s, parts_shape=self.parts_shape,
-                normalize_parts=self.normalize_parts)
+                i, s, self.parts_shape, normalize_parts=self.normalize_parts)
             parts_images.append(parts_image)
 
         return parts_images
 
-    def _build_aam(self, shape_models, appearance_models, reference_shape):
-        return PartsAAM(shape_models, appearance_models, reference_shape,
-                        self.parts_shape, self.features, self.sigma,
-                        self.scales, self.scale_shapes, self.scale_features)
+    def _build_unified(self, shape_models, appearance_models,
+                       classifiers, reference_shape):
+        return PartsUnified(shape_models, appearance_models, classifiers,
+                            reference_shape, self.parts_shape, self.features,
+                            self.normalize_parts, self.sigma, self.scales,
+                            self.scale_shapes, self.scale_features)
 
 
-from fg2015.deformablemodel.aam import GlobalAAM, PartsAAM
+from .base import GlobalUnified, PartsUnified
 
 
