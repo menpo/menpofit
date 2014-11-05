@@ -1644,7 +1644,8 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
         plot_ced_widget = plot_ced(errors, figure_size=(9, 5), popup=True,
                                    error_type=error_type, error_range=None,
                                    legend_entries=['Final Fitting',
-                                                   'Initialization'])
+                                                   'Initialization'],
+                                   return_widget=True)
 
         # If another tab is selected, then close the widget.
         def close_plot_ced_fun(name, value):
@@ -1733,7 +1734,7 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
 
 
 def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
-             error_range=None, legend_entries=None):
+             error_range=None, legend_entries=None, return_widget=False):
     r"""
     Widget for visualizing the cumulative error curves of the provided errors.
     The generated figures can be saved to files.
@@ -1765,6 +1766,11 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
     legend_entries : `list` of `str`
         The entries of the legend. The list must have the same length as errors.
         If None, the entries will have the form 'Curve %d'.
+
+    return_widget : `boolean`, optional
+        If True, the widget object will be returned so that it can be used as a
+        part of a bigger widget. If False, the widget object is not returned, it
+        is just visualized.
     """
     from menpofit.fittingresult import compute_cumulative_error
 
@@ -1978,4 +1984,6 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
     # Reset value to trigger initial visualization
     grid_visible.value = True
 
-    return wid
+    # return widget object if asked
+    if return_widget:
+        return wid
