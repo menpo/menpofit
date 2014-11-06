@@ -97,6 +97,7 @@ class DeformableModel(object):
     def pyramid_on_features(self):
         return is_pyramid_on_features(self.features)
 
+
 # TODO: Should this be a method on Similarity? AlignableTransforms?
 def noisy_align(source, target, noise_std=0.04, rotation=False):
     r"""
@@ -136,7 +137,7 @@ def build_sampling_grid(patch_shape):
     r"""
     """
     patch_shape = np.array(patch_shape)
-    patch_half_shape = np.require(np.round(patch_shape / 2), dtype=int)
+    patch_half_shape = np.require(np.floor(patch_shape / 2), dtype=int)
     start = -patch_half_shape
     end = patch_half_shape + 1
     sampling_grid = np.mgrid[start[0]:end[0], start[1]:end[1]]
