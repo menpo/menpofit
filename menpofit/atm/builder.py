@@ -1,6 +1,7 @@
 from __future__ import division
 
-from menpo.transform import Scale, PiecewiseAffine, ThinPlateSplines
+from menpo.transform import Scale, ThinPlateSplines
+from menpofit.transform import DifferentiablePiecewiseAffine
 from menpo.feature import igo
 from menpo.visualize import print_dynamic
 
@@ -118,7 +119,7 @@ class ATMBuilder(DeformableModelBuilder):
         ``features`` must be a `function` or a list of those
         containing ``1`` or ``n_levels`` elements
     """
-    def __init__(self, features=igo, transform=PiecewiseAffine,
+    def __init__(self, features=igo, transform=DifferentiablePiecewiseAffine,
                  trilist=None, normalization_diagonal=None, n_levels=3,
                  downscale=2, scaled_shape_models=True,
                  max_shape_components=None, boundary=3):
