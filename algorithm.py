@@ -20,7 +20,7 @@ class UnifiedAlgorithm(object):
 
     def __init__(self, aam_interface, appearance_model, transform,
                  multiple_clf, parts_shape, normalize_parts, pdm,
-                 eps=10**-5, scale=10, **kwargs):
+                 scale=10, factor=100, eps=10**-5, **kwargs):
 
         # AAM part ------------------------------------------------------------
 
@@ -42,7 +42,8 @@ class UnifiedAlgorithm(object):
         self.parts_shape = parts_shape
         self.normalize_parts = normalize_parts
         self.pdm = pdm
-        self._scale = scale
+        self.scale = scale
+        self.factor = factor
 
         # Unified -------------------------------------------------------------
 
@@ -138,6 +139,7 @@ class ProbAIC(UnifiedAlgorithm):
         # compute warp jacobian
         self._dw_dp = self.interface.dw_dp()
 
+        # set sigma2
         self._sigma2 = self.appearance_model.noise_variance()
 
         # CLM part ------------------------------------------------------------
@@ -148,14 +150,22 @@ class ProbAIC(UnifiedAlgorithm):
 
         # build sampling grid associated to patch shape
         self._sampling_grid = build_sampling_grid(self.parts_shape)
+        up_sampled_shape = self.factor * (np.asarray(self.parts_shape) + 1)
+        self._up_sampled_grid = build_sampling_grid(up_sampled_shape)
+        self.offset = np.mgrid[self.factor:up_sampled_shape[0]:self.factor,
+                               self.factor:up_sampled_shape[1]:self.factor]
+        self.offset = self.offset.swapaxes(0, 2).swapaxes(0, 1)
 
+        # set rho2
         self._rho2 = self.pdm.model.noise_variance()
 
         # compute Gaussian-KDE grid
         mean = np.zeros(self.pdm.n_dims)
-        covariance = self._scale * self._rho2
+        covariance = self.scale * self._rho2
         mvn = multivariate_normal(mean=mean, cov=covariance)
-        self._kernel_grid = mvn.pdf(self._sampling_grid)
+        self._kernel_grid = mvn.pdf(self._up_sampled_grid)
+        n_parts = self.pdm.model.mean().n_points
+        self._kernel_grids = np.empty((n_parts,) + self.parts_shape)
 
         # compute Jacobian
         j_clm = np.rollaxis(self.pdm.d_dp(None), -1, 1)
@@ -163,6 +173,15 @@ class ProbAIC(UnifiedAlgorithm):
 
         # compute Hessian inverse
         self._h_clm = self._j_clm.T.dot(self._j_clm)
+
+        # Unified part --------------------------------------------------------
+
+        # set Prior
+        sim_prior = np.zeros((4,))
+        transform_prior = (self._rho2 * self._sigma2 /
+                           self.pdm.model.eigenvalues)
+        self._j_prior = np.hstack((sim_prior, transform_prior))
+        self._h_prior = np.diag(self._j_prior)
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             prior=False):
@@ -209,11 +228,19 @@ class ProbAIC(UnifiedAlgorithm):
             # CLM part --------------------------------------------------------
 
             target = self.transform.target
-            rounded_target = target.copy()
-            rounded_target.points = np.round(target.points)
             # get all (x, y) pairs being considered
-            xys = (rounded_target.points[:, None, None, ...] +
+            xys = (target.points[:, None, None, ...] +
                    self._sampling_grid)
+
+            diff = np.require(
+                np.round(np.round(target.points) - target.points,
+                         decimals=np.int(self.factor/10)) *
+                self.factor, dtype=int)
+
+            offsets = diff[:, None, None, :] + self.offset
+            for j, o in enumerate(offsets):
+                self._kernel_grids[j, ...] = self._kernel_grid[o[..., 0],
+                                                               o[..., 1]]
 
             # build parts image
             parts_image = build_parts_image(
@@ -224,7 +251,7 @@ class ProbAIC(UnifiedAlgorithm):
             parts_response = self.multiple_clf(parts_image)
 
             # compute parts kernel
-            parts_kernel = parts_response * self._kernel_grid
+            parts_kernel = parts_response * self._kernel_grids
             parts_kernel /= np.sum(
                 parts_kernel, axis=(-2, -1))[..., None, None]
 
@@ -237,10 +264,20 @@ class ProbAIC(UnifiedAlgorithm):
 
             # Unified ---------------------------------------------------------
 
-            dp = np.linalg.solve(
-                self._rho2 * h_aam + self._sigma2 * self._h_clm,
-                self._rho2 * j_aam.T.dot(e_aam) +
-                self._sigma2 * self._j_clm.T.dot(e_clm))
+            # compute gauss-newton parameter updates
+            if prior:
+                h = (self._rho2 * h_aam +
+                     self._sigma2 * self._h_clm +
+                     self._h_prior)
+                b = (self._j_prior * self.transform.as_vector() -
+                     self._rho2 * j_aam.T.dot(e_aam) -
+                     self._sigma2 * self._j_clm.T.dot(e_clm))
+                dp = -np.linalg.solve(h, b)
+            else:
+                dp = np.linalg.solve(
+                    self._rho2 * h_aam + self._sigma2 * self._h_clm,
+                    self._rho2 * j_aam.T.dot(e_aam) +
+                    self._sigma2 * self._j_clm.T.dot(e_clm))
 
             # update transform
             target = self.transform.target
