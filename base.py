@@ -13,20 +13,12 @@ class Unified(object):
         d = self.__dict__.copy()
 
         features = d.pop('features')
-        if self.pyramid_on_features:
-            # features is a single callable
-            d['features'] = SerializableCallable(features, [menpofast_feature])
-        else:
-            # features is a list of callables
-            d['features'] = [SerializableCallable(f, [menpofast_feature])
-                             for f in features]
+        d['features'] = SerializableCallable(features, [menpofast_feature])
+
         return d
 
     def __setstate__(self, state):
-        try:
-            state['features'] = state['features'].callable
-        except AttributeError:
-            state['features'] = [f.callable for f in state['features']]
+        state['features'] = state['features'].callable
         self.__dict__.update(state)
 
     @property
