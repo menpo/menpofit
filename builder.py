@@ -144,8 +144,7 @@ class UnifiedBuilder(object):
         self.scales.reverse()
 
         unified = self._build_unified(shape_models, appearance_models,
-                                   classifiers,
-                                  reference_shape)
+                                      classifiers, reference_shape)
 
         return unified
 
@@ -181,7 +180,7 @@ class UnifiedBuilder(object):
         for c, i in enumerate(images):
             if verbose:
                 print_dynamic(
-                    '- Computing feature space: {}'.format(
+                    '{}Computing feature space: {}'.format(
                         level_str, progress_bar_str((c + 1.) / len(images),
                                                     show_bar=False)))
             if self.features:
@@ -196,7 +195,7 @@ class UnifiedBuilder(object):
         for c, i in enumerate(images):
             if verbose:
                 print_dynamic(
-                    '- Scaling features: {}'.format(
+                    '{}Scaling features: {}'.format(
                         level_str, progress_bar_str((c + 1.) / len(images),
                                                     show_bar=False)))
             scaled_images.append(i.rescale(s))
@@ -318,9 +317,9 @@ class GlobalUnifiedBuilder(UnifiedBuilder):
                        classifiers, reference_shape, ):
         return GlobalUnified(shape_models, appearance_models, classifiers,
                              reference_shape, self.transform, self.parts_shape,
-                             self.features, self.normalize_parts, self.sigma,
-                             self.scales, self.scale_shapes,
-                             self.scale_features)
+                             self.features, self.normalize_parts,
+                             self.covariance, self.sigma, self.scales,
+                             self.scale_shapes, self.scale_features)
 
 
 class PartsUnifiedBuilder(UnifiedBuilder):
@@ -366,8 +365,9 @@ class PartsUnifiedBuilder(UnifiedBuilder):
                        classifiers, reference_shape):
         return PartsUnified(shape_models, appearance_models, classifiers,
                             reference_shape, self.parts_shape, self.features,
-                            self.normalize_parts, self.sigma, self.scales,
-                            self.scale_shapes, self.scale_features)
+                            self.normalize_parts, self.covariance, self.sigma,
+                            self.scales, self.scale_shapes,
+                            self.scale_features)
 
 
 from .base import GlobalUnified, PartsUnified

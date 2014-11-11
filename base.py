@@ -35,7 +35,8 @@ class GlobalUnified(Unified):
 
     def __init__(self, shape_models, appearance_models, classifiers,
                  reference_shape, transform, parts_shape, features,
-                 normalize_parts, sigma, scales, scale_shapes, scale_features):
+                 normalize_parts, covariance, sigma, scales, scale_shapes,
+                 scale_features):
         self.shape_models = shape_models
         self.appearance_models = appearance_models
         self.classifiers = classifiers
@@ -44,6 +45,7 @@ class GlobalUnified(Unified):
         self.parts_shape = parts_shape
         self.features = features
         self.normalize_parts = normalize_parts
+        self.covariance = covariance
         self.sigma = sigma
         self.scales = scales
         self.scale_shapes = scale_shapes
@@ -54,7 +56,7 @@ class PartsUnified(Unified):
 
     def __init__(self, shape_models, appearance_models, classifiers,
                  reference_shape, parts_shape, features, normalize_parts,
-                 sigma, scales, scale_shapes, scale_features):
+                 covariance, sigma, scales, scale_shapes, scale_features):
         self.shape_models = shape_models
         self.appearance_models = appearance_models
         self.classifiers = classifiers
@@ -62,6 +64,7 @@ class PartsUnified(Unified):
         self.parts_shape = parts_shape
         self.features = features
         self.normalize_parts = normalize_parts
+        self.covariance = covariance
         self.sigma = sigma
         self.scales = scales
         self.scale_shapes = scale_shapes
