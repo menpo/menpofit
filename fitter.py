@@ -5,8 +5,10 @@ from alabortcvpr2015.pdm import OrthoPDM
 from alabortcvpr2015.transform import OrthoMDTransform
 from alabortcvpr2015.aam.algorithm import GlobalAAMInterface, PartsAAMInterface
 
-from .algorithm import AIC_RLMS
+from .algorithm import AICRLMS
 
+
+# Abstract Interface for Unified Fitters  -------------------------------------
 
 class UnifiedFitter(Fitter):
 
@@ -30,27 +32,13 @@ class UnifiedFitter(Fitter):
     def covariance(self):
         return self.dm.covariance
 
-    def _check_scale(self, s):
-        scale = []
-        if type(s) is int or type(s) is float:
-            for _ in xrange(self.dm.n_levels):
-                scale.append(s)
-        elif len(s) == 1 and self.dm.n_levels > 1:
-            for _ in xrange(self.dm.n_levels):
-                scale.append(s)
-        elif len(s) == self.dm.n_levels:
-            scale = s
-        else:
-            raise ValueError('scale can be an integer or a float or None'
-                             'or a list containing 1 or {} of '
-                             'those'.format(self.dm.n_levels))
-        return scale
 
+# Concrete Implementations of Unified Fitters ---------------------------------
 
 class GlobalUnifiedFitter(UnifiedFitter):
 
-    def __init__(self, global_unified, algorithm_cls=AIC_RLMS,
-                 n_shape=None, n_appearance=None, scale=10, **kwargs):
+    def __init__(self, global_unified, algorithm_cls=AICRLMS,
+                 n_shape=None, n_appearance=None, **kwargs):
 
         super(GlobalUnifiedFitter, self).__init__()
 
@@ -58,12 +46,10 @@ class GlobalUnifiedFitter(UnifiedFitter):
         self._algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
-        scale = self._check_scale(scale)
 
-        for j, (am, clf, sm, s) in enumerate(zip(self.dm.appearance_models,
-                                                 self.dm.classifiers,
-                                                 self.dm.shape_models,
-                                                 scale)):
+        for j, (am, clf, sm) in enumerate(zip(self.dm.appearance_models,
+                                              self.dm.classifiers,
+                                              self.dm.shape_models)):
 
             md_transform = OrthoMDTransform(
                 sm, self.dm.transform,
@@ -73,15 +59,15 @@ class GlobalUnifiedFitter(UnifiedFitter):
             algorithm = algorithm_cls(
                 GlobalAAMInterface, am, md_transform,
                 clf, self.dm.parts_shape, self.dm.normalize_parts,
-                self.covariance, md_transform.pdm, scale=s, **kwargs)
+                self.covariance, md_transform.pdm, **kwargs)
 
             self._algorithms.append(algorithm)
 
 
 class PartsUnifiedFitter(UnifiedFitter):
 
-    def __init__(self, parts_aam, algorithm_cls=AIC_RLMS,
-                 n_shape=None, n_appearance=None, scale=10,  **kwargs):
+    def __init__(self, parts_aam, algorithm_cls=AICRLMS,
+                 n_shape=None, n_appearance=None,  **kwargs):
 
         super(PartsUnifiedFitter, self).__init__()
 
@@ -89,19 +75,17 @@ class PartsUnifiedFitter(UnifiedFitter):
         self._algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
-        scale = self._check_scale(scale)
 
-        for j, (am, clf, sm, s) in enumerate(zip(self.dm.appearance_models,
-                                                 self.dm.classifiers,
-                                                 self.dm.shape_models,
-                                                 scale)):
+        for j, (am, clf, sm) in enumerate(zip(self.dm.appearance_models,
+                                              self.dm.classifiers,
+                                              self.dm.shape_models)):
 
             pdm = OrthoPDM(sm, sigma2=am.noise_variance())
 
             algorithm = algorithm_cls(
                 PartsAAMInterface, am, pdm,
                 clf, self.dm.parts_shape, self.dm.normalize_parts,
-                self.covariance, pdm, scale=s, **kwargs)
+                self.covariance, pdm, **kwargs)
             algorithm.parts_shape = self.dm.parts_shape
             algorithm.normalize_parts = self.dm.normalize_parts
 

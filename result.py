@@ -3,7 +3,7 @@ from __future__ import division
 from alabortcvpr2015.result import AlgorithmResult, FitterResult
 
 
-# Concrete Implementations of AAM Algorithm Results #--------------------------
+# Concrete Implementations of AAM Algorithm Results ---------------------------
 
 class UnifiedAlgorithmResult(AlgorithmResult):
 
@@ -17,7 +17,7 @@ class UnifiedAlgorithmResult(AlgorithmResult):
         self._gt_shape = gt_shape
 
 
-# Concrete Implementations of AAM Fitter Results # ----------------------------
+# Concrete Implementations of AAM Fitter Results  -----------------------------
 
 class UnifiedFitterResult(FitterResult):
 

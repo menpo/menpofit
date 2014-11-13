@@ -20,7 +20,7 @@ from alabortcvpr2015.clm.classifier import (MCF, MultipleMCF,
                                             LinearSVMLR, MultipleLinearSVMLR)
 
 
-# Abstract Interface for AAM Builders -----------------------------------------
+# Abstract Interface for Unified Builders -------------------------------------
 
 class UnifiedBuilder(object):
 
@@ -241,7 +241,7 @@ class UnifiedBuilder(object):
         pass
 
 
-# Concrete Implementations of AAM Builders ------------------------------------
+# Concrete Implementations of UnifiedBuilders ---------------------------------
 
 class GlobalUnifiedBuilder(UnifiedBuilder):
 

@@ -3,6 +3,13 @@ import abc
 
 from serializablecallable import SerializableCallable
 
+from menpofast.image import Image
+from menpofast.utils import build_parts_image
+
+from alabortcvpr2015.clm.classifier import MultipleMCF
+
+
+# Abstract Interface for Unified Objects --------------------------------------
 
 class Unified(object):
 
@@ -30,6 +37,26 @@ class Unified(object):
         """
         return len(self.scales)
 
+    def parts_filters(self):
+
+        if isinstance(self.classifiers[0], MultipleMCF):
+            return [[Image(f) for f in clf.invert_filters()]
+                    for clf in self.classifiers]
+        else:
+            raise ValueError('Only suported MultipleMCF are supported')
+
+    def parts_response(self, image, group=None, label=None):
+
+        centers = image.landmarks[group][label].landmarks.lms
+
+        parts_image = build_parts_image(
+            image, centers, parts_shape=self.parts_shape,
+            normalize_parts=self.normalize_parts)
+
+        return [clf(parts_image)for clf in self.classifiers]
+
+
+# Concrete Implementations of Unified Objects ---------------------------------
 
 class GlobalUnified(Unified):
 
