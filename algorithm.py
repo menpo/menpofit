@@ -131,7 +131,7 @@ class PICRLMS(UnifiedAlgorithm):
         self._inv_h_prior = np.linalg.inv(h + np.diag(self._j_prior))
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            prior=False):
+            prior=False, a=0.5):
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -187,7 +187,8 @@ class PICRLMS(UnifiedAlgorithm):
             # compute gauss-newton parameter updates
             if prior:
                 b = (self._j_prior * self.transform.as_vector() -
-                     self._j_aam.T.dot(e_aam) - self._j_clm.T.dot(e_clm))
+                     a * self._j_aam.T.dot(e_aam) -
+                     (1 - a) * self._j_clm.T.dot(e_clm))
                 dp = -self._inv_h_prior.dot(b)
             else:
                 dp = self._pinv_j_aam.dot(e_aam) + self._pinv_j_clm.dot(e_clm)
@@ -256,7 +257,7 @@ class AICRLMS(UnifiedAlgorithm):
         self._h_prior = np.diag(self._j_prior)
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            prior=False):
+            prior=False, a=0.5):
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -292,7 +293,7 @@ class AICRLMS(UnifiedAlgorithm):
 
             # compute AAM jacobian
             j = self.interface.steepest_descent_images(nabla_t, self._dw_dp)
-            j_aam = self._inv_rho2 * j
+            j_aam = self._inv_sigma2 * j
 
             # compute AAM hessian
             h_aam = j_aam.T.dot(j)
@@ -330,15 +331,15 @@ class AICRLMS(UnifiedAlgorithm):
 
             # compute Gauss-Newton parameter updates
             if prior:
-                h = h_aam + self._h_clm + self._h_prior
-                b = (self.transform.as_vector() -
-                     j_aam.T.dot(e_aam) -
-                     self._j_clm.T.dot(e_clm))
+                h = a * h_aam + (1 - a) * self._h_clm + self._h_prior
+                b = (self._j_prior * self.transform.as_vector() -
+                     a * j_aam.T.dot(e_aam) -
+                     (1 - a) * self._j_clm.T.dot(e_clm))
                 dp = -np.linalg.solve(h, b)
             else:
-                dp = np.linalg.solve(h_aam + self._h_clm,
-                                     j_aam.T.dot(e_aam) +
-                                     self._j_clm.T.dot(e_clm))
+                dp = np.linalg.solve(a * h_aam + (1 - a) * self._h_clm,
+                                     a * j_aam.T.dot(e_aam) +
+                                     (1 - a) * self._j_clm.T.dot(e_clm))
 
             # update transform
             target = self.transform.target
