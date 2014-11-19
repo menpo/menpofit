@@ -121,7 +121,7 @@ class PICRLMS(UnifiedAlgorithm):
 
         # set Prior
         sim_prior = np.zeros((4,))
-        transform_prior = (1 / self.pdm.model.eigenvalues)
+        transform_prior = 1 / self.pdm.model.eigenvalues
         self._j_prior = np.hstack((sim_prior, transform_prior))
 
         # compute Unified hessian inverse and jacobian pseudo-inverse
@@ -252,7 +252,7 @@ class AICRLMS(UnifiedAlgorithm):
 
         # set Prior
         sim_prior = np.zeros((4,))
-        transform_prior = (1 / self.pdm.model.eigenvalues)
+        transform_prior = 1 / self.pdm.model.eigenvalues
         self._j_prior = np.hstack((sim_prior, transform_prior))
         self._h_prior = np.diag(self._j_prior)
 
