@@ -494,15 +494,25 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
         isinstance(appearance_models[0].mean(), MaskedImage), plot_function,
         masked_default=True, toggle_show_default=True,
         toggle_show_visible=False)
-    all_groups_keys, all_labels_keys = _extract_groups_labels(
-        appearance_models[0].mean())
-    landmark_options_wid = landmark_options(all_groups_keys, all_labels_keys,
-                                            plot_function,
-                                            toggle_show_default=True,
-                                            landmarks_default=True,
-                                            legend_default=False,
-                                            numbering_default=False,
-                                            toggle_show_visible=False)
+
+    # find initial groups and labels that will be passed to the landmark options
+    # widget creation
+    mean_has_landmarks = appearance_models[0].mean().landmarks.n_groups != 0
+    if mean_has_landmarks:
+        all_groups_keys, all_labels_keys = _extract_groups_labels(
+            appearance_models[0].mean())
+    else:
+        all_groups_keys = [' ']
+        all_labels_keys = [[' ']]
+    landmark_options_wid = landmark_options(
+        all_groups_keys, all_labels_keys, plot_function,
+        toggle_show_default=True, landmarks_default=mean_has_landmarks,
+        legend_default=False, numbering_default=False,
+        toggle_show_visible=False)
+    # if the mean doesn't have landmarks, then landmarks checkbox should be
+    # disabled
+    landmark_options_wid.children[1].children[0].disabled = \
+        not mean_has_landmarks
     figure_options_wid = figure_options(plot_function, scale_default=1.,
                                         show_axes_default=True,
                                         toggle_show_default=True,
