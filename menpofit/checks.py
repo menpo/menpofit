@@ -1,41 +1,25 @@
-import wrapt
 from menpofit.base import is_pyramid_on_features
-
-
-# tests currently expect that all features automatically constrain landmarks
-# small wrapper which does this. Note that this decorator only works when
-# called with menpo Image instances.
-@wrapt.decorator
-def constrain_landmarks(wrapped, instance, args, kwargs):
-
-    def _execute(image, *args, **kwargs):
-        feature = wrapped(image, *args, **kwargs)
-        # after calculation, constrain the landmarks to the bounds
-        feature.constrain_landmarks_to_bounds()
-        return feature
-
-    return _execute(*args, **kwargs)
 
 
 def check_features(features, n_levels):
     r"""
     Checks the feature type per level.
+
     Parameters
     ----------
-
     features : callable or list of callables
+        The features to apply to the images.
     n_levels : int
         The number of pyramid levels.
 
-
     Returns
     -------
-    feature_list: list
+    feature_list : list
         A list of feature function.
     """
     # Firstly, make sure we have a list of callables of the right length
     if is_pyramid_on_features(features):
-        return constrain_landmarks(features)
+        return features
     else:
         try:
             all_callables = check_list_callables(features, n_levels,
@@ -43,8 +27,7 @@ def check_features(features, n_levels):
         except ValueError:
             raise ValueError("features must be a callable or a list of "
                              "{} callables".format(n_levels))
-        # constrain each feature to the bounds
-        return [constrain_landmarks(f) for f in all_callables]
+        return all_callables
 
 
 def check_list_callables(callables, n_callables, allow_single=True):
