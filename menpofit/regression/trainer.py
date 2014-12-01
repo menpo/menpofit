@@ -12,7 +12,7 @@ from menpofit.fittingresult import (NonParametricFittingResult,
 from .base import (NonParametricRegressor, SemiParametricRegressor,
                    ParametricRegressor)
 from .parametricfeatures import extract_parametric_features, weights
-from .regressionfunctions import regression, mlr
+from .regression_callables import MLR
 
 
 class RegressorTrainer(object):
@@ -23,30 +23,25 @@ class RegressorTrainer(object):
     ----------
     reference_shape : :map:`PointCloud`
         The reference shape that will be used.
-
-    regression_type : `function`, optional
-        A `function` that defines the regression technique to be used.
-        Examples of such closures can be found in
-        :ref:`regression_functions`
-
+    regression_type : `callable`, optional
+        A `callable` that defines the regression technique to be used.
+        Examples of such callables can be found in
+        :ref:`regression_callables`
     regression_features : ``None`` or `string` or `function`, optional
         The features that are used during the regression.
-
     noise_std : `float`, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-
     rotation : boolean, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int`, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
     """
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, reference_shape, regression_type=mlr,
+    def __init__(self, reference_shape, regression_type=MLR,
                  regression_features=None, noise_std=0.04, rotation=False,
                  n_perturbations=10):
         self.reference_shape = reference_shape
@@ -171,11 +166,11 @@ class RegressorTrainer(object):
             raise ValueError("The number of perturbed shapes must be "
                              "equal or multiple to the number of images.")
 
-         # perform regression
+        # perform regression
         if verbose:
             print_dynamic('- Performing regression...')
-        regressor = regression(features, delta_ps, self.regression_type,
-                               **kwargs)
+        # Expected to be a callable
+        regressor = self.regression_type(features, delta_ps, **kwargs)
 
         # compute regressor RMSE
         estimated_delta_ps = regressor(features)
@@ -234,12 +229,10 @@ class NonParametricRegressorTrainer(RegressorTrainer):
     ----------
     reference_shape : :map:`PointCloud`
         The reference shape that will be used.
-
-    regression_type : `function`, optional
-        A `function` that defines the regression technique to be used.
-        Examples of such closures can be found in
-        :ref:`regression_functions`
-
+    regression_type : `callable`, optional
+        A `callable` that defines the regression technique to be used.
+        Examples of such callables can be found in
+        :ref:`regression_callables`
     regression_features : `function`, optional
         The features that are used during the regression.
 
@@ -247,24 +240,20 @@ class NonParametricRegressorTrainer(RegressorTrainer):
         Menpo's standard image features and feature options.
         See :ref:`feature_functions` for non standard
         features definitions.
-
     patch_shape : tuple, optional
         The shape of the patches that will be extracted.
-
     noise_std : `float`, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-
     rotation : `boolean`, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int`, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
 
     """
-    def __init__(self, reference_shape, regression_type=mlr,
+    def __init__(self, reference_shape, regression_type=MLR,
                  regression_features=sparse_hog, patch_shape=(16, 16),
                  noise_std=0.04, rotation=False, n_perturbations=10):
         super(NonParametricRegressorTrainer, self).__init__(
@@ -360,40 +349,31 @@ class SemiParametricRegressorTrainer(NonParametricRegressorTrainer):
     ----------
     reference_shape : PointCloud
         The reference shape that will be used.
-
-    regression_type : `function`, optional
-        A `function` that defines the regression technique to be used.
-        Examples of such closures can be found in
-        :ref:`regression_functions`
-
+    regression_type : `callable`, optional
+        A `callable` that defines the regression technique to be used.
+        Examples of such callables can be found in
+        :ref:`regression_callables`
     regression_features : `function`, optional
         The features that are used during the regression.
 
-        See `menpo.features` for details more details on
-        Menpo's standard image features and feature options.
-        See :ref:`feature_functions` for non standard
-        features definitions.
-
+        See :ref:`menpo.features` for details more details on
+        Menpos standard image features and feature options.
     patch_shape : tuple, optional
         The shape of the patches that will be extracted.
-
     update : 'compositional' or 'additive'
         Defines the way to update the warp.
-
     noise_std : `float`, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-
     rotation : `boolean`, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int`, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
 
     """
-    def __init__(self, transform, reference_shape, regression_type=mlr,
+    def __init__(self, transform, reference_shape, regression_type=MLR,
                  regression_features=sparse_hog, patch_shape=(16, 16),
                  update='compositional', noise_std=0.04, rotation=False,
                  n_perturbations=10):
@@ -464,18 +444,14 @@ class ParametricRegressorTrainer(RegressorTrainer):
     ----------
     appearance_model : :map:`PCAModel`
         The appearance model to be used.
-
     transform : :map:`Affine`
         The transform used for warping.
-
     reference_shape : :map:`PointCloud`
         The reference shape that will be used.
-
-    regression_type : `function`, optional
-        A `function` that defines the regression technique to be used.
-        Examples of such closures can be found in
-        :ref:`regression_functions`
-
+    regression_type : `callable`, optional
+        A `callable` that defines the regression technique to be used.
+        Examples of such callables can be found in
+        :ref:`regression_callables`
     regression_features : ``None`` or `function`, optional
         The parametric features that are used during the regression.
 
@@ -490,28 +466,23 @@ class ParametricRegressorTrainer(RegressorTrainer):
 
             Note that this feature type can only be one of the parametric
             feature functions defined :ref:`parametric_features`.
-
     patch_shape : tuple, optional
         The shape of the patches that will be extracted.
-
     update : 'compositional' or 'additive'
         Defines the way to update the warp.
-
     noise_std : `float`, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-
     rotation : `boolean`, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int`, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
 
     """
     def __init__(self, appearance_model, transform, reference_shape,
-                 regression_type=mlr, regression_features=weights,
+                 regression_type=MLR, regression_features=weights,
                  update='compositional', noise_std=0.04, rotation=False,
                  n_perturbations=10):
         super(ParametricRegressorTrainer, self).__init__(
@@ -607,36 +578,28 @@ class SemiParametricClassifierBasedRegressorTrainer(
     ----------
     classifiers : list of :map:`classifiers`
         List of classifiers.
-
     transform : :map:`Affine`
         The transform used for warping.
-
     reference_shape : :map:`PointCloud`
         The reference shape that will be used.
-
-    regression_type : `function`, optional
-        A `function` that defines the regression technique to be used.
-        Examples of such closures can be found in
-        :ref:`regression_functions`
-
+    regression_type : `callable`, optional
+        A `callable` that defines the regression technique to be used.
+        Examples of such callables can be found in
+        :ref:`regression_callables`
     patch_shape : tuple, optional
         The shape of the patches that will be extracted.
-
     noise_std : `float`, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-
     rotation : `boolean`, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int`, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
-
     """
     def __init__(self, classifiers, transform, reference_shape,
-                 regression_type=mlr, patch_shape=(16, 16),
+                 regression_type=MLR, patch_shape=(16, 16),
                  update='compositional', noise_std=0.04, rotation=False,
                  n_perturbations=10):
         super(SemiParametricClassifierBasedRegressorTrainer, self).__init__(

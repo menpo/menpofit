@@ -10,7 +10,7 @@ import menpo.io as mio
 from menpo.landmark import labeller, ibug_face_68_trimesh
 from menpofit.sdm import SDMTrainer, SDAAMTrainer
 from menpofit.clm.classifier import linear_svm_lr
-from menpofit.regression.regressionfunctions import mlr_svd
+from menpofit.regression.regression_callables import MLR_SVD
 from menpofit.aam import AAMBuilder
 from menpofit.clm import CLMBuilder
 
@@ -100,7 +100,7 @@ def test_n_perturbations_exception():
 
 @patch('sys.stdout', new_callable=StringIO)
 def test_verbose_mock(mock_stdout):
-    sdm = SDMTrainer(regression_type=mlr_svd,
+    sdm = SDMTrainer(regression_type=MLR_SVD,
                      regression_features=sparse_hog,
                      patch_shape=(16, 16),
                      features=no_op,

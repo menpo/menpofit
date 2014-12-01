@@ -17,13 +17,11 @@ class GradientDescent(Fitter):
 
     Parameters
     ----------
-    classifiers : `list` of ``classifier_closure``
+    classifiers : `list` of ``classifier_callable``
         The list containing the classifier that will produce the response
         maps for each landmark point.
-
     patch_shape : `tuple` of `int`
         The shape of the patches used to train the classifiers.
-
     transform : :map:`GlobalPDM` or subclass
         The global point distribution model to be used.
 
@@ -31,7 +29,6 @@ class GradientDescent(Fitter):
 
             Only :map:`GlobalPDM` and its subclasses are supported.
             :map:`PDM` is not supported at the moment.
-
     eps : `float`, optional
         The convergence value. When calculating the level of convergence, if
         the norm of the delta parameter updates is less than ``eps``, the
@@ -72,13 +69,11 @@ class RegularizedLandmarkMeanShift(GradientDescent):
 
     Parameters
     ----------
-    classifiers : `list` of ``classifier_closure``
+    classifiers : `list` of ``classifier_callable``
         The list containing the classifier that will produce the response
         maps for each landmark point.
-
     patch_shape : `tuple` of `int`
         The shape of the patches used to train the classifiers.
-
     transform : :map:`GlobalPDM` or subclass
         The global point distribution model to be used.
 
@@ -86,18 +81,16 @@ class RegularizedLandmarkMeanShift(GradientDescent):
 
             Only :map:`GlobalPDM` and its subclasses are supported.
             :map:`PDM` is not supported at the moment.
-
     eps : `float`, optional
         The convergence value. When calculating the level of convergence, if
         the norm of the delta parameter updates is less than ``eps``, the
         algorithm is considered to have converged.
-
     scale: `float`, optional
         Constant value that will be multiplied to the `noise_variance` of
         the pdm in order to compute the covariance of the KDE
         approximation.
 
-     References
+    References
     ----------
     .. [1] J. Saragih, S. Lucey and J. Cohn, ''Deformable Model Fitting by
     Regularized Landmark Mean-Shifts", International Journal of Computer
