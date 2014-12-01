@@ -412,10 +412,12 @@ def aam_helper(aam, algorithm, im_number, max_iters, initial_error,
         training_images[im_number], initial_shape[im_number],
         gt_shape=training_images[im_number].landmarks['PTS'].lms,
         max_iters=max_iters)
-    assert (np.around(fitting_result.initial_error(error_type=error_type),
-                      5) == initial_error)
-    assert (np.around(fitting_result.final_error(error_type=error_type),
-                      5) == final_error)
+    assert_allclose(
+        np.around(fitting_result.initial_error(error_type=error_type), 5),
+        initial_error)
+    assert_allclose(
+        np.around(fitting_result.final_error(error_type=error_type), 5),
+        final_error)
 
 
 @attr('fuzzy')
