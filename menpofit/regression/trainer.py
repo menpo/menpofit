@@ -12,7 +12,7 @@ from menpofit.fittingresult import (NonParametricFittingResult,
 from .base import (NonParametricRegressor, SemiParametricRegressor,
                    ParametricRegressor)
 from .parametricfeatures import extract_parametric_features, weights
-from .regression_callables import MLR
+from .regression_callables import mlr
 
 
 class RegressorTrainer(object):
@@ -41,7 +41,7 @@ class RegressorTrainer(object):
     """
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, reference_shape, regression_type=MLR,
+    def __init__(self, reference_shape, regression_type=mlr,
                  regression_features=None, noise_std=0.04, rotation=False,
                  n_perturbations=10):
         self.reference_shape = reference_shape
@@ -253,7 +253,7 @@ class NonParametricRegressorTrainer(RegressorTrainer):
         training shapes.
 
     """
-    def __init__(self, reference_shape, regression_type=MLR,
+    def __init__(self, reference_shape, regression_type=mlr,
                  regression_features=sparse_hog, patch_shape=(16, 16),
                  noise_std=0.04, rotation=False, n_perturbations=10):
         super(NonParametricRegressorTrainer, self).__init__(
@@ -373,7 +373,7 @@ class SemiParametricRegressorTrainer(NonParametricRegressorTrainer):
         training shapes.
 
     """
-    def __init__(self, transform, reference_shape, regression_type=MLR,
+    def __init__(self, transform, reference_shape, regression_type=mlr,
                  regression_features=sparse_hog, patch_shape=(16, 16),
                  update='compositional', noise_std=0.04, rotation=False,
                  n_perturbations=10):
@@ -482,7 +482,7 @@ class ParametricRegressorTrainer(RegressorTrainer):
 
     """
     def __init__(self, appearance_model, transform, reference_shape,
-                 regression_type=MLR, regression_features=weights,
+                 regression_type=mlr, regression_features=weights,
                  update='compositional', noise_std=0.04, rotation=False,
                  n_perturbations=10):
         super(ParametricRegressorTrainer, self).__init__(
@@ -599,7 +599,7 @@ class SemiParametricClassifierBasedRegressorTrainer(
         training shapes.
     """
     def __init__(self, classifiers, transform, reference_shape,
-                 regression_type=MLR, patch_shape=(16, 16),
+                 regression_type=mlr, patch_shape=(16, 16),
                  update='compositional', noise_std=0.04, rotation=False,
                  n_perturbations=10):
         super(SemiParametricClassifierBasedRegressorTrainer, self).__init__(

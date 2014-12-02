@@ -13,7 +13,7 @@ from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
 from menpofit.regression.trainer import (
     NonParametricRegressorTrainer, ParametricRegressorTrainer,
     SemiParametricClassifierBasedRegressorTrainer)
-from menpofit.regression.regression_callables import MLR
+from menpofit.regression.regression_callables import mlr
 from menpofit.regression.parametricfeatures import weights
 from menpofit.base import DeformableModel, create_pyramid
 from .fitter import SDMFitter, SDAAMFitter, SDCLMFitter
@@ -159,7 +159,7 @@ class SDTrainer(DeformableModel):
     """
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, regression_type=MLR, regression_features=None,
+    def __init__(self, regression_type=mlr, regression_features=None,
                  features=no_op, n_levels=3, downscale=1.2, noise_std=0.04,
                  rotation=False, n_perturbations=10):
         features = checks.check_features(features, n_levels)
@@ -495,7 +495,7 @@ class SDMTrainer(SDTrainer):
         ``regression_features`` must be ``None`` or a `string` or a `function`
         or a list of those containing 1 or ``n_level`` elements
     """
-    def __init__(self, regression_type=MLR, regression_features=sparse_hog,
+    def __init__(self, regression_type=mlr, regression_features=sparse_hog,
                  patch_shape=(16, 16), features=no_op, n_levels=3,
                  downscale=1.5, noise_std=0.04,
                  rotation=False, n_perturbations=10,
@@ -673,7 +673,7 @@ class SDAAMTrainer(SDTrainer):
         ``regression_features`` must be a `function` or a list of those
         containing ``1`` or ``n_levels`` elements
     """
-    def __init__(self, aam, regression_type=MLR, regression_features=weights,
+    def __init__(self, aam, regression_type=mlr, regression_features=weights,
                  noise_std=0.04, rotation=False, n_perturbations=10,
                  update='compositional', md_transform=OrthoMDTransform,
                  n_shape=None, n_appearance=None):
@@ -879,7 +879,7 @@ class SDCLMTrainer(SDTrainer):
         ``n_shape`` can be an integer or a `float` or ``None`` or a list
         containing ``1`` or ``n_levels`` of those.
     """
-    def __init__(self, clm, regression_type=MLR, noise_std=0.04,
+    def __init__(self, clm, regression_type=mlr, noise_std=0.04,
                  rotation=False, n_perturbations=10, pdm_transform=OrthoPDM,
                  n_shape=None):
         super(SDCLMTrainer, self).__init__(

@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 
 
-class MLR(object):
+class mlr(object):
     r"""
     Multivariate Linear Regression
 
@@ -23,7 +23,7 @@ class MLR(object):
         return np.dot(x, self.R)
 
 
-class MLR_SVD(object):
+class mlr_svd(object):
     r"""
     Multivariate Linear Regression using SVD decomposition
 
@@ -50,7 +50,7 @@ class MLR_SVD(object):
         return np.dot(x, self.R)
 
 
-class MLR_PCA(object):
+class mlr_pca(object):
     r"""
     Multivariate Linear Regression using PCA reconstructions
 
@@ -78,7 +78,7 @@ class MLR_PCA(object):
         return np.dot(x, self.R)
 
 
-class MLR_PCA_Weights(object):
+class mlr_pca_weights(object):
     r"""
     Multivariate Linear Regression using PCA weights
 
