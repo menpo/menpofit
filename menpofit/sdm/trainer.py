@@ -13,7 +13,7 @@ from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
 from menpofit.regression.trainer import (
     NonParametricRegressorTrainer, ParametricRegressorTrainer,
     SemiParametricClassifierBasedRegressorTrainer)
-from menpofit.regression.regression_callables import mlr
+from menpofit.regression.regressors import mlr
 from menpofit.regression.parametricfeatures import weights
 from menpofit.base import DeformableModel, create_pyramid
 from .fitter import SDMFitter, SDAAMFitter, SDCLMFitter

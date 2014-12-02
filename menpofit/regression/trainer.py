@@ -12,7 +12,7 @@ from menpofit.fittingresult import (NonParametricFittingResult,
 from .base import (NonParametricRegressor, SemiParametricRegressor,
                    ParametricRegressor)
 from .parametricfeatures import extract_parametric_features, weights
-from .regression_callables import mlr
+from .regressors import mlr
 
 
 class RegressorTrainer(object):

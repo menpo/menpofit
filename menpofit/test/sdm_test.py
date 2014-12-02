@@ -10,7 +10,7 @@ import menpo.io as mio
 from menpo.landmark import labeller, ibug_face_68_trimesh
 from menpofit.sdm import SDMTrainer, SDAAMTrainer
 from menpofit.clm.classifier import linear_svm_lr
-from menpofit.regression.regression_callables import mlr_svd
+from menpofit.regression.regressors import mlr_svd
 from menpofit.aam import AAMBuilder
 from menpofit.clm import CLMBuilder
 
