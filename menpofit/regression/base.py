@@ -12,11 +12,11 @@ class Regressor(Fitter):
 
     Parameters
     ----------
-    regressor: function/closure
+    regressor : callable
         The regressor to be used from
-        `menpo.fit.regression.regressionfunctions.py`.
-    features:
-        The features used to regress.
+        `menpo.fit.regression.regressioncallables`.
+    features : function
+        The feature function used to regress.
     """
     def __init__(self, regressor, features):
         self.regressor = regressor
@@ -34,9 +34,9 @@ class Regressor(Fitter):
 
         Parameters
         ----------
-        fitting_result: `menpo.fit.fittingresult`
+        fitting_result : `menpo.fit.fittingresult`
             The fitting result object.
-        max_iters: int
+        max_iters : int
             The maximum number of iterations.
         """
         image = fitting_result.image
@@ -67,11 +67,11 @@ class NonParametricRegressor(Regressor):
 
     Parameters
     ----------
-    regressor: function/closure
+    regressor : callable
         The regressor to be used from
-        `menpo.fit.regression.regressionfunctions.py`.
-    features:
-        The features used to regress.
+        `menpo.fit.regression.regressioncallables`.
+    features : function
+        The feature function used to regress.
     """
     def __init__(self, regressor, features):
         super(NonParametricRegressor, self).__init__(
@@ -90,11 +90,11 @@ class NonParametricRegressor(Regressor):
 
         Parameters
         ----------
-        image: :class:`menpo.image.MaskedImage`
+        image : :map:`MaskedImage`
             The current image..
-        shape: :class:`menpo.shape.PointCloud`
+        shape : :map:`PointCloud`
             The current shape.
-        gt_shape: :class:`menpo.shape.PointCloud`
+        gt_shape : :map:`PointCloud`
             The ground truth shape.
         """
         return NonParametricFittingResult(image, self, parameters=[shapes],
@@ -106,9 +106,9 @@ class NonParametricRegressor(Regressor):
 
         Parameters
         ----------
-        delta_shape: PointCloud
+        delta_shape : :map:`PointCloud`
             The shape increment.
-        initial_shape: PointCloud
+        initial_shape : :map:`PointCloud`
             The current shape.
         """
         fitted_shape = initial_shape.from_vector(
@@ -122,7 +122,7 @@ class NonParametricRegressor(Regressor):
 
         Parameters
         ----------
-        shape: PointCloud
+        shape: :map:`PointCloud`
             The current shape.
         """
         return shape
@@ -134,11 +134,11 @@ class SemiParametricRegressor(Regressor):
 
     Parameters
     ----------
-    regressor: function/closure
+    regressor : callable
         The regressor to be used from
-        `menpo.fit.regression.regressionfunctions.py`.
-    features:
-        The features used to regress.
+        `menpo.fit.regression.regressioncallables`.
+    features : function
+        The feature function used to regress.
     """
     def __init__(self, regressor, features, transform, update='composition'):
         super(SemiParametricRegressor, self).__init__(
@@ -159,14 +159,12 @@ class SemiParametricRegressor(Regressor):
 
         Parameters
         ----------
-        image: :class:`menpo.image.MaskedImage`
+        image : :map:`MaskedImage`
             The current image..
-        parameters: numpy.ndarray
-            The current parameters vector.
-        gt_shape: :class:`menpo.shape.PointCloud`, Optional
+        shape : :map:`PointCloud`
+            The current shape.
+        gt_shape : :map:`PointCloud`, optional
             The ground truth shape.
-
-            Default: None
         """
         self.transform.from_vector_inplace(parameters)
         return SemiParametricFittingResult(
@@ -258,11 +256,11 @@ class ParametricRegressor(SemiParametricRegressor):
 
     Parameters
     ----------
-    regressor: function/closure
+    regressor : callable
         The regressor to be used from
-        `menpo.fit.regression.regressionfunctions.py`.
-    features:
-        The features used to regress.
+        `menpo.fit.regression.regressioncallables`.
+    features : function
+        The feature function used to regress.
     """
     def __init__(self, regressor, features, appearance_model, transform,
                  update='composition'):
@@ -284,14 +282,12 @@ class ParametricRegressor(SemiParametricRegressor):
 
         Parameters
         ----------
-        image: :class:`menpo.image.MaskedImage`
+        image : :map:`MaskedImage`
             The current image..
-        parameters: numpy.ndarray
-            The current parameters vector.
-        gt_shape: :class:`menpo.shape.PointCloud`, Optional
+        shape : :map:`PointCloud`
+            The current shape.
+        gt_shape : :map:`PointCloud`, optional
             The ground truth shape.
-
-            Default: None
         """
         self.transform.from_vector_inplace(parameters)
         return ParametricFittingResult(
