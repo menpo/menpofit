@@ -430,15 +430,15 @@ def test_ic():
 
 @attr('fuzzy')
 def test_fa():
-    atm_helper(atm2, ImageForwardAdditive, 1, 8, 0.08778, 0.08072, 'me_norm')
+    atm_helper(atm2, ImageForwardAdditive, 1, 8, 0.09051, 0.08237, 'me_norm')
 
 
 @attr('fuzzy')
 def test_fc():
-    atm_helper(atm3, ImageForwardCompositional, 2, 6, 0.12273, 0.06854,
+    atm_helper(atm3, ImageForwardCompositional, 2, 6, 0.12615, 0.07522,
                'me_norm')
 
 @attr('fuzzy')
 def test_ic_2():
-    atm_helper(atm4, ImageInverseCompositional, 3, 7, 0.09137, 0.08881,
+    atm_helper(atm4, ImageInverseCompositional, 3, 7, 0.09748, 0.09509,
                'me_norm')
