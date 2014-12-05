@@ -406,7 +406,7 @@ class ParametricFittingResult(SemiParametricFittingResult):
             return [self.fitter.appearance_model.instance(w)
                     for w in self.weights]
         else:
-            return [self.fitter.template for _ in self.shapes()]
+            return [self.fitter.template for _ in self.shapes]
 
     @property
     def error_images(self):

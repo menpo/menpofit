@@ -13,7 +13,7 @@ from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
 from menpofit.regression.trainer import (
     NonParametricRegressorTrainer, ParametricRegressorTrainer,
     SemiParametricClassifierBasedRegressorTrainer)
-from menpofit.regression.regressionfunctions import mlr
+from menpofit.regression.regressors import mlr
 from menpofit.regression.parametricfeatures import weights
 from menpofit.base import DeformableModel, create_pyramid
 from .fitter import SDMFitter, SDAAMFitter, SDCLMFitter
@@ -92,15 +92,14 @@ class SDTrainer(DeformableModel):
 
     Parameters
     ----------
-    regression_type : `function`, or list of those, optional
+    regression_type : `callable`, or list of those, optional
         If list of length ``n_levels``, then a regression type is defined per
         level.
 
-        If not a list or a list with length ``1``, then the specified rergession
+        If not a list or a list with length ``1``, then the specified regression
         type will be applied to all pyramid levels.
 
-        Examples of such closures can be found in :ref:`regression_functions`.
-
+        Examples of such callables can be found in :ref:`regression_callables`.
     regression_features :`` None`` or `callable` or `[callable]`, optional
         The features that are used during the regression.
 
@@ -111,7 +110,6 @@ class SDTrainer(DeformableModel):
 
         Depending on the :map:`SDTrainer` object, this parameter can take
         different types.
-
     features : `callable` or ``[callable]``, optional
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
@@ -121,24 +119,20 @@ class SDTrainer(DeformableModel):
         If ``callable`` the specified feature will be applied to the original
         image and pyramid generation will be performed on top of the feature
         image. Also see the `pyramid_on_features` property.
-
     n_levels : `int` > ``0``, optional
         The number of multi-resolution pyramidal levels to be used.
-
     downscale : `float` >= ``1``, optional
         The downscale factor that will be used to create the different
         pyramidal levels. The scale factor will be::
 
             (downscale ** k) for k in range(n_levels)
-
     noise_std : `float`, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-`
+
     rotation : `boolean`, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int` > ``0``, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
@@ -422,15 +416,15 @@ class SDMTrainer(SDTrainer):
 
     Parameters
     ----------
-    regression_type : `function` or list of those, optional
+    regression_type : `callable` or list of those, optional
         If list of length ``n_levels``, then a regression type is defined per
         level.
 
         If not a list or a list with length ``1``, then the specified regression
         type will be applied to all pyramid levels.
 
-        The function/closures should be one of the methods defined in
-        :ref:`regression_functions`
+        The callable should be one of the methods defined in
+        :ref:`regression_callables`
 
     regression_features: ``None`` or  `callable` or `[callable]`, optional
         If list of length ``n_levels``, then a feature is defined per level.
@@ -599,44 +593,35 @@ class SDAAMTrainer(SDTrainer):
     ----------
     aam : :map:`AAM`
         The trained AAM object.
-
-    regression_type: `function` or list of those, optional
+    regression_type : `callable`, or list of those, optional
         If list of length ``n_levels``, then a regression type is defined per
         level.
 
         If not a list or a list with length ``1``, then the specified regression
         type will be applied to all pyramid levels.
 
-        The function/closures should be one of the methods defined in
-        :ref:`regression_functions`
-
+        Examples of such callables can be found in :ref:`regression_callables`.
     regression_features: `function` or list of those, optional
         If list of length ``n_levels``, then a feature is defined per level.
 
         If not a list or a list with length ``1``, then the specified feature
         will be applied to all pyramid levels.
 
-        The function/closures should be one of the methods defined in
-        :ref:`parametric_features`.
-
+        The callable should be one of the methods defined in
+        :ref:`parametricfeatures`.
     noise_std : `float`, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-
     rotation : `boolean`, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int` > ``0``, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
-
     update : {'additive', 'compositional'}
         Defines the way that the warp will be updated.
-
     md_transform: :map:`ModelDrivenTransform`, optional
         The model driven transform class to be used.
-
     n_shape : `int` > ``1`` or ``0`` <= `float` <= ``1`` or ``None``, or a list of those, optional
         The number of shape components to be used per fitting level.
 
@@ -656,7 +641,6 @@ class SDAAMTrainer(SDTrainer):
 
             If ``0`` <= `float` <= ``1``, it specifies the variance percentage
             that is captured by the components.
-
     n_appearance : `int` > ``1`` or ``0`` <= `float` <= ``1`` or ``None``, or a list of those, optional
         The number of appearance components to be used per fitting level.
 
@@ -850,32 +834,25 @@ class SDCLMTrainer(SDTrainer):
     ----------
     clm : :map:`CLM`
         The trained CLM object.
-
-    regression_type: `function` or list of those, optional
+    regression_type : `callable`, or list of those, optional
         If list of length ``n_levels``, then a regression type is defined per
         level.
 
         If not a list or a list with length ``1``, then the specified regression
         type will be applied to all pyramid levels.
 
-        The function/closures should be one of the methods defined in
-        :ref:`regression_functions`.
-
+        Examples of such callables can be found in :ref:`regression_callables`.
     noise_std: float, optional
         The standard deviation of the gaussian noise used to produce the
         training shapes.
-
     rotation : `boolean`, optional
         Specifies whether ground truth in-plane rotation is to be used
         to produce the training shapes.
-
     n_perturbations : `int` > ``0``, optional
         Defines the number of perturbations that will be applied to the
         training shapes.
-
     pdm_transform : :map:`ModelDrivenTransform`, optional
         The point distribution transform class to be used.
-
     n_shape : `int` > ``1`` or ``0`` <= `float` <= ``1`` or ``None``, or a list of those, optional
         The number of shape components to be used per fitting level.
 
