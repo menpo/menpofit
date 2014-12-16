@@ -6,7 +6,7 @@ from menpofit.fitter import MultilevelFitter
 from menpofit.fittingresult import AMMultilevelFittingResult
 from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
                                 DifferentiableAlignmentSimilarity)
-from menpofit.lucaskanade.appearance import AlternatingInverseCompositional
+from menpofit.lucaskanade.appearance import SIC
 
 
 class AAMFitter(MultilevelFitter):
@@ -145,7 +145,7 @@ class LucasKanadeAAMFitter(AAMFitter):
         If not a `list` or a `list` of length 1, then the specified number of
         components will be used for all levels.
     """
-    def __init__(self, aam, algorithm=AlternatingInverseCompositional,
+    def __init__(self, aam, algorithm=SIC,
                  md_transform=OrthoMDTransform, n_shape=None,
                  n_appearance=None, **kwargs):
         super(LucasKanadeAAMFitter, self).__init__(aam)
@@ -161,7 +161,7 @@ class LucasKanadeAAMFitter(AAMFitter):
         """
         return 'LK-AAM-' + self._fitters[0].algorithm
 
-    def _set_up(self, algorithm=AlternatingInverseCompositional,
+    def _set_up(self, algorithm=SIC,
                 md_transform=OrthoMDTransform,
                 global_transform=DifferentiableAlignmentSimilarity,
                 n_shape=None, n_appearance=None, **kwargs):
