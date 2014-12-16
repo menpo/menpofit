@@ -5,7 +5,7 @@ from menpofit.fittingresult import AMMultilevelFittingResult
 from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
                                 DifferentiableAlignmentSimilarity)
 from menpofit.lucaskanade.residual import SSD
-from menpofit.lucaskanade.image import ImageInverseCompositional
+from menpofit.lucaskanade.image import IC
 from menpofit.base import name_of_callable
 
 
@@ -131,7 +131,7 @@ class LucasKanadeATMFitter(ATMFitter):
         If not a `list` or a `list` of length 1, then the specified number of
         components will be used for all levels.
     """
-    def __init__(self, atm, algorithm=ImageInverseCompositional,
+    def __init__(self, atm, algorithm=IC,
                  md_transform=OrthoMDTransform, n_shape=None, **kwargs):
         super(LucasKanadeATMFitter, self).__init__(atm)
         # TODO: Add residual as parameter, when residuals are properly defined
@@ -149,7 +149,7 @@ class LucasKanadeATMFitter(ATMFitter):
         """
         return 'LK-ATM-' + self._fitters[0].algorithm
 
-    def _set_up(self, algorithm=ImageInverseCompositional,
+    def _set_up(self, algorithm=IC,
                 residual=SSD, md_transform=OrthoMDTransform,
                 global_transform=DifferentiableAlignmentSimilarity,
                 n_shape=None, **kwargs):
