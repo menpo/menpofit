@@ -4,8 +4,10 @@ import numpy as np
 from .base import AppearanceLucasKanade
 
 
-class AlternatingForwardAdditive(AppearanceLucasKanade):
-
+class AFA(AppearanceLucasKanade):
+    r"""
+    Alternating Forward Additive algorithm
+    """
     @property
     def algorithm(self):
         return 'Alternating-FA'
@@ -57,8 +59,10 @@ class AlternatingForwardAdditive(AppearanceLucasKanade):
         return fitting_result
 
 
-class AlternatingForwardCompositional(AppearanceLucasKanade):
-
+class AFC(AppearanceLucasKanade):
+    r"""
+    Alternating Forward Compositional algorithm
+    """
     @property
     def algorithm(self):
         return 'Alternating-FC'
@@ -109,8 +113,10 @@ class AlternatingForwardCompositional(AppearanceLucasKanade):
         return fitting_result
 
 
-class AlternatingInverseCompositional(AppearanceLucasKanade):
-
+class AIC(AppearanceLucasKanade):
+    r"""
+    Alternating Inverse Compositional algorithm
+    """
     @property
     def algorithm(self):
         return 'Alternating-IC'

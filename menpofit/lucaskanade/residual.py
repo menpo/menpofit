@@ -27,6 +27,7 @@ import scipy.linalg
 
 from menpo.math import log_gabor
 from menpo.image import MaskedImage
+from menpo.feature import gradient
 
 
 class Residual(object):
@@ -159,18 +160,23 @@ class Residual(object):
         """
         if forward:
             # Calculate the gradient over the image
-            gradient = image.gradient()
-            # Warp gradient for forward additive, if we've been given a
-            # transform
+            # grad:  (dims x ch) x H x W
+            grad = gradient(image)
+            # Warp gradient for forward additive using the given transform
+            # grad:  (dims x ch) x h x w
             template, transform = forward
-            gradient = gradient.warp_to_mask(template.mask, transform,
-                                             warp_landmarks=False)
+            grad = grad.warp_to_mask(template.mask, transform,
+                                     warp_landmarks=False)
         else:
-            # Calculate the gradient over the image and remove one pixels at
-            # the borders of the image mask
-            gradient = image.gradient(nullify_values_at_mask_boundaries=True)
-
-        return gradient
+            # Calculate the gradient over the image and set one pixels along
+            # the boundary of the image mask to zero (no reliable gradient
+            # can be computed there!)
+            # grad:  (dims x ch) x h x w
+            grad = gradient(image)
+            grad.set_boundary_pixels()
+        # reshape gradient
+        # grad:  dims x ch x (h x w)
+        return grad.as_vector().reshape((image.n_dims, image.n_channels, -1))
 
 
 class SSD(Residual):
@@ -179,27 +185,21 @@ class SSD(Residual):
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
         # compute gradient
-        # gradient:  height  x  width  x  (n_channels x n_dims)
-        gradient = self._calculate_gradients(image, forward=forward)
-
-        # reshape gradient
-        # gradient:  n_pixels  x  (n_channels x n_dims)
-        gradient = gradient.as_vector(keep_channels=True)
-
-        # reshape gradient
-        # gradient:  n_pixels  x  n_channels  x  n_dims
-        gradient = np.reshape(gradient, (-1, image.n_channels,
-                                         image.n_dims))
+        # gradient:  dims x ch x (h x w)
+        grad = self._calculate_gradients(image, forward=forward)
 
         # compute steepest descent images
-        # gradient:  n_pixels  x  n_channels  x            x  n_dims
-        # dW_dp:     n_pixels  x              x  n_params  x  n_dims
-        # sdi:       n_pixels  x  n_channels  x  n_params
-        sdi = np.sum(dW_dp[:, None, :, :] * gradient[:, :, None, :], axis=3)
+        # gradient: n_dims x n_channels x n_pixels
+        # dw_dp:    n_dims x            x n_pixels x n_params
+        # sdi:               n_channels x n_pixels x n_params
+        sdi = 0
+        a = grad[..., None] * dW_dp[:, None, ...]
+        for d in a:
+            sdi += d
 
         # reshape steepest descent images
-        # sdi:  (n_pixels x n_channels)  x  n_params
-        return np.reshape(sdi, (-1, dW_dp.shape[1]))
+        # sdi: (n_channels x n_pixels) x n_params
+        return sdi.reshape((-1, sdi.shape[2]))
 
     def calculate_hessian(self, J, J2=None):
         if J2 is None:

@@ -14,8 +14,10 @@ class ImageLucasKanade(LucasKanade):
         self._set_up()
 
 
-class ImageForwardAdditive(ImageLucasKanade):
-
+class FA(ImageLucasKanade):
+    r"""
+    Forward Additive algorithm
+    """
     @property
     def algorithm(self):
         return 'Image-FA'
@@ -63,8 +65,10 @@ class ImageForwardAdditive(ImageLucasKanade):
         return fitting_result
 
 
-class ImageForwardCompositional(ImageLucasKanade):
-
+class FC(ImageLucasKanade):
+    r"""
+    Forward Compositional algorithm
+    """
     @property
     def algorithm(self):
         return 'Image-FC'
@@ -119,8 +123,10 @@ class ImageForwardCompositional(ImageLucasKanade):
         return fitting_result
 
 
-class ImageInverseCompositional(ImageLucasKanade):
-
+class IC(ImageLucasKanade):
+    r"""
+    Inverse Compositional algorithm
+    """
     @property
     def algorithm(self):
         return 'Image-IC'
