@@ -271,7 +271,7 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
         # dW_dp:  n_points x n_params x n_dims
 
-        return dW_dp
+        return np.rollaxis(dW_dp, -1)
 
 
 # noinspection PyMissingConstructor
