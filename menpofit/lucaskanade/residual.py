@@ -22,7 +22,7 @@ References
 import abc
 import copy
 import numpy as np
-from numpy.fft import fftshift, fftn
+from numpy.fft import fftshift, fft2
 import scipy.linalg
 
 from menpo.math import log_gabor
@@ -198,7 +198,7 @@ class SSD(Residual):
 
         # reshape steepest descent images
         # sdi: (n_channels x n_pixels) x n_params
-        return sdi.reshape((-1, sdi.shape[2]))
+        return sdi.reshape((-1, sdi.shape[-1]))
 
     def calculate_hessian(self, J, J2=None):
         if J2 is None:
@@ -232,35 +232,30 @@ class GaborFourier(Residual):
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
         # compute gradient
-        # gradient:  height  x  width  x  n_channels
-        gradient_img = self._calculate_gradients(image, forward=forward)
-
-        # reshape gradient
-        # gradient:  n_pixels  x  (n_channels x n_dims)
-        gradient = gradient_img.as_vector(keep_channels=True)
-
-        # reshape gradient
-        # gradient:  n_pixels  x  n_channels  x  n_dims
-        gradient = np.reshape(gradient, (-1, image.n_channels, image.n_dims))
+        # grad:  dims x ch x (h x w)
+        grad_img = self._calculate_gradients(image, forward=forward)
+        grad = grad_img.as_vector().reshape(
+            (image.n_dims, image.n_channels, -1))
 
         # compute steepest descent images
-        # gradient:  n_pixels  x  n_channels  x            x  n_dims
-        # dW_dp:     n_pixels  x              x  n_params  x  n_dims
-        # sdi:       n_pixels  x  n_channels  x  n_params
+        # gradient: dims x ch x (h x w)
+        # dw_dp:    dims x    x (h x w) x params
+        # sdi:             ch x (h x w) x params
+        sdi = 0
+        a = grad[..., None] * dW_dp[:, None, ...]
+        for d in a:
+            sdi += d
         sdi = np.sum(dW_dp[:, None, :, :] * gradient[:, :, None, :], axis=3)
 
         # make sdi images
-        # sdi_img:  shape  x  n_channels  x  n_params
-        sdi_img_channels = image.n_channels * dW_dp.shape[1]
-        sdi_img = MaskedImage.blank(gradient_img.shape,
-                                      n_channels=sdi_img_channels,
-                                      mask=gradient_img.mask)
-        sdi_img.from_vector_inplace(sdi.flatten())
+        # sdi_img:  ch x h x w x params
+        sdi_img = MaskedImage.blank(
+            grad_img.shape, n_channels=grad_img.n_channels, mask=grad_img.mask)
+        sdi_img.from_vector_inplace(sdi.ravel())
 
         # compute FFT over each channel, parameter and dimension
-        # fft_sdi:  height  x  width  x  n_channels  x  n_params
-        fft_axes = range(image.n_dims)
-        fft_sdi = fftshift(fftn(sdi_img.pixels, axes=fft_axes), axes=fft_axes)
+        # fft_sdi:  ch x h x w x params
+        fft_sdi = fftshift(fft2(sdi_img.pixels, axes=(-3, -2)), axes=(-3, -2))
 
         # ToDo: Note that, fft_sdi is rectangular, i.e. is not define in
         # terms of the mask pixels, but in terms of the whole image.
@@ -268,58 +263,54 @@ class GaborFourier(Residual):
         # sense because they have lost their original spatial meaning.
 
         # reshape steepest descent images
-        # sdi:  (height x width x n_channels)  x  n_params
-        return np.reshape(fft_sdi, (-1, dW_dp.shape[1]))
+        # sdi:  (ch x h x w) x params
+        return fft_sdi.reshape((-1, fft_sdi.shape[-1]))
 
     def calculate_hessian(self, sdi):
         # reshape steepest descent images
-        # sdi:  n_channels  x  n_pixels  x  n_params
-        sdi = np.reshape(sdi, (-1, self._filter_bank.shape[0], sdi.shape[1]))
+        # sdi:  ch x (h x w) x params
+        sdi = np.reshape(sdi, (-1, self._filter_bank.shape[0], sdi.shape[-1]))
 
         # compute filtered steepest descent images
-        # _filter_bank:              x  n_pixels  x
-        # sdi:           n_channels  x  n_pixels  x  n_params
-        # filtered_sdi:  n_channels  x  n_pixels  x  n_params
+        # filter_bank:        (h x w)
+        # sdi:           ch x (h x w) x params
+        # filtered_sdi:  ch x (h x w) x params
         filtered_sdi = (self._filter_bank[None, ..., None] ** 0.5) * sdi
 
         # reshape filtered steepest descent images
-        # filtered_sdi:  (n_pixels x n_channels)  x  n_params
+        # filtered_sdi:  (ch x h x w) x params
         filtered_sdi = np.reshape(filtered_sdi, (-1, sdi.shape[-1]))
 
         # compute filtered hessian
-        # filtered_sdi:  (n_pixels x n_channels)  x  n_params
-        # hessian:              n_param           x  n_param
+        # filtered_sdi.T:  params x (ch x h x w)
+        # filtered_sdi:             (ch x h x w) x params
+        # hessian:         params x              x  n_param
         return np.conjugate(filtered_sdi).T.dot(filtered_sdi)
 
     def steepest_descent_update(self, sdi, IWxp, template):
         # compute error image
-        # error_img:  height  x  width  x  n_channels
+        # error_img:  ch x h x w
         error_img = IWxp.pixels - template.pixels
 
         # compute FFT error image
-        # fft_error_img:  height  x  width  x  n_channels
-        fft_axes = range(IWxp.n_dims)
-        fft_error_img = fftshift(fftn(error_img, axes=fft_axes),
-                                 axes=fft_axes)
-
-        # reshape FFT error image
-        # fft_error_img:  (height x width)  x  n_channels
-        fft_error_img = np.reshape(fft_error_img, (-1, IWxp.n_channels))
+        # fft_error_img:  ch x (h x w)
+        fft_error_img = fftshift(fft2(error_img))
+        fft_error_img = fft_error_img.reshape((IWxp.n_channels, -1))
 
         # compute filtered steepest descent images
-        # _filter_bank:        (height x width)  x
-        # fft_error_img:       (height x width)  x  n_channels
-        # filtered_error_img:  (height x width)  x  n_channels
-        filtered_error_img = (self._filter_bank[..., None] * fft_error_img)
+        # filter_bank:              (h x w)
+        # fft_error_img:       ch x (h x w)
+        # filtered_error_img:  ch x (h x w)
+        filtered_error_img = self._filter_bank * fft_error_img
 
         # reshape _error_img
-        # _error_img:  (height x width x n_channels)
-        self._error_img = filtered_error_img.flatten()
+        # error_img:  (ch x h x w)
+        self._error_img = filtered_error_img.ravel()
 
         # compute steepest descent update
-        # sdi:         (height x width x n_channels)  x  n_parameters
-        # _error_img:  (height x width x n_channels)
-        # sdu:             n_parameters
+        # sdi:        params x (ch x h x w)
+        # error_img:           (ch x h x w)
+        # sdu:        params
         return sdi.T.dot(np.conjugate(self._error_img))
 
 
@@ -354,7 +345,7 @@ class ECC(Residual):
 
         # reshape steepest descent images
         # sdi: (n_channels x n_pixels) x n_params
-        return sdi.reshape((-1, sdi.shape[2]))
+        return sdi.reshape((-1, sdi.shape[-1]))
 
     def calculate_hessian(self, sdi):
         H = sdi.T.dot(sdi)
@@ -454,9 +445,9 @@ class GradientImages(Residual):
                            self._template_grad.as_vector())
 
         # compute steepest descent update
-        # sdi:       (dims x ch x h x w) x params
-        # error_img: (dims x ch x h x w)
-        # sdu:                             params
+        # sdi.T:      params x (dims x ch x h x w)
+        # error_img:           (dims x ch x h x w)
+        # sdu:        params
         return sdi.T.dot(self._error_img)
 
 
