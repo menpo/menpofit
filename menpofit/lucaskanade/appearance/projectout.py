@@ -14,7 +14,7 @@ class PIC(AppearanceLucasKanade):
 
     def _set_up(self):
         # Compute warp Jacobian
-        dW_dp = self.transform.d_dp(self.template.mask.true_indices())
+        dW_dp = np.rollaxis(self.transform.d_dp(self.template.indices()), -1)
 
         # Compute steepest descent images, VT_dW_dp
         J = self.residual.steepest_descent_images(

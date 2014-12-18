@@ -26,7 +26,8 @@ class SFA(AppearanceLucasKanade):
                                       warp_landmarks=False)
 
             # Compute warp Jacobian
-            dW_dp = self.transform.d_dp(self.template.mask.true_indices())
+            dW_dp = np.rollaxis(
+                self.transform.d_dp(self.template.indices()), -1)
 
             # Compute steepest descent images, VI_dW_dp
             J_aux = self.residual.steepest_descent_images(
@@ -67,7 +68,8 @@ class SFC(AppearanceLucasKanade):
 
     def _set_up(self):
         # Compute warp Jacobian
-        self._dW_dp = self.transform.d_dp(self.template.mask.true_indices())
+        self._dW_dp = np.rollaxis(
+            self.transform.d_dp(self.template.indices()), -1)
 
     def _fit(self, fitting_result, max_iters=20, project=True):
         # Initial error > eps
@@ -119,7 +121,8 @@ class SIC(AppearanceLucasKanade):
 
     def _set_up(self):
         # Compute warp Jacobian
-        self._dW_dp = self.transform.d_dp(self.template.mask.true_indices())
+        self._dW_dp = np.rollaxis(
+            self.transform.d_dp(self.template.indices()), -1)
 
     def _fit(self, fitting_result, max_iters=20, project=True):
         # Initial error > eps

@@ -7,7 +7,7 @@ from menpofit.differentiable import DP, DX
 class DifferentiableAffine(Affine, DP, DX):
 
     def d_dp(self, points):
-        return np.rollaxis(affine_d_dp(self, points), -1)
+        return affine_d_dp(self, points)
 
     def d_dx(self, points):
         return affine_d_dx(self)
@@ -19,7 +19,7 @@ class DifferentiableAlignmentAffine(AlignmentAffine, DP, DX):
         return DifferentiableAffine(self.h_matrix, skip_checks=True)
 
     def d_dp(self, points):
-        return np.rollaxis(affine_d_dp(self, points), -1)
+        return affine_d_dp(self, points)
 
     def d_dx(self, points):
         return affine_d_dx(self)
@@ -28,7 +28,7 @@ class DifferentiableAlignmentAffine(AlignmentAffine, DP, DX):
 class DifferentiableSimilarity(Similarity, DP, DX):
 
     def d_dp(self, points):
-        return np.rollaxis(similarity_d_dp(self, points), -1)
+        return similarity_d_dp(self, points)
 
     def d_dx(self, points):
         return affine_d_dx(self)
@@ -40,7 +40,7 @@ class DifferentiableAlignmentSimilarity(AlignmentSimilarity, DP, DX):
         return DifferentiableSimilarity(self.h_matrix, skip_checks=True)
 
     def d_dp(self, points):
-        return np.rollaxis(similarity_d_dp(self, points), -1)
+        return similarity_d_dp(self, points)
 
     def d_dx(self, points):
         return affine_d_dx(self)

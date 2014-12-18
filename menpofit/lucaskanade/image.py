@@ -35,7 +35,8 @@ class FA(ImageLucasKanade):
                                       warp_landmarks=False)
 
             # Compute the Jacobian of the warp
-            dW_dp = self.transform.d_dp(self.template.indices())
+            dW_dp = np.rollaxis(
+                self.transform.d_dp(self.template.indices()), -1)
 
             # TODO: rename kwarg "forward" to "forward_additive"
             # Compute steepest descent images, VI_dW_dp
@@ -79,7 +80,8 @@ class FC(ImageLucasKanade):
         warp. This is set as an attribute on the class.
         """
         # Compute the Jacobian of the warp
-        self._dW_dp = self.transform.d_dp(self.template.indices())
+        self._dW_dp = np.rollaxis(
+            self.transform.d_dp(self.template.indices()), -1)
 
     def _fit(self, fitting_result, max_iters=20):
         # Initial error > eps
@@ -138,7 +140,7 @@ class IC(ImageLucasKanade):
         stored as attributes on the class.
         """
         # Compute the Jacobian of the warp
-        dW_dp = self.transform.d_dp(self.template.indices())
+        dW_dp = np.rollaxis(self.transform.d_dp(self.template.indices()), -1)
 
         # Compute steepest descent images, VT_dW_dp
         self._J = self.residual.steepest_descent_images(
