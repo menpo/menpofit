@@ -62,7 +62,7 @@ class GradientDescent(Fitter):
         return self.transform.as_vector()
 
 
-class RegularizedLandmarkMeanShift(GradientDescent):
+class RLMS(GradientDescent):
     r"""
     Implementation of the Regularized Landmark Mean-Shifts algorithm for
     fitting Constrained Local Models described in [1]_.
@@ -98,7 +98,7 @@ class RegularizedLandmarkMeanShift(GradientDescent):
     """
     def __init__(self, classifiers, patch_shape, pdm, eps=10**-10, scale=10):
         self.scale = scale
-        super(RegularizedLandmarkMeanShift, self).__init__(
+        super(RLMS, self).__init__(
             classifiers, patch_shape, pdm, eps=eps)
 
     @property
@@ -119,7 +119,7 @@ class RegularizedLandmarkMeanShift(GradientDescent):
         self._kernel_grid = mvn.pdf(self._sampling_grid)
 
         # Jacobian
-        self._J = np.rollaxis(self.transform.d_dp([]), -1)
+        self._J = self.transform.d_dp([])
 
         # Prior
         sim_prior = np.zeros((4,))

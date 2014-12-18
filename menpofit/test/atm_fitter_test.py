@@ -11,9 +11,7 @@ from menpofit.transform import DifferentiablePiecewiseAffine
 import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
 from menpofit.atm import ATMBuilder, LucasKanadeATMFitter
-from menpofit.lucaskanade.image import (ImageInverseCompositional,
-                                            ImageForwardAdditive,
-                                            ImageForwardCompositional)
+from menpofit.lucaskanade.image import FA, FC, IC
 
 
 initial_shape = []
@@ -391,7 +389,7 @@ def test_obtain_shape_from_bb():
 @raises(ValueError)
 def test_max_iters_exception():
     fitter = LucasKanadeATMFitter(atm1,
-                                  algorithm=ImageInverseCompositional)
+                                  algorithm=IC)
     fitter.fit(templates[0], initial_shape[0], max_iters=[10, 20, 30, 40])
 
 
@@ -399,11 +397,11 @@ def test_max_iters_exception():
 def test_str_mock(mock_stdout):
     print(atm1)
     fitter = LucasKanadeATMFitter(atm1,
-                                  algorithm=ImageInverseCompositional)
+                                  algorithm=IC)
     print(fitter)
     print(atm2)
     fitter = LucasKanadeATMFitter(atm2,
-                                  algorithm=ImageForwardAdditive)
+                                  algorithm=FA)
     print(fitter)
 
 
@@ -424,21 +422,21 @@ def atm_helper(atm, algorithm, im_number, max_iters, initial_error,
 
 @attr('fuzzy')
 def test_ic():
-    atm_helper(atm1, ImageInverseCompositional, 0, 6, 0.09062, 0.06783,
+    atm_helper(atm1, IC, 0, 6, 0.09062, 0.06783,
                'me_norm')
 
 
 @attr('fuzzy')
 def test_fa():
-    atm_helper(atm2, ImageForwardAdditive, 1, 8, 0.09051, 0.08237, 'me_norm')
+    atm_helper(atm2, FA, 1, 8, 0.09051, 0.08237, 'me_norm')
 
 
 @attr('fuzzy')
 def test_fc():
-    atm_helper(atm3, ImageForwardCompositional, 2, 6, 0.12615, 0.07522,
+    atm_helper(atm3, FC, 2, 6, 0.12615, 0.07522,
                'me_norm')
 
 @attr('fuzzy')
 def test_ic_2():
-    atm_helper(atm4, ImageInverseCompositional, 3, 7, 0.09748, 0.09509,
+    atm_helper(atm4, IC, 3, 7, 0.09748, 0.09509,
                'me_norm')

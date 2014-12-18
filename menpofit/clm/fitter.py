@@ -5,7 +5,7 @@ from menpo.image import Image
 from menpofit.transform import DifferentiableAlignmentSimilarity
 from menpofit.modelinstance import PDM, OrthoPDM
 from menpofit.fitter import MultilevelFitter
-from menpofit.gradientdescent import RegularizedLandmarkMeanShift
+from menpofit.gradientdescent import RLMS
 
 
 class CLMFitter(MultilevelFitter):
@@ -100,7 +100,7 @@ class GradientDescentCLMFitter(CLMFitter):
         If not a `list` or a `list` of length 1, then the specified number of
         components will be used for all levels.
     """
-    def __init__(self, clm, algorithm=RegularizedLandmarkMeanShift,
+    def __init__(self, clm, algorithm=RLMS,
                  pdm_transform=OrthoPDM, n_shape=None, **kwargs):
         super(GradientDescentCLMFitter, self).__init__(clm)
         self._set_up(algorithm=algorithm, pdm_transform=pdm_transform,
@@ -115,7 +115,7 @@ class GradientDescentCLMFitter(CLMFitter):
         """
         return 'GD-CLM-' + self._fitters[0].algorithm
 
-    def _set_up(self, algorithm=RegularizedLandmarkMeanShift,
+    def _set_up(self, algorithm=RLMS,
                 pdm_transform=OrthoPDM,
                 global_transform=DifferentiableAlignmentSimilarity,
                 n_shape=None, **kwargs):

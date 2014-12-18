@@ -1,1 +1,1 @@
-from .base import RegularizedLandmarkMeanShift
+from .base import RLMS

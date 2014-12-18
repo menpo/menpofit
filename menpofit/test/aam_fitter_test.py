@@ -13,15 +13,9 @@ import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
 from menpo.landmark import labeller, ibug_face_68_trimesh
 from menpofit.aam import AAMBuilder, LucasKanadeAAMFitter
-from menpofit.lucaskanade.appearance import (
-    AlternatingForwardAdditive, AlternatingForwardCompositional,
-    AlternatingInverseCompositional, AdaptiveForwardAdditive,
-    AdaptiveForwardCompositional, AdaptiveInverseCompositional,
-    SimultaneousForwardAdditive, SimultaneousForwardCompositional,
-    SimultaneousInverseCompositional, ProjectOutForwardAdditive,
-    ProjectOutForwardCompositional, ProjectOutInverseCompositional,
-    ProbabilisticForwardAdditive, ProbabilisticForwardCompositional,
-    ProbabilisticInverseCompositional)
+from menpofit.lucaskanade.appearance import (AFA, AFC, AIC,
+                                             SFA, SFC, SIC,
+                                             PIC)
 
 
 initial_shape = []
@@ -388,7 +382,7 @@ def test_obtain_shape_from_bb():
 @raises(ValueError)
 def test_max_iters_exception():
     fitter = LucasKanadeAAMFitter(aam,
-                                  algorithm=AlternatingInverseCompositional)
+                                  algorithm=AIC)
     fitter.fit(training_images[0], initial_shape[0],
                max_iters=[10, 20, 30, 40])
 
@@ -397,11 +391,11 @@ def test_max_iters_exception():
 def test_str_mock(mock_stdout):
     print(aam)
     fitter = LucasKanadeAAMFitter(aam,
-                                  algorithm=AlternatingInverseCompositional)
+                                  algorithm=AIC)
     print(fitter)
     print(aam2)
     fitter = LucasKanadeAAMFitter(aam2,
-                                  algorithm=ProbabilisticForwardAdditive)
+                                  algorithm=SFA)
     print(fitter)
 
 
@@ -422,87 +416,42 @@ def aam_helper(aam, algorithm, im_number, max_iters, initial_error,
 
 @attr('fuzzy')
 def test_alternating_ic():
-    aam_helper(aam, AlternatingInverseCompositional, 0, 6, 0.09062, 0.05606,
-               'me_norm')
-
-
-@attr('fuzzy')
-def test_adaptive_ic():
-    aam_helper(aam, AdaptiveInverseCompositional, 1, 5, 0.07697, 0.0255,
+    aam_helper(aam, AIC, 0, 6, 0.09062, 0.05606,
                'me_norm')
 
 
 @attr('fuzzy')
 def test_simultaneous_ic():
-    aam_helper(aam, SimultaneousInverseCompositional, 2, 7, 0.12616, 0.11566,
+    aam_helper(aam, SIC, 2, 7, 0.12616, 0.11566,
                'me_norm')
 
 
 @attr('fuzzy')
 def test_projectout_ic():
-    aam_helper(aam, ProjectOutInverseCompositional, 3, 6, 0.10796, 0.07286,
+    aam_helper(aam, PIC, 3, 6, 0.10796, 0.07286,
                'me_norm')
 
 
 @attr('fuzzy')
 def test_alternating_fa():
-    aam_helper(aam, AlternatingForwardAdditive, 0, 8, 0.09062, 0.07053,
+    aam_helper(aam, AFA, 0, 8, 0.09062, 0.07053,
                'me_norm')
-
-
-@attr('fuzzy')
-def test_adaptive_fa():
-    aam_helper(aam, AdaptiveForwardAdditive, 1, 6, 0.07697, 0.04921, 'me_norm')
 
 
 @attr('fuzzy')
 def test_simultaneous_fa():
-    aam_helper(aam, SimultaneousForwardAdditive, 2, 5, 0.12616, 0.12627,
-               'me_norm')
-
-
-@attr('fuzzy')
-def test_projectout_fa():
-    aam_helper(aam, ProjectOutForwardAdditive, 3, 6, 0.10796, 0.09725,
+    aam_helper(aam, SFA, 2, 5, 0.12616, 0.12627,
                'me_norm')
 
 
 @attr('fuzzy')
 def test_alternating_fc():
-    aam_helper(aam, AlternatingForwardCompositional, 0, 6, 0.09062, 0.07109,
-               'me_norm')
-
-@attr('fuzzy')
-def test_adaptive_fc():
-    aam_helper(aam, AdaptiveForwardCompositional, 1, 6, 0.07697, 0.04778,
+    aam_helper(aam, AFC, 0, 6, 0.09062, 0.07109,
                'me_norm')
 
 
 @attr('fuzzy')
 def test_simultaneous_fc():
-    aam_helper(aam, SimultaneousForwardCompositional, 2, 5, 0.12616, 0.11505,
+    aam_helper(aam, SFC, 2, 5, 0.12616, 0.11505,
                'me_norm')
 
-
-@attr('fuzzy')
-def test_projectout_fc():
-    aam_helper(aam, ProjectOutForwardCompositional, 3, 6, 0.10796, 0.08451,
-               'me_norm')
-
-
-@attr('fuzzy')
-def test_probabilistic_ic():
-    aam_helper(aam2, ProbabilisticInverseCompositional, 0, 6, 0.08605, 0.08923,
-               'me_norm')
-
-
-@attr('fuzzy')
-def test_probabilistic_fa():
-    aam_helper(aam2, ProbabilisticForwardAdditive, 1, 7, 0.09051, 0.08708,
-               'me_norm')
-
-
-@attr('fuzzy')
-def test_probabilistic_fc():
-    aam_helper(aam2, ProbabilisticForwardCompositional, 2, 6, 0.11714,
-               0.11697, 'me_norm')
