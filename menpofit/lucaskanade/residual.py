@@ -228,14 +228,17 @@ class GaborFourier(Residual):
             self._filter_bank = gabor[2]
 
         # Flatten the filter bank for vectorized calculations
-        self._filter_bank = self._filter_bank.flatten()
+        self._filter_bank = self._filter_bank.ravel()
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
+        n_dims = image.n_dims
+        n_channels = image.n_channels
+        n_params = dW_dp.shape[-1]
+
         # compute gradient
         # grad:  dims x ch x (h x w)
         grad_img = self._calculate_gradients(image, forward=forward)
-        grad = grad_img.as_vector().reshape(
-            (image.n_dims, image.n_channels, -1))
+        grad = grad_img.as_vector().reshape((n_dims, n_channels, -1))
 
         # compute steepest descent images
         # gradient: dims x ch x (h x w)
@@ -245,19 +248,20 @@ class GaborFourier(Residual):
         a = grad[..., None] * dW_dp[:, None, ...]
         for d in a:
             sdi += d
-        sdi = np.sum(dW_dp[:, None, :, :] * gradient[:, :, None, :], axis=3)
 
         # make sdi images
         # sdi_img:  ch x h x w x params
-        sdi_img = MaskedImage.blank(
-            grad_img.shape, n_channels=grad_img.n_channels, mask=grad_img.mask)
+        sdi_mask = np.tile(grad_img.mask.pixels[0, ..., None],
+                           (1, 1, n_params))
+        sdi_img = MaskedImage.blank(grad_img.shape + (n_params,),
+                                    n_channels=n_channels,
+                                    mask=sdi_mask)
         sdi_img.from_vector_inplace(sdi.ravel())
 
         # compute FFT over each channel, parameter and dimension
         # fft_sdi:  ch x h x w x params
         fft_sdi = fftshift(fft2(sdi_img.pixels, axes=(-3, -2)), axes=(-3, -2))
-
-        # ToDo: Note that, fft_sdi is rectangular, i.e. is not define in
+        # Note that, fft_sdi is rectangular, i.e. is not define in
         # terms of the mask pixels, but in terms of the whole image.
         # Selecting mask pixels once the fft has been computed makes no
         # sense because they have lost their original spatial meaning.
@@ -269,7 +273,7 @@ class GaborFourier(Residual):
     def calculate_hessian(self, sdi):
         # reshape steepest descent images
         # sdi:  ch x (h x w) x params
-        sdi = np.reshape(sdi, (-1, self._filter_bank.shape[0], sdi.shape[-1]))
+        sdi = sdi.reshape((-1, self._filter_bank.shape[0], sdi.shape[-1]))
 
         # compute filtered steepest descent images
         # filter_bank:        (h x w)
@@ -279,7 +283,7 @@ class GaborFourier(Residual):
 
         # reshape filtered steepest descent images
         # filtered_sdi:  (ch x h x w) x params
-        filtered_sdi = np.reshape(filtered_sdi, (-1, sdi.shape[-1]))
+        filtered_sdi = filtered_sdi.reshape((-1, sdi.shape[-1]))
 
         # compute filtered hessian
         # filtered_sdi.T:  params x (ch x h x w)
