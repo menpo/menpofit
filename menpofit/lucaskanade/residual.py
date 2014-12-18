@@ -183,28 +183,32 @@ class SSD(Residual):
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
         # compute gradient
-        # grad:  dims x ch x (h x w)
+        # grad:  dims x ch x pixels
         grad = self._calculate_gradients(image, forward=forward)
         grad = grad.as_vector().reshape((image.n_dims, image.n_channels, -1))
 
         # compute steepest descent images
-        # gradient: n_dims x n_channels x n_pixels
-        # dw_dp:    n_dims x            x n_pixels x n_params
-        # sdi:               n_channels x n_pixels x n_params
+        # gradient: dims x ch x pixels
+        # dw_dp:    dims x    x pixels x params
+        # sdi:             ch x pixels x params
         sdi = 0
         a = grad[..., None] * dW_dp[:, None, ...]
         for d in a:
             sdi += d
 
         # reshape steepest descent images
-        # sdi: (n_channels x n_pixels) x n_params
+        # sdi: (ch x pixels) x params
         return sdi.reshape((-1, sdi.shape[-1]))
 
-    def calculate_hessian(self, J, J2=None):
-        if J2 is None:
-            H = J.T.dot(J)
+    def calculate_hessian(self, sdi, sdi2=None):
+        # compute hessian
+        # sdi.T:   params x (ch x pixels)
+        # sdi:              (ch x pixels) x params
+        # hessian: params x               x params
+        if sdi2 is None:
+            H = sdi.T.dot(sdi)
         else:
-            H = J.T.dot(J2)
+            H = sdi.T.dot(sdi2)
         return H
 
     def steepest_descent_update(self, sdi, IWxp, template):
@@ -236,14 +240,14 @@ class GaborFourier(Residual):
         n_params = dW_dp.shape[-1]
 
         # compute gradient
-        # grad:  dims x ch x (h x w)
+        # grad:  dims x ch x pixels
         grad_img = self._calculate_gradients(image, forward=forward)
         grad = grad_img.as_vector().reshape((n_dims, n_channels, -1))
 
         # compute steepest descent images
-        # gradient: dims x ch x (h x w)
-        # dw_dp:    dims x    x (h x w) x params
-        # sdi:             ch x (h x w) x params
+        # gradient: dims x ch x pixels
+        # dw_dp:    dims x    x pixels x params
+        # sdi:             ch x pixels x params
         sdi = 0
         a = grad[..., None] * dW_dp[:, None, ...]
         for d in a:
@@ -334,24 +338,28 @@ class ECC(Residual):
         norm_image = self._normalise_images(image)
 
         # compute gradient
-        # gradient:  dims x ch x (h x w)
+        # gradient:  dims x ch x pixels
         grad = self._calculate_gradients(norm_image, forward=forward)
         grad = grad.as_vector().reshape((image.n_dims, image.n_channels, -1))
 
         # compute steepest descent images
-        # gradient: n_dims x n_channels x n_pixels
-        # dw_dp:    n_dims x            x n_pixels x n_params
-        # sdi:               n_channels x n_pixels x n_params
+        # gradient: dims x ch x pixels
+        # dw_dp:    dims x    x pixels x params
+        # sdi:             ch x pixels x params
         sdi = 0
         a = grad[..., None] * dW_dp[:, None, ...]
         for d in a:
             sdi += d
 
         # reshape steepest descent images
-        # sdi: (n_channels x n_pixels) x n_params
+        # sdi: (ch x pixels) x params
         return sdi.reshape((-1, sdi.shape[-1]))
 
     def calculate_hessian(self, sdi):
+        # compute hessian
+        # sdi.T:   params x (ch x pixels)
+        # sdi:              (ch x pixels) x params
+        # hessian: params x               x params
         H = sdi.T.dot(sdi)
         self._H_inv = scipy.linalg.inv(H)
         return H
@@ -410,9 +418,9 @@ class GradientImages(Residual):
         self._template_grad = self._regularise_gradients(first_grad)
 
         # compute gradient
-        # second_grad:  dims x dims x ch x (h x w)
+        # second_grad:  dims x dims x ch x pixels
         second_grad = self._calculate_gradients(self._template_grad)
-        second_grad = second_grad.pixels.reshape(
+        second_grad = second_grad.pixels.flatten().reshape(
             (n_dims, n_dims,  n_channels, -1))
 
         # Fix crossed derivatives: dydx = dxdy
@@ -433,8 +441,8 @@ class GradientImages(Residual):
 
     def calculate_hessian(self, sdi):
         # compute hessian
-        # sdi.T:   params x (dims x ch x h x w)
-        # sdi:              (dims x ch x h x w) x params
+        # sdi.T:   params x (dims x ch x pixels)
+        # sdi:              (dims x ch x pixels) x params
         # hessian: params x                     x params
         return sdi.T.dot(sdi)
 
@@ -444,13 +452,13 @@ class GradientImages(Residual):
         IWxp_grad = self._regularise_gradients(IWxp_grad)
 
         # compute vectorized error_image
-        # error_img: (dims x ch x h x w)
+        # error_img: (dims x ch x pixels)
         self._error_img = (IWxp_grad.as_vector() -
                            self._template_grad.as_vector())
 
         # compute steepest descent update
-        # sdi.T:      params x (dims x ch x h x w)
-        # error_img:           (dims x ch x h x w)
+        # sdi.T:      params x (dims x ch x pixels)
+        # error_img:           (dims x ch x pixels)
         # sdu:        params
         return sdi.T.dot(self._error_img)
 
@@ -464,17 +472,15 @@ class GradientCorrelation(Residual):
         n_channels = image.n_channels
 
         # compute gradient
-        # grad:  dims x ch x h x w
-        self._grad = self._calculate_gradients(image, forward=forward)
-        h, w = self._grad.shape
-        grad2 = self._grad.as_vector().reshape(
-            (n_dims, n_channels, h, w))
+        # grad:  dims x ch x pixels
+        grad = self._calculate_gradients(image, forward=forward)
+        grad2 = grad.as_vector().reshape((n_dims, n_channels, -1))
 
         # compute IGOs (remember axis 0 is y, axis 1 is x)
-        # grad:    dims x ch x h x w
-        # phi:            ch x h x w
-        # cos_phi:        ch x h x w
-        # sin_phi:        ch x h x w
+        # grad:    dims x ch x pixels
+        # phi:            ch x pixels
+        # cos_phi:        ch x pixels
+        # sin_phi:        ch x pixels
         phi = np.angle(grad2[1, ...] + 1j * grad2[0, ...])
         self._cos_phi = np.cos(phi)
         self._sin_phi = np.sin(phi)
@@ -482,52 +488,49 @@ class GradientCorrelation(Residual):
         # concatenate sin and cos terms so that we can take the second
         # derivatives correctly. sin(phi) = y and cos(phi) = x which is the
         # correct ordering when multiplying against the warp Jacobian
-        # cos_phi:         ch  x h x w
-        # sin_phi:         ch  x h x w
-        # grad:    (dims x ch) x h x w
-        self._grad.from_vector(
-            np.concatenate((self._sin_phi, self._cos_phi), axis=0).ravel())
+        # cos_phi:         ch  x pixels
+        # sin_phi:         ch  x pixels
+        # grad:    (dims x ch) x pixels
+        grad.from_vector_inplace(
+            np.concatenate((self._sin_phi[None, ...],
+                            self._cos_phi[None, ...]), axis=0).ravel())
 
         # compute IGOs gradient
-        # second_grad:  dims x dims x ch x (h x w)
-        second_grad = self._calculate_gradients(self._grad)
-        second_grad = second_grad.pixels.reshape(
+        # second_grad:  dims x dims x ch x pixels
+        second_grad = self._calculate_gradients(grad)
+        second_grad = second_grad.pixels.flatten().reshape(
             (n_dims, n_dims,  n_channels, -1))
 
         # Fix crossed derivatives: dydx = dxdy
         second_grad[1, 0, ...] = second_grad[0, 1, ...]
 
-        # reshape cos_phi and sin_phi
-        self._cos_phi = self._cos_phi.ravel().reshape((n_channels, -1))
-        self._sin_phi = self._sin_phi.ravel().reshape((n_channels, -1))
-
         # complete full IGOs gradient computation
-        # second_grad:  dims x dims x ch x (h x w)
+        # second_grad:  dims x dims x ch x pixels
         second_grad[1, ...] = (-self._sin_phi[None, ...] * second_grad[1, ...])
         second_grad[0, ...] = (self._cos_phi[None, ...] * second_grad[0, ...])
 
         # compute steepest descent images
-        # gradient: dims x dims x ch x (h x w)
-        # dw_dp:    dims x           x (h x w) x params
-        # sdi:                    ch x (h x w) x params
+        # gradient: dims x dims x ch x pixels
+        # dw_dp:    dims x           x pixels x params
+        # sdi:                    ch x pixels x params
         sdi = 0
-        aux = second_grad[..., None] * dW_dp[:, None, None, ...]
+        aux = second_grad[..., None] * dW_dp[None, :, None, ...]
         for a in aux.reshape(((-1,) + aux.shape[2:])):
                 sdi += a
 
         # compute constant N
         # N:  1
-        self._N = h * w
+        self._N = grad.n_parameters / 2
 
         # reshape steepest descent images
-        # sdi: (ch x h x w) x params
+        # sdi: (ch x pixels) x params
         return sdi.reshape((-1, sdi.shape[2]))
 
     def calculate_hessian(self, sdi):
         # compute hessian
-        # sdi.T:   params x (dims x ch x h x w)
-        # sdi:              (dims x ch x h x w) x params
-        # hessian: params x                     x params
+        # sdi.T:   params x (dims x ch x pixels)
+        # sdi:              (dims x ch x pixels) x params
+        # hessian: params x                      x params
         return sdi.T.dot(sdi)
 
     def steepest_descent_update(self, sdi, IWxp, template):
@@ -540,10 +543,10 @@ class GradientCorrelation(Residual):
             (n_dims, n_channels, -1))
 
         # compute IGOs (remember axis 0 is y, axis 1 is x)
-        # IWxp_grad:     dims x ch x (h x w)
-        # phi:                  ch x (h x w)
-        # IWxp_cos_phi:         ch x (h x w)
-        # IWxp_sin_phi:         ch x (h x w)
+        # IWxp_grad:     dims x ch x pixels
+        # phi:                  ch x pixels
+        # IWxp_cos_phi:         ch x pixels
+        # IWxp_sin_phi:         ch x pixels
         phi = np.angle(IWxp_grad[1, ...] + 1j * IWxp_grad[0, ...])
         IWxp_cos_phi = np.cos(phi)
         IWxp_sin_phi = np.sin(phi)
@@ -554,8 +557,8 @@ class GradientCorrelation(Residual):
                            self._sin_phi * IWxp_cos_phi).ravel()
 
         # compute steepest descent update
-        # sdi:       (ch x h x w) x params
-        # error_img: (ch x h x w)
+        # sdi:       (ch x pixels) x params
+        # error_img: (ch x pixels)
         # sdu:                      params
         sdu = sdi.T.dot(self._error_img)
 
