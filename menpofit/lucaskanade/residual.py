@@ -161,7 +161,7 @@ class Residual(object):
         if forward:
             # Calculate the gradient over the image
             # grad:  (dims x ch) x H x W
-            grad = gradient(image, fast2d=False)
+            grad = gradient(image)
             # Warp gradient for forward additive using the given transform
             # grad:  (dims x ch) x h x w
             template, transform = forward
@@ -172,8 +172,8 @@ class Residual(object):
             # the boundary of the image mask to zero (no reliable gradient
             # can be computed there!)
             # grad:  (dims x ch) x h x w
-            grad = gradient(image, fast2d=False)
-            grad.set_boundary_pixels()
+            grad = gradient(image)
+            #grad.set_boundary_pixels()
         return grad
 
 
