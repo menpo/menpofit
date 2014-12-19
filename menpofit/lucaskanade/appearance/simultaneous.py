@@ -10,7 +10,7 @@ class SFA(AppearanceLucasKanade):
     """
     @property
     def algorithm(self):
-        return 'Adaptive-FA'
+        return 'Simultaneous-FA'
 
     def _fit(self, fitting_result, max_iters=20, project=True):
         # Initial error > eps
@@ -64,7 +64,7 @@ class SFC(AppearanceLucasKanade):
     """
     @property
     def algorithm(self):
-        return 'Adaptive-FC'
+        return 'Simultaneous-FC'
 
     def _set_up(self):
         # Compute warp Jacobian
@@ -117,7 +117,7 @@ class SIC(AppearanceLucasKanade):
     """
     @property
     def algorithm(self):
-        return 'Adaptive-IC'
+        return 'Simultaneous-IC'
 
     def _set_up(self):
         # Compute warp Jacobian
