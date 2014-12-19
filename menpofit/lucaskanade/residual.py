@@ -437,7 +437,7 @@ class GradientImages(Residual):
 
         # reshape steepest descent images
         # sdi: (dims x ch x h x w) x params
-        return sdi.reshape((-1, sdi.shape[3]))
+        return sdi.reshape((-1, sdi.shape[-1]))
 
     def calculate_hessian(self, sdi):
         # compute hessian
@@ -524,7 +524,7 @@ class GradientCorrelation(Residual):
 
         # reshape steepest descent images
         # sdi: (ch x pixels) x params
-        return sdi.reshape((-1, sdi.shape[2]))
+        return sdi.reshape((-1, sdi.shape[-1]))
 
     def calculate_hessian(self, sdi):
         # compute hessian
