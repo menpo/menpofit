@@ -1,4 +1,13 @@
-from menpo.visualize.widgets.helpers import (figure_options,
+import numpy as np
+from collections import OrderedDict
+from IPython.html.widgets import (FloatTextWidget, TextWidget, PopupWidget,
+                                  ContainerWidget, TabWidget, FloatSliderWidget,
+                                  RadioButtonsWidget, CheckboxWidget,
+                                  DropdownWidget, AccordionWidget, ButtonWidget)
+
+from menpo.visualize.widgets.options import (viewer_options,
+                                             format_viewer_options,
+                                             figure_options,
                                              format_figure_options,
                                              figure_options_two_scales,
                                              format_figure_options_two_scales,
@@ -23,19 +32,10 @@ from menpo.visualize.widgets.helpers import (figure_options,
                                              format_plot_options,
                                              save_figure_options,
                                              format_save_figure_options)
-from menpo.visualize.widgets.base import (_plot_figure, _plot_graph,
-                                          _plot_eigenvalues,
-                                          _check_n_parameters,
-                                          _raw_info_string_to_latex,
+from menpo.visualize.widgets.tools import logo, format_logo
+from menpo.visualize.widgets.base import (_visualize, _raw_info_string_to_latex,
                                           _extract_groups_labels)
-from IPython.html.widgets import (FloatTextWidget, TextWidget, PopupWidget,
-                                  ContainerWidget, TabWidget, FloatSliderWidget,
-                                  RadioButtonsWidget, CheckboxWidget,
-                                  DropdownWidget, AccordionWidget, ButtonWidget)
-from IPython.display import display, clear_output
-import matplotlib.pylab as plt
-import numpy as np
-from collections import OrderedDict
+from menpo.visualize.viewmatplotlib import MatplotlibImageViewer2d
 
 # This glyph import is called frequently during visualisation, so we ensure
 # that we only import it once
@@ -43,8 +43,8 @@ glyph = None
 
 
 def visualize_shape_model(shape_models, n_parameters=5,
-                          parameters_bounds=(-3.0, 3.0), figure_size=(7, 7),
-                          mode='multiple', popup=False, **kwargs):
+                          parameters_bounds=(-3.0, 3.0), figure_size=(6, 4),
+                          mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel shape model.
 
@@ -53,32 +53,28 @@ def visualize_shape_model(shape_models, n_parameters=5,
     shape_models : `list` of :map:`PCAModel` or subclass
         The multilevel shape model to be displayed. Note that each level can
         have different number of components.
-
     n_parameters : `int` or `list` of `int` or None, optional
         The number of principal components to be used for the parameters
         sliders.
-        If int, then the number of sliders per level is the minimum between
-        n_parameters and the number of active components per level.
-        If list of int, then a number of sliders is defined per level.
-        If None, all the active components per level will have a slider.
-
+        If `int`, then the number of sliders per level is the minimum between
+        `n_parameters` and the number of active components per level.
+        If `list` of `int`, then a number of sliders is defined per level.
+        If ``None``, all the active components per level will have a slider.
     parameters_bounds : (`float`, `float`), optional
         The minimum and maximum bounds, in std units, for the sliders.
-
     figure_size : (`int`, `int`), optional
         The size of the plotted figures.
-
-    mode : 'single' or 'multiple', optional
-        If single, only a single slider is constructed along with a drop down
-        menu.
-        If multiple, a slider is constructed for each parameter.
-
-    popup : `boolean`, optional
-        If enabled, the widget will appear as a popup window.
-
-    kwargs : `dict`, optional
-        Passed through to the viewer.
+    mode : {``single``, ``multiple``}, optional
+        If ``single``, only a single slider is constructed along with a drop
+        down menu. If ``multiple``, a slider is constructed for each parameter.
+    popup : `bool`, optional
+        If ``True``, the widget will appear as a popup window.
     """
+    import IPython.html.widgets as ipywidgets
+    import IPython.display as ipydisplay
+    import matplotlib.pyplot as plt
+    from matplotlib import collections as mc
+
     # make sure that shape_models is a list even with one member
     if not isinstance(shape_models, list):
         shape_models = [shape_models]
@@ -93,49 +89,101 @@ def visualize_shape_model(shape_models, n_parameters=5,
     # the returned n_parameters is a list of len n_levels
     n_parameters = _check_n_parameters(n_parameters, n_levels, max_n_params)
 
+    # initial options dictionaries
+    lines_options = {'render_lines': True,
+                     'line_width': 1,
+                     'line_colour': ['r'],
+                     'line_style': '-'}
+    markers_options = {'render_markers': True,
+                       'marker_size': 20,
+                       'marker_face_colour': ['r'],
+                       'marker_edge_colour': ['k'],
+                       'marker_style': 'o',
+                       'marker_edge_width': 1}
+    figure_options = {'x_scale': 1.,
+                      'y_scale': 1.,
+                      'render_axes': False,
+                      'axes_font_name': 'sans-serif',
+                      'axes_font_size': 10,
+                      'axes_font_style': 'normal',
+                      'axes_font_weight': 'normal',
+                      'axes_x_limits': None,
+                      'axes_y_limits': None}
+    viewer_options_default = {'lines': lines_options,
+                              'markers': markers_options,
+                              'figure': figure_options}
+
     # Define plot function
     def plot_function(name, value):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get params
+        # get selected level
         level = 0
         if n_levels > 1:
             level = level_wid.value
-        def_mode = mode_wid.value
-        axis_mode = axes_mode_wid.value
-        parameters_values = model_parameters_wid.parameters_values
-        x_scale = figure_options_wid.x_scale
-        y_scale = figure_options_wid.y_scale
-        axes_visible = figure_options_wid.axes_visible
 
         # compute weights
+        parameters_values = model_parameters_wid.parameters_values
         weights = (parameters_values *
-                   shape_models[level].eigenvalues[:len(parameters_values)] ** 0.5)
+                   shape_models[level].eigenvalues[:len(parameters_values)] **
+                   0.5)
 
         # compute the mean
         mean = shape_models[level].mean()
 
-        # select figure
-        figure_id = plt.figure(save_figure_wid.figure_id.number)
-
-        # invert axis if image mode is enabled
-        if axis_mode == 1:
-            plt.gca().invert_yaxis()
+        tmp1 = viewer_options_wid.selected_values[0]['lines']
+        tmp2 = viewer_options_wid.selected_values[0]['markers']
+        tmp3 = viewer_options_wid.selected_values[0]['figure']
+        new_figure_size = (tmp3['x_scale'] * figure_size[0],
+                           tmp3['y_scale'] * figure_size[1])
 
         # compute and show instance
-        if def_mode == 1:
+        if mode_wid.value == 1:
             # Deformation mode
             # compute instance
             instance = shape_models[level].instance(weights)
 
             # plot
             if mean_wid.value:
-                mean.view(image_view=axis_mode == 1, colour_array='y',
-                          **kwargs)
-                plt.hold(True)
-            instance.view(image_view=axis_mode == 1, **kwargs)
+                mean.view(
+                    figure_id=save_figure_wid.renderer[0].figure_id,
+                    new_figure=False, image_view=axes_mode_wid.value == 1,
+                    render_lines=tmp1['render_lines'],
+                    line_colour='y',
+                    line_style='solid', line_width=tmp1['line_width'],
+                    render_markers=tmp2['render_markers'],
+                    marker_style=tmp2['marker_style'],
+                    marker_size=tmp2['marker_size'], marker_face_colour='y',
+                    marker_edge_colour='y',
+                    marker_edge_width=tmp2['marker_edge_width'],
+                    render_axes=False, figure_size=None)
+
+            renderer = instance.view(
+                figure_id=save_figure_wid.renderer[0].figure_id,
+                new_figure=False, image_view=axes_mode_wid.value==1,
+                render_lines=tmp1['render_lines'],
+                line_colour=tmp1['line_colour'][0],
+                line_style=tmp1['line_style'], line_width=tmp1['line_width'],
+                render_markers=tmp2['render_markers'],
+                marker_style=tmp2['marker_style'],
+                marker_size=tmp2['marker_size'],
+                marker_face_colour=tmp2['marker_face_colour'],
+                marker_edge_colour=tmp2['marker_edge_colour'],
+                marker_edge_width=tmp2['marker_edge_width'],
+                render_axes=tmp3['render_axes'],
+                axes_font_name=tmp3['axes_font_name'],
+                axes_font_size=tmp3['axes_font_size'],
+                axes_font_style=tmp3['axes_font_style'],
+                axes_font_weight=tmp3['axes_font_weight'],
+                axes_x_limits=tmp3['axes_x_limits'],
+                axes_y_limits=tmp3['axes_y_limits'],
+                figure_size=new_figure_size,
+                label=None)
+
+            if mean_wid.value and axes_mode_wid.value == 1:
+                plt.gca().invert_yaxis()
 
             # instance range
             tmp_range = instance.range()
@@ -146,8 +194,28 @@ def visualize_shape_model(shape_models, n_parameters=5,
             instance_upper = shape_models[level].instance(weights)
 
             # plot
-            mean.view(image_view=axis_mode == 1, **kwargs)
-            plt.hold(True)
+            renderer = mean.view(
+                figure_id=save_figure_wid.renderer[0].figure_id,
+                new_figure=False, image_view=axes_mode_wid.value == 1,
+                render_lines=tmp1['render_lines'],
+                line_colour=tmp1['line_colour'][0],
+                line_style=tmp1['line_style'], line_width=tmp1['line_width'],
+                render_markers=tmp2['render_markers'],
+                marker_style=tmp2['marker_style'],
+                marker_size=tmp2['marker_size'],
+                marker_face_colour=tmp2['marker_face_colour'],
+                marker_edge_colour=tmp2['marker_edge_colour'],
+                marker_edge_width=tmp2['marker_edge_width'],
+                render_axes=tmp3['render_axes'],
+                axes_font_name=tmp3['axes_font_name'],
+                axes_font_size=tmp3['axes_font_size'],
+                axes_font_style=tmp3['axes_font_style'],
+                axes_font_weight=tmp3['axes_font_weight'],
+                axes_x_limits=tmp3['axes_x_limits'],
+                axes_y_limits=tmp3['axes_y_limits'],
+                figure_size=new_figure_size, label=None)
+
+            ax = plt.gca()
             for p in range(mean.n_points):
                 xm = mean.points[p, 0]
                 ym = mean.points[p, 1]
@@ -155,33 +223,27 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 yl = instance_lower.points[p, 1]
                 xu = instance_upper.points[p, 0]
                 yu = instance_upper.points[p, 1]
-                if axis_mode == 1:
+                if axes_mode_wid.value == 1:
                     # image mode
-                    plt.plot([ym, yl], [xm, xl], 'r-', lw=2)
-                    plt.plot([ym, yu], [xm, xu], 'g-', lw=2)
+                    lines = [[(ym, xm), (yl, xl)], [(ym, xm), (yu, xu)]]
                 else:
                     # point cloud mode
-                    plt.plot([xm, xl], [ym, yl], 'r-', lw=2)
-                    plt.plot([xm, xu], [ym, yu], 'g-', lw=2)
+                    lines = [[(xm, ym), (xl, yl)], [(xm, ym), (xu, yu)]]
+                lc = mc.LineCollection(lines, colors=('g', 'b'),
+                                       linestyles='solid', linewidths=2)
+                ax.add_collection(lc)
 
             # instance range
             tmp_range = mean.range()
 
-        plt.hold(False)
-        plt.gca().axis('equal')
-        # set figure size
-        plt.gcf().set_size_inches([x_scale, y_scale] * np.asarray(figure_size))
-        # turn axis on/off
-        if not axes_visible:
-            plt.axis('off')
         plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = figure_id
+        save_figure_wid.renderer[0] = renderer
 
         # info_wid string
         info_txt = r"""
-            Level: {} out of   {}.
+            Level: {} out of {}.
             {} components in total.
             {} active components.
             {:.1f} % variance kept.
@@ -199,33 +261,37 @@ def visualize_shape_model(shape_models, n_parameters=5,
     def plot_eigenvalues(name):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get parameters
+        # get level
         level = 0
         if n_levels > 1:
             level = level_wid.value
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # show eigenvalues plots
-        new_figure_id = _plot_eigenvalues(figure_id, shape_models[level],
-                                          figure_size,
-                                          figure_options_wid.x_scale,
-                                          figure_options_wid.y_scale)
+        # get the current figure id and plot the eigenvalues
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+                           viewer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        plt.subplot(121)
+        shape_models[level].plot_eigenvalues_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id)
+        plt.subplot(122)
+        renderer = shape_models[level].plot_eigenvalues_cumulative_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id,
+            figure_size=new_figure_size)
+        plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
+        save_figure_wid.renderer[0] = renderer
 
     # create options widgets
     mode_dict = OrderedDict()
     mode_dict['Deformation'] = 1
     mode_dict['Vectors'] = 2
-    mode_wid = RadioButtonsWidget(values=mode_dict, description='Mode:',
-                                  value=1)
+    mode_wid = ipywidgets.RadioButtonsWidget(values=mode_dict,
+                                             description='Mode:', value=1)
     mode_wid.on_trait_change(plot_function, 'value')
-    mean_wid = CheckboxWidget(value=False, description='Show mean shape')
+    mean_wid = ipywidgets.CheckboxWidget(value=False,
+                                         description='Show mean shape')
     mean_wid.on_trait_change(plot_function, 'value')
 
     # controls mean shape checkbox visibility
@@ -243,19 +309,27 @@ def visualize_shape_model(shape_models, n_parameters=5,
                                             toggle_show_visible=False,
                                             plot_eig_visible=True,
                                             plot_eig_function=plot_eigenvalues)
-    figure_options_wid = figure_options(plot_function, scale_default=1.,
-                                        show_axes_default=True,
-                                        toggle_show_default=True,
-                                        toggle_show_visible=False)
-    axes_mode_wid = RadioButtonsWidget(values={'Image': 1, 'Point cloud': 2},
-                                       description='Axes mode:', value=1)
+
+    # viewer options widget
+    axes_mode_wid = ipywidgets.RadioButtonsWidget(
+        values={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
+        value=2)
     axes_mode_wid.on_trait_change(plot_function, 'value')
-    ch = list(figure_options_wid.children)
-    ch.insert(3, axes_mode_wid)
-    figure_options_wid.children = ch
-    info_wid = info_print(toggle_show_default=True, toggle_show_visible=False)
-    initial_figure_id = plt.figure()
-    save_figure_wid = save_figure_options(initial_figure_id,
+    viewer_options_wid = viewer_options(viewer_options_default,
+                                        ['lines', 'markers', 'figure_one'],
+                                        objects_names=None,
+                                        plot_function=plot_function,
+                                        toggle_show_visible=False,
+                                        toggle_show_default=True)
+    viewer_options_all = ipywidgets.ContainerWidget(children=[axes_mode_wid,
+                                                    viewer_options_wid])
+    info_wid = info_print(toggle_show_default=True,
+                          toggle_show_visible=False)
+
+    # save figure widget
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = save_figure_options(initial_renderer,
                                           toggle_show_default=True,
                                           toggle_show_visible=False)
 
@@ -274,32 +348,33 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = RadioButtonsWidget(values=radio_str,
-                                       description='Pyramid:', value=0)
+        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+                                                  description='Pyramid:',
+                                                  value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(plot_function, 'value')
         radio_children = [level_wid, mode_wid, mean_wid]
     else:
         radio_children = [mode_wid, mean_wid]
-    radio_wids = ContainerWidget(children=radio_children)
-    tmp_wid = ContainerWidget(children=[radio_wids, model_parameters_wid])
-    wid = TabWidget(children=[tmp_wid, figure_options_wid, info_wid,
-                              save_figure_wid])
+    radio_wids = ipywidgets.ContainerWidget(children=radio_children)
+    tmp_wid = ipywidgets.ContainerWidget(children=[radio_wids,
+                                                   model_parameters_wid])
+    tab_wid = ipywidgets.TabWidget(children=[tmp_wid, viewer_options_all,
+                                             info_wid, save_figure_wid])
+    logo_wid = logo()
+    wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
     if popup:
-        wid = PopupWidget(children=[wid], button_text='Shape Model Menu')
+        wid = ipywidgets.PopupWidget(children=[wid],
+                                     button_text='Shape Model Menu')
 
     # display final widget
-    display(wid)
+    ipydisplay.display(wid)
 
     # set final tab titles
-    tab_titles = ['Shape parameters', 'Figure options', 'Model info',
+    tab_titles = ['Shape parameters', 'Viewer options', 'Model info',
                   'Save figure']
-    if popup:
-        for (k, tl) in enumerate(tab_titles):
-            wid.children[0].set_title(k, tl)
-    else:
-        for (k, tl) in enumerate(tab_titles):
-            wid.set_title(k, tl)
+    for (k, tl) in enumerate(tab_titles):
+        tab_wid.set_title(k, tl)
 
     # align widgets
     tmp_wid.remove_class('vbox')
@@ -309,11 +384,12 @@ def visualize_shape_model(shape_models, n_parameters=5,
                             container_border='1px solid black',
                             toggle_button_font_weight='bold',
                             border_visible=True)
-    format_figure_options(figure_options_wid, container_padding='6px',
+    format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
                           toggle_button_font_weight='bold',
-                          border_visible=False)
+                          border_visible=False,
+                          suboptions_border_visible=True)
     format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
@@ -328,7 +404,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
     update_widgets('', 0)
 
     # Reset value to enable initial visualization
-    figure_options_wid.children[2].value = False
+    axes_mode_wid.value = 1
 
 
 def visualize_appearance_model(appearance_models, n_parameters=5,
@@ -1997,3 +2073,31 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
     # return widget object if asked
     if return_widget:
         return wid
+
+
+def _check_n_parameters(n_params, n_levels, max_n_params):
+    r"""
+    Checks the maximum number of components per level either of the shape
+    or the appearance model. It must be None or int or float or a list of
+    those containing 1 or {n_levels} elements.
+    """
+    str_error = ("n_params must be None or 1 <= int <= max_n_params or "
+                 "a list of those containing 1 or {} elements").format(n_levels)
+    if not isinstance(n_params, list):
+        n_params_list = [n_params] * n_levels
+    elif len(n_params) == 1:
+        n_params_list = [n_params[0]] * n_levels
+    elif len(n_params) == n_levels:
+        n_params_list = n_params
+    else:
+        raise ValueError(str_error)
+    for i, comp in enumerate(n_params_list):
+        if comp is None:
+            n_params_list[i] = max_n_params[i]
+        else:
+            if isinstance(comp, int):
+                if comp > max_n_params[i]:
+                    n_params_list[i] = max_n_params[i]
+            else:
+                raise ValueError(str_error)
+    return n_params_list
