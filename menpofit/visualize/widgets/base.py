@@ -187,7 +187,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 plt.gca().invert_yaxis()
 
             # instance range
-            tmp_range = instance.range()
+            instance_range = instance.range()
         else:
             # Vectors mode
             # compute instance
@@ -235,12 +235,15 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 ax.add_collection(lc)
 
             # instance range
-            tmp_range = mean.range()
+            instance_range = mean.range()
 
         plt.show()
 
         # save the current figure id
         save_figure_wid.renderer[0] = renderer
+
+        # update info text widget
+        update_info(level, instance_range)
 
         # info_wid string
         info_txt = r"""
@@ -252,11 +255,29 @@ def visualize_shape_model(shape_models, n_parameters=5,
             {} landmark points, {} features.
         """.format(level + 1, n_levels, shape_models[level].n_components,
                    shape_models[level].n_active_components,
-                   shape_models[level].variance_ratio() * 100, tmp_range[0],
-                   tmp_range[1], mean.n_points,
+                   shape_models[level].variance_ratio() * 100, instance_range[0],
+                   instance_range[1], mean.n_points,
                    shape_models[level].n_features)
 
         info_wid.children[1].value = _raw_info_string_to_latex(info_txt)
+
+    # define function that updates info text
+    def update_info(level, instance_range):
+        lvl_sha_mod = shape_models[level]
+        info_wid.children[1].children[0].value = "> Level: {} out of {}.".\
+            format(level + 1, n_levels)
+        info_wid.children[1].children[1].value = "> {} components in total.".\
+            format(lvl_sha_mod.n_components)
+        info_wid.children[1].children[2].value = "> {} active components.".\
+            format(lvl_sha_mod.n_active_components)
+        info_wid.children[1].children[3].value = "> {:.1f}% variance kept.".\
+            format(lvl_sha_mod.variance_ratio() * 100)
+        info_wid.children[1].children[4].value = "> Instance range: {:.1f} " \
+                                                 "x {:.1f}.".\
+            format(instance_range[0], instance_range[1])
+        info_wid.children[1].children[5].value = "> {} landmark points, " \
+                                                 "{} features.".\
+            format(lvl_sha_mod.mean().n_points, lvl_sha_mod.n_features)
 
     # Plot eigenvalues function
     def plot_eigenvalues(name):
@@ -324,7 +345,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
                                         toggle_show_default=True)
     viewer_options_all = ipywidgets.ContainerWidget(children=[axes_mode_wid,
                                                     viewer_options_wid])
-    info_wid = info_print(toggle_show_default=True,
+    info_wid = info_print(n_bullets=6, toggle_show_default=True,
                           toggle_show_visible=False)
 
     # save figure widget
@@ -391,7 +412,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
                           toggle_button_font_weight='bold',
                           border_visible=False,
                           suboptions_border_visible=True)
-    format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
+    format_info_print(info_wid, font_size_in_pt='10pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
                       toggle_button_font_weight='bold', border_visible=False)
@@ -573,25 +594,25 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
     # define function that updates info text
     def update_info(image, level, group):
         lvl_app_mod = appearance_models[level]
-
-        info_txt = r"""
-            Level: {} out of {}.
-            {} components in total.
-            {} active components.
-            {:.1f}% variance kept.
-            Reference shape of size {} with {} channel{}.
-            {} features.
-            {} landmark points.
-            Instance: min={:.3f}, max={:.3f}
-        """.format(level + 1, n_levels, lvl_app_mod.n_components,
-                   lvl_app_mod.n_active_components,
-                   lvl_app_mod.variance_ratio() * 100, image._str_shape,
-                   image.n_channels, 's' * (image.n_channels > 1),
-                   lvl_app_mod.n_features, image.landmarks[group].lms.n_points,
-                   image.pixels.min(), image.pixels.max())
-
-        # update info widget text
-        info_wid.children[1].value = _raw_info_string_to_latex(info_txt)
+        info_wid.children[1].children[0].value = "> Level: {} out of {}.".\
+            format(level + 1, n_levels)
+        info_wid.children[1].children[1].value = "> {} components in total.".\
+            format(lvl_app_mod.n_components)
+        info_wid.children[1].children[2].value = "> {} active components.".\
+            format(lvl_app_mod.n_active_components)
+        info_wid.children[1].children[3].value = "> {:.1f}% variance kept.".\
+            format(lvl_app_mod.variance_ratio() * 100)
+        info_wid.children[1].children[4].value = "> Reference shape of size " \
+                                                 "{} with {} channel{}.".\
+            format(image._str_shape,
+                   image.n_channels, 's' * (image.n_channels > 1))
+        info_wid.children[1].children[5].value = "> {} features.".\
+            format(lvl_app_mod.n_features)
+        info_wid.children[1].children[6].value = "> {} landmark points.".\
+            format(image.landmarks[group].lms.n_points)
+        info_wid.children[1].children[7].value = "> Instance: min={:.3f}, " \
+                                                 "max={:.3f}".\
+            format(image.pixels.min(), image.pixels.max())
 
     # Plot eigenvalues function
     def plot_eigenvalues(name):
@@ -646,7 +667,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                                         plot_function=plot_function,
                                         toggle_show_visible=False,
                                         toggle_show_default=True)
-    info_wid = info_print(toggle_show_default=True,
+    info_wid = info_print(n_bullets=8, toggle_show_default=True,
                           toggle_show_visible=False)
 
     # save figure widget
@@ -730,7 +751,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                           toggle_button_font_weight='bold',
                           border_visible=False,
                           suboptions_border_visible=True)
-    format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
+    format_info_print(info_wid, font_size_in_pt='10pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
                       toggle_button_font_weight='bold', border_visible=False)
