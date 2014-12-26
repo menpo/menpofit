@@ -510,9 +510,12 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                       'axes_font_weight': 'normal',
                       'axes_x_limits': None,
                       'axes_y_limits': None}
+    image_options = {'interpolation': 'none',
+                     'alpha': 1.}
     viewer_options_default = {'lines': lines_options,
                               'markers': markers_options,
-                              'figure': figure_options}
+                              'figure': figure_options,
+                              'image': image_options}
 
     # Define plot function
     def plot_function(name, value):
@@ -541,6 +544,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
         tmp1 = viewer_options_wid.selected_values[0]['lines']
         tmp2 = viewer_options_wid.selected_values[0]['markers']
         tmp3 = viewer_options_wid.selected_values[0]['figure']
+        tmp4 = viewer_options_wid.selected_values[0]['image']
         new_figure_size = (tmp3['x_scale'] * figure_size[0],
                            tmp3['y_scale'] * figure_size[1])
         renderer = _visualize(
@@ -565,7 +569,8 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
             False, None, None, new_figure_size, tmp3['render_axes'],
             tmp3['axes_font_name'], tmp3['axes_font_size'],
             tmp3['axes_font_style'], tmp3['axes_x_limits'],
-            tmp3['axes_y_limits'], tmp3['axes_font_weight'])
+            tmp3['axes_y_limits'], tmp3['axes_font_weight'],
+            tmp4['interpolation'], tmp4['alpha'])
 
         # save the current figure id
         save_figure_wid.renderer[0] = renderer
@@ -641,7 +646,8 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
 
     # viewer options widget
     viewer_options_wid = viewer_options(viewer_options_default,
-                                        ['lines', 'markers', 'figure_one'],
+                                        ['lines', 'markers', 'figure_one',
+                                         'image'],
                                         objects_names=None,
                                         plot_function=plot_function,
                                         toggle_show_visible=False,
@@ -859,9 +865,12 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                       'axes_font_weight': 'normal',
                       'axes_x_limits': None,
                       'axes_y_limits': None}
+    image_options = {'interpolation': 'none',
+                     'alpha': 1.0}
     viewer_options_default = {'lines': lines_options,
                               'markers': markers_options,
-                              'figure': figure_options}
+                              'figure': figure_options,
+                              'image': image_options}
 
     # Define plot function
     def plot_function(name, value):
@@ -889,6 +898,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         tmp1 = viewer_options_wid.selected_values[0]['lines']
         tmp2 = viewer_options_wid.selected_values[0]['markers']
         tmp3 = viewer_options_wid.selected_values[0]['figure']
+        tmp4 = viewer_options_wid.selected_values[0]['image']
         new_figure_size = (tmp3['x_scale'] * figure_size[0],
                            tmp3['y_scale'] * figure_size[1])
         renderer = _visualize(
@@ -913,7 +923,8 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
             False, None, None, new_figure_size, tmp3['render_axes'],
             tmp3['axes_font_name'], tmp3['axes_font_size'],
             tmp3['axes_font_style'], tmp3['axes_x_limits'],
-            tmp3['axes_y_limits'], tmp3['axes_font_weight'])
+            tmp3['axes_y_limits'], tmp3['axes_font_weight'],
+            tmp4['interpolation'], tmp4['alpha'])
 
         # save the current figure id
         save_figure_wid.renderer[0] = renderer
@@ -1059,7 +1070,8 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
 
     # viewer options widget
     viewer_options_wid = viewer_options(viewer_options_default,
-                                        ['lines', 'markers', 'figure_one'],
+                                        ['lines', 'markers', 'figure_one',
+                                         'image'],
                                         objects_names=None,
                                         plot_function=plot_function,
                                         toggle_show_visible=False,
