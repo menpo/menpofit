@@ -211,6 +211,216 @@ class FittingResult(object):
         from menpofit.visualize import visualize_fitting_results
         visualize_fitting_results(self, figure_size=(7, 7), popup=popup)
 
+    def plot_errors(self, error_type='me_norm', figure_id=None,
+                    new_figure=False, render_lines=True, line_colour='b',
+                    line_style='-', line_width=2, render_markers=True,
+                    marker_style='o', marker_size=4, marker_face_colour='b',
+                    marker_edge_colour='k', marker_edge_width=1.,
+                    render_axes=True, axes_font_name='sans-serif',
+                    axes_font_size=10, axes_font_style='normal',
+                    axes_font_weight='normal', figure_size=(6, 4),
+                    render_grid=True, grid_line_style='--',
+                    grid_line_width=0.5):
+        r"""
+        Plot of the error evolution at each fitting iteration.
+
+        Parameters
+        ----------
+        error_type : {``me_norm``, ``me``, ``rmse``}, optional
+            Specifies the way in which the error between the fitted and
+            ground truth shapes is to be computed.
+        figure_id : `object`, optional
+            The id of the figure to be used.
+        new_figure : `bool`, optional
+            If ``True``, a new figure is created.
+        render_lines : `bool`, optional
+            If ``True``, the line will be rendered.
+        line_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``} or
+                      ``(3, )`` `ndarray`, optional
+            The colour of the lines.
+        line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+            The style of the lines.
+        line_width : `float`, optional
+            The width of the lines.
+        render_markers : `bool`, optional
+            If ``True``, the markers will be rendered.
+        marker_style : {``.``, ``,``, ``o``, ``v``, ``^``, ``<``, ``>``, ``+``,
+                        ``x``, ``D``, ``d``, ``s``, ``p``, ``*``, ``h``, ``H``,
+                        ``1``, ``2``, ``3``, ``4``, ``8``}, optional
+            The style of the markers.
+        marker_size : `int`, optional
+            The size of the markers in points^2.
+        marker_face_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+                             or ``(3, )`` `ndarray`, optional
+            The face (filling) colour of the markers.
+        marker_edge_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+                             or ``(3, )`` `ndarray`, optional
+            The edge colour of the markers.
+        marker_edge_width : `float`, optional
+            The width of the markers' edge.
+        render_axes : `bool`, optional
+            If ``True``, the axes will be rendered.
+        axes_font_name : {``serif``, ``sans-serif``, ``cursive``, ``fantasy``,
+                          ``monospace``}, optional
+            The font of the axes.
+        axes_font_size : `int`, optional
+            The font size of the axes.
+        axes_font_style : {``normal``, ``italic``, ``oblique``}, optional
+            The font style of the axes.
+        axes_font_weight : {``ultralight``, ``light``, ``normal``, ``regular``,
+                            ``book``, ``medium``, ``roman``, ``semibold``,
+                            ``demibold``, ``demi``, ``bold``, ``heavy``,
+                            ``extra bold``, ``black``}, optional
+            The font weight of the axes.
+        figure_size : (`float`, `float`) or `None`, optional
+            The size of the figure in inches.
+        render_grid : `bool`, optional
+            If ``True``, the grid will be rendered.
+        grid_line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+            The style of the grid lines.
+        grid_line_width : `float`, optional
+            The width of the grid lines.
+
+        Returns
+        -------
+        viewer : :map:`GraphPlotter`
+            The viewer object.
+        """
+        from menpo.visualize import GraphPlotter
+        errors_list = self.errors(error_type=error_type)
+        return GraphPlotter(figure_id=figure_id, new_figure=new_figure,
+                            x_axis=range(len(errors_list)),
+                            y_axis=[errors_list],
+                            title='Fitting Errors per Iteration',
+                            x_label='Iteration', y_label='Fitting Error',
+                            x_axis_limits=(0, len(errors_list)-1),
+                            y_axis_limits=None).render(
+            render_lines=render_lines, line_colour=line_colour,
+            line_style=line_style, line_width=line_width,
+            render_markers=render_markers, marker_style=marker_style,
+            marker_size=marker_size, marker_face_colour=marker_face_colour,
+            marker_edge_colour=marker_edge_colour,
+            marker_edge_width=marker_edge_width, render_legend=False,
+            render_axes=render_axes, axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight, render_grid=render_grid,
+            grid_line_style=grid_line_style, grid_line_width=grid_line_width,
+            figure_size=figure_size)
+
+    def plot_displacements(self, stat_type='mean', figure_id=None,
+                           new_figure=False, render_lines=True, line_colour='b',
+                           line_style='-', line_width=2, render_markers=True,
+                           marker_style='o', marker_size=4,
+                           marker_face_colour='b', marker_edge_colour='k',
+                           marker_edge_width=1., render_axes=True,
+                           axes_font_name='sans-serif', axes_font_size=10,
+                           axes_font_style='normal', axes_font_weight='normal',
+                           figure_size=(6, 4), render_grid=True,
+                           grid_line_style='--', grid_line_width=0.5):
+        r"""
+        Plot of a statistical metric of the displacement between the shape of
+        each iteration and the shape of the previous one.
+
+        Parameters
+        ----------
+        stat_type : {``mean``, ``median``, ``min``, ``max``}, optional
+            Specifies a statistic metric to be extracted from the displacements
+            (see also `displacements_stats()` method).
+        figure_id : `object`, optional
+            The id of the figure to be used.
+        new_figure : `bool`, optional
+            If ``True``, a new figure is created.
+        render_lines : `bool`, optional
+            If ``True``, the line will be rendered.
+        line_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``} or
+                      ``(3, )`` `ndarray`, optional
+            The colour of the lines.
+        line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+            The style of the lines.
+        line_width : `float`, optional
+            The width of the lines.
+        render_markers : `bool`, optional
+            If ``True``, the markers will be rendered.
+        marker_style : {``.``, ``,``, ``o``, ``v``, ``^``, ``<``, ``>``, ``+``,
+                        ``x``, ``D``, ``d``, ``s``, ``p``, ``*``, ``h``, ``H``,
+                        ``1``, ``2``, ``3``, ``4``, ``8``}, optional
+            The style of the markers.
+        marker_size : `int`, optional
+            The size of the markers in points^2.
+        marker_face_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+                             or ``(3, )`` `ndarray`, optional
+            The face (filling) colour of the markers.
+        marker_edge_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+                             or ``(3, )`` `ndarray`, optional
+            The edge colour of the markers.
+        marker_edge_width : `float`, optional
+            The width of the markers' edge.
+        render_axes : `bool`, optional
+            If ``True``, the axes will be rendered.
+        axes_font_name : {``serif``, ``sans-serif``, ``cursive``, ``fantasy``,
+                          ``monospace``}, optional
+            The font of the axes.
+        axes_font_size : `int`, optional
+            The font size of the axes.
+        axes_font_style : {``normal``, ``italic``, ``oblique``}, optional
+            The font style of the axes.
+        axes_font_weight : {``ultralight``, ``light``, ``normal``, ``regular``,
+                            ``book``, ``medium``, ``roman``, ``semibold``,
+                            ``demibold``, ``demi``, ``bold``, ``heavy``,
+                            ``extra bold``, ``black``}, optional
+            The font weight of the axes.
+        figure_size : (`float`, `float`) or `None`, optional
+            The size of the figure in inches.
+        render_grid : `bool`, optional
+            If ``True``, the grid will be rendered.
+        grid_line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+            The style of the grid lines.
+        grid_line_width : `float`, optional
+            The width of the grid lines.
+
+        Returns
+        -------
+        viewer : :map:`GraphPlotter`
+            The viewer object.
+        """
+        from menpo.visualize import GraphPlotter
+        # set labels
+        if stat_type == 'max':
+            ylabel = 'Maximum Displacement'
+            title = 'Maximum displacement per Iteration'
+        elif stat_type == 'min':
+            ylabel = 'Minimum Displacement'
+            title = 'Minimum displacement per Iteration'
+        elif stat_type == 'mean':
+            ylabel = 'Mean Displacement'
+            title = 'Mean displacement per Iteration'
+        elif stat_type == 'median':
+            ylabel = 'Median Displacement'
+            title = 'Median displacement per Iteration'
+        else:
+            raise ValueError('stat_type must be one of {max, min, mean, '
+                             'median}.')
+        # plot
+        displacements_list = self.displacements_stats(stat_type=stat_type)
+        return GraphPlotter(figure_id=figure_id, new_figure=new_figure,
+                            x_axis=range(len(displacements_list)),
+                            y_axis=[displacements_list],
+                            title=title,
+                            x_label='Iteration', y_label=ylabel,
+                            x_axis_limits=(0, len(displacements_list)-1),
+                            y_axis_limits=None).render(
+            render_lines=render_lines, line_colour=line_colour,
+            line_style=line_style, line_width=line_width,
+            render_markers=render_markers, marker_style=marker_style,
+            marker_size=marker_size, marker_face_colour=marker_face_colour,
+            marker_edge_colour=marker_edge_colour,
+            marker_edge_width=marker_edge_width, render_legend=False,
+            render_axes=render_axes, axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight, render_grid=render_grid,
+            grid_line_style=grid_line_style, grid_line_width=grid_line_width,
+            figure_size=figure_size)
+
     def as_serializable(self):
         r""""
         Returns a serializable version of the fitting result. This is a much
