@@ -856,6 +856,7 @@ def iterations_result_options(iterations_result_options_default,
         animation_wid.children[1].children[0].on_trait_change(plot_function,
                                                               'value')
         render_image.on_trait_change(plot_function, 'value')
+        iterations_mode.on_trait_change(plot_function, 'value')
 
     # assign plot function of errors button
     if plot_errors_function is not None:

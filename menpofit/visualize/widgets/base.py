@@ -17,10 +17,14 @@ from menpo.visualize.widgets.options import (viewer_options,
                                              format_animation_options,
                                              save_figure_options,
                                              format_save_figure_options)
-from menpo.visualize.widgets.tools import logo, format_logo
-from menpo.visualize.widgets.base import (_visualize, _extract_groups_labels)
+from menpo.visualize.widgets.tools import logo
+from menpo.visualize.widgets.base import _visualize as _visualize_menpo
+from menpo.visualize.widgets.base import _extract_groups_labels
 from menpo.visualize.viewmatplotlib import (MatplotlibImageViewer2d,
                                             sample_colours_from_colourmap)
+
+from .options import (model_parameters, format_model_parameters,
+                      update_model_parameters)
 
 # This glyph import is called frequently during visualisation, so we ensure
 # that we only import it once
@@ -536,8 +540,8 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
         tmp4 = viewer_options_wid.selected_values[0]['image']
         new_figure_size = (tmp3['x_scale'] * figure_size[0],
                            tmp3['y_scale'] * figure_size[1])
-        renderer = _visualize(
-            instance, save_figure_wid.renderer[0], True,
+        renderer = _visualize_menpo(
+            instance, save_figure_wid.renderer[0],
             landmark_options_wid.selected_values['render_landmarks'],
             channel_options_wid.selected_values['image_is_masked'],
             channel_options_wid.selected_values['masked_enabled'],
@@ -546,9 +550,8 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
             channel_options_wid.selected_values['glyph_block_size'],
             channel_options_wid.selected_values['glyph_use_negative'],
             channel_options_wid.selected_values['sum_enabled'],
-            [landmark_options_wid.selected_values['group']],
-            [landmark_options_wid.selected_values['with_labels']],
-            False, dict(), True, False,
+            landmark_options_wid.selected_values['group'],
+            landmark_options_wid.selected_values['with_labels'],
             tmp1['render_lines'], tmp1['line_style'], tmp1['line_width'],
             tmp1['line_colour'][:n_labels], tmp2['render_markers'],
             tmp2['marker_style'], tmp2['marker_size'], tmp2['marker_edge_width'],
@@ -890,8 +893,8 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         tmp4 = viewer_options_wid.selected_values[0]['image']
         new_figure_size = (tmp3['x_scale'] * figure_size[0],
                            tmp3['y_scale'] * figure_size[1])
-        renderer = _visualize(
-            instance, save_figure_wid.renderer[0], True,
+        renderer = _visualize_menpo(
+            instance, save_figure_wid.renderer[0],
             landmark_options_wid.selected_values['render_landmarks'],
             channel_options_wid.selected_values['image_is_masked'],
             channel_options_wid.selected_values['masked_enabled'],
@@ -900,9 +903,8 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
             channel_options_wid.selected_values['glyph_block_size'],
             channel_options_wid.selected_values['glyph_use_negative'],
             channel_options_wid.selected_values['sum_enabled'],
-            [landmark_options_wid.selected_values['group']],
-            [landmark_options_wid.selected_values['with_labels']],
-            False, dict(), True, False,
+            landmark_options_wid.selected_values['group'],
+            landmark_options_wid.selected_values['with_labels'],
             tmp1['render_lines'], tmp1['line_style'], tmp1['line_width'],
             tmp1['line_colour'][:n_labels], tmp2['render_markers'],
             tmp2['marker_style'], tmp2['marker_size'], tmp2['marker_edge_width'],
@@ -1316,8 +1318,8 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
         tmp4 = viewer_options_wid.selected_values[0]['image']
         new_figure_size = (tmp3['x_scale'] * figure_size[0],
                            tmp3['y_scale'] * figure_size[1])
-        renderer = _visualize(
-            instance, save_figure_wid.renderer[0], True,
+        renderer = _visualize_menpo(
+            instance, save_figure_wid.renderer[0],
             landmark_options_wid.selected_values['render_landmarks'],
             channel_options_wid.selected_values['image_is_masked'],
             channel_options_wid.selected_values['masked_enabled'],
@@ -1326,9 +1328,8 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
             channel_options_wid.selected_values['glyph_block_size'],
             channel_options_wid.selected_values['glyph_use_negative'],
             channel_options_wid.selected_values['sum_enabled'],
-            [landmark_options_wid.selected_values['group']],
-            [landmark_options_wid.selected_values['with_labels']],
-            False, dict(), True, False,
+            landmark_options_wid.selected_values['group'],
+            landmark_options_wid.selected_values['with_labels'],
             tmp1['render_lines'], tmp1['line_style'], tmp1['line_width'],
             tmp1['line_colour'][:n_labels], tmp2['render_markers'],
             tmp2['marker_style'], tmp2['marker_size'], tmp2['marker_edge_width'],
