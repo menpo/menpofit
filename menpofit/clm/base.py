@@ -201,37 +201,36 @@ class CLM(DeformableModel):
         """
         return 'Constrained Local Model'
 
-    def view_widget(self, n_parameters=5, parameters_bounds=(-3.0, 3.0),
-                    mode='multiple', popup=False):
+    def view_shape_models_widget(self, n_parameters=5,
+                                 parameters_bounds=(-3.0, 3.0), mode='multiple',
+                                 popup=False):
         r"""
         Visualizes the shape models of the CLM object using the
-        menpo.visualize.widgets.visualize_shape_model widget.
+        `menpo.visualize.widgets.visualize_shape_model` widget.
 
         Parameters
         -----------
-        n_parameters : `int` or `list` of `int` or None, optional
-            The number of principal components to be used for the parameters
-            sliders.
-            If int, then the number of sliders per level is the minimum between
-            n_parameters and the number of active components per level.
-            If list of int, then a number of sliders is defined per level.
-            If None, all the active components per level will have a slider.
-
+        n_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders.
+            If `int`, then the number of sliders per level is the minimum
+            between `n_parameters` and the number of active components per
+            level.
+            If `list` of `int`, then a number of sliders is defined per level.
+            If ``None``, all the active components per level will have a slider.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
-
-        mode : 'single' or 'multiple', optional
-            If single, only a single slider is constructed along with a drop down
-            menu.
-            If multiple, a slider is constructed for each parameter.
-
-        popup : `boolean`, optional
-            If enabled, the widget will appear as a popup window.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu.
+            If ``'multiple'``, a slider is constructed for each parameter.
+        popup : `bool`, optional
+            If ``True``, the widget will appear as a popup window.
         """
         from menpofit.visualize import visualize_shape_model
         visualize_shape_model(self.shape_models, n_parameters=n_parameters,
                               parameters_bounds=parameters_bounds,
-                              figure_size=(7, 7), mode=mode, popup=popup)
+                              figure_size=(6, 4), mode=mode, popup=popup)
 
     def __str__(self):
         from menpofit.base import name_of_callable
