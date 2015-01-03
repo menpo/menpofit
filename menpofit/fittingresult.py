@@ -987,8 +987,7 @@ def compute_cumulative_error(errors, x_axis):
     return [np.count_nonzero([errors <= x]) / n_errors for x in x_axis]
 
 
-def plot_cumulative_error_distribution(errors, errors_max=0.055,
-                                       errors_step=0.005, figure_id=None,
+def plot_cumulative_error_distribution(errors, error_range=None, figure_id=None,
                                        new_figure=False,
                                        title='Cumulative Error Distribution',
                                        x_label='Normalized Point-to-Point Error',
@@ -1033,12 +1032,16 @@ def plot_cumulative_error_distribution(errors, errors_max=0.055,
     errors : `list` of `lists`
         A `list` with `lists` of fitting errors. A separate CED curve will be
         rendered for each errors `list`.
-    errors_max : `float`, optional
-        The maximum error value for which to compute the distribution. Note that
-        it depends on the error type.
-    errors_step : `float`, optional
-        The step of the error values for which to compute the distribution. Note
-        that it depends on the error type.
+    error_range : `list` of `float` with length 3, optional
+        Specifies the horizontal axis range, i.e.
+
+        ::
+
+        error_range[0] = min_error
+        error_range[1] = max_error
+        error_range[2] = error_step
+
+        If ``None``, then ``'error_range = [0., 0.101, 0.005]'``.
     figure_id : `object`, optional
         The id of the figure to be used.
     new_figure : `bool`, optional
@@ -1195,8 +1198,12 @@ def plot_cumulative_error_distribution(errors, errors_max=0.055,
     """
     from menpo.visualize import GraphPlotter
 
+    # make sure that errors is a list even with one list member
+    if not isinstance(errors[0], list):
+        errors = [errors]
+
     # create x and y axes lists
-    x_axis = list(np.arange(0, errors_max, errors_step))
+    x_axis = list(np.arange(error_range[0], error_range[1], error_range[2]))
     ceds = [compute_cumulative_error(e, x_axis) for e in errors]
 
     # parse legend_entries, axes_x_limits and axes_y_limits
@@ -1240,3 +1247,4 @@ def plot_cumulative_error_distribution(errors, errors_max=0.055,
         axes_font_style=axes_font_style, axes_font_weight=axes_font_weight,
         figure_size=figure_size, render_grid=render_grid,
         grid_line_style=grid_line_style, grid_line_width=grid_line_width)
+
