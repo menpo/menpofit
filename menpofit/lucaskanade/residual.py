@@ -420,7 +420,7 @@ class GradientImages(Residual):
         # compute gradient
         # second_grad:  dims x dims x ch x pixels
         second_grad = self._calculate_gradients(self._template_grad)
-        second_grad = second_grad.pixels.flatten().reshape(
+        second_grad = second_grad.masked_pixels().flatten().reshape(
             (n_dims, n_dims,  n_channels, -1))
 
         # Fix crossed derivatives: dydx = dxdy
@@ -498,7 +498,7 @@ class GradientCorrelation(Residual):
         # compute IGOs gradient
         # second_grad:  dims x dims x ch x pixels
         second_grad = self._calculate_gradients(grad)
-        second_grad = second_grad.pixels.flatten().reshape(
+        second_grad = second_grad.masked_pixels().flatten().reshape(
             (n_dims, n_dims,  n_channels, -1))
 
         # Fix crossed derivatives: dydx = dxdy
