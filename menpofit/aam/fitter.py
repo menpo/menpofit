@@ -147,10 +147,11 @@ class LucasKanadeAAMFitter(AAMFitter):
     """
     def __init__(self, aam, algorithm=SIC,
                  md_transform=OrthoMDTransform, n_shape=None,
-                 n_appearance=None, **kwargs):
+                 n_appearance=None, fast_gradient=True, **kwargs):
         super(LucasKanadeAAMFitter, self).__init__(aam)
         self._set_up(algorithm=algorithm, md_transform=md_transform,
-                     n_shape=n_shape, n_appearance=n_appearance, **kwargs)
+                     n_shape=n_shape, n_appearance=n_appearance,
+                     fast_gradient=fast_gradient, **kwargs)
 
     @property
     def algorithm(self):
@@ -164,7 +165,7 @@ class LucasKanadeAAMFitter(AAMFitter):
     def _set_up(self, algorithm=SIC,
                 md_transform=OrthoMDTransform,
                 global_transform=DifferentiableAlignmentSimilarity,
-                n_shape=None, n_appearance=None, **kwargs):
+                n_shape=None, n_appearance=None, fast_gradient=True, **kwargs):
         r"""
         Sets up the Lucas-Kanade fitter object.
 
@@ -265,7 +266,8 @@ class LucasKanadeAAMFitter(AAMFitter):
                 md_trans = md_transform(
                     sm, self.aam.transform,
                     source=am.mean().landmarks['source'].lms)
-            self._fitters.append(algorithm(am, md_trans, **kwargs))
+            self._fitters.append(
+                algorithm(am, md_trans, fast_gradient=fast_gradient, **kwargs))
 
     def __str__(self):
         out = "{0} Fitter\n" \

@@ -5,6 +5,7 @@ from nose.plugins.attrib import attr
 import numpy as np
 from numpy.testing import assert_allclose
 from nose.tools import raises
+from functools import partial
 from menpo.feature import igo
 from menpofit.transform import DifferentiablePiecewiseAffine
 
@@ -303,9 +304,10 @@ for i in range(4):
     training_shapes.append(im.landmarks['PTS']['all'])
     templates.append(im)
 
+slow_igo = partial(igo, fast2d=True)
 
 # build atm
-atm1 = ATMBuilder(features=igo,
+atm1 = ATMBuilder(features=slow_igo,
                   transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=3,
@@ -314,7 +316,7 @@ atm1 = ATMBuilder(features=igo,
                   max_shape_components=[1, 2, 3],
                   boundary=3).build(training_shapes, templates[0], group='PTS')
 
-atm2 = ATMBuilder(features=igo,
+atm2 = ATMBuilder(features=slow_igo,
                   transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=1,
@@ -323,7 +325,7 @@ atm2 = ATMBuilder(features=igo,
                   max_shape_components=[1],
                   boundary=3).build(training_shapes, templates[1], group='PTS')
 
-atm3 = ATMBuilder(features=igo,
+atm3 = ATMBuilder(features=slow_igo,
                   transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=3,
@@ -332,7 +334,7 @@ atm3 = ATMBuilder(features=igo,
                   max_shape_components=[1, 2, 3],
                   boundary=3).build(training_shapes, templates[2], group='PTS')
 
-atm4 = ATMBuilder(features=igo,
+atm4 = ATMBuilder(features=slow_igo,
                   transform=DifferentiablePiecewiseAffine,
                   normalization_diagonal=150,
                   n_levels=1,
@@ -407,7 +409,8 @@ def test_str_mock(mock_stdout):
 
 def atm_helper(atm, algorithm, im_number, max_iters, initial_error,
                final_error, error_type):
-    fitter = LucasKanadeATMFitter(atm, algorithm=algorithm)
+    fitter = LucasKanadeATMFitter(atm, algorithm=algorithm,
+                                  fast_gradient=False)
     fitting_result = fitter.fit(
         templates[im_number], initial_shape[im_number],
         gt_shape=templates[im_number].landmarks['PTS'].lms,

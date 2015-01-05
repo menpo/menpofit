@@ -40,6 +40,9 @@ class Residual(object):
     """
     __metaclass__ = abc.ABCMeta
 
+    def __init__(self, fast_gradient=True):
+        self.fast_gradient = fast_gradient
+
     @property
     def error(self):
         r"""
@@ -161,7 +164,7 @@ class Residual(object):
         if forward:
             # Calculate the gradient over the image
             # grad:  (dims x ch) x H x W
-            grad = gradient(image)
+            grad = gradient(image, fast2d=self.fast_gradient)
             # Warp gradient for forward additive using the given transform
             # grad:  (dims x ch) x h x w
             template, transform = forward
@@ -172,8 +175,8 @@ class Residual(object):
             # the boundary of the image mask to zero (no reliable gradient
             # can be computed there!)
             # grad:  (dims x ch) x h x w
-            grad = gradient(image)
-            #grad.set_boundary_pixels()
+            grad = gradient(image, fast2d=self.fast_gradient)
+            grad.set_boundary_pixels()
         return grad
 
 
@@ -220,7 +223,9 @@ class GaborFourier(Residual):
 
     type = 'GaborFourier'
 
-    def __init__(self, image_shape, **kwargs):
+    def __init__(self, image_shape, fast_gradient=True, **kwargs):
+        super(GaborFourier, self).__init__(fast_gradient=fast_gradient)
+
         if 'filter_bank' in kwargs:
             self._filter_bank = kwargs.get('filter_bank')
             if self._filter_bank.shape != image_shape:

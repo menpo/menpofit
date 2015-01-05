@@ -5,6 +5,7 @@ from nose.plugins.attrib import attr
 import numpy as np
 from numpy.testing import assert_allclose
 from nose.tools import raises
+from functools import partial
 from menpo.feature import igo
 from menpofit.transform import DifferentiablePiecewiseAffine
 
@@ -306,8 +307,10 @@ for i in range(4):
         im = im.as_greyscale(mode='luminosity')
     training_images.append(im)
 
+slow_igo = partial(igo, fast2d=False)
+
 # build aam
-aam = AAMBuilder(features=igo,
+aam = AAMBuilder(features=slow_igo,
                  transform=DifferentiablePiecewiseAffine,
                  trilist=training_images[0].landmarks['ibug_face_68_trimesh'].
                  lms.trilist,
@@ -319,7 +322,7 @@ aam = AAMBuilder(features=igo,
                  max_appearance_components=[3, 2, 1],
                  boundary=3).build(training_images, group='PTS')
 
-aam2 = AAMBuilder(features=igo,
+aam2 = AAMBuilder(features=slow_igo,
                   transform=DifferentiablePiecewiseAffine,
                   trilist=training_images[0].landmarks['ibug_face_68_trimesh'].
                   lms.trilist,
@@ -401,7 +404,8 @@ def test_str_mock(mock_stdout):
 
 def aam_helper(aam, algorithm, im_number, max_iters, initial_error,
                final_error, error_type):
-    fitter = LucasKanadeAAMFitter(aam, algorithm=algorithm)
+    fitter = LucasKanadeAAMFitter(aam, algorithm=algorithm,
+                                  fast_gradient=False)
     fitting_result = fitter.fit(
         training_images[im_number], initial_shape[im_number],
         gt_shape=training_images[im_number].landmarks['PTS'].lms,

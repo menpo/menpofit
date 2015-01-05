@@ -132,11 +132,12 @@ class LucasKanadeATMFitter(ATMFitter):
         components will be used for all levels.
     """
     def __init__(self, atm, algorithm=IC, residual=SSD,
-                 md_transform=OrthoMDTransform, n_shape=None, **kwargs):
+                 md_transform=OrthoMDTransform, n_shape=None,
+                 fast_gradient=True, **kwargs):
         super(LucasKanadeATMFitter, self).__init__(atm)
         self._set_up(algorithm=algorithm, residual=residual,
                      md_transform=md_transform, n_shape=n_shape,
-                     **kwargs)
+                     fast_gradient=fast_gradient, **kwargs)
 
     @property
     def algorithm(self):
@@ -150,7 +151,7 @@ class LucasKanadeATMFitter(ATMFitter):
     def _set_up(self, algorithm=IC,
                 residual=SSD, md_transform=OrthoMDTransform,
                 global_transform=DifferentiableAlignmentSimilarity,
-                n_shape=None, **kwargs):
+                n_shape=None, fast_gradient=True, **kwargs):
         r"""
         Sets up the Lucas-Kanade fitter object.
 
@@ -217,10 +218,11 @@ class LucasKanadeATMFitter(ATMFitter):
 
             if residual is not GaborFourier:
                 self._fitters.append(
-                    algorithm(t, residual(), md_trans, **kwargs))
+                    algorithm(t, residual(fast_gradient), md_trans, **kwargs))
             else:
                 self._fitters.append(
-                    algorithm(t, residual(t.shape), md_trans, **kwargs))
+                    algorithm(t, residual(fast_gradient, t.shape), md_trans,
+                              **kwargs))
 
     def __str__(self):
         out = "{0} Fitter\n" \
