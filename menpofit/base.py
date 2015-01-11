@@ -28,27 +28,25 @@ def create_pyramid(images, n_levels, downscale, features, verbose=False):
 
     Parameters
     ----------
-    images: list of :map:`Image`
+    images : list of :map:`Image`
         The set of landmarked images from which to build the AAM.
-
-    n_levels: int
+    n_levels: `int`
         The number of multi-resolution pyramidal levels to be used.
-
-    downscale: float
+    downscale: `float`
         The downscale factor that will be used to create the different
         pyramidal levels.
-
-    features: ``callable`` ``[callable]``
+    features: `callable` or list of `callable`
         If a single callable, then the feature calculation will happen once
         followed by a gaussian pyramid. If a list of callables then a
         gaussian pyramid is generated with features extracted at each level
         (after downsizing and blurring).
+    verbose : `bool`, optional
+        If ``True`` wil print the progress of the pyramid computation.
 
     Returns
     -------
-    list of generators :
+    pyramid_generator : list of generators
         The generator function of the Gaussian pyramid.
-
     """
     will_take_a_while = is_pyramid_on_features(features)
     pyramids = []
