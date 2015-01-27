@@ -212,7 +212,7 @@ class FittingResult(object):
             form of plus/minus buttons or a slider.
         """
         from menpofit.visualize import visualize_fitting_results
-        visualize_fitting_results(self, figure_size=(6, 4), popup=popup,
+        visualize_fitting_results(self, figure_size=(10, 8), popup=popup,
                                   browser_style=browser_style)
 
     def plot_errors(self, error_type='me_norm', figure_id=None,
@@ -222,7 +222,7 @@ class FittingResult(object):
                     marker_edge_colour='k', marker_edge_width=1.,
                     render_axes=True, axes_font_name='sans-serif',
                     axes_font_size=10, axes_font_style='normal',
-                    axes_font_weight='normal', figure_size=(6, 4),
+                    axes_font_weight='normal', figure_size=(10, 6),
                     render_grid=True, grid_line_style='--',
                     grid_line_width=0.5):
         r"""
@@ -319,7 +319,7 @@ class FittingResult(object):
                            marker_edge_width=1., render_axes=True,
                            axes_font_name='sans-serif', axes_font_size=10,
                            axes_font_style='normal', axes_font_weight='normal',
-                           figure_size=(6, 4), render_grid=True,
+                           figure_size=(10, 6), render_grid=True,
                            grid_line_style='--', grid_line_width=0.5):
         r"""
         Plot of a statistical metric of the displacement between the shape of
@@ -1025,7 +1025,7 @@ def plot_cumulative_error_distribution(errors, error_range=None, figure_id=None,
                                        axes_font_style='normal',
                                        axes_font_weight='normal',
                                        axes_x_limits=None, axes_y_limits=None,
-                                       figure_size=(6, 4),  render_grid=True,
+                                       figure_size=(10, 8),  render_grid=True,
                                        grid_line_style='--',
                                        grid_line_width=0.5):
     r"""

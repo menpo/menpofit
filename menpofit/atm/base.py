@@ -168,7 +168,7 @@ class ATM(DeformableModel):
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0), mode='multiple',
-                                 popup=False):
+                                 popup=False, figure_size=(10, 8)):
         r"""
         Visualizes the shape models of the AAM object using the
         `menpo.visualize.widgets.visualize_shape_model` widget.
@@ -191,15 +191,17 @@ class ATM(DeformableModel):
             If ``'multiple'``, a slider is constructed for each parameter.
         popup : `bool`, optional
             If ``True``, the widget will appear as a popup window.
+        figure_size : (`int`, `int`), optional
+            The size of the plotted figures.
         """
         from menpofit.visualize import visualize_shape_model
         visualize_shape_model(self.shape_models, n_parameters=n_parameters,
                               parameters_bounds=parameters_bounds,
-                              figure_size=(6, 4), mode=mode, popup=popup)
+                              figure_size=figure_size, mode=mode, popup=popup)
 
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        popup=False):
+                        popup=False, figure_size=(10, 8)):
         r"""
         Visualizes the ATM object using the
         menpo.visualize.widgets.visualize_atm widget.
@@ -222,11 +224,13 @@ class ATM(DeformableModel):
             If ``'multiple'``, a slider is constructed for each parameter.
         popup : `bool`, optional
             If ``True``, the widget will appear as a popup window.
+        figure_size : (`int`, `int`), optional
+            The size of the plotted figures.
         """
         from menpofit.visualize import visualize_atm
         visualize_atm(self, n_shape_parameters=n_shape_parameters,
-                      parameters_bounds=parameters_bounds, figure_size=(6, 4),
-                      mode=mode, popup=popup)
+                      parameters_bounds=parameters_bounds,
+                      figure_size=figure_size, mode=mode, popup=popup)
 
     def __str__(self):
         out = "{}\n - {} training shapes.\n".format(self._str_title,

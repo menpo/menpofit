@@ -33,7 +33,7 @@ glyph = None
 
 
 def visualize_shape_model(shape_models, n_parameters=5,
-                          parameters_bounds=(-3.0, 3.0), figure_size=(6, 4),
+                          parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
                           mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel shape model.
@@ -366,8 +366,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
     ipydisplay.display(wid)
 
     # set final tab titles
-    tab_titles = ['Shape parameters', 'Viewer options', 'Model info',
-                  'Save figure']
+    tab_titles = ['Shape parameters', 'Viewer options', 'Info', 'Save figure']
     for (k, tl) in enumerate(tab_titles):
         tab_wid.set_title(k, tl)
 
@@ -403,7 +402,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
 
 
 def visualize_appearance_model(appearance_models, n_parameters=5,
-                               parameters_bounds=(-3.0, 3.0), figure_size=(6, 4),
+                               parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
                                mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel appearance model.
@@ -700,8 +699,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
 
     # set final tab titles
     tab_titles = ['Appearance parameters', 'Channels options',
-                  'Landmarks options', 'Viewer options', 'Model info',
-                  'Save figure']
+                  'Landmarks options', 'Viewer options', 'Info', 'Save figure']
     for (k, tl) in enumerate(tab_titles):
         tab_wid.set_title(k, tl)
 
@@ -748,7 +746,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
 
 
 def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
-                  parameters_bounds=(-3.0, 3.0), figure_size=(6, 4),
+                  parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
                   mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel AAM.
@@ -1130,8 +1128,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
 
     # set final tab titles
     tab_titles = ['AAM parameters', 'Channels options',
-                  'Landmarks options', 'Viewer options', 'Model info',
-                  'Save figure']
+                  'Landmarks options', 'Viewer options', 'Info', 'Save figure']
     for (k, tl) in enumerate(tab_titles):
         tab_wid.set_title(k, tl)
     tab_titles = ['Shape parameters', 'Appearance parameters']
@@ -1186,7 +1183,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
 
 
 def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
-                  figure_size=(6, 4), mode='multiple', popup=False):
+                  figure_size=(10, 8), mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel ATM.
 
@@ -1514,8 +1511,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
 
     # set final tab titles
     tab_titles = ['Shape parameters', 'Channels options',
-                  'Landmarks options', 'Viewer options', 'Model info',
-                  'Save figure']
+                  'Landmarks options', 'Viewer options', 'Info', 'Save figure']
     for (k, tl) in enumerate(tab_titles):
         tab_wid.set_title(k, tl)
 
@@ -1561,7 +1557,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
         False
 
 
-def visualize_fitting_results(fitting_results, figure_size=(6, 4),
+def visualize_fitting_results(fitting_results, figure_size=(10, 8),
                               browser_style='buttons', popup=False):
     r"""
     Widget that allows browsing through a list of fitting results.
@@ -2088,8 +2084,7 @@ def visualize_fitting_results(fitting_results, figure_size=(6, 4),
 
         # final widget
         logo_wid = logo()
-        tab_titles = ['Image info', 'Result', 'Options', 'Error type',
-                      'Save figure']
+        tab_titles = ['Info', 'Result', 'Options', 'Error type', 'Save figure']
         button_title = 'Fitting Result Menu'
 
     # final widget
@@ -2200,7 +2195,7 @@ def visualize_fitting_results(fitting_results, figure_size=(6, 4),
         False
 
 
-def plot_ced(errors, figure_size=(6, 4), popup=False, error_type='me_norm',
+def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
              error_range=None, legend_entries=None, return_widget=False):
     r"""
     Widget for visualizing the cumulative error curves of the provided errors.
@@ -2544,6 +2539,11 @@ def _visualize(image, renderer, render_image, render_landmarks, image_is_masked,
     if glyph is None:
         from menpo.visualize.image import glyph
 
+    # This makes the code shorter for dealing with masked images vs non-masked
+    # images
+    mask_arguments = ({'masked': masked_enabled}
+                      if image_is_masked else {})
+
     # plot
     if render_image:
         # image will be displayed
@@ -2570,12 +2570,10 @@ def _visualize(image, renderer, render_image, render_landmarks, image_is_masked,
                                      use_negative=glyph_use_negative,
                                      channels=channels).\
                         view_landmarks(
-                            masked=masked_enabled, group=group,
-                            with_labels=with_labels[k], without_labels=None,
-                            figure_id=renderer.figure_id, new_figure=False,
-                            render_lines=render_lines[k],
-                            line_style=line_style[k],
-                            line_width=line_width[k],
+                            group=group, with_labels=with_labels[k],
+                            without_labels=None, figure_id=renderer.figure_id,
+                            new_figure=False, render_lines=render_lines[k],
+                            line_style=line_style[k], line_width=line_width[k],
                             line_colour=line_colour[k],
                             render_markers=render_markers[k],
                             marker_style=marker_style[k],
@@ -2616,11 +2614,11 @@ def _visualize(image, renderer, render_image, render_landmarks, image_is_masked,
                             axes_x_limits=axes_x_limits,
                             axes_y_limits=axes_y_limits,
                             interpolation=interpolation, alpha=alpha,
-                            figure_size=figure_size)
+                            figure_size=figure_size, **mask_arguments)
                 else:
                     # image, landmarks, masked, not glyph
                     renderer = image.view_landmarks(
-                        channels=channels, masked=masked_enabled, group=group,
+                        channels=channels, group=group,
                         with_labels=with_labels[k], without_labels=None,
                         figure_id=renderer.figure_id, new_figure=False,
                         render_lines=render_lines[k], line_style=line_style[k],
@@ -2663,60 +2661,33 @@ def _visualize(image, renderer, render_image, render_landmarks, image_is_masked,
                         axes_x_limits=axes_x_limits,
                         axes_y_limits=axes_y_limits,
                         interpolation=interpolation, alpha=alpha,
-                        figure_size=figure_size)
+                        figure_size=figure_size, **mask_arguments)
         else:
             # either there are not any landmark groups selected or they won't
             # be displayed
-            if image_is_masked:
-                if glyph_enabled or sum_enabled:
-                    # image, not landmarks, masked, glyph
-                    renderer = glyph(image, vectors_block_size=glyph_block_size,
-                                     use_negative=glyph_use_negative,
-                                     channels=channels).view(
-                        masked=masked_enabled, render_axes=render_axes,
-                        axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits,
-                        figure_size=figure_size, interpolation=interpolation,
-                        alpha=alpha)
-                else:
-                    # image, not landmarks, masked, not glyph
-                    renderer = image.view(
-                        masked=masked_enabled, channels=channels,
-                        render_axes=render_axes, axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits, figure_size=figure_size,
-                        interpolation=interpolation, alpha=alpha)
+            if glyph_enabled or sum_enabled:
+                # image, not landmarks, masked, glyph
+                renderer = glyph(image, vectors_block_size=glyph_block_size,
+                                 use_negative=glyph_use_negative,
+                                 channels=channels).view(
+                    render_axes=render_axes, axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
+                    figure_size=figure_size, interpolation=interpolation,
+                    alpha=alpha, **mask_arguments)
             else:
-                if glyph_enabled or sum_enabled:
-                    # image, not landmarks, not masked, glyph
-                    renderer = glyph(image, vectors_block_size=glyph_block_size,
-                                     use_negative=glyph_use_negative,
-                                     channels=channels).view(
-                        render_axes=render_axes, axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits, figure_size=figure_size,
-                        interpolation=interpolation, alpha=alpha)
-                else:
-                    # image, not landmarks, not masked, not glyph
-                    renderer = image.view(
-                        channels=channels, render_axes=render_axes,
-                        axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits, figure_size=figure_size,
-                        interpolation=interpolation, alpha=alpha)
+                # image, not landmarks, masked, not glyph
+                renderer = image.view(
+                    channels=channels, render_axes=render_axes,
+                    axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits,
+                    axes_y_limits=axes_y_limits, figure_size=figure_size,
+                    interpolation=interpolation, alpha=alpha, **mask_arguments)
     else:
         # image won't be displayed
         if render_landmarks and len(groups) > 0:
