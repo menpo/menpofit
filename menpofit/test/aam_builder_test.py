@@ -9,7 +9,7 @@ from menpo.transform import PiecewiseAffine, ThinPlateSplines
 from menpo.feature import sparse_hog, igo, lbp, no_op
 
 import menpo.io as mio
-from menpo.landmark import labeller, ibug_face_68_trimesh
+from menpo.landmark import ibug_face_68_trimesh
 from menpofit.aam import AAMBuilder, PatchBasedAAMBuilder
 
 
@@ -19,23 +19,23 @@ training = []
 for i in range(4):
     im = mio.import_builtin_asset(filenames[i])
     im.crop_to_landmarks_proportion_inplace(0.1)
-    labeller(im, 'PTS', ibug_face_68_trimesh)
     if im.n_channels == 3:
         im = im.as_greyscale(mode='luminosity')
     training.append(im)
 
 # build aams
+template_trilist_image = training[0].landmarks[None]
+trilist = ibug_face_68_trimesh(template_trilist_image)[1].lms.trilist
 aam1 = AAMBuilder(features=[igo, sparse_hog, no_op],
                   transform=PiecewiseAffine,
-                  trilist=training[0].landmarks['ibug_face_68_trimesh'].
-                  lms.trilist,
+                  trilist=trilist,
                   normalization_diagonal=150,
                   n_levels=3,
                   downscale=2,
                   scaled_shape_models=False,
                   max_shape_components=[1, 2, 3],
                   max_appearance_components=[3, 3, 3],
-                  boundary=3).build(training, group='PTS')
+                  boundary=3).build(training)
 
 aam2 = AAMBuilder(features=[no_op, no_op],
                   transform=ThinPlateSplines,
@@ -46,7 +46,7 @@ aam2 = AAMBuilder(features=[no_op, no_op],
                   scaled_shape_models=True,
                   max_shape_components=None,
                   max_appearance_components=1,
-                  boundary=0).build(training, group='PTS')
+                  boundary=0).build(training)
 
 aam3 = AAMBuilder(features=igo,
                   transform=ThinPlateSplines,
@@ -57,7 +57,7 @@ aam3 = AAMBuilder(features=igo,
                   scaled_shape_models=True,
                   max_shape_components=[2],
                   max_appearance_components=10,
-                  boundary=2).build(training, group='PTS')
+                  boundary=2).build(training)
 
 aam4 = PatchBasedAAMBuilder(features=lbp,
                             patch_shape=(10, 13),
@@ -67,55 +67,51 @@ aam4 = PatchBasedAAMBuilder(features=lbp,
                             scaled_shape_models=True,
                             max_shape_components=1,
                             max_appearance_components=None,
-                            boundary=2).build(training, group='PTS')
+                            boundary=2).build(training)
 
 
 @raises(ValueError)
 def test_features_exception():
-    AAMBuilder(features=[igo, sparse_hog]).build(training, group='PTS')
+    AAMBuilder(features=[igo, sparse_hog]).build(training)
 
 
 @raises(ValueError)
 def test_n_levels_exception():
-    AAMBuilder(n_levels=0).build(training, group='PTS')
+    AAMBuilder(n_levels=0).build(training)
 
 
 @raises(ValueError)
 def test_downscale_exception():
-    aam = AAMBuilder(downscale=1).build(training,
-                                        group='PTS')
+    aam = AAMBuilder(downscale=1).build(training)
     assert (aam.downscale == 1)
-    AAMBuilder(downscale=0).build(training, group='PTS')
+    AAMBuilder(downscale=0).build(training)
 
 
 @raises(ValueError)
 def test_normalization_diagonal_exception():
-    aam = AAMBuilder(normalization_diagonal=100).build(training,
-                                                       group='PTS')
+    aam = AAMBuilder(normalization_diagonal=100).build(training)
     assert (aam.appearance_models[0].n_features == 382)
-    AAMBuilder(normalization_diagonal=10).build(training, group='PTS')
+    AAMBuilder(normalization_diagonal=10).build(training)
 
 
 @raises(ValueError)
 def test_max_shape_components_exception():
-    AAMBuilder(max_shape_components=[1, 0.2, 'a']).build(training,
-                                                         group='PTS')
+    AAMBuilder(max_shape_components=[1, 0.2, 'a']).build(training)
 
 
 @raises(ValueError)
 def test_max_appearance_components_exception():
-    AAMBuilder(max_appearance_components=[1, 2]).build(training,
-                                                       group='PTS')
+    AAMBuilder(max_appearance_components=[1, 2]).build(training)
 
 
 @raises(ValueError)
 def test_boundary_exception():
-    AAMBuilder(boundary=-1).build(training, group='PTS')
+    AAMBuilder(boundary=-1).build(training)
 
 
 @patch('sys.stdout', new_callable=StringIO)
 def test_verbose_mock(mock_stdout):
-    AAMBuilder().build(training, group='PTS', verbose=True)
+    AAMBuilder().build(training, verbose=True)
 
 
 @patch('sys.stdout', new_callable=StringIO)
