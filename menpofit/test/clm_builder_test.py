@@ -8,7 +8,6 @@ from nose.tools import raises
 from menpo.feature import sparse_hog, igo, no_op
 
 import menpo.io as mio
-from menpo.landmark import labeller, ibug_face_68_trimesh
 from menpofit.clm import CLMBuilder
 from menpofit.clm.classifier import linear_svm_lr
 from menpofit.base import name_of_callable
@@ -29,7 +28,6 @@ training_images = []
 for i in range(4):
     im = mio.import_builtin_asset(filenames[i])
     im.crop_to_landmarks_proportion_inplace(0.1)
-    labeller(im, 'PTS', ibug_face_68_trimesh)
     if im.n_channels == 3:
         im = im.as_greyscale(mode='luminosity')
     training_images.append(im)
@@ -43,7 +41,7 @@ clm1 = CLMBuilder(classifier_trainers=[linear_svm_lr],
                   downscale=2,
                   scaled_shape_models=False,
                   max_shape_components=[1, 2, 3],
-                  boundary=3).build(training_images, group='PTS')
+                  boundary=3).build(training_images)
 
 clm2 = CLMBuilder(classifier_trainers=[random_forest, linear_svm_lr],
                   patch_shape=(3, 10),
@@ -53,7 +51,7 @@ clm2 = CLMBuilder(classifier_trainers=[random_forest, linear_svm_lr],
                   downscale=1.2,
                   scaled_shape_models=True,
                   max_shape_components=None,
-                  boundary=0).build(training_images, group='PTS')
+                  boundary=0).build(training_images)
 
 clm3 = CLMBuilder(classifier_trainers=[linear_svm_lr],
                   patch_shape=(2, 3),
@@ -63,69 +61,65 @@ clm3 = CLMBuilder(classifier_trainers=[linear_svm_lr],
                   downscale=3,
                   scaled_shape_models=True,
                   max_shape_components=[1],
-                  boundary=2).build(training_images, group='PTS')
+                  boundary=2).build(training_images)
 
 
 @raises(ValueError)
 def test_classifier_type_1_exception():
     CLMBuilder(classifier_trainers=[linear_svm_lr, linear_svm_lr]).build(
-        training_images, group='PTS')
+        training_images)
 
 @raises(ValueError)
 def test_classifier_type_2_exception():
-    CLMBuilder(classifier_trainers=['linear_svm_lr']).build(training_images,
-                                                        group='PTS')
+    CLMBuilder(classifier_trainers=['linear_svm_lr']).build(training_images)
 
 @raises(ValueError)
 def test_patch_shape_1_exception():
-    CLMBuilder(patch_shape=(5, 1)).build(training_images, group='PTS')
+    CLMBuilder(patch_shape=(5, 1)).build(training_images)
 
 @raises(ValueError)
 def test_patch_shape_2_exception():
-    CLMBuilder(patch_shape=(5, 6, 7)).build(training_images, group='PTS')
+    CLMBuilder(patch_shape=(5, 6, 7)).build(training_images)
 
 @raises(ValueError)
 def test_features_exception():
-    CLMBuilder(features=[igo, sparse_hog]).build(training_images, group='PTS')
+    CLMBuilder(features=[igo, sparse_hog]).build(training_images)
 
 @raises(ValueError)
 def test_n_levels_exception():
-    clm = CLMBuilder(n_levels=0).build(training_images, group='PTS')
+    clm = CLMBuilder(n_levels=0).build(training_images)
 
 
 @raises(ValueError)
 def test_downscale_exception():
-    clm = CLMBuilder(downscale=1).build(training_images, group='PTS')
+    clm = CLMBuilder(downscale=1).build(training_images)
     assert (clm.downscale == 1)
-    CLMBuilder(downscale=0).build(training_images, group='PTS')
+    CLMBuilder(downscale=0).build(training_images)
 
 
 @raises(ValueError)
 def test_normalization_diagonal_exception():
-    CLMBuilder(normalization_diagonal=10).build(training_images,
-                                                group='PTS')
+    CLMBuilder(normalization_diagonal=10).build(training_images)
 
 
 @raises(ValueError)
 def test_max_shape_components_1_exception():
-    CLMBuilder(max_shape_components=[1, 0.2, 'a']).build(training_images,
-                                                         group='PTS')
+    CLMBuilder(max_shape_components=[1, 0.2, 'a']).build(training_images)
 
 
 @raises(ValueError)
 def test_max_shape_components_2_exception():
-    CLMBuilder(max_shape_components=[1, 2]).build(training_images,
-                                                  group='PTS')
+    CLMBuilder(max_shape_components=[1, 2]).build(training_images)
 
 
 @raises(ValueError)
 def test_boundary_exception():
-    CLMBuilder(boundary=-1).build(training_images, group='PTS')
+    CLMBuilder(boundary=-1).build(training_images)
 
 
 @patch('sys.stdout', new_callable=StringIO)
 def test_verbose_mock(mock_stdout):
-    CLMBuilder().build(training_images, group='PTS', verbose=True)
+    CLMBuilder().build(training_images, verbose=True)
 
 
 @patch('sys.stdout', new_callable=StringIO)

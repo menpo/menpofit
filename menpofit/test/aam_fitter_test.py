@@ -11,7 +11,7 @@ from menpofit.transform import DifferentiablePiecewiseAffine
 
 import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
-from menpo.landmark import labeller, ibug_face_68_trimesh
+from menpo.landmark import ibug_face_68_trimesh
 from menpofit.aam import AAMBuilder, LucasKanadeAAMFitter
 from menpofit.lucaskanade.appearance import (
     AlternatingForwardAdditive, AlternatingForwardCompositional,
@@ -307,35 +307,34 @@ training_images = []
 for i in range(4):
     im = mio.import_builtin_asset(filenames[i])
     im.crop_to_landmarks_proportion_inplace(0.1)
-    labeller(im, 'PTS', ibug_face_68_trimesh)
     if im.n_channels == 3:
         im = im.as_greyscale(mode='luminosity')
     training_images.append(im)
 
 # build aam
+template_trilist_image = training_images[0].landmarks[None]
+trilist = ibug_face_68_trimesh(template_trilist_image)[1].lms.trilist
 aam = AAMBuilder(features=igo,
                  transform=DifferentiablePiecewiseAffine,
-                 trilist=training_images[0].landmarks['ibug_face_68_trimesh'].
-                 lms.trilist,
+                 trilist=trilist,
                  normalization_diagonal=150,
                  n_levels=3,
                  downscale=2,
                  scaled_shape_models=True,
                  max_shape_components=[1, 2, 3],
                  max_appearance_components=[3, 2, 1],
-                 boundary=3).build(training_images, group='PTS')
+                 boundary=3).build(training_images)
 
 aam2 = AAMBuilder(features=igo,
                   transform=DifferentiablePiecewiseAffine,
-                  trilist=training_images[0].landmarks['ibug_face_68_trimesh'].
-                  lms.trilist,
+                  trilist=trilist,
                   normalization_diagonal=150,
                   n_levels=1,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1],
                   max_appearance_components=[1],
-                  boundary=3).build(training_images, group='PTS')
+                  boundary=3).build(training_images)
 
 
 def test_aam():
@@ -368,7 +367,7 @@ def test_n_appearance_exception():
 
 def test_pertrurb_shape():
     fitter = LucasKanadeAAMFitter(aam)
-    s = fitter.perturb_shape(training_images[0].landmarks['PTS'].lms,
+    s = fitter.perturb_shape(training_images[0].landmarks[None].lms,
                              noise_std=0.08, rotation=False)
     assert (s.n_dims == 2)
     assert (s.n_landmark_groups == 0)
@@ -410,7 +409,7 @@ def aam_helper(aam, algorithm, im_number, max_iters, initial_error,
     fitter = LucasKanadeAAMFitter(aam, algorithm=algorithm)
     fitting_result = fitter.fit(
         training_images[im_number], initial_shape[im_number],
-        gt_shape=training_images[im_number].landmarks['PTS'].lms,
+        gt_shape=training_images[im_number].landmarks[None].lms,
         max_iters=max_iters)
     assert_allclose(
         np.around(fitting_result.initial_error(error_type=error_type), 5),

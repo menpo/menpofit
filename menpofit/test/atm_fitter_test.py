@@ -12,8 +12,8 @@ import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
 from menpofit.atm import ATMBuilder, LucasKanadeATMFitter
 from menpofit.lucaskanade.image import (ImageInverseCompositional,
-                                            ImageForwardAdditive,
-                                            ImageForwardCompositional)
+                                        ImageForwardAdditive,
+                                        ImageForwardCompositional)
 
 
 initial_shape = []
@@ -302,7 +302,7 @@ for i in range(4):
     im.crop_to_landmarks_proportion_inplace(0.1)
     if im.n_channels == 3:
         im = im.as_greyscale(mode='luminosity')
-    training_shapes.append(im.landmarks['PTS']['all'])
+    training_shapes.append(im.landmarks[None].lms)
     templates.append(im)
 
 
@@ -314,7 +314,7 @@ atm1 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1, 2, 3],
-                  boundary=3).build(training_shapes, templates[0], group='PTS')
+                  boundary=3).build(training_shapes, templates[0])
 
 atm2 = ATMBuilder(features=igo,
                   transform=DifferentiablePiecewiseAffine,
@@ -323,7 +323,7 @@ atm2 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1],
-                  boundary=3).build(training_shapes, templates[1], group='PTS')
+                  boundary=3).build(training_shapes, templates[1])
 
 atm3 = ATMBuilder(features=igo,
                   transform=DifferentiablePiecewiseAffine,
@@ -332,7 +332,7 @@ atm3 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1, 2, 3],
-                  boundary=3).build(training_shapes, templates[2], group='PTS')
+                  boundary=3).build(training_shapes, templates[2])
 
 atm4 = ATMBuilder(features=igo,
                   transform=DifferentiablePiecewiseAffine,
@@ -341,7 +341,7 @@ atm4 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1],
-                  boundary=3).build(training_shapes, templates[3], group='PTS')
+                  boundary=3).build(training_shapes, templates[3])
 
 
 def test_atm1():
@@ -371,7 +371,7 @@ def test_n_shape_exception_2():
 
 def test_pertrurb_shape():
     fitter = LucasKanadeATMFitter(atm1)
-    s = fitter.perturb_shape(templates[0].landmarks['PTS'].lms,
+    s = fitter.perturb_shape(templates[0].landmarks[None].lms,
                              noise_std=0.08, rotation=False)
     assert (s.n_dims == 2)
     assert (s.n_landmark_groups == 0)
@@ -412,7 +412,7 @@ def atm_helper(atm, algorithm, im_number, max_iters, initial_error,
     fitter = LucasKanadeATMFitter(atm, algorithm=algorithm)
     fitting_result = fitter.fit(
         templates[im_number], initial_shape[im_number],
-        gt_shape=templates[im_number].landmarks['PTS'].lms,
+        gt_shape=templates[im_number].landmarks[None].lms,
         max_iters=max_iters)
     assert_allclose(
         np.around(fitting_result.initial_error(error_type=error_type), 5),
