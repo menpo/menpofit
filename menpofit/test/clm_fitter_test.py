@@ -8,7 +8,6 @@ from menpo.feature import sparse_hog
 
 import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
-from menpo.landmark import labeller, ibug_face_68_trimesh
 from menpofit.clm import CLMBuilder
 from menpofit.clm import GradientDescentCLMFitter
 from menpofit.gradientdescent import RLMS
@@ -299,7 +298,6 @@ training_images = []
 for i in range(4):
     im = mio.import_builtin_asset(filenames[i])
     im.crop_to_landmarks_proportion_inplace(0.1)
-    labeller(im, 'PTS', ibug_face_68_trimesh)
     if im.n_channels == 3:
         im = im.as_greyscale(mode='luminosity')
     training_images.append(im)
@@ -313,7 +311,7 @@ clm = CLMBuilder(classifier_trainers=linear_svm_lr,
                  downscale=1.1,
                  scaled_shape_models=True,
                  max_shape_components=[1, 2, 3],
-                 boundary=3).build(training_images, group='PTS')
+                 boundary=3).build(training_images)
 
 
 def test_clm():
@@ -353,7 +351,7 @@ def test_n_shape_2_exception():
 
 def test_perturb_shape():
     fitter = GradientDescentCLMFitter(clm)
-    s = fitter.perturb_shape(training_images[0].landmarks['PTS'].lms,
+    s = fitter.perturb_shape(training_images[0].landmarks[None].lms,
                              noise_std=0.08, rotation=False)
     assert (s.n_dims == 2)
     assert (s.n_landmark_groups == 0)

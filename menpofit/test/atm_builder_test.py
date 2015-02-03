@@ -20,7 +20,7 @@ for i in range(4):
     im = mio.import_builtin_asset(filenames[i])
     if im.n_channels == 3:
         im = im.as_greyscale(mode='luminosity')
-    training.append(im.landmarks['PTS']['all'])
+    training.append(im.landmarks[None].lms)
     templates.append(im)
 
 # build atms
@@ -31,7 +31,7 @@ atm1 = ATMBuilder(features=[igo, sparse_hog, no_op],
                   downscale=2,
                   scaled_shape_models=False,
                   max_shape_components=[1, 2, 3],
-                  boundary=3).build(training, templates[0], group='PTS')
+                  boundary=3).build(training, templates[0])
 
 atm2 = ATMBuilder(features=[no_op, no_op],
                   transform=ThinPlateSplines,
@@ -41,7 +41,7 @@ atm2 = ATMBuilder(features=[no_op, no_op],
                   downscale=1.2,
                   scaled_shape_models=True,
                   max_shape_components=None,
-                  boundary=0).build(training, templates[1], group='PTS')
+                  boundary=0).build(training, templates[1])
 
 atm3 = ATMBuilder(features=igo,
                   transform=ThinPlateSplines,
@@ -51,7 +51,7 @@ atm3 = ATMBuilder(features=igo,
                   downscale=3,
                   scaled_shape_models=True,
                   max_shape_components=[2],
-                  boundary=2).build(training, templates[2], group='PTS')
+                  boundary=2).build(training, templates[2])
 
 atm4 = PatchBasedATMBuilder(features=lbp,
                             patch_shape=(10, 13),
@@ -60,8 +60,7 @@ atm4 = PatchBasedATMBuilder(features=lbp,
                             downscale=1.2,
                             scaled_shape_models=True,
                             max_shape_components=1,
-                            boundary=2).build(training, templates[3],
-                                              group='PTS')
+                            boundary=2).build(training, templates[3])
 
 
 @raises(ValueError)
@@ -76,23 +75,21 @@ def test_n_levels_exception():
 
 @raises(ValueError)
 def test_downscale_exception():
-    atm = ATMBuilder(downscale=1).build(training, templates[2], group='PTS')
+    atm = ATMBuilder(downscale=1).build(training, templates[2])
     assert (atm.downscale == 1)
-    ATMBuilder(downscale=0).build(training, templates[2], group='PTS')
+    ATMBuilder(downscale=0).build(training, templates[2])
 
 
 @raises(ValueError)
 def test_normalization_diagonal_exception():
-    atm = ATMBuilder(normalization_diagonal=100).build(training, templates[3],
-                                                       group='PTS')
+    atm = ATMBuilder(normalization_diagonal=100).build(training, templates[3])
     assert (atm.warped_templates[0].n_true_pixels() == 1246)
     ATMBuilder(normalization_diagonal=10).build(training, templates[3])
 
 
 @raises(ValueError)
 def test_max_shape_components_exception():
-    ATMBuilder(max_shape_components=[1, 0.2, 'a']).build(training, templates[0],
-                                                         group='PTS')
+    ATMBuilder(max_shape_components=[1, 0.2, 'a']).build(training, templates[0])
 
 
 @raises(ValueError)
@@ -102,12 +99,12 @@ def test_max_shape_components_exception_2():
 
 @raises(ValueError)
 def test_boundary_exception():
-    ATMBuilder(boundary=-1).build(training, templates[1], group='PTS')
+    ATMBuilder(boundary=-1).build(training, templates[1])
 
 
 @patch('sys.stdout', new_callable=StringIO)
 def test_verbose_mock(mock_stdout):
-    ATMBuilder().build(training, templates[2], group='PTS', verbose=True)
+    ATMBuilder().build(training, templates[2], verbose=True)
 
 
 @patch('sys.stdout', new_callable=StringIO)
