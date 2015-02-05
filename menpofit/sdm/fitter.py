@@ -155,7 +155,8 @@ class SDMFitter(SDFitter):
         out = "Supervised Descent Method\n" \
               " - Non-Parametric '{}' Regressor\n" \
               " - {} training images.\n".format(
-            self._fitters[0].regressor.__name__, self._n_training_images)
+            name_of_callable(self._fitters[0].regressor),
+            self._n_training_images)
         # small strings about number of channels, channels string and downscale
         down_str = []
         for j in range(self.n_levels):
@@ -254,7 +255,7 @@ class SDAAMFitter(AAMFitter, SDFitter):
         return "{}Supervised Descent Method for AAMs:\n" \
                " - Parametric '{}' Regressor\n" \
                " - {} training images.\n".format(
-            self.aam.__str__(), self._fitters[0].regressor.__name__,
+            self.aam.__str__(), name_of_callable(self._fitters[0].regressor),
             self._n_training_images)
 
 
@@ -299,5 +300,5 @@ class SDCLMFitter(CLMFitter, SDFitter):
         return "{}Supervised Descent Method for CLMs:\n" \
                " - Parametric '{}' Regressor\n" \
                " - {} training images.\n".format(
-            self.clm.__str__(), self._fitters[0].regressor.__name__,
+            self.clm.__str__(), name_of_callable(self._fitters[0].regressor),
             self._n_training_images)
