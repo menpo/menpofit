@@ -9,10 +9,8 @@ requirements:
 
   run:
     - python
-    - menpo
-    - numpy 1.9.0
-    - scipy 0.14.0
-    - scikit-learn 0.15.2
+    - menpo 0.4.*
+    - scikit-learn 0.15.*
 
 test:
   requires:
