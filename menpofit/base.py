@@ -129,7 +129,7 @@ def noisy_align(source, target, noise_std=0.04, rotation=False):
     parameter_range = np.hstack((parameters[:2], target.range()))
     noise = (parameter_range * noise_std *
              np.random.randn(transform.n_parameters))
-    return Similarity.identity(source.n_dims).from_vector(parameters + noise)
+    return Similarity.init_identity(source.n_dims).from_vector(parameters + noise)
 
 
 def build_sampling_grid(patch_shape):
