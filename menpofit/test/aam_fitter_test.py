@@ -19,9 +19,7 @@ from menpofit.lucaskanade.appearance import (
     AdaptiveForwardCompositional, AdaptiveInverseCompositional,
     SimultaneousForwardAdditive, SimultaneousForwardCompositional,
     SimultaneousInverseCompositional, ProjectOutForwardAdditive,
-    ProjectOutForwardCompositional, ProjectOutInverseCompositional,
-    ProbabilisticForwardAdditive, ProbabilisticForwardCompositional,
-    ProbabilisticInverseCompositional)
+    ProjectOutForwardCompositional, ProjectOutInverseCompositional)
 
 
 initial_shape = []
@@ -399,9 +397,6 @@ def test_str_mock(mock_stdout):
                                   algorithm=AlternatingInverseCompositional)
     print(fitter)
     print(aam2)
-    fitter = LucasKanadeAAMFitter(aam2,
-                                  algorithm=ProbabilisticForwardAdditive)
-    print(fitter)
 
 
 def aam_helper(aam, algorithm, im_number, max_iters, initial_error,
@@ -487,21 +482,3 @@ def test_simultaneous_fc():
 def test_projectout_fc():
     aam_helper(aam, ProjectOutForwardCompositional, 3, 6, 0.10796, 0.0861,
                'me_norm')
-
-
-@attr('fuzzy')
-def test_probabilistic_ic():
-    aam_helper(aam2, ProbabilisticInverseCompositional, 0, 6, 0.08605, 0.08924,
-               'me_norm')
-
-
-@attr('fuzzy')
-def test_probabilistic_fa():
-    aam_helper(aam2, ProbabilisticForwardAdditive, 1, 7, 0.09051, 0.08679,
-               'me_norm')
-
-
-@attr('fuzzy')
-def test_probabilistic_fc():
-    aam_helper(aam2, ProbabilisticForwardCompositional, 2, 6, 0.11714,
-               0.11704, 'me_norm')
