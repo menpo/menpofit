@@ -216,7 +216,7 @@ sim_jac_solution2d = np.array([[[0.,  0.],
 
 def test_affine_jacobian_2d_with_positions():
     params = np.array([0, 0.1, 0.2, 0, 30, 70])
-    t = DifferentiableAffine.identity(2).from_vector(params)
+    t = DifferentiableAffine.init_identity(2).from_vector(params)
     explicit_pixel_locations = np.array(
         [[0, 0],
         [0, 1],
@@ -230,7 +230,7 @@ def test_affine_jacobian_2d_with_positions():
 
 def test_affine_jacobian_3d_with_positions():
     params = np.ones(12)
-    t = DifferentiableAffine.identity(3).from_vector(params)
+    t = DifferentiableAffine.init_identity(3).from_vector(params)
     explicit_pixel_locations = np.array(
         [[0, 0, 0],
         [0, 0, 1],
@@ -250,7 +250,7 @@ def test_affine_jacobian_3d_with_positions():
 
 def test_similarity_jacobian_2d():
     params = np.ones(4)
-    t = DifferentiableSimilarity.identity(2).from_vector(params)
+    t = DifferentiableSimilarity.init_identity(2).from_vector(params)
     explicit_pixel_locations = np.array(
         [[0, 0],
         [0, 1],
@@ -271,5 +271,5 @@ def test_similarity_jacobian_3d_raises_dimensionalityerror():
 @raises(ValueError)
 def test_similarity_jacobian_2d_raises_dimensionalityerror():
     params = np.ones(4)
-    t = DifferentiableSimilarity.identity(2).from_vector(params)
+    t = DifferentiableSimilarity.init_identity(2).from_vector(params)
     t.d_dp(np.ones([2, 3]))

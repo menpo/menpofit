@@ -253,9 +253,9 @@ class GaborFourier(Residual):
         # make sdi images
         # sdi_img:  shape  x  n_channels  x  n_params
         sdi_img_channels = image.n_channels * dW_dp.shape[1]
-        sdi_img = MaskedImage.blank(gradient_img.shape,
-                                      n_channels=sdi_img_channels,
-                                      mask=gradient_img.mask)
+        sdi_img = MaskedImage.init_blank(gradient_img.shape,
+                                         n_channels=sdi_img_channels,
+                                         mask=gradient_img.mask)
         sdi_img.from_vector_inplace(sdi.flatten())
 
         # compute FFT over each channel, parameter and dimension

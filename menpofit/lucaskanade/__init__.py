@@ -6,10 +6,6 @@ from .appearance import (AdaptiveForwardAdditive,
                          AlternatingForwardCompositional,
                          AlternatingInverseCompositional,
 
-                         ProbabilisticForwardAdditive,
-                         ProbabilisticForwardCompositional,
-                         ProbabilisticInverseCompositional,
-
                          ProjectOutForwardAdditive,
                          ProjectOutForwardCompositional,
                          ProjectOutInverseCompositional,
