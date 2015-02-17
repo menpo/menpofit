@@ -647,7 +647,7 @@ def _build_reference_frame(landmarks, boundary=3, group='source'):
     landmarks = Translation(-minimum).apply(landmarks)
 
     resolution = landmarks.range(boundary=boundary)
-    reference_frame = MaskedImage.blank(resolution)
+    reference_frame = MaskedImage.init_blank(resolution)
     reference_frame.landmarks[group] = landmarks
 
     return reference_frame

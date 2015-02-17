@@ -25,6 +25,7 @@ platform:
 init:
 - ps: Start-FileDownload 'https://raw.githubusercontent.com/jabooth/condaci/v0.2.0/condaci.py' C:\\condaci.py; echo "Done"
 - cmd: python C:\\condaci.py setup %PYTHON_VERSION% --channel %BINSTAR_USER%
+# The following should be commented out for releases and left in for dev
 - cmd: C:\\Miniconda\\Scripts\\conda config --add channels %BINSTAR_USER%/channel/master
 
 install:

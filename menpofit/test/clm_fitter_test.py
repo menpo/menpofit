@@ -306,36 +306,33 @@ for i in range(4):
 clm = CLMBuilder(classifier_trainers=linear_svm_lr,
                  patch_shape=(8, 8),
                  features=sparse_hog,
-                 normalization_diagonal=150,
-                 n_levels=3,
+                 normalization_diagonal=100,
+                 n_levels=2,
                  downscale=1.1,
                  scaled_shape_models=True,
-                 max_shape_components=[1, 2, 3],
+                 max_shape_components=[2, 2],
                  boundary=3).build(training_images)
 
 
 def test_clm():
     assert (clm.n_training_images == 4)
-    assert (clm.n_levels == 3)
+    assert (clm.n_levels == 2)
     assert (clm.downscale == 1.1)
     #assert (clm.features[0] == sparse_hog and len(clm.features) == 1)
-    assert_allclose(np.around(clm.reference_shape.range()), (109., 103.))
+    assert_allclose(np.around(clm.reference_shape.range()), (72.,  69.))
     assert clm.scaled_shape_models
     assert clm.pyramid_on_features
     assert_allclose(clm.patch_shape, (8, 8))
     assert_allclose([clm.shape_models[j].n_components
-                     for j in range(clm.n_levels)], (1, 2, 3))
-    assert_allclose(clm.n_classifiers_per_level, [68, 68, 68])
+                     for j in range(clm.n_levels)], (2, 2))
+    assert_allclose(clm.n_classifiers_per_level, [68, 68])
 
     ran_0 = np.random.randint(0, clm.n_classifiers_per_level[0])
     ran_1 = np.random.randint(0, clm.n_classifiers_per_level[1])
-    ran_2 = np.random.randint(0, clm.n_classifiers_per_level[2])
 
     assert (name_of_callable(clm.classifiers[0][ran_0])
             == 'linear_svm_lr')
     assert (name_of_callable(clm.classifiers[1][ran_1])
-            == 'linear_svm_lr')
-    assert (name_of_callable(clm.classifiers[2][ran_2])
             == 'linear_svm_lr')
 
 
@@ -346,7 +343,7 @@ def test_n_shape_1_exception():
 
 @raises(ValueError)
 def test_n_shape_2_exception():
-    fitter = GradientDescentCLMFitter(clm, n_shape=[10, 20])
+    fitter = GradientDescentCLMFitter(clm, n_shape=[10, 20, 3])
 
 
 def test_perturb_shape():

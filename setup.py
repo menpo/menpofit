@@ -20,9 +20,7 @@ setup(name=project_name,
       author='The Menpo Development Team',
       author_email='james.booth08@imperial.ac.uk',
       packages=find_packages(),
-      install_requires=['numpy==1.9.0',
-                        'scipy==0.14.0',
-                        'menpo==0.4.0a3'
-                        ],
-      tests_require=['nose==1.3.4', 'mock==1.0.1']
+      install_requires=['menpo>=0.4.0,<0.5',
+                        'scikit-learn>=0.15.2,<0.16.0'],
+      tests_require=['nose', 'mock']
       )
