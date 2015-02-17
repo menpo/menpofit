@@ -1,10 +1,10 @@
 from menpo.landmark import ibug_face_68_trimesh
 from menpo.feature import sparse_hog, igo
 
-from menpofit.lucaskanade import AlternatingInverseCompositional
+from menpofit.lucaskanade import AIC
 from menpofit.transform import OrthoMDTransform, DifferentiablePiecewiseAffine
 from menpofit.modelinstance import OrthoPDM
-from menpofit.gradientdescent import RegularizedLandmarkMeanShift
+from menpofit.gradientdescent import RLMS
 from menpofit.clm.classifier import linear_svm_lr
 
 from .io import import_bounding_boxes
@@ -36,7 +36,7 @@ def aam_fastest_alternating_noise(training_db_path, fitting_db_path,
                         'max_appearance_components': 250,
                         'boundary': 3
                         }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -107,7 +107,7 @@ def aam_fastest_alternating_bbox(training_db_path, fitting_db_path,
                         'max_appearance_components': 250,
                         'boundary': 3
     }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -181,7 +181,7 @@ def aam_best_performance_alternating_noise(training_db_path, fitting_db_path,
                         'max_appearance_components': 250,
                         'boundary': 3
                         }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -253,7 +253,7 @@ def aam_best_performance_alternating_bbox(training_db_path, fitting_db_path,
                         'max_appearance_components': 100,
                         'boundary': 3
     }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -326,7 +326,7 @@ def clm_basic_noise(training_db_path,  fitting_db_path,
                         'max_shape_components': None,
                         'boundary': 3
                         }
-    fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
+    fitting_options = {'algorithm': RLMS,
                        'pdm_transform': OrthoPDM,
                        'n_shape': [3, 6, 12],
                        'max_iters': 50,
@@ -397,7 +397,7 @@ def clm_basic_bbox(training_db_path,  fitting_db_path, fitting_bboxes_path,
                         'max_shape_components': None,
                         'boundary': 3
     }
-    fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
+    fitting_options = {'algorithm': RLMS,
                        'pdm_transform': OrthoPDM,
                        'n_shape': [3, 6, 12],
                        'max_iters': 50,
@@ -588,7 +588,7 @@ def aam_params_combinations_noise(training_db_path, fitting_db_path,
                             'max_appearance_components': 250,
                             'boundary': 3
                             }
-        fitting_options = {'algorithm': AlternatingInverseCompositional,
+        fitting_options = {'algorithm': AIC,
                            'md_transform': OrthoMDTransform,
                            'n_shape': [3, 6, 12],
                            'n_appearance': 50,
@@ -714,7 +714,7 @@ def clm_params_combinations_noise(training_db_path, fitting_db_path,
                             'max_shape_components': None,
                             'boundary': 3
                             }
-        fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
+        fitting_options = {'algorithm': RLMS,
                            'pdm_transform': OrthoPDM,
                            'n_shape': [3, 6, 12],
                            'max_iters': 50,

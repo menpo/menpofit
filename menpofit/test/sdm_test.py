@@ -7,7 +7,7 @@ from menpo.feature import sparse_hog, igo, no_op
 from menpo.transform import PiecewiseAffine
 
 import menpo.io as mio
-from menpo.landmark import labeller, ibug_face_68_trimesh
+from menpo.landmark import ibug_face_68_trimesh
 from menpofit.sdm import SDMTrainer, SDAAMTrainer
 from menpofit.clm.classifier import linear_svm_lr
 from menpofit.regression.regressors import mlr_svd
