@@ -315,7 +315,7 @@ def clm_build_benchmark(training_images, training_options=None, verbose=False):
         If None, the default options will be used.
         This is an example of the dictionary with the default options:
             training_options = {'group': 'PTS',
-                                'classifier_type': linear_svm_lr,
+                                'classifier_trainers': linear_svm_lr,
                                 'patch_shape': (5, 5),
                                 'features': sparse_hog,
                                 'normalization_diagonal': None,
@@ -654,55 +654,46 @@ def convert_fitting_results_to_ced(fitting_results, max_error_bin=0.05,
 
 def plot_fitting_curves(x_axis, ceds, title, figure_id=None, new_figure=False,
                         x_label='Point-to-Point Normalized RMS Error',
-                        y_limit=1, x_limit=0.05, legend=None, **kwargs):
+                        y_limit=1, x_limit=0.05, legend_entries=None, **kwargs):
     r"""
     Method that plots Cumulative Error Distributions in a single figure.
 
     Parameters
     ----------
-    x_axis: ndarray
+    x_axis : ndarray
         The horizontal axis values (errors).
-    ceds: list of ndarrays
+    ceds : list of ndarrays
         The vertical axis values (percentages).
-    title: string
+    title : string
         The plot title.
-    figure_id, Optional
+    figure_id : Optional
         A figure handle.
-
-        Default: None
-    new_figure: boolean, Optional
+    new_figure : boolean, Optional
         If True, a new figure window will be created.
-
-        Default: False
-    y_limit: float, Optional
+    y_limit : float, Optional
         The maximum value of the vertical axis.
-
-        Default: 1
-    x_limit: float, Optional
+    x_limit : float, Optional
         The maximum value of the vertical axis.
-
-        Default: 0.05
-    x_label: string
+    x_label : string
         The label of the horizontal axis.
-
-        Default: 'Point-to-Point Normalized RMS Error'
-    legend: list of strings or None
+    legend_entries : list of strings or None
         The legend of the plot. If None, the legend will include an incremental
         number per curve.
 
-        Default: None
-
     Returns
     -------
-    final_error_dist: list
+    final_error_dist : list
         Cumulative distribution values of the final errors.
-    initial_error_dist: list
+    initial_error_dist : list
         Cumulative distribution values of the initial errors.
     """
-    if legend is None:
-        legend = [str(i + 1) for i in range(len(ceds))]
+    if legend_entries is None:
+        legend_entries = [str(i + 1) for i in range(len(ceds))]
     y_label = 'Proportion of images'
-    axis_limits = [0, x_limit, 0, y_limit]
+    x_axis_limits = [0, x_limit]
+    y_axis_limits = [0, y_limit]
     return GraphPlotter(figure_id, new_figure, x_axis, ceds, title=title,
-                        legend=legend, x_label=x_label, y_label=y_label,
-                        axis_limits=axis_limits).render(**kwargs)
+                        legend_entries=legend_entries, x_label=x_label,
+                        y_label=y_label,
+                        x_axis_limits=x_axis_limits,
+                        y_axis_limits=y_axis_limits).render(**kwargs)
