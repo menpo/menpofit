@@ -2251,6 +2251,9 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
     # fix legend_entries
     if legend_entries is None:
         legend_entries = ["Curve {}".format(k) for k in range(n_curves)]
+    else:
+        if len(legend_entries) > len(set(legend_entries)):
+            raise ValueError("legent entries must be unique")
 
     # get horizontal axis errors
     x_label_initial_value = 'Error'
@@ -2446,7 +2449,7 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
                                         plot_function=plot_function,
                                         toggle_show_visible=False,
                                         toggle_show_default=True,
-                                        labels=None)
+                                        labels=legend_entries)
 
     # save figure widget
     initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
