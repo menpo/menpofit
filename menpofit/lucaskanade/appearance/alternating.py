@@ -4,8 +4,10 @@ import numpy as np
 from .base import AppearanceLucasKanade
 
 
-class AlternatingForwardAdditive(AppearanceLucasKanade):
-
+class AFA(AppearanceLucasKanade):
+    r"""
+    Alternating Forward Additive algorithm
+    """
     @property
     def algorithm(self):
         return 'Alternating-FA'
@@ -29,7 +31,8 @@ class AlternatingForwardAdditive(AppearanceLucasKanade):
             fitting_result.weights.append(weights)
 
             # Compute warp Jacobian
-            dW_dp = self.transform.d_dp(self.template.mask.true_indices())
+            dW_dp = np.rollaxis(
+                self.transform.d_dp(self.template.indices()), -1)
 
             # Compute steepest descent images, VI_dW_dp
             self._J = self.residual.steepest_descent_images(
@@ -57,15 +60,18 @@ class AlternatingForwardAdditive(AppearanceLucasKanade):
         return fitting_result
 
 
-class AlternatingForwardCompositional(AppearanceLucasKanade):
-
+class AFC(AppearanceLucasKanade):
+    r"""
+    Alternating Forward Compositional algorithm
+    """
     @property
     def algorithm(self):
         return 'Alternating-FC'
 
     def _set_up(self):
         # Compute warp Jacobian
-        self._dW_dp = self.transform.d_dp(self.template.mask.true_indices())
+        self._dW_dp = np.rollaxis(
+            self.transform.d_dp(self.template.indices()), -1)
 
     def _fit(self, fitting_result, max_iters=20):
         # Initial error > eps
@@ -109,15 +115,18 @@ class AlternatingForwardCompositional(AppearanceLucasKanade):
         return fitting_result
 
 
-class AlternatingInverseCompositional(AppearanceLucasKanade):
-
+class AIC(AppearanceLucasKanade):
+    r"""
+    Alternating Inverse Compositional algorithm
+    """
     @property
     def algorithm(self):
         return 'Alternating-IC'
 
     def _set_up(self):
         # Compute warp Jacobian
-        self._dW_dp = self.transform.d_dp(self.template.mask.true_indices())
+        self._dW_dp = np.rollaxis(
+            self.transform.d_dp(self.template.indices()), -1)
 
     def _fit(self, fitting_result, max_iters=20):
         # Initial error > eps

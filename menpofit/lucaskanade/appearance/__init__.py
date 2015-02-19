@@ -1,12 +1,3 @@
-from .adaptive import (AdaptiveForwardAdditive,
-                       AdaptiveForwardCompositional,
-                       AdaptiveInverseCompositional)
-from .alternating import (AlternatingForwardAdditive,
-                          AlternatingForwardCompositional,
-                          AlternatingInverseCompositional)
-from .projectout import (ProjectOutForwardAdditive,
-                         ProjectOutForwardCompositional,
-                         ProjectOutInverseCompositional)
-from .simultaneous import (SimultaneousForwardAdditive,
-                           SimultaneousForwardCompositional,
-                           SimultaneousInverseCompositional)
+from .simultaneous import SFA, SFC, SIC
+from .alternating import AFA, AFC, AIC
+from .projectout import PIC

@@ -62,7 +62,7 @@ class GradientDescent(Fitter):
         return self.transform.as_vector()
 
 
-class RegularizedLandmarkMeanShift(GradientDescent):
+class RLMS(GradientDescent):
     r"""
     Implementation of the Regularized Landmark Mean-Shifts algorithm for
     fitting Constrained Local Models described in [1]_.
@@ -98,7 +98,7 @@ class RegularizedLandmarkMeanShift(GradientDescent):
     """
     def __init__(self, classifiers, patch_shape, pdm, eps=10**-10, scale=10):
         self.scale = scale
-        super(RegularizedLandmarkMeanShift, self).__init__(
+        super(RLMS, self).__init__(
             classifiers, patch_shape, pdm, eps=eps)
 
     @property
@@ -137,16 +137,16 @@ class RegularizedLandmarkMeanShift(GradientDescent):
         target = self.transform.target
         n_iters = 0
 
-        max_x = image.shape[0] - 1
-        max_y = image.shape[1] - 1
+        max_h = image.shape[-2] - 1
+        max_w = image.shape[-1] - 1
 
-        image_pixels = np.reshape(image.pixels, (-1, image.n_channels))
-        response_image = np.zeros((image.shape[0], image.shape[1],
-                                   target.n_points))
+        image_pixels = np.reshape(image.pixels, (image.n_channels, -1)).T
+        response_image = np.zeros((target.n_points, image.shape[-2],
+                                   image.shape[-1]))
 
         # Compute response maps
         for j, clf in enumerate(self.classifiers):
-            response_image[:, :, j] = np.reshape(clf(image_pixels),
+            response_image[j, :, :] = np.reshape(clf(image_pixels),
                                                  image.shape)
 
         while n_iters < max_iters and error > self.eps:
@@ -163,12 +163,12 @@ class RegularizedLandmarkMeanShift(GradientDescent):
                 y = patch_grid[:, :, 1]
 
                 # deal with boundaries
-                x[x > max_x] = max_x
-                y[y > max_y] = max_y
+                x[x > max_h] = max_h
+                y[y > max_w] = max_w
                 x[x < 0] = 0
                 y[y < 0] = 0
 
-                kernel_response = response_image[x, y, j] * self._kernel_grid
+                kernel_response = response_image[j, x, y] * self._kernel_grid
                 normalizer = np.sum(kernel_response)
                 normalized_kernel_response = kernel_response / normalizer
 

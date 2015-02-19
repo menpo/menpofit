@@ -259,8 +259,7 @@ class CLMBuilder(DeformableModelBuilder):
                     x[x < 0] = 0
                     y[y < 0] = 0
 
-                    positive_sample = i.pixels[positive[:, 0],
-                                               positive[:, 1], :]
+                    positive_sample = i.pixels[:, x, y].T
                     positive_samples.append(positive_sample)
                     positive_labels.append(np.ones(positive_sample.shape[0]))
 
@@ -271,7 +270,7 @@ class CLMBuilder(DeformableModelBuilder):
                     x[x < 0] = 0
                     y[y < 0] = 0
 
-                    negative_sample = i.pixels[x, y, :]
+                    negative_sample = i.pixels[:, x, y].T
                     negative_samples.append(negative_sample)
                     negative_labels.append(-np.ones(negative_sample.shape[0]))
 
