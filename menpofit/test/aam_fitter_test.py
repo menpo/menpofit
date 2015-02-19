@@ -415,42 +415,34 @@ def aam_helper(aam, algorithm, im_number, max_iters, initial_error,
 
 @attr('fuzzy')
 def test_alternating_ic():
-    aam_helper(aam, AIC, 0, 6, 0.09062, 0.05606,
-               'me_norm')
+    aam_helper(aam, AIC, 0, 6, 0.09062, 0.05607, 'me_norm')
 
 
 @attr('fuzzy')
 def test_simultaneous_ic():
-    aam_helper(aam, SIC, 2, 7, 0.12616, 0.11566,
-               'me_norm')
+    aam_helper(aam, SIC, 2, 7, 0.12616, 0.11152, 'me_norm')
 
 
 @attr('fuzzy')
 def test_projectout_ic():
-    aam_helper(aam, PIC, 3, 6, 0.10796, 0.07286,
-               'me_norm')
+    aam_helper(aam, PIC, 3, 6, 0.10796, 0.07346, 'me_norm')
 
 
 @attr('fuzzy')
 def test_alternating_fa():
-    aam_helper(aam, AFA, 0, 8, 0.09062, 0.07053,
-               'me_norm')
+    aam_helper(aam, AFA, 0, 8, 0.09062, 0.07225, 'me_norm')
 
 
 @attr('fuzzy')
 def test_simultaneous_fa():
-    aam_helper(aam, SFA, 2, 5, 0.12616, 0.12627,
-               'me_norm')
+    aam_helper(aam, SFA, 2, 5, 0.12616, 0.11151, 'me_norm')
 
 
 @attr('fuzzy')
 def test_alternating_fc():
-    aam_helper(aam, AFC, 0, 6, 0.09062, 0.07109,
-               'me_norm')
+    aam_helper(aam, AFC, 0, 6, 0.09062, 0.07129, 'me_norm')
 
 
 @attr('fuzzy')
 def test_simultaneous_fc():
-    aam_helper(aam, SFC, 2, 5, 0.12616, 0.11505,
-               'me_norm')
-
+    aam_helper(aam, SFC, 2, 5, 0.12616, 0.11738, 'me_norm')

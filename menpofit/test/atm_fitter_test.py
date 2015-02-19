@@ -421,21 +421,18 @@ def atm_helper(atm, algorithm, im_number, max_iters, initial_error,
 
 @attr('fuzzy')
 def test_ic():
-    atm_helper(atm1, IC, 0, 6, 0.09062, 0.06783,
-               'me_norm')
+    atm_helper(atm1, IC, 0, 6, 0.09062, 0.06788, 'me_norm')
 
 
 @attr('fuzzy')
 def test_fa():
-    atm_helper(atm2, FA, 1, 8, 0.09051, 0.08237, 'me_norm')
+    atm_helper(atm2, FA, 1, 8, 0.09051, 0.08188, 'me_norm')
 
 
 @attr('fuzzy')
 def test_fc():
-    atm_helper(atm3, FC, 2, 6, 0.12615, 0.07522,
-               'me_norm')
+    atm_helper(atm3, FC, 2, 6, 0.12615, 0.08255, 'me_norm')
 
 @attr('fuzzy')
 def test_ic_2():
-    atm_helper(atm4, IC, 3, 7, 0.09748, 0.09509,
-               'me_norm')
+    atm_helper(atm4, IC, 3, 7, 0.09748, 0.09511, 'me_norm')
