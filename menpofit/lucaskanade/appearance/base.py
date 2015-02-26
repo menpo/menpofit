@@ -10,7 +10,8 @@ class AppearanceLucasKanade(LucasKanade):
         # derivatives for arbitrary residuals with (for instance) a project out
         # AAM.
         # See https://github.com/menpo/menpo/issues/130 for details.
-        super(AppearanceLucasKanade, self).__init__(SSD(), transform, eps=eps)
+        super(AppearanceLucasKanade, self).__init__(SSD(),
+                                                    transform, eps=eps)
 
         # in appearance alignment, target image is aligned to appearance model
         self.appearance_model = model

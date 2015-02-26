@@ -1,10 +1,10 @@
 from menpo.landmark import ibug_face_68_trimesh
 from menpo.feature import sparse_hog, igo
 
-from menpofit.lucaskanade import AlternatingInverseCompositional
+from menpofit.lucaskanade import AIC
 from menpofit.transform import OrthoMDTransform, DifferentiablePiecewiseAffine
 from menpofit.modelinstance import OrthoPDM
-from menpofit.gradientdescent import RegularizedLandmarkMeanShift
+from menpofit.gradientdescent import RLMS
 from menpofit.clm.classifier import linear_svm_lr
 
 from .io import import_bounding_boxes
@@ -36,7 +36,7 @@ def aam_fastest_alternating_noise(training_db_path, fitting_db_path,
                         'max_appearance_components': 250,
                         'boundary': 3
                         }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -81,8 +81,10 @@ def aam_fastest_alternating_noise(training_db_path, fitting_db_path,
         y_axis = [final_error_curve, initial_error_curve]
         legend = ['Fitting', 'Initialization']
         plot_fitting_curves(error_bins, y_axis, title, new_figure=True,
-                            x_limit=max_error_bin, legend=legend,
-                            colour_list=['r', 'b'], marker_list=['o', 'x'])
+                            x_limit=max_error_bin, legend_entries=legend,
+                            line_colour=['r', 'b'],
+                            marker_face_colour=['r', 'b'],
+                            marker_style=['o', 'x'])
     return fitting_results, final_error_curve, initial_error_curve, error_bins
 
 
@@ -107,7 +109,7 @@ def aam_fastest_alternating_bbox(training_db_path, fitting_db_path,
                         'max_appearance_components': 250,
                         'boundary': 3
     }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -155,8 +157,10 @@ def aam_fastest_alternating_bbox(training_db_path, fitting_db_path,
         y_axis = [final_error_curve, initial_error_curve]
         legend = ['Fitting', 'Initialization']
         plot_fitting_curves(error_bins, y_axis, title, new_figure=True,
-                            x_limit=max_error_bin, legend=legend,
-                            colour_list=['r', 'b'], marker_list=['o', 'x'])
+                            x_limit=max_error_bin, legend_entries=legend,
+                            line_colour=['r', 'b'],
+                            marker_face_colour=['r', 'b'],
+                            marker_style=['o', 'x'])
     return fitting_results, final_error_curve, initial_error_curve, error_bins
 
 
@@ -181,7 +185,7 @@ def aam_best_performance_alternating_noise(training_db_path, fitting_db_path,
                         'max_appearance_components': 250,
                         'boundary': 3
                         }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -226,8 +230,10 @@ def aam_best_performance_alternating_noise(training_db_path, fitting_db_path,
         y_axis = [final_error_curve, initial_error_curve]
         legend = ['Fitting', 'Initialization']
         plot_fitting_curves(error_bins, y_axis, title, new_figure=True,
-                            x_limit=max_error_bin, legend=legend,
-                            colour_list=['r', 'b'], marker_list=['o', 'x'])
+                            x_limit=max_error_bin, legend_entries=legend,
+                            line_colour=['r', 'b'],
+                            marker_face_colour=['r', 'b'],
+                            marker_style=['o', 'x'])
     return fitting_results, final_error_curve, initial_error_curve, error_bins
 
 
@@ -253,7 +259,7 @@ def aam_best_performance_alternating_bbox(training_db_path, fitting_db_path,
                         'max_appearance_components': 100,
                         'boundary': 3
     }
-    fitting_options = {'algorithm': AlternatingInverseCompositional,
+    fitting_options = {'algorithm': AIC,
                        'md_transform': OrthoMDTransform,
                        'n_shape': [3, 6, 12],
                        'n_appearance': 50,
@@ -301,13 +307,15 @@ def aam_best_performance_alternating_bbox(training_db_path, fitting_db_path,
         y_axis = [final_error_curve, initial_error_curve]
         legend = ['Fitting', 'Initialization']
         plot_fitting_curves(error_bins, y_axis, title, new_figure=True,
-                            x_limit=max_error_bin, legend=legend,
-                            colour_list=['r', 'b'], marker_list=['o', 'x'])
+                            x_limit=max_error_bin, legend_entries=legend,
+                            line_colour=['r', 'b'],
+                            marker_face_colour=['r', 'b'],
+                            marker_style=['o', 'x'])
     return fitting_results, final_error_curve, initial_error_curve, error_bins
 
 
 def clm_basic_noise(training_db_path,  fitting_db_path,
-                    features=sparse_hog, classifiers=linear_svm_lr,
+                    features=sparse_hog, classifier_trainers=linear_svm_lr,
                     noise_std=0.04, verbose=False, plot=False):
 
     # predefined options
@@ -316,7 +324,7 @@ def clm_basic_noise(training_db_path,  fitting_db_path,
                           'convert_to_grey': True
                           }
     training_options = {'group': 'PTS',
-                        'classifiers': linear_svm_lr,
+                        'classifier_trainers': linear_svm_lr,
                         'patch_shape': (5, 5),
                         'features': [sparse_hog] * 3,
                         'normalization_diagonal': None,
@@ -326,7 +334,7 @@ def clm_basic_noise(training_db_path,  fitting_db_path,
                         'max_shape_components': None,
                         'boundary': 3
                         }
-    fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
+    fitting_options = {'algorithm': RLMS,
                        'pdm_transform': OrthoPDM,
                        'n_shape': [3, 6, 12],
                        'max_iters': 50,
@@ -337,7 +345,7 @@ def clm_basic_noise(training_db_path,  fitting_db_path,
 
     # set passed parameters
     training_options['features'] = features
-    training_options['classifiers'] = classifiers
+    training_options['classifier_trainers'] = classifier_trainers
     perturb_options['noise_std'] = noise_std
 
     # run experiment
@@ -368,17 +376,19 @@ def clm_basic_noise(training_db_path,  fitting_db_path,
     if plot:
         title = "CLMs with {} and {} classifier using RLMS".format(
             training_options['features'].__name__,
-            training_options['classifiers'])
+            training_options['classifier_trainers'])
         y_axis = [final_error_curve, initial_error_curve]
         legend = ['Fitting', 'Initialization']
         plot_fitting_curves(error_bins, y_axis, title, new_figure=True,
-                            x_limit=max_error_bin, legend=legend,
-                            colour_list=['r', 'b'], marker_list=['o', 'x'])
+                            x_limit=max_error_bin, legend_entries=legend,
+                            line_colour=['r', 'b'],
+                            marker_face_colour=['r', 'b'],
+                            marker_style=['o', 'x'])
     return fitting_results, final_error_curve, initial_error_curve, error_bins
 
 
 def clm_basic_bbox(training_db_path,  fitting_db_path, fitting_bboxes_path,
-                   features=sparse_hog, classifiers=linear_svm_lr,
+                   features=sparse_hog, classifier_trainers=linear_svm_lr,
                    verbose=False, plot=False):
 
     # predefined options
@@ -387,7 +397,7 @@ def clm_basic_bbox(training_db_path,  fitting_db_path, fitting_bboxes_path,
                           'convert_to_grey': True
     }
     training_options = {'group': 'PTS',
-                        'classifiers': linear_svm_lr,
+                        'classifier_trainers': linear_svm_lr,
                         'patch_shape': (5, 5),
                         'features': [sparse_hog] * 3,
                         'normalization_diagonal': None,
@@ -397,7 +407,7 @@ def clm_basic_bbox(training_db_path,  fitting_db_path, fitting_bboxes_path,
                         'max_shape_components': None,
                         'boundary': 3
     }
-    fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
+    fitting_options = {'algorithm': RLMS,
                        'pdm_transform': OrthoPDM,
                        'n_shape': [3, 6, 12],
                        'max_iters': 50,
@@ -406,7 +416,7 @@ def clm_basic_bbox(training_db_path,  fitting_db_path, fitting_bboxes_path,
 
     # set passed parameters
     training_options['features'] = features
-    training_options['classifiers'] = classifiers
+    training_options['classifier_trainers'] = classifier_trainers
 
     # run experiment
     training_images = load_database(training_db_path,
@@ -443,12 +453,14 @@ def clm_basic_bbox(training_db_path,  fitting_db_path, fitting_bboxes_path,
     if plot:
         title = "CLMs with {} and {} classifier using RLMS".format(
             training_options['features'].__name__,
-            training_options['classifiers'])
+            training_options['classifier_trainers'])
         y_axis = [final_error_curve, initial_error_curve]
         legend = ['Fitting', 'Initialization']
         plot_fitting_curves(error_bins, y_axis, title, new_figure=True,
-                            x_limit=max_error_bin, legend=legend,
-                            colour_list=['r', 'b'], marker_list=['o', 'x'])
+                            x_limit=max_error_bin, legend_entries=legend,
+                            line_colour=['r', 'b'],
+                            marker_face_colour=['r', 'b'],
+                            marker_style=['o', 'x'])
     return fitting_results, final_error_curve, initial_error_curve, error_bins
 
 
@@ -510,8 +522,10 @@ def sdm_fastest_bbox(training_db_path, fitting_db_path,
         y_axis = [final_error_curve, initial_error_curve]
         legend = ['Fitting', 'Initialization']
         plot_fitting_curves(error_bins, y_axis, title, new_figure=True,
-                            x_limit=max_error_bin, legend=legend,
-                            colour_list=['r', 'b'], marker_list=['o', 'x'])
+                            x_limit=max_error_bin, legend_entries=legend,
+                            line_colour=['r', 'b'],
+                            marker_face_colour=['r', 'b'],
+                            marker_style=['o', 'x'])
     return fitting_results, final_error_curve, initial_error_curve, error_bins
 
 
@@ -588,7 +602,7 @@ def aam_params_combinations_noise(training_db_path, fitting_db_path,
                             'max_appearance_components': 250,
                             'boundary': 3
                             }
-        fitting_options = {'algorithm': AlternatingInverseCompositional,
+        fitting_options = {'algorithm': AIC,
                            'md_transform': OrthoMDTransform,
                            'n_shape': [3, 6, 12],
                            'n_appearance': 50,
@@ -632,23 +646,24 @@ def aam_params_combinations_noise(training_db_path, fitting_db_path,
         colour_list = ['r', 'b', 'g', 'y', 'c'] * n_experiments
         marker_list = ['o', 'x', 'v', 'd'] * n_experiments
         plot_fitting_curves(error_bins, curves_to_plot, title, new_figure=True,
-                            x_limit=max_error_bin,  colour_list=colour_list,
-                            marker_list=marker_list)
+                            x_limit=max_error_bin,  line_colour=colour_list,
+                            marker_face_colour=colour_list,
+                            marker_style=marker_list)
     return all_fitting_results
 
 
 def clm_params_combinations_noise(training_db_path, fitting_db_path,
-                                  n_experiments=1, classifiers=None,
+                                  n_experiments=1, classifier_trainers=None,
                                   patch_shape=None, features=None,
                                   scaled_shape_models=None, n_shape=None,
                                   noise_std=None, rotation=None, verbose=False,
                                   plot=False):
 
     # parse input
-    if classifiers is None:
-        classifiers = [linear_svm_lr] * n_experiments
-    elif len(classifiers) is not n_experiments:
-        raise ValueError("classifiers has wrong length")
+    if classifier_trainers is None:
+        classifier_trainers = [linear_svm_lr] * n_experiments
+    elif len(classifier_trainers) is not n_experiments:
+        raise ValueError("classifier_trainers has wrong length")
     if patch_shape is None:
         patch_shape = [(5, 5)] * n_experiments
     elif len(patch_shape) is not n_experiments:
@@ -697,14 +712,14 @@ def clm_params_combinations_noise(training_db_path, fitting_db_path,
                   "- features: {}\n- scaled_shape_models: {}\n"
                   "- n_shape: {}\n"
                   "- noise_std: {}\n- rotation: {}".format(
-                  classifiers[i], patch_shape[i], features[i],
+                  classifier_trainers[i], patch_shape[i], features[i],
                   scaled_shape_models[i], n_shape[i],
                   noise_std[i], rotation[i]))
 
         # predefined option dictionaries
         error_type = 'me_norm'
         training_options = {'group': 'PTS',
-                            'classifiers': linear_svm_lr,
+                            'classifier_trainers': linear_svm_lr,
                             'patch_shape': (5, 5),
                             'features': sparse_hog,
                             'normalization_diagonal': None,
@@ -714,7 +729,7 @@ def clm_params_combinations_noise(training_db_path, fitting_db_path,
                             'max_shape_components': None,
                             'boundary': 3
                             }
-        fitting_options = {'algorithm': RegularizedLandmarkMeanShift,
+        fitting_options = {'algorithm': RLMS,
                            'pdm_transform': OrthoPDM,
                            'n_shape': [3, 6, 12],
                            'max_iters': 50,
@@ -724,7 +739,7 @@ def clm_params_combinations_noise(training_db_path, fitting_db_path,
                            'rotation': False}
 
         # training
-        training_options['classifiers'] = classifiers[i]
+        training_options['classifier_trainers'] = classifier_trainers[i]
         training_options['patch_shape'] = patch_shape[i]
         training_options['features'] = features[i]
         training_options['scaled_shape_models'] = scaled_shape_models[i]
@@ -758,6 +773,7 @@ def clm_params_combinations_noise(training_db_path, fitting_db_path,
         colour_list = ['r', 'b', 'g', 'y', 'c'] * n_experiments
         marker_list = ['o', 'x', 'v', 'd'] * n_experiments
         plot_fitting_curves(error_bins, curves_to_plot, title, new_figure=True,
-                            x_limit=max_error_bin,  colour_list=colour_list,
-                            marker_list=marker_list)
+                            x_limit=max_error_bin,  line_colour=colour_list,
+                            marker_face_colour=colour_list,
+                            marker_style=marker_list)
     return all_fitting_results

@@ -10,7 +10,7 @@ import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
 from menpofit.clm import CLMBuilder
 from menpofit.clm import GradientDescentCLMFitter
-from menpofit.gradientdescent import RegularizedLandmarkMeanShift
+from menpofit.gradientdescent import RLMS
 from menpofit.clm.classifier import linear_svm_lr
 from menpofit.base import name_of_callable
 
@@ -366,5 +366,5 @@ def test_max_iters_exception():
 def test_str_mock(mock_stdout):
     print(clm)
     fitter = GradientDescentCLMFitter(
-        clm, algorithm=RegularizedLandmarkMeanShift)
+        clm, algorithm=RLMS)
     print(fitter)

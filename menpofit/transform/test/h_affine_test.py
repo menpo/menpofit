@@ -191,7 +191,7 @@ jac_solution3d = np.array(
 
 def test_affine_jacobian_2d_with_positions():
     params = np.array([0, 0.1, 0.2, 0, 30, 70])
-    t = DifferentiableAffine.identity(2).from_vector(params)
+    t = DifferentiableAffine.init_identity(2).from_vector(params)
     explicit_pixel_locations = np.array(
         [[0, 0],
          [0, 1],
@@ -205,7 +205,7 @@ def test_affine_jacobian_2d_with_positions():
 
 def test_affine_jacobian_3d_with_positions():
     params = np.ones(12)
-    t = DifferentiableAffine.identity(3).from_vector(params)
+    t = DifferentiableAffine.init_identity(3).from_vector(params)
     explicit_pixel_locations = np.array(
         [[0, 0, 0],
          [0, 0, 1],

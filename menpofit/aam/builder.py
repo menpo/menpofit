@@ -266,19 +266,26 @@ class AAMBuilder(DeformableModelBuilder):
             # compute transforms
             if verbose:
                 print_dynamic('{}Computing transforms'.format(level_str))
-            transforms = [self.transform(reference_frame.landmarks['source'].lms,
-                                         i.landmarks[group][label])
-                          for i in feature_images]
+
+
+            # Create a dummy initial transform
+            s_to_t_transform = self.transform(
+                reference_frame.landmarks['source'].lms,
+                reference_frame.landmarks['source'].lms)
 
             # warp images to reference frame
             warped_images = []
-            for c, (i, t) in enumerate(zip(feature_images, transforms)):
+            for c, i in enumerate(feature_images):
                 if verbose:
                     print_dynamic('{}Warping images - {}'.format(
                         level_str,
                         progress_bar_str(float(c + 1) / len(feature_images),
                                          show_bar=False)))
-                warped_images.append(i.warp_to_mask(reference_frame.mask, t))
+                # Setting the target can be significantly faster for transforms
+                # such as CachedPiecewiseAffine
+                s_to_t_transform.set_target(i.landmarks[group][label])
+                warped_images.append(i.warp_to_mask(reference_frame.mask,
+                                                    s_to_t_transform))
 
             # attach reference_frame to images' source shape
             for i in warped_images:
@@ -647,7 +654,7 @@ def _build_reference_frame(landmarks, boundary=3, group='source'):
     landmarks = Translation(-minimum).apply(landmarks)
 
     resolution = landmarks.range(boundary=boundary)
-    reference_frame = MaskedImage.blank(resolution)
+    reference_frame = MaskedImage.init_blank(resolution)
     reference_frame.landmarks[group] = landmarks
 
     return reference_frame

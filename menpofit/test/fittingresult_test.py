@@ -13,7 +13,7 @@ from menpofit.fittingresult import FittingResult, NonParametricFittingResult
 class MockedFittingResult(FittingResult):
 
     def __init__(self, gt_shape=None):
-        FittingResult.__init__(self, MaskedImage.blank((10, 10)),
+        FittingResult.__init__(self, MaskedImage.init_blank((10, 10)),
                                gt_shape=gt_shape)
     @property
     def n_iters(self):
