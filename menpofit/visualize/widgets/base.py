@@ -1,41 +1,31 @@
-from menpo.visualize.widgets.helpers import (figure_options,
-                                             format_figure_options,
-                                             figure_options_two_scales,
-                                             format_figure_options_two_scales,
+import numpy as np
+from collections import OrderedDict
+
+from menpo.visualize.widgets.options import (viewer_options,
+                                             format_viewer_options,
                                              channel_options,
                                              format_channel_options,
                                              update_channel_options,
                                              landmark_options,
                                              format_landmark_options,
                                              info_print, format_info_print,
-                                             model_parameters,
-                                             format_model_parameters,
-                                             update_model_parameters,
-                                             final_result_options,
-                                             format_final_result_options,
-                                             update_final_result_options,
-                                             iterations_result_options,
-                                             format_iterations_result_options,
-                                             update_iterations_result_options,
                                              animation_options,
                                              format_animation_options,
-                                             plot_options,
-                                             format_plot_options,
                                              save_figure_options,
                                              format_save_figure_options)
-from menpo.visualize.widgets.base import (_plot_figure, _plot_graph,
-                                          _plot_eigenvalues,
-                                          _check_n_parameters,
-                                          _raw_info_string_to_latex,
-                                          _extract_groups_labels)
-from IPython.html.widgets import (FloatTextWidget, TextWidget, PopupWidget,
-                                  ContainerWidget, TabWidget, FloatSliderWidget,
-                                  RadioButtonsWidget, CheckboxWidget,
-                                  DropdownWidget, AccordionWidget, ButtonWidget)
-from IPython.display import display, clear_output
-import matplotlib.pylab as plt
-import numpy as np
-from collections import OrderedDict
+from menpo.visualize.widgets.tools import logo
+from menpo.visualize.widgets.base import _visualize as _visualize_menpo
+from menpo.visualize.widgets.base import _extract_groups_labels
+from menpo.visualize.viewmatplotlib import (MatplotlibImageViewer2d,
+                                            sample_colours_from_colourmap,
+                                            MatplotlibSubplots)
+
+from .options import (model_parameters, format_model_parameters,
+                      update_model_parameters, final_result_options,
+                      format_final_result_options, update_final_result_options,
+                      iterations_result_options,
+                      format_iterations_result_options,
+                      update_iterations_result_options)
 
 # This glyph import is called frequently during visualisation, so we ensure
 # that we only import it once
@@ -43,8 +33,8 @@ glyph = None
 
 
 def visualize_shape_model(shape_models, n_parameters=5,
-                          parameters_bounds=(-3.0, 3.0), figure_size=(7, 7),
-                          mode='multiple', popup=False, **kwargs):
+                          parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
+                          mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel shape model.
 
@@ -53,32 +43,28 @@ def visualize_shape_model(shape_models, n_parameters=5,
     shape_models : `list` of :map:`PCAModel` or subclass
         The multilevel shape model to be displayed. Note that each level can
         have different number of components.
-
     n_parameters : `int` or `list` of `int` or None, optional
         The number of principal components to be used for the parameters
         sliders.
-        If int, then the number of sliders per level is the minimum between
-        n_parameters and the number of active components per level.
-        If list of int, then a number of sliders is defined per level.
-        If None, all the active components per level will have a slider.
-
+        If `int`, then the number of sliders per level is the minimum between
+        `n_parameters` and the number of active components per level.
+        If `list` of `int`, then a number of sliders is defined per level.
+        If ``None``, all the active components per level will have a slider.
     parameters_bounds : (`float`, `float`), optional
         The minimum and maximum bounds, in std units, for the sliders.
-
     figure_size : (`int`, `int`), optional
         The size of the plotted figures.
-
-    mode : 'single' or 'multiple', optional
-        If single, only a single slider is constructed along with a drop down
-        menu.
-        If multiple, a slider is constructed for each parameter.
-
-    popup : `boolean`, optional
-        If enabled, the widget will appear as a popup window.
-
-    kwargs : `dict`, optional
-        Passed through to the viewer.
+    mode : {``single``, ``multiple``}, optional
+        If ``single``, only a single slider is constructed along with a drop
+        down menu. If ``multiple``, a slider is constructed for each parameter.
+    popup : `bool`, optional
+        If ``True``, the widget will appear as a popup window.
     """
+    import IPython.html.widgets as ipywidgets
+    import IPython.display as ipydisplay
+    import matplotlib.pyplot as plt
+    from matplotlib import collections as mc
+
     # make sure that shape_models is a list even with one member
     if not isinstance(shape_models, list):
         shape_models = [shape_models]
@@ -93,52 +79,104 @@ def visualize_shape_model(shape_models, n_parameters=5,
     # the returned n_parameters is a list of len n_levels
     n_parameters = _check_n_parameters(n_parameters, n_levels, max_n_params)
 
+    # initial options dictionaries
+    lines_options = {'render_lines': True,
+                     'line_width': 1,
+                     'line_colour': ['r'],
+                     'line_style': '-'}
+    markers_options = {'render_markers': True,
+                       'marker_size': 20,
+                       'marker_face_colour': ['r'],
+                       'marker_edge_colour': ['k'],
+                       'marker_style': 'o',
+                       'marker_edge_width': 1}
+    figure_options = {'x_scale': 1.,
+                      'y_scale': 1.,
+                      'render_axes': False,
+                      'axes_font_name': 'sans-serif',
+                      'axes_font_size': 10,
+                      'axes_font_style': 'normal',
+                      'axes_font_weight': 'normal',
+                      'axes_x_limits': None,
+                      'axes_y_limits': None}
+    viewer_options_default = {'lines': lines_options,
+                              'markers': markers_options,
+                              'figure': figure_options}
+
     # Define plot function
     def plot_function(name, value):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get params
+        # get selected level
         level = 0
         if n_levels > 1:
             level = level_wid.value
-        def_mode = mode_wid.value
-        axis_mode = axes_mode_wid.value
-        parameters_values = model_parameters_wid.parameters_values
-        x_scale = figure_options_wid.x_scale
-        y_scale = figure_options_wid.y_scale
-        axes_visible = figure_options_wid.axes_visible
 
         # compute weights
+        parameters_values = model_parameters_wid.parameters_values
         weights = (parameters_values *
-                   shape_models[level].eigenvalues[:len(parameters_values)] ** 0.5)
+                   shape_models[level].eigenvalues[:len(parameters_values)] **
+                   0.5)
 
         # compute the mean
         mean = shape_models[level].mean()
 
-        # select figure
-        figure_id = plt.figure(save_figure_wid.figure_id.number)
-
-        # invert axis if image mode is enabled
-        if axis_mode == 1:
-            plt.gca().invert_yaxis()
+        tmp1 = viewer_options_wid.selected_values[0]['lines']
+        tmp2 = viewer_options_wid.selected_values[0]['markers']
+        tmp3 = viewer_options_wid.selected_values[0]['figure']
+        new_figure_size = (tmp3['x_scale'] * figure_size[0],
+                           tmp3['y_scale'] * figure_size[1])
 
         # compute and show instance
-        if def_mode == 1:
+        if mode_wid.value == 1:
             # Deformation mode
             # compute instance
             instance = shape_models[level].instance(weights)
 
             # plot
             if mean_wid.value:
-                mean.view(image_view=axis_mode == 1, colour_array='y',
-                          **kwargs)
-                plt.hold(True)
-            instance.view(image_view=axis_mode == 1, **kwargs)
+                mean.view(
+                    figure_id=save_figure_wid.renderer[0].figure_id,
+                    new_figure=False, image_view=axes_mode_wid.value == 1,
+                    render_lines=tmp1['render_lines'],
+                    line_colour='y',
+                    line_style='solid', line_width=tmp1['line_width'],
+                    render_markers=tmp2['render_markers'],
+                    marker_style=tmp2['marker_style'],
+                    marker_size=tmp2['marker_size'], marker_face_colour='y',
+                    marker_edge_colour='y',
+                    marker_edge_width=tmp2['marker_edge_width'],
+                    render_axes=False, figure_size=None)
+
+            renderer = instance.view(
+                figure_id=save_figure_wid.renderer[0].figure_id,
+                new_figure=False, image_view=axes_mode_wid.value==1,
+                render_lines=tmp1['render_lines'],
+                line_colour=tmp1['line_colour'][0],
+                line_style=tmp1['line_style'], line_width=tmp1['line_width'],
+                render_markers=tmp2['render_markers'],
+                marker_style=tmp2['marker_style'],
+                marker_size=tmp2['marker_size'],
+                marker_face_colour=tmp2['marker_face_colour'],
+                marker_edge_colour=tmp2['marker_edge_colour'],
+                marker_edge_width=tmp2['marker_edge_width'],
+                render_axes=tmp3['render_axes'],
+                axes_font_name=tmp3['axes_font_name'],
+                axes_font_size=tmp3['axes_font_size'],
+                axes_font_style=tmp3['axes_font_style'],
+                axes_font_weight=tmp3['axes_font_weight'],
+                axes_x_limits=tmp3['axes_x_limits'],
+                axes_y_limits=tmp3['axes_y_limits'],
+                figure_size=new_figure_size,
+                label=None)
+
+            if mean_wid.value and axes_mode_wid.value == 1:
+                plt.gca().invert_yaxis()
 
             # instance range
-            tmp_range = instance.range()
+            instance_range = instance.range()
         else:
             # Vectors mode
             # compute instance
@@ -146,8 +184,28 @@ def visualize_shape_model(shape_models, n_parameters=5,
             instance_upper = shape_models[level].instance(weights)
 
             # plot
-            mean.view(image_view=axis_mode == 1, **kwargs)
-            plt.hold(True)
+            renderer = mean.view(
+                figure_id=save_figure_wid.renderer[0].figure_id,
+                new_figure=False, image_view=axes_mode_wid.value == 1,
+                render_lines=tmp1['render_lines'],
+                line_colour=tmp1['line_colour'][0],
+                line_style=tmp1['line_style'], line_width=tmp1['line_width'],
+                render_markers=tmp2['render_markers'],
+                marker_style=tmp2['marker_style'],
+                marker_size=tmp2['marker_size'],
+                marker_face_colour=tmp2['marker_face_colour'],
+                marker_edge_colour=tmp2['marker_edge_colour'],
+                marker_edge_width=tmp2['marker_edge_width'],
+                render_axes=tmp3['render_axes'],
+                axes_font_name=tmp3['axes_font_name'],
+                axes_font_size=tmp3['axes_font_size'],
+                axes_font_style=tmp3['axes_font_style'],
+                axes_font_weight=tmp3['axes_font_weight'],
+                axes_x_limits=tmp3['axes_x_limits'],
+                axes_y_limits=tmp3['axes_y_limits'],
+                figure_size=new_figure_size, label=None)
+
+            ax = plt.gca()
             for p in range(mean.n_points):
                 xm = mean.points[p, 0]
                 ym = mean.points[p, 1]
@@ -155,77 +213,80 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 yl = instance_lower.points[p, 1]
                 xu = instance_upper.points[p, 0]
                 yu = instance_upper.points[p, 1]
-                if axis_mode == 1:
+                if axes_mode_wid.value == 1:
                     # image mode
-                    plt.plot([ym, yl], [xm, xl], 'r-', lw=2)
-                    plt.plot([ym, yu], [xm, xu], 'g-', lw=2)
+                    lines = [[(ym, xm), (yl, xl)], [(ym, xm), (yu, xu)]]
                 else:
                     # point cloud mode
-                    plt.plot([xm, xl], [ym, yl], 'r-', lw=2)
-                    plt.plot([xm, xu], [ym, yu], 'g-', lw=2)
+                    lines = [[(xm, ym), (xl, yl)], [(xm, ym), (xu, yu)]]
+                lc = mc.LineCollection(lines, colors=('g', 'b'),
+                                       linestyles='solid', linewidths=2)
+                ax.add_collection(lc)
 
             # instance range
-            tmp_range = mean.range()
+            instance_range = mean.range()
 
-        plt.hold(False)
-        plt.gca().axis('equal')
-        # set figure size
-        plt.gcf().set_size_inches([x_scale, y_scale] * np.asarray(figure_size))
-        # turn axis on/off
-        if not axes_visible:
-            plt.axis('off')
         plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = figure_id
+        save_figure_wid.renderer[0] = renderer
 
-        # info_wid string
-        info_txt = r"""
-            Level: {} out of   {}.
-            {} components in total.
-            {} active components.
-            {:.1f} % variance kept.
-            Instance range: {:.1f} x {:.1f}.
-            {} landmark points, {} features.
-        """.format(level + 1, n_levels, shape_models[level].n_components,
-                   shape_models[level].n_active_components,
-                   shape_models[level].variance_ratio() * 100, tmp_range[0],
-                   tmp_range[1], mean.n_points,
-                   shape_models[level].n_features)
+        # update info text widget
+        update_info(level, instance_range)
 
-        info_wid.children[1].value = _raw_info_string_to_latex(info_txt)
+    # define function that updates info text
+    def update_info(level, instance_range):
+        lvl_sha_mod = shape_models[level]
+        info_wid.children[1].children[0].value = "> Level: {} out of {}.".\
+            format(level + 1, n_levels)
+        info_wid.children[1].children[1].value = "> {} components in total.".\
+            format(lvl_sha_mod.n_components)
+        info_wid.children[1].children[2].value = "> {} active components.".\
+            format(lvl_sha_mod.n_active_components)
+        info_wid.children[1].children[3].value = "> {:.1f}% variance kept.".\
+            format(lvl_sha_mod.variance_ratio() * 100)
+        info_wid.children[1].children[4].value = "> Instance range: {:.1f} " \
+                                                 "x {:.1f}.".\
+            format(instance_range[0], instance_range[1])
+        info_wid.children[1].children[5].value = "> {} landmark points, " \
+                                                 "{} features.".\
+            format(lvl_sha_mod.mean().n_points, lvl_sha_mod.n_features)
 
     # Plot eigenvalues function
     def plot_eigenvalues(name):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get parameters
+        # get level
         level = 0
         if n_levels > 1:
             level = level_wid.value
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # show eigenvalues plots
-        new_figure_id = _plot_eigenvalues(figure_id, shape_models[level],
-                                          figure_size,
-                                          figure_options_wid.x_scale,
-                                          figure_options_wid.y_scale)
+        # get the current figure id and plot the eigenvalues
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+                           viewer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        plt.subplot(121)
+        shape_models[level].plot_eigenvalues_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id)
+        plt.subplot(122)
+        renderer = shape_models[level].plot_eigenvalues_cumulative_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id,
+            figure_size=new_figure_size)
+        plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
+        save_figure_wid.renderer[0] = renderer
 
     # create options widgets
     mode_dict = OrderedDict()
     mode_dict['Deformation'] = 1
     mode_dict['Vectors'] = 2
-    mode_wid = RadioButtonsWidget(values=mode_dict, description='Mode:',
-                                  value=1)
+    mode_wid = ipywidgets.RadioButtonsWidget(values=mode_dict,
+                                             description='Mode:', value=1)
     mode_wid.on_trait_change(plot_function, 'value')
-    mean_wid = CheckboxWidget(value=False, description='Show mean shape')
+    mean_wid = ipywidgets.CheckboxWidget(value=False,
+                                         description='Show mean shape')
     mean_wid.on_trait_change(plot_function, 'value')
 
     # controls mean shape checkbox visibility
@@ -243,19 +304,27 @@ def visualize_shape_model(shape_models, n_parameters=5,
                                             toggle_show_visible=False,
                                             plot_eig_visible=True,
                                             plot_eig_function=plot_eigenvalues)
-    figure_options_wid = figure_options(plot_function, scale_default=1.,
-                                        show_axes_default=True,
-                                        toggle_show_default=True,
-                                        toggle_show_visible=False)
-    axes_mode_wid = RadioButtonsWidget(values={'Image': 1, 'Point cloud': 2},
-                                       description='Axes mode:', value=1)
+
+    # viewer options widget
+    axes_mode_wid = ipywidgets.RadioButtonsWidget(
+        values={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
+        value=2)
     axes_mode_wid.on_trait_change(plot_function, 'value')
-    ch = list(figure_options_wid.children)
-    ch.insert(3, axes_mode_wid)
-    figure_options_wid.children = ch
-    info_wid = info_print(toggle_show_default=True, toggle_show_visible=False)
-    initial_figure_id = plt.figure()
-    save_figure_wid = save_figure_options(initial_figure_id,
+    viewer_options_wid = viewer_options(viewer_options_default,
+                                        ['lines', 'markers', 'figure_one'],
+                                        objects_names=None,
+                                        plot_function=plot_function,
+                                        toggle_show_visible=False,
+                                        toggle_show_default=True)
+    viewer_options_all = ipywidgets.ContainerWidget(children=[axes_mode_wid,
+                                                    viewer_options_wid])
+    info_wid = info_print(n_bullets=6, toggle_show_default=True,
+                          toggle_show_visible=False)
+
+    # save figure widget
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = save_figure_options(initial_renderer,
                                           toggle_show_default=True,
                                           toggle_show_visible=False)
 
@@ -274,32 +343,32 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = RadioButtonsWidget(values=radio_str,
-                                       description='Pyramid:', value=0)
+        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+                                                  description='Pyramid:',
+                                                  value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(plot_function, 'value')
         radio_children = [level_wid, mode_wid, mean_wid]
     else:
         radio_children = [mode_wid, mean_wid]
-    radio_wids = ContainerWidget(children=radio_children)
-    tmp_wid = ContainerWidget(children=[radio_wids, model_parameters_wid])
-    wid = TabWidget(children=[tmp_wid, figure_options_wid, info_wid,
-                              save_figure_wid])
+    radio_wids = ipywidgets.ContainerWidget(children=radio_children)
+    tmp_wid = ipywidgets.ContainerWidget(children=[radio_wids,
+                                                   model_parameters_wid])
+    tab_wid = ipywidgets.TabWidget(children=[tmp_wid, viewer_options_all,
+                                             info_wid, save_figure_wid])
+    logo_wid = logo()
+    wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
     if popup:
-        wid = PopupWidget(children=[wid], button_text='Shape Model Menu')
+        wid = ipywidgets.PopupWidget(children=[wid],
+                                     button_text='Shape Model Menu')
 
     # display final widget
-    display(wid)
+    ipydisplay.display(wid)
 
     # set final tab titles
-    tab_titles = ['Shape parameters', 'Figure options', 'Model info',
-                  'Save figure']
-    if popup:
-        for (k, tl) in enumerate(tab_titles):
-            wid.children[0].set_title(k, tl)
-    else:
-        for (k, tl) in enumerate(tab_titles):
-            wid.set_title(k, tl)
+    tab_titles = ['Shape parameters', 'Viewer options', 'Info', 'Save figure']
+    for (k, tl) in enumerate(tab_titles):
+        tab_wid.set_title(k, tl)
 
     # align widgets
     tmp_wid.remove_class('vbox')
@@ -309,12 +378,13 @@ def visualize_shape_model(shape_models, n_parameters=5,
                             container_border='1px solid black',
                             toggle_button_font_weight='bold',
                             border_visible=True)
-    format_figure_options(figure_options_wid, container_padding='6px',
+    format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
                           toggle_button_font_weight='bold',
-                          border_visible=False)
-    format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
+                          border_visible=False,
+                          suboptions_border_visible=True)
+    format_info_print(info_wid, font_size_in_pt='10pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
                       toggle_button_font_weight='bold', border_visible=False)
@@ -328,48 +398,40 @@ def visualize_shape_model(shape_models, n_parameters=5,
     update_widgets('', 0)
 
     # Reset value to enable initial visualization
-    figure_options_wid.children[2].value = False
+    axes_mode_wid.value = 1
 
 
 def visualize_appearance_model(appearance_models, n_parameters=5,
-                               parameters_bounds=(-3.0, 3.0),
-                               figure_size=(7, 7), mode='multiple',
-                               popup=False, **kwargs):
+                               parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
+                               mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel appearance model.
 
     Parameters
     -----------
     appearance_models : `list` of :map:`PCAModel` or subclass
-        The multilevel appearance model to be displayed. Note that each level
-        can have different attributes, e.g. number of parameters, feature type,
-        number of channels.
-
+        The multilevel appearance model to be displayed. Note that each level can
+        have different number of components.
     n_parameters : `int` or `list` of `int` or None, optional
         The number of principal components to be used for the parameters
         sliders.
-        If int, then the number of sliders per level is the minimum between
-        n_parameters and the number of active components per level.
-        If list of int, then a number of sliders is defined per level.
-        If None, all the active components per level will have a slider.
-
+        If `int`, then the number of sliders per level is the minimum between
+        `n_parameters` and the number of active components per level.
+        If `list` of `int`, then a number of sliders is defined per level.
+        If ``None``, all the active components per level will have a slider.
     parameters_bounds : (`float`, `float`), optional
         The minimum and maximum bounds, in std units, for the sliders.
-
     figure_size : (`int`, `int`), optional
         The size of the plotted figures.
-
-    mode : 'single' or 'multiple', optional
-        If single, only a single slider is constructed along with a drop down
-        menu.
-        If multiple, a slider is constructed for each parameter.
-
-    popup : `boolean`, optional
-        If enabled, the widget will appear as a popup window.
-
-    kwargs : `dict`, optional
-        Passed through to the viewer.
+    mode : {``single``, ``multiple``}, optional
+        If ``single``, only a single slider is constructed along with a drop
+        down menu. If ``multiple``, a slider is constructed for each parameter.
+    popup : `bool`, optional
+        If ``True``, the widget will appear as a popup window.
     """
+    import IPython.html.widgets as ipywidgets
+    import IPython.display as ipydisplay
+    import matplotlib.pyplot as plt
     from menpo.image import MaskedImage
 
     # make sure that appearance_models is a list even with one member
@@ -386,115 +448,6 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
     # the returned n_parameters is a list of len n_levels
     n_parameters = _check_n_parameters(n_parameters, n_levels, max_n_params)
 
-    # define plot function
-    def plot_function(name, value):
-        # clear current figure, but wait until the new data to be displayed are
-        # generated
-        clear_output(wait=True)
-
-        # get selected level
-        level = 0
-        if n_levels > 1:
-            level = level_wid.value
-
-        # get parameters values
-        parameters_values = model_parameters_wid.parameters_values
-
-        # compute instance
-        weights = parameters_values * appearance_models[level].eigenvalues[:len(parameters_values)] ** 0.5
-        instance = appearance_models[level].instance(weights)
-
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # show image with selected options
-        new_figure_id = _plot_figure(
-            image=instance, figure_id=figure_id, image_enabled=True,
-            landmarks_enabled=landmark_options_wid.landmarks_enabled,
-            image_is_masked=channel_options_wid.image_is_masked,
-            masked_enabled=channel_options_wid.masked_enabled,
-            channels=channel_options_wid.channels,
-            glyph_enabled=channel_options_wid.glyph_enabled,
-            glyph_block_size=channel_options_wid.glyph_block_size,
-            glyph_use_negative=channel_options_wid.glyph_use_negative,
-            sum_enabled=channel_options_wid.sum_enabled,
-            groups=[landmark_options_wid.group],
-            with_labels=[landmark_options_wid.with_labels],
-            groups_colours=dict(), subplots_enabled=False,
-            subplots_titles=dict(), image_axes_mode=True,
-            legend_enabled=landmark_options_wid.legend_enabled,
-            numbering_enabled=landmark_options_wid.numbering_enabled,
-            x_scale=figure_options_wid.x_scale,
-            y_scale=figure_options_wid.y_scale,
-            axes_visible=figure_options_wid.axes_visible,
-            figure_size=figure_size, **kwargs)
-
-        # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
-
-        # update info text widget
-        update_info(instance, level, landmark_options_wid.group)
-
-    # define function that updates info text
-    def update_info(image, level, group):
-        lvl_app_mod = appearance_models[level]
-
-        info_txt = r"""
-            Level: {} out of {}.
-            {} components in total.
-            {} active components.
-            {:.1f}% variance kept.
-            Reference shape of size {} with {} channel{}.
-            {} features.
-            {} landmark points.
-            Instance: min={:.3f}, max={:.3f}
-        """.format(level + 1, n_levels, lvl_app_mod.n_components,
-                   lvl_app_mod.n_active_components,
-                   lvl_app_mod.variance_ratio() * 100, image._str_shape,
-                   image.n_channels, 's' * (image.n_channels > 1),
-                   lvl_app_mod.n_features, image.landmarks[group].lms.n_points,
-                   image.pixels.min(), image.pixels.max())
-
-        # update info widget text
-        info_wid.children[1].value = _raw_info_string_to_latex(info_txt)
-
-    # Plot eigenvalues function
-    def plot_eigenvalues(name):
-        # clear current figure, but wait until the new data to be displayed are
-        # generated
-        clear_output(wait=True)
-
-        # get parameters
-        level = 0
-        if n_levels > 1:
-            level = level_wid.value
-
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # show eigenvalues plots
-        new_figure_id = _plot_eigenvalues(figure_id, appearance_models[level],
-                                          figure_size,
-                                          figure_options_wid.x_scale,
-                                          figure_options_wid.y_scale)
-
-        # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
-
-    # create options widgets
-    model_parameters_wid = model_parameters(n_parameters[0], plot_function,
-                                            params_str='param ', mode=mode,
-                                            params_bounds=parameters_bounds,
-                                            toggle_show_default=True,
-                                            toggle_show_visible=False,
-                                            plot_eig_visible=True,
-                                            plot_eig_function=plot_eigenvalues)
-    channel_options_wid = channel_options(
-        appearance_models[0].mean().n_channels,
-        isinstance(appearance_models[0].mean(), MaskedImage), plot_function,
-        masked_default=True, toggle_show_default=True,
-        toggle_show_visible=False)
-
     # find initial groups and labels that will be passed to the landmark options
     # widget creation
     mean_has_landmarks = appearance_models[0].mean().landmarks.n_groups != 0
@@ -504,22 +457,200 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
     else:
         all_groups_keys = [' ']
         all_labels_keys = [[' ']]
-    landmark_options_wid = landmark_options(
-        all_groups_keys, all_labels_keys, plot_function,
-        toggle_show_default=True, landmarks_default=mean_has_landmarks,
-        legend_default=False, numbering_default=False,
-        toggle_show_visible=False)
+
+    # get initial line colours for each available label
+    if len(all_labels_keys[0]) == 1:
+        line_colours = ['r']
+    else:
+        line_colours = sample_colours_from_colourmap(len(all_labels_keys[0]),
+                                                     'jet')
+
+    # initial options dictionaries
+    channels_default = 0
+    if appearance_models[0].mean().n_channels == 3:
+        channels_default = None
+    channels_options_default = \
+        {'n_channels': appearance_models[0].mean().n_channels,
+         'image_is_masked': isinstance(appearance_models[0].mean(),
+                                       MaskedImage),
+         'channels': channels_default,
+         'glyph_enabled': False,
+         'glyph_block_size': 3,
+         'glyph_use_negative': False,
+         'sum_enabled': False,
+         'masked_enabled': isinstance(appearance_models[0].mean(), MaskedImage)}
+    landmark_options_default = {'render_landmarks': mean_has_landmarks,
+                                'group_keys': all_groups_keys,
+                                'labels_keys': all_labels_keys,
+                                'group': None,
+                                'with_labels': None}
+    lines_options = {'render_lines': True,
+                     'line_width': 1,
+                     'line_colour': line_colours,
+                     'line_style': '-'}
+    markers_options = {'render_markers': True,
+                       'marker_size': 20,
+                       'marker_face_colour': ['r'],
+                       'marker_edge_colour': ['k'],
+                       'marker_style': 'o',
+                       'marker_edge_width': 1}
+    figure_options = {'x_scale': 1.,
+                      'y_scale': 1.,
+                      'render_axes': True,
+                      'axes_font_name': 'sans-serif',
+                      'axes_font_size': 10,
+                      'axes_font_style': 'normal',
+                      'axes_font_weight': 'normal',
+                      'axes_x_limits': None,
+                      'axes_y_limits': None}
+    image_options = {'interpolation': 'none',
+                     'alpha': 1.}
+    viewer_options_default = {'lines': lines_options,
+                              'markers': markers_options,
+                              'figure': figure_options,
+                              'image': image_options}
+
+    # Define plot function
+    def plot_function(name, value):
+        # clear current figure, but wait until the new data to be displayed are
+        # generated
+        ipydisplay.clear_output(wait=True)
+
+        # get selected level
+        level = 0
+        if n_levels > 1:
+            level = level_wid.value
+
+        # compute weights and instance
+        parameters_values = model_parameters_wid.parameters_values
+        weights = (parameters_values *
+                   appearance_models[level].eigenvalues[:len(parameters_values)] **
+                   0.5)
+        instance = appearance_models[level].instance(weights)
+
+        # update info text widget
+        update_info(instance, level,
+                    landmark_options_wid.selected_values['group'])
+        n_labels = len(landmark_options_wid.selected_values['with_labels'])
+
+        # compute the mean
+        tmp1 = viewer_options_wid.selected_values[0]['lines']
+        tmp2 = viewer_options_wid.selected_values[0]['markers']
+        tmp3 = viewer_options_wid.selected_values[0]['figure']
+        tmp4 = viewer_options_wid.selected_values[0]['image']
+        new_figure_size = (tmp3['x_scale'] * figure_size[0],
+                           tmp3['y_scale'] * figure_size[1])
+        renderer = _visualize_menpo(
+            instance, save_figure_wid.renderer[0],
+            landmark_options_wid.selected_values['render_landmarks'],
+            channel_options_wid.selected_values['image_is_masked'],
+            channel_options_wid.selected_values['masked_enabled'],
+            channel_options_wid.selected_values['channels'],
+            channel_options_wid.selected_values['glyph_enabled'],
+            channel_options_wid.selected_values['glyph_block_size'],
+            channel_options_wid.selected_values['glyph_use_negative'],
+            channel_options_wid.selected_values['sum_enabled'],
+            landmark_options_wid.selected_values['group'],
+            landmark_options_wid.selected_values['with_labels'],
+            tmp1['render_lines'], tmp1['line_style'], tmp1['line_width'],
+            tmp1['line_colour'][:n_labels], tmp2['render_markers'],
+            tmp2['marker_style'], tmp2['marker_size'], tmp2['marker_edge_width'],
+            tmp2['marker_edge_colour'], tmp2['marker_face_colour'],
+            False, None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None, None, None,
+            False, None, None, new_figure_size, tmp3['render_axes'],
+            tmp3['axes_font_name'], tmp3['axes_font_size'],
+            tmp3['axes_font_style'], tmp3['axes_x_limits'],
+            tmp3['axes_y_limits'], tmp3['axes_font_weight'],
+            tmp4['interpolation'], tmp4['alpha'])
+
+        # save the current figure id
+        save_figure_wid.renderer[0] = renderer
+
+    # define function that updates info text
+    def update_info(image, level, group):
+        lvl_app_mod = appearance_models[level]
+        info_wid.children[1].children[0].value = "> Level: {} out of {}.".\
+            format(level + 1, n_levels)
+        info_wid.children[1].children[1].value = "> {} components in total.".\
+            format(lvl_app_mod.n_components)
+        info_wid.children[1].children[2].value = "> {} active components.".\
+            format(lvl_app_mod.n_active_components)
+        info_wid.children[1].children[3].value = "> {:.1f}% variance kept.".\
+            format(lvl_app_mod.variance_ratio() * 100)
+        info_wid.children[1].children[4].value = "> Reference shape of size " \
+                                                 "{} with {} channel{}.".\
+            format(image._str_shape,
+                   image.n_channels, 's' * (image.n_channels > 1))
+        info_wid.children[1].children[5].value = "> {} features.".\
+            format(lvl_app_mod.n_features)
+        info_wid.children[1].children[6].value = "> {} landmark points.".\
+            format(image.landmarks[group].lms.n_points)
+        info_wid.children[1].children[7].value = "> Instance: min={:.3f}, " \
+                                                 "max={:.3f}".\
+            format(image.pixels.min(), image.pixels.max())
+
+    # Plot eigenvalues function
+    def plot_eigenvalues(name):
+        # clear current figure, but wait until the new data to be displayed are
+        # generated
+        ipydisplay.clear_output(wait=True)
+
+        # get level
+        level = 0
+        if n_levels > 1:
+            level = level_wid.value
+
+        # get the current figure id and plot the eigenvalues
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+                           viewer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        plt.subplot(121)
+        appearance_models[level].plot_eigenvalues_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id)
+        plt.subplot(122)
+        renderer = appearance_models[level].plot_eigenvalues_cumulative_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id,
+            figure_size=new_figure_size)
+        plt.show()
+
+        # save the current figure id
+        save_figure_wid.renderer[0] = renderer
+
+    # create parameters, channels nad landmarks options widgets
+    model_parameters_wid = model_parameters(n_parameters[0], plot_function,
+                                            params_str='param ', mode=mode,
+                                            params_bounds=parameters_bounds,
+                                            toggle_show_default=True,
+                                            toggle_show_visible=False,
+                                            plot_eig_visible=True,
+                                            plot_eig_function=plot_eigenvalues)
+    channel_options_wid = channel_options(channels_options_default,
+                                          plot_function=plot_function,
+                                          toggle_show_default=True,
+                                          toggle_show_visible=False)
+    landmark_options_wid = landmark_options(landmark_options_default,
+                                            plot_function=plot_function,
+                                            toggle_show_default=True,
+                                            toggle_show_visible=False)
     # if the mean doesn't have landmarks, then landmarks checkbox should be
     # disabled
-    landmark_options_wid.children[1].children[0].disabled = \
-        not mean_has_landmarks
-    figure_options_wid = figure_options(plot_function, scale_default=1.,
-                                        show_axes_default=True,
-                                        toggle_show_default=True,
-                                        toggle_show_visible=False)
-    info_wid = info_print(toggle_show_default=True, toggle_show_visible=False)
-    initial_figure_id = plt.figure()
-    save_figure_wid = save_figure_options(initial_figure_id,
+    landmark_options_wid.children[1].disabled = not mean_has_landmarks
+
+    # viewer options widget
+    viewer_options_wid = viewer_options(viewer_options_default,
+                                        ['lines', 'markers', 'figure_one',
+                                         'image'],
+                                        objects_names=None,
+                                        plot_function=plot_function,
+                                        toggle_show_visible=False,
+                                        toggle_show_default=True)
+    info_wid = info_print(n_bullets=8, toggle_show_default=True,
+                          toggle_show_visible=False)
+
+    # save figure widget
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = save_figure_options(initial_renderer,
                                           toggle_show_default=True,
                                           toggle_show_visible=False)
 
@@ -528,6 +659,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
         # update model parameters
         update_model_parameters(model_parameters_wid, n_parameters[value],
                                 plot_function, params_str='param ')
+
         # update channel options
         update_channel_options(channel_options_wid,
                                appearance_models[value].mean().n_channels,
@@ -545,31 +677,31 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = RadioButtonsWidget(values=radio_str,
-                                       description='Pyramid:', value=0)
+        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+                                                  description='Pyramid:',
+                                                  value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(plot_function, 'value')
         tmp_children.insert(0, level_wid)
-    tmp_wid = ContainerWidget(children=tmp_children)
-    wid = TabWidget(children=[tmp_wid, channel_options_wid,
-                              landmark_options_wid, figure_options_wid,
-                              info_wid, save_figure_wid])
+    tmp_wid = ipywidgets.ContainerWidget(children=tmp_children)
+    tab_wid = ipywidgets.TabWidget(children=[tmp_wid, channel_options_wid,
+                                             landmark_options_wid,
+                                             viewer_options_wid,
+                                             info_wid, save_figure_wid])
+    logo_wid = logo()
+    wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
     if popup:
-        wid = PopupWidget(children=[wid], button_text='Appearance Model Menu')
+        wid = ipywidgets.PopupWidget(children=[wid],
+                                     button_text='Appearance Model Menu')
 
     # display final widget
-    display(wid)
+    ipydisplay.display(wid)
 
     # set final tab titles
     tab_titles = ['Appearance parameters', 'Channels options',
-                  'Landmarks options', 'Figure options', 'Model info',
-                  'Save figure']
-    if popup:
-        for (k, tl) in enumerate(tab_titles):
-            wid.children[0].set_title(k, tl)
-    else:
-        for (k, tl) in enumerate(tab_titles):
-            wid.set_title(k, tl)
+                  'Landmarks options', 'Viewer options', 'Info', 'Save figure']
+    for (k, tl) in enumerate(tab_titles):
+        tab_wid.set_title(k, tl)
 
     # align widgets
     tmp_wid.remove_class('vbox')
@@ -589,12 +721,13 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                             container_border='1px solid black',
                             toggle_button_font_weight='bold',
                             border_visible=False)
-    format_figure_options(figure_options_wid, container_padding='6px',
+    format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
                           toggle_button_font_weight='bold',
-                          border_visible=False)
-    format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
+                          border_visible=False,
+                          suboptions_border_visible=True)
+    format_info_print(info_wid, font_size_in_pt='10pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
                       toggle_button_font_weight='bold', border_visible=False)
@@ -604,16 +737,17 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                                toggle_button_font_weight='bold',
                                tab_top_margin='0cm', border_visible=False)
 
-    # update widgets' state for level 0
+    # update widgets' state for image number 0
     update_widgets('', 0)
 
     # Reset value to enable initial visualization
-    figure_options_wid.children[2].value = False
+    viewer_options_wid.children[1].children[1].children[2].children[2].value = \
+        False
 
 
 def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
-                  parameters_bounds=(-3.0, 3.0), figure_size=(7, 7),
-                  mode='multiple', popup=False, **kwargs):
+                  parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
+                  mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel AAM.
 
@@ -623,40 +757,33 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         The multilevel AAM to be displayed. Note that each level can have
         different attributes, e.g. number of active components, feature type,
         number of channels.
-
     n_shape_parameters : `int` or `list` of `int` or None, optional
-        The number of shape principal components to be used for the parameters
+        The number of shape components to be used for the parameters
         sliders.
-        If int, then the number of sliders per level is the minimum between
-        n_parameters and the number of active components per level.
-        If list of int, then a number of sliders is defined per level.
-        If None, all the active components per level will have a slider.
-
+        If `int`, then the number of sliders per level is the minimum between
+        `n_parameters` and the number of active components per level.
+        If `list` of `int`, then a number of sliders is defined per level.
+        If ``None``, all the active components per level will have a slider.
     n_appearance_parameters : `int` or `list` of `int` or None, optional
-        The number of appearance principal components to be used for the
-        parameters sliders.
-        If int, then the number of sliders per level is the minimum between
-        n_parameters and the number of active components per level.
-        If list of int, then a number of sliders is defined per level.
-        If None, all the active components per level will have a slider.
-
+        The number of appearance components to be used for the parameters
+        sliders.
+        If `int`, then the number of sliders per level is the minimum between
+        `n_parameters` and the number of active components per level.
+        If `list` of `int`, then a number of sliders is defined per level.
+        If ``None``, all the active components per level will have a slider.
     parameters_bounds : (`float`, `float`), optional
         The minimum and maximum bounds, in std units, for the sliders.
-
     figure_size : (`int`, `int`), optional
         The size of the plotted figures.
-
-    mode : 'single' or 'multiple', optional
-        If single, only a single slider is constructed along with a drop down
-        menu.
-        If multiple, a slider is constructed for each parameter.
-
-    popup : `boolean`, optional
-        If enabled, the widget will appear as a popup window.
-
-    kwargs : `dict`, optional
-        Passed through to the viewer.
+    mode : {``single``, ``multiple``}, optional
+        If ``single``, only a single slider is constructed along with a drop
+        down menu. If ``multiple``, a slider is constructed for each parameter.
+    popup : `bool`, optional
+        If ``True``, the widget will appear as a popup window.
     """
+    import IPython.html.widgets as ipywidgets
+    import IPython.display as ipydisplay
+    import matplotlib.pyplot as plt
     from menpo.image import MaskedImage
 
     # find number of levels
@@ -673,53 +800,124 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     n_appearance_parameters = _check_n_parameters(n_appearance_parameters,
                                                   n_levels, max_n_appearance)
 
-    # define plot function
+    # find initial groups and labels that will be passed to the landmark options
+    # widget creation
+    mean_has_landmarks = aam.appearance_models[0].mean().landmarks.n_groups != 0
+    if mean_has_landmarks:
+        all_groups_keys, all_labels_keys = _extract_groups_labels(
+            aam.appearance_models[0].mean())
+    else:
+        all_groups_keys = [' ']
+        all_labels_keys = [[' ']]
+
+    # get initial line colours for each available label
+    if len(all_labels_keys[0]) == 1:
+        line_colours = ['r']
+    else:
+        line_colours = sample_colours_from_colourmap(len(all_labels_keys[0]),
+                                                     'jet')
+
+    # initial options dictionaries
+    channels_default = 0
+    if aam.appearance_models[0].mean().n_channels == 3:
+        channels_default = None
+    channels_options_default = \
+        {'n_channels': aam.appearance_models[0].mean().n_channels,
+         'image_is_masked': isinstance(aam.appearance_models[0].mean(),
+                                       MaskedImage),
+         'channels': channels_default,
+         'glyph_enabled': False,
+         'glyph_block_size': 3,
+         'glyph_use_negative': False,
+         'sum_enabled': False,
+         'masked_enabled': isinstance(aam.appearance_models[0].mean(),
+                                      MaskedImage)}
+    landmark_options_default = {'render_landmarks': mean_has_landmarks,
+                                'group_keys': all_groups_keys,
+                                'labels_keys': all_labels_keys,
+                                'group': None,
+                                'with_labels': None}
+    lines_options = {'render_lines': True,
+                     'line_width': 1,
+                     'line_colour': line_colours,
+                     'line_style': '-'}
+    markers_options = {'render_markers': True,
+                       'marker_size': 20,
+                       'marker_face_colour': ['r'],
+                       'marker_edge_colour': ['k'],
+                       'marker_style': 'o',
+                       'marker_edge_width': 1}
+    figure_options = {'x_scale': 1.,
+                      'y_scale': 1.,
+                      'render_axes': True,
+                      'axes_font_name': 'sans-serif',
+                      'axes_font_size': 10,
+                      'axes_font_style': 'normal',
+                      'axes_font_weight': 'normal',
+                      'axes_x_limits': None,
+                      'axes_y_limits': None}
+    image_options = {'interpolation': 'none',
+                     'alpha': 1.0}
+    viewer_options_default = {'lines': lines_options,
+                              'markers': markers_options,
+                              'figure': figure_options,
+                              'image': image_options}
+
+    # Define plot function
     def plot_function(name, value):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
         # get selected level
         level = 0
         if n_levels > 1:
             level = level_wid.value
 
-        # get weights and compute instance
+        # compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters_values
         appearance_weights = appearance_model_parameters_wid.parameters_values
         instance = aam.instance(level=level, shape_weights=shape_weights,
                                 appearance_weights=appearance_weights)
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
+        # update info text widget
+        update_info(aam, instance, level,
+                    landmark_options_wid.selected_values['group'])
+        n_labels = len(landmark_options_wid.selected_values['with_labels'])
 
-        # show image with selected options
-        new_figure_id = _plot_figure(
-            image=instance, figure_id=figure_id, image_enabled=True,
-            landmarks_enabled=landmark_options_wid.landmarks_enabled,
-            image_is_masked=channel_options_wid.image_is_masked,
-            masked_enabled=channel_options_wid.masked_enabled,
-            channels=channel_options_wid.channels,
-            glyph_enabled=channel_options_wid.glyph_enabled,
-            glyph_block_size=channel_options_wid.glyph_block_size,
-            glyph_use_negative=channel_options_wid.glyph_use_negative,
-            sum_enabled=channel_options_wid.sum_enabled,
-            groups=[landmark_options_wid.group],
-            with_labels=[landmark_options_wid.with_labels],
-            groups_colours=dict(), subplots_enabled=False,
-            subplots_titles=dict(), image_axes_mode=True,
-            legend_enabled=landmark_options_wid.legend_enabled,
-            numbering_enabled=landmark_options_wid.numbering_enabled,
-            x_scale=figure_options_wid.x_scale,
-            y_scale=figure_options_wid.y_scale,
-            axes_visible=figure_options_wid.axes_visible,
-            figure_size=figure_size, **kwargs)
+        # plot
+        tmp1 = viewer_options_wid.selected_values[0]['lines']
+        tmp2 = viewer_options_wid.selected_values[0]['markers']
+        tmp3 = viewer_options_wid.selected_values[0]['figure']
+        tmp4 = viewer_options_wid.selected_values[0]['image']
+        new_figure_size = (tmp3['x_scale'] * figure_size[0],
+                           tmp3['y_scale'] * figure_size[1])
+        renderer = _visualize_menpo(
+            instance, save_figure_wid.renderer[0],
+            landmark_options_wid.selected_values['render_landmarks'],
+            channel_options_wid.selected_values['image_is_masked'],
+            channel_options_wid.selected_values['masked_enabled'],
+            channel_options_wid.selected_values['channels'],
+            channel_options_wid.selected_values['glyph_enabled'],
+            channel_options_wid.selected_values['glyph_block_size'],
+            channel_options_wid.selected_values['glyph_use_negative'],
+            channel_options_wid.selected_values['sum_enabled'],
+            landmark_options_wid.selected_values['group'],
+            landmark_options_wid.selected_values['with_labels'],
+            tmp1['render_lines'], tmp1['line_style'], tmp1['line_width'],
+            tmp1['line_colour'][:n_labels], tmp2['render_markers'],
+            tmp2['marker_style'], tmp2['marker_size'], tmp2['marker_edge_width'],
+            tmp2['marker_edge_colour'], tmp2['marker_face_colour'],
+            False, None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None, None, None,
+            False, None, None, new_figure_size, tmp3['render_axes'],
+            tmp3['axes_font_name'], tmp3['axes_font_size'],
+            tmp3['axes_font_style'], tmp3['axes_x_limits'],
+            tmp3['axes_y_limits'], tmp3['axes_font_weight'],
+            tmp4['interpolation'], tmp4['alpha'])
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
-
-        # update info text widget
-        update_info(aam, instance, level, landmark_options_wid.group)
+        save_figure_wid.renderer[0] = renderer
 
     # define function that updates info text
     def update_info(aam, instance, level, group):
@@ -756,113 +954,125 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
             else:
                 tmp_pyramid = "Features were extracted at each pyramid level."
 
-        # Formatting is a bit ugly but this is MUCH easier to read.
-        info_txt = r"""
-            {} training images.
-            Warp using {} transform.
-            Level {}/{}  (downscale={:.1f}).
-            {}
-            {}
-            {}
-            Reference frame of length {} ({} x {}C, {} x {}C).
-            {} shape components ({:.2f}% of variance)
-            {} appearance components ({:.2f}% of variance)
-            {} landmark points.
-            Instance: min={:.3f} , max={:.3f}
-            """.format(aam.n_training_images, aam.transform.__name__,
-                       level + 1,
-                       aam.n_levels, aam.downscale, tmp_shape_models,
-                       tmp_pyramid, tmp_feat, lvl_app_mod.n_features,
-                       tmplt_inst.n_true_pixels(), n_channels,
-                       tmplt_inst._str_shape, n_channels,
-                       lvl_shape_mod.n_components,
-                       lvl_shape_mod.variance_ratio() * 100,
-                       lvl_app_mod.n_components,
-                       lvl_app_mod.variance_ratio() * 100,
-                       instance.landmarks[group].lms.n_points,
-                       instance.pixels.min(), instance.pixels.max())
-
-        info_wid.children[1].value = _raw_info_string_to_latex(info_txt)
+        # update info widgets
+        info_wid.children[1].children[0].value = "> {} training images.".\
+            format(aam.n_training_images)
+        info_wid.children[1].children[1].value = "> Warp using {} transform.".\
+            format(aam.transform.__name__)
+        info_wid.children[1].children[2].value = "> Level {}/{}  " \
+                                                 "(downscale={:.1f}).".\
+            format(level + 1, aam.n_levels, aam.downscale)
+        info_wid.children[1].children[3].value = "> {}".format(tmp_shape_models)
+        info_wid.children[1].children[4].value = "> {}".format(tmp_pyramid)
+        info_wid.children[1].children[5].value = "> {}".format(tmp_feat)
+        info_wid.children[1].children[6].value = "> Reference frame of " \
+                                                 "length {} ({} x {}C, {} x " \
+                                                 "{}C).".\
+            format(lvl_app_mod.n_features, tmplt_inst.n_true_pixels(),
+                   n_channels, tmplt_inst._str_shape, n_channels)
+        info_wid.children[1].children[7].value = "> {} shape components " \
+                                                 "({:.2f}% of variance).".\
+            format(lvl_shape_mod.n_components,
+                   lvl_shape_mod.variance_ratio() * 100)
+        info_wid.children[1].children[8].value = "> {} appearance components " \
+                                                 "({:.2f}% of variance).".\
+            format(lvl_app_mod.n_components, lvl_app_mod.variance_ratio() * 100)
+        info_wid.children[1].children[9].value = "> {} landmark points.".\
+            format(instance.landmarks[group].lms.n_points)
+        info_wid.children[1].children[10].value = "> Instance: min={:.3f} , " \
+                                                  "max={:.3f}.".\
+            format(instance.pixels.min(), instance.pixels.max())
 
     # Plot shape eigenvalues function
     def plot_shape_eigenvalues(name):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get parameters
+        # get level
         level = 0
         if n_levels > 1:
             level = level_wid.value
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # show eigenvalues plots
-        new_figure_id = _plot_eigenvalues(figure_id, aam.shape_models[level],
-                                          figure_size,
-                                          figure_options_wid.x_scale,
-                                          figure_options_wid.y_scale)
+        # get the current figure id and plot the eigenvalues
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+                           viewer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        plt.subplot(121)
+        aam.shape_models[level].plot_eigenvalues_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id)
+        plt.subplot(122)
+        renderer = aam.shape_models[level].plot_eigenvalues_cumulative_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id,
+            figure_size=new_figure_size)
+        plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
+        save_figure_wid.renderer[0] = renderer
 
     # Plot appearance eigenvalues function
     def plot_appearance_eigenvalues(name):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get parameters
+        # get level
         level = 0
         if n_levels > 1:
             level = level_wid.value
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # show eigenvalues plots
-        new_figure_id = _plot_eigenvalues(figure_id,
-                                          aam.appearance_models[level],
-                                          figure_size,
-                                          figure_options_wid.x_scale,
-                                          figure_options_wid.y_scale)
+        # get the current figure id and plot the eigenvalues
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+                           viewer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        plt.subplot(121)
+        aam.appearance_models[level].plot_eigenvalues_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id)
+        plt.subplot(122)
+        renderer = aam.appearance_models[level].plot_eigenvalues_cumulative_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id,
+            figure_size=new_figure_size)
+        plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
+        save_figure_wid.renderer[0] = renderer
 
-    # create options widgets
+    # create parameters, channels nad landmarks options widgets
     shape_model_parameters_wid = model_parameters(
         n_shape_parameters[0], plot_function, params_str='param ', mode=mode,
-        params_bounds=parameters_bounds, toggle_show_default=False,
-        toggle_show_visible=True, toggle_show_name='Shape Parameters',
+        params_bounds=parameters_bounds, toggle_show_default=True,
+        toggle_show_visible=False, toggle_show_name='Shape Parameters',
         plot_eig_visible=True, plot_eig_function=plot_shape_eigenvalues)
     appearance_model_parameters_wid = model_parameters(
         n_appearance_parameters[0], plot_function, params_str='param ',
-        mode=mode, params_bounds=parameters_bounds, toggle_show_default=False,
-        toggle_show_visible=True, toggle_show_name='Appearance Parameters',
+        mode=mode, params_bounds=parameters_bounds, toggle_show_default=True,
+        toggle_show_visible=False, toggle_show_name='Appearance Parameters',
         plot_eig_visible=True, plot_eig_function=plot_appearance_eigenvalues)
-    channel_options_wid = channel_options(
-        aam.appearance_models[0].mean().n_channels,
-        isinstance(aam.appearance_models[0].mean(), MaskedImage), plot_function,
-        masked_default=True, toggle_show_default=True,
-        toggle_show_visible=False)
-    all_groups_keys, all_labels_keys = \
-        _extract_groups_labels(aam.appearance_models[0].mean())
-    landmark_options_wid = landmark_options(all_groups_keys, all_labels_keys,
-                                            plot_function,
+    channel_options_wid = channel_options(channels_options_default,
+                                          plot_function=plot_function,
+                                          toggle_show_default=True,
+                                          toggle_show_visible=False)
+    landmark_options_wid = landmark_options(landmark_options_default,
+                                            plot_function=plot_function,
                                             toggle_show_default=True,
-                                            landmarks_default=True,
-                                            legend_default=False,
-                                            numbering_default=False,
                                             toggle_show_visible=False)
-    figure_options_wid = figure_options(plot_function, scale_default=1.,
-                                        show_axes_default=True,
-                                        toggle_show_default=True,
-                                        toggle_show_visible=False)
-    info_wid = info_print(toggle_show_default=True, toggle_show_visible=False)
-    initial_figure_id = plt.figure()
-    save_figure_wid = save_figure_options(initial_figure_id,
+    # if the mean doesn't have landmarks, then landmarks checkbox should be
+    # disabled
+    landmark_options_wid.children[1].disabled = not mean_has_landmarks
+
+    # viewer options widget
+    viewer_options_wid = viewer_options(viewer_options_default,
+                                        ['lines', 'markers', 'figure_one',
+                                         'image'],
+                                        objects_names=None,
+                                        plot_function=plot_function,
+                                        toggle_show_visible=False,
+                                        toggle_show_default=True)
+    info_wid = info_print(n_bullets=11, toggle_show_default=True,
+                          toggle_show_visible=False)
+
+    # save figure widget
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = save_figure_options(initial_renderer,
                                           toggle_show_default=True,
                                           toggle_show_visible=False)
 
@@ -876,6 +1086,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         update_model_parameters(appearance_model_parameters_wid,
                                 n_appearance_parameters[value],
                                 plot_function, params_str='param ')
+
         # update channel options
         update_channel_options(channel_options_wid,
                                aam.appearance_models[value].mean().n_channels,
@@ -883,7 +1094,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                                           MaskedImage))
 
     # create final widget
-    model_parameters_wid = ContainerWidget(
+    model_parameters_wid = ipywidgets.AccordionWidget(
         children=[shape_model_parameters_wid, appearance_model_parameters_wid])
     tmp_children = [model_parameters_wid]
     if n_levels > 1:
@@ -895,45 +1106,48 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = RadioButtonsWidget(values=radio_str,
-                                       description='Pyramid:', value=0)
+        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+                                                  description='Pyramid:',
+                                                  value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(plot_function, 'value')
         tmp_children.insert(0, level_wid)
-    tmp_wid = ContainerWidget(children=tmp_children)
-    wid = TabWidget(children=[tmp_wid, channel_options_wid,
-                              landmark_options_wid, figure_options_wid,
-                              info_wid, save_figure_wid])
+    tmp_wid = ipywidgets.ContainerWidget(children=tmp_children)
+    tab_wid = ipywidgets.TabWidget(children=[tmp_wid, channel_options_wid,
+                                             landmark_options_wid,
+                                             viewer_options_wid,
+                                             info_wid, save_figure_wid])
+    logo_wid = logo()
+    wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
     if popup:
-        wid = PopupWidget(children=[wid], button_text='AAM Menu')
+        wid = ipywidgets.PopupWidget(children=[wid],
+                                     button_text='AAM Menu')
 
     # display final widget
-    display(wid)
+    ipydisplay.display(wid)
 
     # set final tab titles
-    tab_titles = ['AAM parameters', 'Channels options', 'Landmarks options',
-                  'Figure options', 'Model info', 'Save figure']
-    if popup:
-        for (k, tl) in enumerate(tab_titles):
-            wid.children[0].set_title(k, tl)
-    else:
-        for (k, tl) in enumerate(tab_titles):
-            wid.set_title(k, tl)
+    tab_titles = ['AAM parameters', 'Channels options',
+                  'Landmarks options', 'Viewer options', 'Info', 'Save figure']
+    for (k, tl) in enumerate(tab_titles):
+        tab_wid.set_title(k, tl)
+    tab_titles = ['Shape parameters', 'Appearance parameters']
+    for (k, tl) in enumerate(tab_titles):
+        model_parameters_wid.set_title(k, tl)
 
     # align widgets
-    if n_levels > 1:
-        tmp_wid.remove_class('vbox')
-        tmp_wid.add_class('hbox')
+    tmp_wid.remove_class('vbox')
+    tmp_wid.add_class('hbox')
     format_model_parameters(shape_model_parameters_wid,
                             container_padding='6px', container_margin='6px',
                             container_border='1px solid black',
                             toggle_button_font_weight='bold',
-                            border_visible=True)
+                            border_visible=False)
     format_model_parameters(appearance_model_parameters_wid,
                             container_padding='6px', container_margin='6px',
                             container_border='1px solid black',
                             toggle_button_font_weight='bold',
-                            border_visible=True)
+                            border_visible=False)
     format_channel_options(channel_options_wid, container_padding='6px',
                            container_margin='6px',
                            container_border='1px solid black',
@@ -944,12 +1158,13 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                             container_border='1px solid black',
                             toggle_button_font_weight='bold',
                             border_visible=False)
-    format_figure_options(figure_options_wid, container_padding='6px',
+    format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
                           toggle_button_font_weight='bold',
-                          border_visible=False)
-    format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
+                          border_visible=False,
+                          suboptions_border_visible=True)
+    format_info_print(info_wid, font_size_in_pt='10pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
                       toggle_button_font_weight='bold', border_visible=False)
@@ -959,15 +1174,16 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                                toggle_button_font_weight='bold',
                                tab_top_margin='0cm', border_visible=False)
 
-    # update widgets' state for level 0
+    # update widgets' state for image number 0
     update_widgets('', 0)
 
     # Reset value to enable initial visualization
-    figure_options_wid.children[2].value = False
+    viewer_options_wid.children[1].children[1].children[2].children[2].value = \
+        False
 
 
 def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
-                  figure_size=(7, 7), mode='multiple', popup=False, **kwargs):
+                  figure_size=(10, 8), mode='multiple', popup=False):
     r"""
     Allows the dynamic visualization of a multilevel ATM.
 
@@ -977,32 +1193,26 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
         The multilevel ATM to be displayed. Note that each level can have
         different attributes, e.g. number of active components, feature type,
         number of channels.
-
     n_shape_parameters : `int` or `list` of `int` or None, optional
-        The number of shape principal components to be used for the parameters
+        The number of shape components to be used for the parameters
         sliders.
-        If int, then the number of sliders per level is the minimum between
-        n_parameters and the number of active components per level.
-        If list of int, then a number of sliders is defined per level.
-        If None, all the active components per level will have a slider.
-
+        If `int`, then the number of sliders per level is the minimum between
+        `n_parameters` and the number of active components per level.
+        If `list` of `int`, then a number of sliders is defined per level.
+        If ``None``, all the active components per level will have a slider.
     parameters_bounds : (`float`, `float`), optional
         The minimum and maximum bounds, in std units, for the sliders.
-
     figure_size : (`int`, `int`), optional
         The size of the plotted figures.
-
-    mode : 'single' or 'multiple', optional
-        If single, only a single slider is constructed along with a drop down
-        menu.
-        If multiple, a slider is constructed for each parameter.
-
-    popup : `boolean`, optional
-        If enabled, the widget will appear as a popup window.
-
-    kwargs : `dict`, optional
-        Passed through to the viewer.
+    mode : {``single``, ``multiple``}, optional
+        If ``single``, only a single slider is constructed along with a drop
+        down menu. If ``multiple``, a slider is constructed for each parameter.
+    popup : `bool`, optional
+        If ``True``, the widget will appear as a popup window.
     """
+    import IPython.html.widgets as ipywidgets
+    import IPython.display as ipydisplay
+    import matplotlib.pyplot as plt
     from menpo.image import MaskedImage
 
     # find number of levels
@@ -1016,51 +1226,122 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
     n_shape_parameters = _check_n_parameters(n_shape_parameters, n_levels,
                                              max_n_shape)
 
-    # define plot function
+    # find initial groups and labels that will be passed to the landmark options
+    # widget creation
+    template_has_landmarks = atm.warped_templates[0].landmarks.n_groups != 0
+    if template_has_landmarks:
+        all_groups_keys, all_labels_keys = _extract_groups_labels(
+            atm.warped_templates[0])
+    else:
+        all_groups_keys = [' ']
+        all_labels_keys = [[' ']]
+
+    # get initial line colours for each available label
+    if len(all_labels_keys[0]) == 1:
+        line_colours = ['r']
+    else:
+        line_colours = sample_colours_from_colourmap(len(all_labels_keys[0]),
+                                                     'jet')
+
+    # initial options dictionaries
+    channels_default = 0
+    if atm.warped_templates[0].n_channels == 3:
+        channels_default = None
+    channels_options_default = \
+        {'n_channels': atm.warped_templates[0].n_channels,
+         'image_is_masked': isinstance(atm.warped_templates[0],
+                                       MaskedImage),
+         'channels': channels_default,
+         'glyph_enabled': False,
+         'glyph_block_size': 3,
+         'glyph_use_negative': False,
+         'sum_enabled': False,
+         'masked_enabled': isinstance(atm.warped_templates[0],
+                                      MaskedImage)}
+    landmark_options_default = {'render_landmarks': template_has_landmarks,
+                                'group_keys': all_groups_keys,
+                                'labels_keys': all_labels_keys,
+                                'group': None,
+                                'with_labels': None}
+    lines_options = {'render_lines': True,
+                     'line_width': 1,
+                     'line_colour': line_colours,
+                     'line_style': '-'}
+    markers_options = {'render_markers': True,
+                       'marker_size': 20,
+                       'marker_face_colour': ['r'],
+                       'marker_edge_colour': ['k'],
+                       'marker_style': 'o',
+                       'marker_edge_width': 1}
+    figure_options = {'x_scale': 1.,
+                      'y_scale': 1.,
+                      'render_axes': True,
+                      'axes_font_name': 'sans-serif',
+                      'axes_font_size': 10,
+                      'axes_font_style': 'normal',
+                      'axes_font_weight': 'normal',
+                      'axes_x_limits': None,
+                      'axes_y_limits': None}
+    image_options = {'interpolation': 'none',
+                     'alpha': 1.0}
+    viewer_options_default = {'lines': lines_options,
+                              'markers': markers_options,
+                              'figure': figure_options,
+                              'image': image_options}
+
+    # Define plot function
     def plot_function(name, value):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
         # get selected level
         level = 0
         if n_levels > 1:
             level = level_wid.value
 
-        # get weights and compute instance
+        # compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters_values
         instance = atm.instance(level=level, shape_weights=shape_weights)
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
+        # update info text widget
+        update_info(atm, instance, level,
+                    landmark_options_wid.selected_values['group'])
+        n_labels = len(landmark_options_wid.selected_values['with_labels'])
 
-        # show image with selected options
-        new_figure_id = _plot_figure(
-            image=instance, figure_id=figure_id, image_enabled=True,
-            landmarks_enabled=landmark_options_wid.landmarks_enabled,
-            image_is_masked=channel_options_wid.image_is_masked,
-            masked_enabled=channel_options_wid.masked_enabled,
-            channels=channel_options_wid.channels,
-            glyph_enabled=channel_options_wid.glyph_enabled,
-            glyph_block_size=channel_options_wid.glyph_block_size,
-            glyph_use_negative=channel_options_wid.glyph_use_negative,
-            sum_enabled=channel_options_wid.sum_enabled,
-            groups=[landmark_options_wid.group],
-            with_labels=[landmark_options_wid.with_labels],
-            groups_colours=dict(), subplots_enabled=False,
-            subplots_titles=dict(), image_axes_mode=True,
-            legend_enabled=landmark_options_wid.legend_enabled,
-            numbering_enabled=landmark_options_wid.numbering_enabled,
-            x_scale=figure_options_wid.x_scale,
-            y_scale=figure_options_wid.y_scale,
-            axes_visible=figure_options_wid.axes_visible,
-            figure_size=figure_size, **kwargs)
+        # plot
+        tmp1 = viewer_options_wid.selected_values[0]['lines']
+        tmp2 = viewer_options_wid.selected_values[0]['markers']
+        tmp3 = viewer_options_wid.selected_values[0]['figure']
+        tmp4 = viewer_options_wid.selected_values[0]['image']
+        new_figure_size = (tmp3['x_scale'] * figure_size[0],
+                           tmp3['y_scale'] * figure_size[1])
+        renderer = _visualize_menpo(
+            instance, save_figure_wid.renderer[0],
+            landmark_options_wid.selected_values['render_landmarks'],
+            channel_options_wid.selected_values['image_is_masked'],
+            channel_options_wid.selected_values['masked_enabled'],
+            channel_options_wid.selected_values['channels'],
+            channel_options_wid.selected_values['glyph_enabled'],
+            channel_options_wid.selected_values['glyph_block_size'],
+            channel_options_wid.selected_values['glyph_use_negative'],
+            channel_options_wid.selected_values['sum_enabled'],
+            landmark_options_wid.selected_values['group'],
+            landmark_options_wid.selected_values['with_labels'],
+            tmp1['render_lines'], tmp1['line_style'], tmp1['line_width'],
+            tmp1['line_colour'][:n_labels], tmp2['render_markers'],
+            tmp2['marker_style'], tmp2['marker_size'], tmp2['marker_edge_width'],
+            tmp2['marker_edge_colour'], tmp2['marker_face_colour'],
+            False, None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None, None, None,
+            False, None, None, new_figure_size, tmp3['render_axes'],
+            tmp3['axes_font_name'], tmp3['axes_font_size'],
+            tmp3['axes_font_style'], tmp3['axes_x_limits'],
+            tmp3['axes_y_limits'], tmp3['axes_font_weight'],
+            tmp4['interpolation'], tmp4['alpha'])
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
-
-        # update info text widget
-        update_info(atm, instance, level, landmark_options_wid.group)
+        save_figure_wid.renderer[0] = renderer
 
     # define function that updates info text
     def update_info(atm, instance, level, group):
@@ -1095,82 +1376,92 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
             else:
                 tmp_pyramid = "Features were extracted at each pyramid level."
 
-        # Formatting is a bit ugly but this is MUCH easier to read.
-        info_txt = r"""
-            {} training shapes.
-            Warp using {} transform.
-            Level {}/{}  (downscale={:.1f}).
-            {}
-            {}
-            {}
-            Reference frame of length {} ({} x {}C, {} x {}C).
-            {} shape components ({:.2f}% of variance)
-            {} landmark points.
-            Instance: min={:.3f} , max={:.3f}
-            """.format(atm.n_training_shapes, atm.transform.__name__,
-                       level + 1,
-                       atm.n_levels, atm.downscale, tmp_shape_models,
-                       tmp_pyramid, tmp_feat,
-                       tmplt_inst.n_true_pixels() * n_channels,
-                       tmplt_inst.n_true_pixels(), n_channels,
-                       tmplt_inst._str_shape, n_channels,
-                       lvl_shape_mod.n_components,
-                       lvl_shape_mod.variance_ratio() * 100,
-                       instance.landmarks[group].lms.n_points,
-                       instance.pixels.min(), instance.pixels.max())
-
-        info_wid.children[1].value = _raw_info_string_to_latex(info_txt)
+        # update info widgets
+        info_wid.children[1].children[0].value = "> {} training shapes.".\
+            format(atm.n_training_shapes)
+        info_wid.children[1].children[1].value = "> Warp using {} transform.".\
+            format(atm.transform.__name__)
+        info_wid.children[1].children[2].value = "> Level {}/{}  " \
+                                                 "(downscale={:.1f}).".\
+            format(level + 1, atm.n_levels, atm.downscale)
+        info_wid.children[1].children[3].value = "> {}".format(tmp_shape_models)
+        info_wid.children[1].children[4].value = "> {}".format(tmp_pyramid)
+        info_wid.children[1].children[5].value = "> {}".format(tmp_feat)
+        info_wid.children[1].children[6].value = "> Reference frame of " \
+                                                 "length {} ({} x {}C, {} x " \
+                                                 "{}C).".\
+            format(tmplt_inst.n_true_pixels() * n_channels,
+                   tmplt_inst.n_true_pixels(),
+                   n_channels, tmplt_inst._str_shape, n_channels)
+        info_wid.children[1].children[7].value = "> {} shape components " \
+                                                 "({:.2f}% of variance).".\
+            format(lvl_shape_mod.n_components,
+                   lvl_shape_mod.variance_ratio() * 100)
+        info_wid.children[1].children[8].value = "> {} landmark points.".\
+            format(instance.landmarks[group].lms.n_points)
+        info_wid.children[1].children[9].value = "> Instance: min={:.3f} , " \
+                                                  "max={:.3f}.".\
+            format(instance.pixels.min(), instance.pixels.max())
 
     # Plot shape eigenvalues function
     def plot_shape_eigenvalues(name):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get parameters
+        # get level
         level = 0
         if n_levels > 1:
             level = level_wid.value
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # show eigenvalues plots
-        new_figure_id = _plot_eigenvalues(figure_id, atm.shape_models[level],
-                                          figure_size,
-                                          figure_options_wid.x_scale,
-                                          figure_options_wid.y_scale)
+        # get the current figure id and plot the eigenvalues
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+                           viewer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        plt.subplot(121)
+        atm.shape_models[level].plot_eigenvalues_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id)
+        plt.subplot(122)
+        renderer = atm.shape_models[level].plot_eigenvalues_cumulative_ratio(
+            figure_id=save_figure_wid.renderer[0].figure_id,
+            figure_size=new_figure_size)
+        plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
+        save_figure_wid.renderer[0] = renderer
 
-    # create options widgets
+    # create parameters, channels nad landmarks options widgets
     shape_model_parameters_wid = model_parameters(
         n_shape_parameters[0], plot_function, params_str='param ', mode=mode,
         params_bounds=parameters_bounds, toggle_show_default=True,
         toggle_show_visible=False, toggle_show_name='Shape Parameters',
         plot_eig_visible=True, plot_eig_function=plot_shape_eigenvalues)
-    channel_options_wid = channel_options(
-        atm.warped_templates[0].n_channels,
-        isinstance(atm.warped_templates[0], MaskedImage),
-        plot_function, masked_default=True, toggle_show_default=True,
-        toggle_show_visible=False)
-    all_groups_keys, all_labels_keys = \
-        _extract_groups_labels(atm.warped_templates[0])
-    landmark_options_wid = landmark_options(all_groups_keys, all_labels_keys,
-                                            plot_function,
+    channel_options_wid = channel_options(channels_options_default,
+                                          plot_function=plot_function,
+                                          toggle_show_default=True,
+                                          toggle_show_visible=False)
+    landmark_options_wid = landmark_options(landmark_options_default,
+                                            plot_function=plot_function,
                                             toggle_show_default=True,
-                                            landmarks_default=True,
-                                            legend_default=False,
-                                            numbering_default=False,
                                             toggle_show_visible=False)
-    figure_options_wid = figure_options(plot_function, scale_default=1.,
-                                        show_axes_default=True,
-                                        toggle_show_default=True,
-                                        toggle_show_visible=False)
-    info_wid = info_print(toggle_show_default=True, toggle_show_visible=False)
-    initial_figure_id = plt.figure()
-    save_figure_wid = save_figure_options(initial_figure_id,
+    # if the mean doesn't have landmarks, then landmarks checkbox should be
+    # disabled
+    landmark_options_wid.children[1].disabled = not template_has_landmarks
+
+    # viewer options widget
+    viewer_options_wid = viewer_options(viewer_options_default,
+                                        ['lines', 'markers', 'figure_one',
+                                         'image'],
+                                        objects_names=None,
+                                        plot_function=plot_function,
+                                        toggle_show_visible=False,
+                                        toggle_show_default=True)
+    info_wid = info_print(n_bullets=10, toggle_show_default=True,
+                          toggle_show_visible=False)
+
+    # save figure widget
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = save_figure_options(initial_renderer,
                                           toggle_show_default=True,
                                           toggle_show_visible=False)
 
@@ -1180,6 +1471,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
         update_model_parameters(shape_model_parameters_wid,
                                 n_shape_parameters[value],
                                 plot_function, params_str='param ')
+
         # update channel options
         update_channel_options(channel_options_wid,
                                atm.warped_templates[value].n_channels,
@@ -1197,35 +1489,35 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = RadioButtonsWidget(values=radio_str,
-                                       description='Pyramid:', value=0)
+        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+                                                  description='Pyramid:',
+                                                  value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(plot_function, 'value')
         tmp_children.insert(0, level_wid)
-    tmp_wid = ContainerWidget(children=tmp_children)
-    wid = TabWidget(children=[tmp_wid, channel_options_wid,
-                              landmark_options_wid, figure_options_wid,
-                              info_wid, save_figure_wid])
+    tmp_wid = ipywidgets.ContainerWidget(children=tmp_children)
+    tab_wid = ipywidgets.TabWidget(children=[tmp_wid, channel_options_wid,
+                                             landmark_options_wid,
+                                             viewer_options_wid,
+                                             info_wid, save_figure_wid])
+    logo_wid = logo()
+    wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
     if popup:
-        wid = PopupWidget(children=[wid], button_text='ATM Menu')
+        wid = ipywidgets.PopupWidget(children=[wid],
+                                     button_text='ATM Menu')
 
     # display final widget
-    display(wid)
+    ipydisplay.display(wid)
 
     # set final tab titles
-    tab_titles = ['Shape parameters', 'Channels options', 'Landmarks options',
-                  'Figure options', 'Model info', 'Save figure']
-    if popup:
-        for (k, tl) in enumerate(tab_titles):
-            wid.children[0].set_title(k, tl)
-    else:
-        for (k, tl) in enumerate(tab_titles):
-            wid.set_title(k, tl)
+    tab_titles = ['Shape parameters', 'Channels options',
+                  'Landmarks options', 'Viewer options', 'Info', 'Save figure']
+    for (k, tl) in enumerate(tab_titles):
+        tab_wid.set_title(k, tl)
 
     # align widgets
-    if n_levels > 1:
-        tmp_wid.remove_class('vbox')
-        tmp_wid.add_class('hbox')
+    tmp_wid.remove_class('vbox')
+    tmp_wid.add_class('hbox')
     format_model_parameters(shape_model_parameters_wid,
                             container_padding='6px', container_margin='6px',
                             container_border='1px solid black',
@@ -1241,12 +1533,13 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
                             container_border='1px solid black',
                             toggle_button_font_weight='bold',
                             border_visible=False)
-    format_figure_options(figure_options_wid, container_padding='6px',
+    format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
                           toggle_button_font_weight='bold',
-                          border_visible=False)
-    format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
+                          border_visible=False,
+                          suboptions_border_visible=True)
+    format_info_print(info_wid, font_size_in_pt='10pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
                       toggle_button_font_weight='bold', border_visible=False)
@@ -1256,35 +1549,39 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
                                toggle_button_font_weight='bold',
                                tab_top_margin='0cm', border_visible=False)
 
-    # update widgets' state for level 0
+    # update widgets' state for image number 0
     update_widgets('', 0)
 
     # Reset value to enable initial visualization
-    figure_options_wid.children[2].value = False
+    viewer_options_wid.children[1].children[1].children[2].children[2].value = \
+        False
 
 
-def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
-                              **kwargs):
+def visualize_fitting_results(fitting_results, figure_size=(10, 8),
+                              browser_style='buttons', popup=False):
     r"""
     Widget that allows browsing through a list of fitting results.
 
     Parameters
     -----------
     fitting_results : `list` of :map:`FittingResult` or subclass
-        The list of fitting results to be displayed. Note that the fitting
+        The `list` of fitting results to be displayed. Note that the fitting
         results can have different attributes between them, i.e. different
         number of iterations, number of channels etc.
-
     figure_size : (`int`, `int`), optional
         The initial size of the plotted figures.
-
+    browser_style : {``buttons``, ``slider``}, optional
+        It defines whether the selector of the fitting results will have the form of
+        plus/minus buttons or a slider.
     popup : `boolean`, optional
-        If enabled, the widget will appear as a popup window.
-
-    kwargs : `dict`, optional
-        Passed through to the viewer.
+        If ``True``, the widget will appear as a popup window.
     """
+    import IPython.html.widgets as ipywidgets
+    import IPython.display as ipydisplay
+    import matplotlib.pyplot as plt
     from menpo.image import MaskedImage
+    from menpo.visualize.viewmatplotlib import sample_colours_from_colourmap
+    print 'Initializing...'
 
     # make sure that fitting_results is a list even with one fitting_result
     if not isinstance(fitting_results, list):
@@ -1297,117 +1594,200 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
     n_fitting_results = len(fitting_results)
 
     # create dictionaries
-    iter_str = 'iter_'
+    all_groups = ['final', 'initial', 'ground', 'iterations']
     groups_final_dict = dict()
     colour_final_dict = dict()
     groups_final_dict['initial'] = 'Initial shape'
-    colour_final_dict['initial'] = 'r'
+    colour_final_dict['initial'] = 'b'
     groups_final_dict['final'] = 'Final shape'
-    colour_final_dict['final'] = 'b'
+    colour_final_dict['final'] = 'r'
     groups_final_dict['ground'] = 'Ground-truth shape'
     colour_final_dict['ground'] = 'y'
+    groups_final_dict['iterations'] = 'Iterations'
+    colour_final_dict['iterations'] = 'r'
+
+    # initial options dictionaries
+    channels_default = 0
+    if fitting_results[0].fitted_image.n_channels == 3:
+        channels_default = None
+    channels_options_default = \
+        {'n_channels': fitting_results[0].fitted_image.n_channels,
+         'image_is_masked': isinstance(fitting_results[0].fitted_image,
+                                       MaskedImage),
+         'channels': channels_default,
+         'glyph_enabled': False,
+         'glyph_block_size': 3,
+         'glyph_use_negative': False,
+         'sum_enabled': False,
+         'masked_enabled': False}
+    all_groups_keys, _ = _extract_groups_labels(fitting_results[0].fitted_image)
+    final_result_options_default = {'all_groups': all_groups_keys,
+                                    'render_image': True,
+                                    'selected_groups': ['final'],
+                                    'subplots_enabled': True}
+    iterations_result_options_default = \
+        {'n_iters': fitting_results[0].n_iters,
+         'image_has_gt_shape': not fitting_results[0].gt_shape is None,
+         'n_points': fitting_results[0].fitted_image.landmarks['final'].lms.n_points,
+         'iter_str': 'iter_',
+         'selected_groups': ['iter_0'],
+         'render_image': True,
+         'subplots_enabled': True,
+         'displacement_type': 'mean'}
+    markers_options = {'render_markers': True,
+                       'marker_size': 20,
+                       'marker_face_colour': ['r'],
+                       'marker_edge_colour': ['k'],
+                       'marker_style': 'o',
+                       'marker_edge_width': 1}
+    lines_options_default = {'render_lines': True,
+                             'line_width': 1,
+                             'line_colour': ['r'],
+                             'line_style': '-'}
+    figure_options = {'x_scale': 1.,
+                      'y_scale': 1.,
+                      'render_axes': True,
+                      'axes_font_name': 'sans-serif',
+                      'axes_font_size': 10,
+                      'axes_font_style': 'normal',
+                      'axes_font_weight': 'normal',
+                      'axes_x_limits': None,
+                      'axes_y_limits': None}
+    numbering_options = {'render_numbering': False,
+                         'numbers_font_name': 'serif',
+                         'numbers_font_size': 10,
+                         'numbers_font_style': 'normal',
+                         'numbers_font_weight': 'normal',
+                         'numbers_font_colour': ['k'],
+                         'numbers_horizontal_align': 'center',
+                         'numbers_vertical_align': 'bottom'}
+    legend_options = {'render_legend': True,
+                      'legend_title': '',
+                      'legend_font_name': 'sans-serif',
+                      'legend_font_style': 'normal',
+                      'legend_font_size': 11,
+                      'legend_font_weight': 'normal',
+                      'legend_marker_scale': 1.,
+                      'legend_location': 2,
+                      'legend_bbox_to_anchor': (1.05, 1.),
+                      'legend_border_axes_pad': 1.,
+                      'legend_n_columns': 1,
+                      'legend_horizontal_spacing': 1.,
+                      'legend_vertical_spacing': 1.,
+                      'legend_border': True,
+                      'legend_border_padding': 0.5,
+                      'legend_shadow': False,
+                      'legend_rounded_corners': True}
+    image_options = {'interpolation': 'bilinear',
+                     'alpha': 1.0}
+    viewer_options_default = []
+    for group in all_groups:
+        tmp_lines = lines_options_default.copy()
+        tmp_lines['line_colour'] = [colour_final_dict[group]]
+        tmp_markers = markers_options.copy()
+        tmp_markers['marker_face_colour'] = [colour_final_dict[group]]
+        tmp = {'markers': tmp_markers,
+               'lines': tmp_lines,
+               'figure': figure_options,
+               'legend': legend_options,
+               'numbering': numbering_options,
+               'image': image_options}
+        viewer_options_default.append(tmp)
+    index_selection_default = {'min': 0,
+                               'max': n_fitting_results - 1,
+                               'step': 1,
+                               'index': 0}
 
     # define function that plots errors curve
     def plot_errors_function(name):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
         # get selected image
         im = 0
         if n_fitting_results > 1:
-            im = image_number_wid.selected_index
+            im = image_number_wid.selected_values['index']
 
-        # select figure
-        figure_id = plt.figure(save_figure_wid.figure_id.number)
+        # get figure size
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure']['x_scale'] * figure_size[0],
+                           viewer_options_wid.selected_values[0]['figure']['y_scale'] * figure_size[1])
 
         # plot errors curve
-        plt.plot(range(len(fitting_results[im].errors())),
-                 fitting_results[im].errors(), '-bo')
-        plt.gca().set_xlim(0, len(fitting_results[im].errors())-1)
-        plt.xlabel('Iteration')
-        plt.ylabel('Fitting Error')
-        plt.title("Fitting error evolution of Image {}".format(im))
-        plt.grid("on")
-
-        # set figure size
-        x_scale = figure_options_wid.x_scale
-        y_scale = figure_options_wid.y_scale
-        plt.gcf().set_size_inches([x_scale, y_scale] * np.asarray(figure_size))
+        renderer = fitting_results[im].plot_errors(
+            error_type=error_type_wid.value,
+            figure_id=save_figure_wid.renderer[0].figure_id,
+            figure_size=new_figure_size)
 
         # show figure
         plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = figure_id
+        save_figure_wid.renderer[0] = renderer
 
     # define function that plots displacements curve
     def plot_displacements_function(name):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
         # get selected image
         im = 0
         if n_fitting_results > 1:
-            im = image_number_wid.selected_index
+            im = image_number_wid.selected_values['index']
 
-        # select figure
-        figure_id = plt.figure(save_figure_wid.figure_id.number)
+        # get figure size
+        new_figure_size = (viewer_options_wid.selected_values[0]['figure'][
+                                                    'x_scale'] * figure_size[0],
+                           viewer_options_wid.selected_values[0]['figure'][
+                                                    'y_scale'] * figure_size[1])
 
-        # plot displacements curve
-        d_type = iterations_wid.displacement_type
+        # plot errors curve
+        d_type = iterations_wid.selected_values['displacement_type']
         if (d_type == 'max' or d_type == 'min' or d_type == 'mean' or
                 d_type == 'median'):
-            d_curve = fitting_results[im].displacements_stats(stat_type=d_type)
+            renderer = fitting_results[im].plot_displacements(
+                figure_id=save_figure_wid.renderer[0].figure_id,
+                figure_size=new_figure_size, stat_type=d_type)
         else:
             all_displacements = fitting_results[im].displacements()
             d_curve = [iteration_displacements[d_type]
                        for iteration_displacements in all_displacements]
-        plt.plot(range(len(d_curve)), d_curve, '-bo')
-        plt.gca().set_xlim(0, len(d_curve)-1)
-        plt.grid("on")
-        plt.xlabel('Iteration')
-
-        # set labels
-        if d_type == 'max':
-            plt.ylabel('Maximum Displacement')
-            plt.title("Maximum displacement evolution of Image {}".format(im))
-        elif d_type == 'min':
-            plt.ylabel('Minimum Displacement')
-            plt.title("Minimum displacement evolution of Image {}".format(im))
-        elif d_type == 'mean':
-            plt.ylabel('Mean Displacement')
-            plt.title("Mean displacement evolution of Image {}".format(im))
-        elif d_type == 'median':
-            plt.ylabel('Median Displacement')
-            plt.title("Median displacement evolution of Image {}".format(im))
-        else:
-            plt.ylabel("Displacement of Point {}".format(d_type))
-            plt.title("Point {} displacement evolution of Image {}".format(
-                d_type, im))
-
-        # set figure size
-        x_scale = figure_options_wid.x_scale
-        y_scale = figure_options_wid.y_scale
-        plt.gcf().set_size_inches([x_scale, y_scale] * np.asarray(figure_size))
+            from menpo.visualize import GraphPlotter
+            ylabel = "Displacement of Point {}".format(d_type)
+            title = "Point {} displacement per " \
+                    "iteration of Image {}".format(d_type, im)
+            renderer = GraphPlotter(
+                figure_id=save_figure_wid.renderer[0].figure_id,
+                new_figure=False, x_axis=range(len(d_curve)), y_axis=[d_curve],
+                title=title, x_label='Iteration', y_label=ylabel,
+                x_axis_limits=(0, len(d_curve)-1), y_axis_limits=None).render(
+                    render_lines=True, line_colour='b', line_style='-',
+                    line_width=2, render_markers=True, marker_style='o',
+                    marker_size=4, marker_face_colour='b',
+                    marker_edge_colour='k', marker_edge_width=1.,
+                    render_legend=False, render_axes=True,
+                    axes_font_name='sans-serif', axes_font_size=10,
+                    axes_font_style='normal', axes_font_weight='normal',
+                    render_grid=True, grid_line_style='--', grid_line_width=0.5,
+                    figure_size=new_figure_size)
 
         # show figure
         plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = figure_id
+        save_figure_wid.renderer[0] = renderer
 
     # define plot function
     def plot_function(name, value):
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
         # get selected image
         im = 0
         if n_fitting_results > 1:
-            im = image_number_wid.selected_index
+            im = image_number_wid.selected_values['index']
 
         # selected mode: final or iterations
         final_enabled = False
@@ -1417,144 +1797,220 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
         # update info text widget
         update_info('', error_type_wid.value)
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
-
-        # call helper _plot_figure
+        # get selected options
         if final_enabled:
-            new_figure_id = _plot_figure(
-                image=fitting_results[im].fitted_image, figure_id=figure_id,
-                image_enabled=final_result_wid.show_image,
-                landmarks_enabled=True, image_is_masked=False,
-                masked_enabled=False, channels=channel_options_wid.channels,
-                glyph_enabled=channel_options_wid.glyph_enabled,
-                glyph_block_size=channel_options_wid.glyph_block_size,
-                glyph_use_negative=channel_options_wid.glyph_use_negative,
-                sum_enabled=channel_options_wid.sum_enabled,
-                groups=final_result_wid.groups,
-                with_labels=[None] * len(final_result_wid.groups),
-                groups_colours=colour_final_dict,
-                subplots_enabled=final_result_wid.subplots_enabled,
-                subplots_titles=groups_final_dict, image_axes_mode=True,
-                legend_enabled=final_result_wid.legend_enabled,
-                numbering_enabled=final_result_wid.numbering_enabled,
-                x_scale=figure_options_wid.x_scale,
-                y_scale=figure_options_wid.y_scale,
-                axes_visible=figure_options_wid.axes_visible,
-                figure_size=figure_size, **kwargs)
+            # image object
+            image = fitting_results[im].fitted_image
+            render_image = final_result_wid.selected_values['render_image']
+            # groups
+            groups = final_result_wid.selected_values['selected_groups']
+            # subplots
+            subplots_enabled = final_result_wid.selected_values[
+                'subplots_enabled']
+            subplots_titles = groups_final_dict
+            # lines and markers options
+            render_lines = []
+            line_colour = []
+            line_style = []
+            line_width = []
+            render_markers = []
+            marker_style = []
+            marker_size = []
+            marker_face_colour = []
+            marker_edge_colour = []
+            marker_edge_width = []
+            for g in groups:
+                group_idx = all_groups.index(g)
+                tmp1 = viewer_options_wid.selected_values[group_idx]['lines']
+                tmp2 = viewer_options_wid.selected_values[group_idx]['markers']
+                render_lines.append(tmp1['render_lines'])
+                line_colour.append(tmp1['line_colour'])
+                line_style.append(tmp1['line_style'])
+                line_width.append(tmp1['line_width'])
+                render_markers.append(tmp2['render_markers'])
+                marker_style.append(tmp2['marker_style'])
+                marker_size.append(tmp2['marker_size'])
+                marker_face_colour.append(tmp2['marker_face_colour'])
+                marker_edge_colour.append(tmp2['marker_edge_colour'])
+                marker_edge_width.append(tmp2['marker_edge_width'])
         else:
-            # create subplot titles dict and colours dict
-            groups_dict = dict()
-            colour_dict = dict()
-            cols = np.random.random([3, len(iterations_wid.groups)])
-            for i, group in enumerate(iterations_wid.groups):
-                iter_num = group[len(iter_str)::]
-                groups_dict[iter_str + iter_num] = "Iteration " + iter_num
-                colour_dict[iter_str + iter_num] = cols[:, i]
+            # image object
+            image = fitting_results[im].iter_image
+            render_image = iterations_wid.selected_values['render_image']
+            # groups
+            groups = iterations_wid.selected_values['selected_groups']
+            # subplots
+            subplots_enabled = iterations_wid.selected_values[
+                'subplots_enabled']
+            subplots_titles = dict()
+            iter_str = iterations_wid.selected_values['iter_str']
+            for i, g in enumerate(groups):
+                iter_num = g[len(iter_str)::]
+                subplots_titles[iter_str + iter_num] = "Iteration " + iter_num
+            # lines and markers options
+            group_idx = all_groups.index('iterations')
+            tmp1 = viewer_options_wid.selected_values[group_idx]['lines']
+            tmp2 = viewer_options_wid.selected_values[group_idx]['markers']
+            render_lines = [tmp1['render_lines']] * len(groups)
+            line_style = [tmp1['line_style']] * len(groups)
+            line_width = [tmp1['line_width']] * len(groups)
+            render_markers = [tmp2['render_markers']] * len(groups)
+            marker_style = [tmp2['marker_style']] * len(groups)
+            marker_size = [tmp2['marker_size']] * len(groups)
+            marker_edge_colour = [tmp2['marker_edge_colour']] * len(groups)
+            marker_edge_width = [tmp2['marker_edge_width']] * len(groups)
+            if (subplots_enabled or
+                    iterations_wid.children[1].children[0].children[0].value ==
+                    'animation'):
+                line_colour = [tmp1['line_colour']] * len(groups)
+                marker_face_colour = [tmp2['marker_face_colour']] * len(groups)
+            else:
+                cols = sample_colours_from_colourmap(len(groups), 'jet')
+                line_colour = cols
+                marker_face_colour = cols
 
-            # plot
-            new_figure_id = _plot_figure(
-                image=fitting_results[im].iter_image, figure_id=figure_id,
-                image_enabled=iterations_wid.show_image, landmarks_enabled=True,
-                image_is_masked=False, masked_enabled=False,
-                channels=channel_options_wid.channels,
-                glyph_enabled=channel_options_wid.glyph_enabled,
-                glyph_block_size=channel_options_wid.glyph_block_size,
-                glyph_use_negative=channel_options_wid.glyph_use_negative,
-                sum_enabled=channel_options_wid.sum_enabled,
-                groups=iterations_wid.groups,
-                with_labels=[None] * len(iterations_wid.groups),
-                groups_colours=colour_dict,
-                subplots_enabled=iterations_wid.subplots_enabled,
-                subplots_titles=groups_dict, image_axes_mode=True,
-                legend_enabled=iterations_wid.legend_enabled,
-                numbering_enabled=iterations_wid.numbering_enabled,
-                x_scale=figure_options_wid.x_scale,
-                y_scale=figure_options_wid.y_scale,
-                axes_visible=figure_options_wid.axes_visible,
-                figure_size=figure_size, **kwargs)
+        tmp1 = viewer_options_wid.selected_values[0]['numbering']
+        tmp2 = viewer_options_wid.selected_values[0]['legend']
+        tmp3 = viewer_options_wid.selected_values[0]['figure']
+        tmp4 = viewer_options_wid.selected_values[0]['image']
+        new_figure_size = (tmp3['x_scale'] * figure_size[0],
+                           tmp3['y_scale'] * figure_size[1])
+
+        # call helper _visualize
+        renderer = _visualize(
+            image=image, renderer=save_figure_wid.renderer[0],
+            render_image=render_image, render_landmarks=True,
+            image_is_masked=False, masked_enabled=False,
+            channels=channel_options_wid.selected_values['channels'],
+            glyph_enabled=channel_options_wid.selected_values['glyph_enabled'],
+            glyph_block_size=channel_options_wid.selected_values['glyph_block_size'],
+            glyph_use_negative=channel_options_wid.selected_values['glyph_use_negative'],
+            sum_enabled=channel_options_wid.selected_values['sum_enabled'],
+            groups=groups, with_labels=[None] * len(groups),
+            subplots_enabled=subplots_enabled, subplots_titles=subplots_titles,
+            image_axes_mode=True, render_lines=render_lines,
+            line_style=line_style, line_width=line_width,
+            line_colour=line_colour, render_markers=render_markers,
+            marker_style=marker_style, marker_size=marker_size,
+            marker_edge_width=marker_edge_width,
+            marker_edge_colour=marker_edge_colour,
+            marker_face_colour=marker_face_colour,
+            render_numbering=tmp1['render_numbering'],
+            numbers_horizontal_align=tmp1['numbers_horizontal_align'],
+            numbers_vertical_align=tmp1['numbers_vertical_align'],
+            numbers_font_name=tmp1['numbers_font_name'],
+            numbers_font_size=tmp1['numbers_font_size'],
+            numbers_font_style=tmp1['numbers_font_style'],
+            numbers_font_weight=tmp1['numbers_font_weight'],
+            numbers_font_colour=tmp1['numbers_font_colour'],
+            render_legend=tmp2['render_legend'],
+            legend_title=tmp2['legend_title'],
+            legend_font_name=tmp2['legend_font_name'],
+            legend_font_style=tmp2['legend_font_style'],
+            legend_font_size=tmp2['legend_font_size'],
+            legend_font_weight=tmp2['legend_font_weight'],
+            legend_marker_scale=tmp2['legend_marker_scale'],
+            legend_location=tmp2['legend_location'],
+            legend_bbox_to_anchor=tmp2['legend_bbox_to_anchor'],
+            legend_border_axes_pad=tmp2['legend_border_axes_pad'],
+            legend_n_columns=tmp2['legend_n_columns'],
+            legend_horizontal_spacing=tmp2['legend_horizontal_spacing'],
+            legend_vertical_spacing=tmp2['legend_vertical_spacing'],
+            legend_border=tmp2['legend_border'],
+            legend_border_padding=tmp2['legend_border_padding'],
+            legend_shadow=tmp2['legend_shadow'],
+            legend_rounded_corners=tmp2['legend_rounded_corners'],
+            render_axes=tmp3['render_axes'],
+            axes_font_name=tmp3['axes_font_name'],
+            axes_font_size=tmp3['axes_font_size'],
+            axes_font_style=tmp3['axes_font_style'],
+            axes_font_weight=tmp3['axes_font_weight'],
+            axes_x_limits=tmp3['axes_x_limits'],
+            axes_y_limits=tmp3['axes_y_limits'],
+            interpolation=tmp4['interpolation'],
+            alpha=tmp4['alpha'], figure_size=new_figure_size)
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
+        save_figure_wid.renderer[0] = renderer
 
     # define function that updates info text
     def update_info(name, value):
         # get selected image
         im = 0
         if n_fitting_results > 1:
-            im = image_number_wid.selected_index
+            im = image_number_wid.selected_values['index']
 
         # create output str
         if fitting_results[im].gt_shape is not None:
-            info_txt = r"""
-                Initial error: {:.4f}
-                Final error: {:.4f}
-                {} iterations
-            """.format(fitting_results[im].initial_error(error_type=value),
-                       fitting_results[im].final_error(error_type=value),
-                       fitting_results[im].n_iters)
+            info_wid.children[1].children[0].value = \
+                "> Initial error: {:.4f}".format(
+                    fitting_results[im].initial_error(error_type=value))
+            info_wid.children[1].children[0].visible = True
+            info_wid.children[1].children[1].value = \
+                "> Final error: {:.4f}".format(
+                    fitting_results[im].final_error(error_type=value))
+            info_wid.children[1].children[1].visible = True
+            info_wid.children[1].children[2].value = \
+                "> {} iterations".format(fitting_results[im].n_iters)
         else:
-            info_txt = r"""
-                {} iterations
-            """.format(fitting_results[im].n_iters)
+            info_wid.children[1].children[0].value = ''
+            info_wid.children[1].children[0].visible = False
+            info_wid.children[1].children[1].value = ''
+            info_wid.children[1].children[1].visible = False
+            info_wid.children[1].children[2].value = "> {} iterations".format(
+                fitting_results[im].n_iters)
         if hasattr(fitting_results[im], 'n_levels'):  # Multilevel result
-            info_txt += r"""
-                {} levels with downscale of {:.1f}
-            """.format(fitting_results[im].n_levels,
-                       fitting_results[im].downscale)
-
-        info_wid.children[1].value = _raw_info_string_to_latex(info_txt)
+            info_wid.children[1].children[3].value = \
+                "> {} levels with downscale of {:.1f}".format(
+                    fitting_results[im].n_levels, fitting_results[im].downscale)
+            info_wid.children[1].children[1].visible = True
+        else:
+            info_wid.children[1].children[1].value = ''
+            info_wid.children[1].children[1].visible = True
 
     # Create options widgets
     channel_options_wid = channel_options(
-        fitting_results[0].fitted_image.n_channels,
-        isinstance(fitting_results[0].fitted_image, MaskedImage), plot_function,
-        masked_default=False, toggle_show_default=True,
-        toggle_show_visible=False)
-    figure_options_wid = figure_options(plot_function, scale_default=1.,
-                                        show_axes_default=True,
-                                        toggle_show_default=True,
-                                        toggle_show_visible=False)
-    info_wid = info_print(toggle_show_default=True, toggle_show_visible=False)
-    initial_figure_id = plt.figure()
-    save_figure_wid = save_figure_options(initial_figure_id,
+        channels_options_default, plot_function=plot_function,
+        toggle_show_default=True, toggle_show_visible=False)
+
+    # viewer options widget
+    viewer_options_wid = viewer_options(
+        viewer_options_default,
+        ['markers', 'lines', 'figure_one', 'legend', 'numbering', 'image'],
+        objects_names=all_groups, plot_function=plot_function,
+        toggle_show_visible=False, toggle_show_default=True)
+    info_wid = info_print(n_bullets=4, toggle_show_default=True,
+                          toggle_show_visible=False)
+
+    # save figure widget
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = save_figure_options(initial_renderer,
                                           toggle_show_default=True,
                                           toggle_show_visible=False)
 
-    # Create landmark groups checkboxes
-    all_groups_keys, all_labels_keys = _extract_groups_labels(
-        fitting_results[0].fitted_image)
-    final_result_wid = final_result_options(all_groups_keys, plot_function,
-                                            title='Final',
-                                            show_image_default=True,
-                                            subplots_enabled_default=True,
-                                            legend_default=True,
-                                            numbering_default=False,
-                                            toggle_show_default=True,
-                                            toggle_show_visible=False)
+    # final result and iterations options
+    final_result_wid = final_result_options(
+        final_result_options_default, plot_function=plot_function,
+        title='Final', toggle_show_default=True, toggle_show_visible=False)
     iterations_wid = iterations_result_options(
-        fitting_results[0].n_iters, not fitting_results[0].gt_shape is None,
-        fitting_results[0].fitted_image.landmarks['final'].lms.n_points,
-        plot_function, plot_errors_function, plot_displacements_function,
-        iter_str=iter_str, title='Iterations', show_image_default=True,
-        subplots_enabled_default=False, legend_default=True,
-        numbering_default=False, toggle_show_default=True,
-        toggle_show_visible=False)
-    iterations_wid.children[2].children[4].on_click(plot_errors_function)
-    iterations_wid.children[2].children[5].children[0].on_click(
-        plot_displacements_function)
+        iterations_result_options_default, plot_function=plot_function,
+        plot_errors_function=plot_errors_function,
+        plot_displacements_function=plot_displacements_function,
+        title='Iterations', toggle_show_default=True, toggle_show_visible=False)
 
     # Create error type radio buttons
     error_type_values = OrderedDict()
     error_type_values['Point-to-point Normalized Mean Error'] = 'me_norm'
     error_type_values['Point-to-point Mean Error'] = 'me'
     error_type_values['RMS Error'] = 'rmse'
-    error_type_wid = RadioButtonsWidget(values=error_type_values,
-                                        value='me_norm',
-                                        description='Error type')
+    error_type_wid = ipywidgets.RadioButtonsWidget(
+        values=error_type_values, value='me_norm', description='Error type')
     error_type_wid.on_trait_change(update_info, 'value')
-    plot_ced_but = ButtonWidget(description='Plot CED', visible=show_ced)
-    error_wid = ContainerWidget(children=[error_type_wid, plot_ced_but])
+    plot_ced_but = ipywidgets.ButtonWidget(description='Plot CED',
+                                           visible=show_ced)
+    error_wid = ipywidgets.ContainerWidget(children=[error_type_wid,
+                                                     plot_ced_but])
 
     # define function that updates options' widgets state
     def update_widgets(name, value):
@@ -1564,33 +2020,39 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
         # update channel options
         update_channel_options(
             channel_options_wid,
-            n_channels=fitting_results[value].fitted_image.n_channels,
-            image_is_masked=isinstance(fitting_results[value].fitted_image,
-                                       MaskedImage))
+            fitting_results[value].fitted_image.n_channels,
+            isinstance(fitting_results[value].fitted_image,
+                       MaskedImage))
         # update final result's options
         update_final_result_options(final_result_wid, group_keys, plot_function)
         # update iterations result's options
-        update_iterations_result_options(
-            iterations_wid, fitting_results[value].n_iters,
-            not fitting_results[value].gt_shape is None,
-            fitting_results[value].fitted_image.landmarks['final'].lms.n_points,
-            iter_str=iter_str)
+        iterations_result_options_default = \
+            {'n_iters': fitting_results[value].n_iters,
+             'image_has_gt_shape': not fitting_results[value].gt_shape is None,
+             'n_points': fitting_results[value].fitted_image.landmarks['final'].lms.n_points}
+        update_iterations_result_options(iterations_wid,
+                                         iterations_result_options_default)
 
     # Create final widget
-    options_wid = TabWidget(children=[channel_options_wid, figure_options_wid])
-    result_wid = TabWidget(children=[final_result_wid, iterations_wid])
+    options_wid = ipywidgets.TabWidget(children=[channel_options_wid,
+                                                 viewer_options_wid])
+    result_wid = ipywidgets.TabWidget(children=[final_result_wid,
+                                                iterations_wid])
     result_wid.on_trait_change(plot_function, 'selected_index')
     if n_fitting_results > 1:
         # image selection slider
         image_number_wid = animation_options(
-            index_min_val=0, index_max_val=n_fitting_results-1,
-            plot_function=plot_function, update_function=update_widgets,
-            index_step=1, index_default=0,
-            index_description='Image Number', index_minus_description='<',
-            index_plus_description='>', index_style='buttons',
-            index_text_editable=True, loop_default=True, interval_default=0.3,
+            index_selection_default, plot_function=plot_function,
+            update_function=update_widgets, index_description='Image Number',
+            index_minus_description='<', index_plus_description='>',
+            index_style=browser_style, index_text_editable=True,
+            loop_default=True, interval_default=0.3,
             toggle_show_title='Image Options', toggle_show_default=True,
             toggle_show_visible=False)
+
+        # final widget
+        logo_wid = ipywidgets.ContainerWidget(children=[logo(),
+                                                        image_number_wid])
 
         # define function that combines the results' tab widget with the
         # animation
@@ -1610,10 +2072,6 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
                 image_number_wid.children[1].children[1].children[0].children[1].value = True
 
         # final widget
-        tab_wid = TabWidget(children=[info_wid, result_wid, options_wid,
-                                      error_wid, save_figure_wid])
-        tab_wid.on_trait_change(save_fig_tab_fun, 'selected_index')
-        wid = ContainerWidget(children=[image_number_wid, tab_wid])
         if show_ced:
             tab_titles = ['Info', 'Result', 'Options', 'CED', 'Save figure']
         else:
@@ -1625,14 +2083,22 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
         plot_ced_but.visible = False
 
         # final widget
-        wid = TabWidget(children=[info_wid, result_wid, options_wid, error_wid,
-                                  save_figure_wid])
-        tab_titles = ['Image info', 'Result', 'Options', 'Error type',
-                      'Save figure']
+        logo_wid = logo()
+        tab_titles = ['Info', 'Result', 'Options', 'Error type', 'Save figure']
         button_title = 'Fitting Result Menu'
+
+    # final widget
+    cont_wid = ipywidgets.TabWidget(children=[info_wid, result_wid, options_wid,
+                                              error_wid, save_figure_wid])
+    if n_fitting_results > 1:
+        cont_wid.on_trait_change(save_fig_tab_fun, 'selected_index')
+
     # create popup widget if asked
     if popup:
-        wid = PopupWidget(children=[wid], button_text=button_title)
+        wid = ipywidgets.PopupWidget(children=[logo_wid, cont_wid],
+                                     button_text=button_title)
+    else:
+        wid = ipywidgets.ContainerWidget(children=[logo_wid, cont_wid])
 
     # invoke plot_ced widget
     def plot_ced_fun(name):
@@ -1651,25 +2117,18 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
         errors = [fit_errors, initial_errors]
 
         # call plot_ced
-        plot_ced_widget = plot_ced(errors, figure_size=(9, 5), popup=True,
-                                   error_type=error_type, error_range=None,
-                                   legend_entries=['Final Fitting',
-                                                   'Initialization'],
-                                   return_widget=True)
+        plot_ced_widget = plot_ced(
+            errors, figure_size=(9, 5), popup=True, error_type=error_type,
+            error_range=None, legend_entries=['Final Fitting',
+                                              'Initialization'],
+            return_widget=True)
 
         # If another tab is selected, then close the widget.
         def close_plot_ced_fun(name, value):
             if value != 3:
                 plot_ced_widget.close()
                 plot_ced_but.visible = True
-        if n_fitting_results > 1:
-            tab_wid.on_trait_change(close_plot_ced_fun, 'selected_index')
-        else:
-            if popup:
-                wid.children[0].on_trait_change(close_plot_ced_fun,
-                                                'selected_index')
-            else:
-                wid.on_trait_change(close_plot_ced_fun, 'selected_index')
+        cont_wid.on_trait_change(close_plot_ced_fun, 'selected_index')
 
         # If another error type, then close the widget
         def close_plot_ced_fun_2(name, value):
@@ -1679,31 +2138,22 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
     plot_ced_but.on_click(plot_ced_fun)
 
     # display final widget
-    display(wid)
+    ipydisplay.display(wid)
 
     # set final tab titles
-    if popup:
-        if n_fitting_results > 1:
-            for (k, tl) in enumerate(tab_titles):
-                wid.children[0].children[1].set_title(k, tl)
-        else:
-            for (k, tl) in enumerate(tab_titles):
-                wid.children[0].set_title(k, tl)
-    else:
-        if n_fitting_results > 1:
-            for (k, tl) in enumerate(tab_titles):
-                wid.children[1].set_title(k, tl)
-        else:
-            for (k, tl) in enumerate(tab_titles):
-                wid.set_title(k, tl)
+    for (k, tl) in enumerate(tab_titles):
+        wid.children[1].set_title(k, tl)
+
     result_wid.set_title(0, 'Final Fitting')
     result_wid.set_title(1, 'Iterations')
     options_wid.set_title(0, 'Channels')
-    options_wid.set_title(1, 'Figure')
+    options_wid.set_title(1, 'Viewer')
 
     # format options' widgets
     if n_fitting_results > 1:
-        format_animation_options(image_number_wid, index_text_width='0.5cm',
+        wid.children[0].remove_class('vbox')
+        wid.children[0].add_class('hbox')
+        format_animation_options(image_number_wid, index_text_width='1.0cm',
                                  container_padding='6px',
                                  container_margin='6px',
                                  container_border='1px solid black',
@@ -1714,11 +2164,12 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
                            container_border='1px solid black',
                            toggle_button_font_weight='bold',
                            border_visible=False)
-    format_figure_options(figure_options_wid, container_padding='6px',
+    format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
                           toggle_button_font_weight='bold',
-                          border_visible=False)
+                          border_visible=False,
+                          suboptions_border_visible=True)
     format_info_print(info_wid, font_size_in_pt='9pt', container_padding='6px',
                       container_margin='6px',
                       container_border='1px solid black',
@@ -1740,10 +2191,11 @@ def visualize_fitting_results(fitting_results, figure_size=(7, 7), popup=False,
                                tab_top_margin='0cm', border_visible=False)
 
     # Reset value to enable initial visualization
-    figure_options_wid.children[2].value = False
+    viewer_options_wid.children[1].children[1].children[2].children[2].value = \
+        False
 
 
-def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
+def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
              error_range=None, legend_entries=None, return_widget=False):
     r"""
     Widget for visualizing the cumulative error curves of the provided errors.
@@ -1753,38 +2205,43 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
     -----------
     errors : `list` of `list` of `float`
         The list of errors to be used.
-
     figure_size : (`int`, `int`), optional
         The initial size of the plotted figures.
-
-    popup : `boolean`, optional
-        If enabled, the widget will appear as a popup window.
-
-    error_type : `str` ``{'me_norm', 'me', 'rmse'}``, optional
+    popup : `bool`, optional
+        If ``True``, the widget will appear as a popup window.
+    error_type : {``me_norm``, ``me``, ``rmse``}, optional
         Specifies the type of the provided errors.
-
     error_range : `list` of `float` with length 3, optional
         Specifies the horizontal axis range, i.e.
+
+        ::
+
         error_range[0] = min_error
         error_range[1] = max_error
         error_range[2] = error_step
-        If None, then
+
+        If ``None``, then
+
+        ::
+
         error_range = [0., 0.101, 0.005] for error_type = 'me_norm'
         error_range = [0., 20., 1.] for error_type = 'me'
         error_range = [0., 20., 1.] for error_type = 'rmse'
 
     legend_entries : `list` of `str`
         The entries of the legend. The list must have the same length as errors.
-        If None, the entries will have the form 'Curve %d'.
-
-    return_widget : `boolean`, optional
-        If True, the widget object will be returned so that it can be used as a
-        part of a bigger widget. If False, the widget object is not returned, it
-        is just visualized.
+        If ``None``, the entries will have the form ``'Curve %d'``.
+    return_widget : `bool`, optional
+        If ``True``, the widget object will be returned so that it can be used
+        as part of a bigger widget. If ``False``, the widget object is not
+        returned, it is just visualized.
     """
-    from menpofit.fittingresult import compute_cumulative_error
+    import IPython.html.widgets as ipywidgets
+    import IPython.display as ipydisplay
+    from menpo.visualize.viewmatplotlib import sample_colours_from_colourmap
+    from menpofit.fittingresult import plot_cumulative_error_distribution
 
-    # make sure that images is a list even with one image member
+    # make sure that errors is a list even with one list member
     if not isinstance(errors[0], list):
         errors = [errors]
 
@@ -1794,141 +2251,210 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
     # fix legend_entries
     if legend_entries is None:
         legend_entries = ["Curve {}".format(k) for k in range(n_curves)]
+    else:
+        if len(legend_entries) > len(set(legend_entries)):
+            raise ValueError("legent entries must be unique")
 
     # get horizontal axis errors
     x_label_initial_value = 'Error'
     x_axis_limit_initial_value = 0
+    x_axis_step_initial_value = 0
     if error_range is None:
         if error_type == 'me_norm':
             error_range = [0., 0.101, 0.005]
             x_axis_limit_initial_value = 0.05
+            x_axis_step_initial_value = 0.005
             x_label_initial_value = 'Normalized Point-to-Point Error'
         elif error_type == 'me' or error_type == 'rmse':
             error_range = [0., 20., 0.5]
             x_axis_limit_initial_value = 5.
+            x_axis_step_initial_value = 0.5
             x_label_initial_value = 'Point-to-Point Error'
     else:
         x_axis_limit_initial_value = (error_range[1] + error_range[0]) / 2
-    x_axis = np.arange(error_range[0], error_range[1], error_range[2])
 
-    # compute cumulative error curves
-    ceds = [compute_cumulative_error(e, x_axis) for e in errors]
-    x_axis = [x_axis] * len(ceds)
+    # initial options dictionaries
+    figure_options = {'x_scale': 1.,
+                      'y_scale': 1.,
+                      'render_axes': True,
+                      'axes_font_name': 'sans-serif',
+                      'axes_font_size': 10,
+                      'axes_font_style': 'normal',
+                      'axes_font_weight': 'normal',
+                      'axes_x_limits': None,
+                      'axes_y_limits': (0., 1.)}
+    legend_options = {'render_legend': True,
+                      'legend_title': '',
+                      'legend_font_name': 'sans-serif',
+                      'legend_font_style': 'normal',
+                      'legend_font_size': 10,
+                      'legend_font_weight': 'normal',
+                      'legend_marker_scale': 1.,
+                      'legend_location': 2,
+                      'legend_bbox_to_anchor': (1.05, 1.),
+                      'legend_border_axes_pad': 1.,
+                      'legend_n_columns': 1,
+                      'legend_horizontal_spacing': 1.,
+                      'legend_vertical_spacing': 1.,
+                      'legend_border': True,
+                      'legend_border_padding': 0.5,
+                      'legend_shadow': False,
+                      'legend_rounded_corners': False}
+    grid_options = {'render_grid': True,
+                    'grid_line_style': '--',
+                    'grid_line_width': 0.5}
 
-    # initialize plot options dictionaries and legend entries
-    colors = [np.random.random((3,)) for _ in range(n_curves)]
-    plot_options_list = []
-    for k in range(n_curves):
-        plot_options_list.append({'show_line':True,
-                                  'linewidth':2,
-                                  'linecolor':colors[k],
-                                  'linestyle':'-',
-                                  'show_marker':True,
-                                  'markersize':10,
-                                  'markerfacecolor':'w',
-                                  'markeredgecolor':colors[k],
-                                  'markerstyle':'s',
-                                  'markeredgewidth':1,
-                                  'legend_entry':legend_entries[k]})
+    colours = sample_colours_from_colourmap(n_curves, 'jet')
+    viewer_options_default = []
+    for i in range(n_curves):
+        lines_options_default = {'render_lines': True,
+                                 'line_width': 2,
+                                 'line_colour': [colours[i]],
+                                 'line_style': '-'}
+        markers_options = {'render_markers': True,
+                           'marker_size': 10,
+                           'marker_face_colour': ['w'],
+                           'marker_edge_colour': [colours[i]],
+                           'marker_style': 's',
+                           'marker_edge_width': 1}
+        tmp = {'lines': lines_options_default,
+               'markers': markers_options,
+               'legend': legend_options,
+               'figure': figure_options,
+               'grid': grid_options}
+        viewer_options_default.append(tmp)
 
     # define plot function
     def plot_function(name, value):
+        import matplotlib.pyplot as plt
         # clear current figure, but wait until the new data to be displayed are
         # generated
-        clear_output(wait=True)
+        ipydisplay.clear_output(wait=True)
 
-        # get the current figure id
-        figure_id = save_figure_wid.figure_id
+        # get options that need to be a list
+        render_lines = []
+        line_colour = []
+        line_style = []
+        line_width = []
+        render_markers = []
+        marker_style = []
+        marker_size = []
+        marker_face_colour = []
+        marker_edge_colour = []
+        marker_edge_width = []
+        for idx in range(n_curves):
+            tmp1 = viewer_options_wid.selected_values[idx]['lines']
+            tmp2 = viewer_options_wid.selected_values[idx]['markers']
+            render_lines.append(tmp1['render_lines'])
+            line_colour.append(tmp1['line_colour'][0])
+            line_style.append(tmp1['line_style'])
+            line_width.append(tmp1['line_width'])
+            render_markers.append(tmp2['render_markers'])
+            marker_style.append(tmp2['marker_style'])
+            marker_size.append(tmp2['marker_size'])
+            marker_face_colour.append(tmp2['marker_face_colour'][0])
+            marker_edge_colour.append(tmp2['marker_edge_colour'][0])
+            marker_edge_width.append(tmp2['marker_edge_width'])
 
-        # plot the graph with the selected options
-        new_figure_id = _plot_graph(
-            figure_id, horizontal_axis_values=x_axis, vertical_axis_values=ceds,
-            plot_options_list=plot_options_wid.selected_options,
-            legend_visible=legend_visible.value,
-            grid_visible=grid_visible.value, gridlinestyle=gridlinestyle.value,
-            x_limit=x_axis_limit.value, y_limit=y_axis_limit.value,
+        # rest of options
+        tmp3 = viewer_options_wid.selected_values[0]['legend']
+        tmp4 = viewer_options_wid.selected_values[0]['figure']
+        tmp5 = viewer_options_wid.selected_values[0]['grid']
+        new_figure_size = (tmp4['x_scale'] * figure_size[0],
+                           tmp4['y_scale'] * figure_size[1])
+
+        # horizontal axis limits
+        x_axis_limits = (0,
+                         np.arange(0, errors_max.value, errors_step.value)[-1])
+
+        # render
+        renderer = plot_cumulative_error_distribution(
+            errors, error_range=[0., errors_max.value, errors_step.value],
+            figure_id=save_figure_wid.renderer[0].figure_id, new_figure=False,
             title=title.value, x_label=x_label.value, y_label=y_label.value,
-            x_scale=fig.x_scale, y_scale=fig.y_scale, figure_size=figure_size,
-            axes_fontsize=axes_fontsize.value,
-            labels_fontsize=labels_fontsize.value)
+            legend_entries=str(legend_entries_wid.value).split('\n')[:n_curves],
+            render_lines=render_lines, line_colour=line_colour,
+            line_style=line_style, line_width=line_width,
+            render_markers=render_markers, marker_style=marker_style,
+            marker_size=marker_size, marker_face_colour=marker_face_colour,
+            marker_edge_colour=marker_edge_colour,
+            marker_edge_width=marker_edge_width,
+            render_legend=tmp3['render_legend'],
+            legend_title=tmp3['legend_title'],
+            legend_font_name=tmp3['legend_font_name'],
+            legend_font_style=tmp3['legend_font_style'],
+            legend_font_size=tmp3['legend_font_size'],
+            legend_font_weight=tmp3['legend_font_weight'],
+            legend_marker_scale=tmp3['legend_marker_scale'],
+            legend_location=tmp3['legend_location'],
+            legend_bbox_to_anchor=tmp3['legend_bbox_to_anchor'],
+            legend_border_axes_pad=tmp3['legend_border_axes_pad'],
+            legend_n_columns=tmp3['legend_n_columns'],
+            legend_horizontal_spacing=tmp3['legend_horizontal_spacing'],
+            legend_vertical_spacing=tmp3['legend_vertical_spacing'],
+            legend_border=tmp3['legend_border'],
+            legend_border_padding=tmp3['legend_border_padding'],
+            legend_shadow=tmp3['legend_shadow'],
+            legend_rounded_corners=tmp3['legend_rounded_corners'],
+            render_axes=tmp4['render_axes'],
+            axes_font_name=tmp4['axes_font_name'],
+            axes_font_size=tmp4['axes_font_size'],
+            axes_font_style=tmp4['axes_font_style'],
+            axes_font_weight=tmp4['axes_font_weight'],
+            axes_x_limits=x_axis_limits,
+            axes_y_limits=viewer_options_wid.selected_values[0]['figure']['axes_y_limits'],
+            figure_size=new_figure_size, render_grid=tmp5['render_grid'],
+            grid_line_style=tmp5['grid_line_style'],
+            grid_line_width=tmp5['grid_line_width'])
+
+        plt.show()
 
         # save the current figure id
-        save_figure_wid.figure_id = new_figure_id
+        save_figure_wid.renderer[0] = renderer
 
     # create options widgets
-    # x label, y label, title container
-    x_label = TextWidget(description='Horizontal axis label',
-                         value=x_label_initial_value)
-    y_label = TextWidget(description='Vertical axis label',
-                         value='Images Proportion')
-    title = TextWidget(description='Figure title',
-                       value='Cumulative error ditribution')
-    labels_wid = ContainerWidget(children=[x_label, y_label, title])
+    # error_range
+    errors_max = ipywidgets.FloatSliderWidget(
+        min=error_range[0] + error_range[2], max=error_range[1],
+        step=error_range[2], description='Error axis max',
+        value=x_axis_limit_initial_value)
+    if error_type == 'me_norm':
+        errors_step = ipywidgets.FloatSliderWidget(
+            min=0., max=0.05, step=0.001, description='Error axis step',
+            value=x_axis_step_initial_value)
+    else:
+        errors_step = ipywidgets.FloatSliderWidget(
+            min=0., max=error_range[1], step=error_range[2] / 10.,
+            description='Error axis step', value=x_axis_step_initial_value)
+    error_range_wid = ipywidgets.ContainerWidget(children=[errors_max,
+                                                           errors_step])
 
-    # figure size
-    fig = figure_options_two_scales(plot_function, x_scale_default=1.,
-                                    y_scale_default=1., coupled_default=False,
-                                    show_axes_default=True,
-                                    toggle_show_default=True,
-                                    figure_scales_bounds=(0.1, 2),
-                                    figure_scales_step=0.1,
-                                    figure_scales_visible=True,
-                                    show_axes_visible=False,
-                                    toggle_show_visible=False)
-    # fontsizes
-    labels_fontsize = FloatTextWidget(description='Labels fontsize', value=12.)
-    axes_fontsize = FloatTextWidget(description='Axes fontsize', value=12.)
-    fontsize_wid = ContainerWidget(children=[labels_fontsize, axes_fontsize])
+    # legend_entries, x label, y label, title container
+    legend_entries_wid = ipywidgets.TextareaWidget(
+        description='Legend entries', value="\n".join(legend_entries))
+    x_label = ipywidgets.TextWidget(description='Horizontal axis label',
+                                    value=x_label_initial_value)
+    y_label = ipywidgets.TextWidget(description='Vertical axis label',
+                                    value='Images Proportion')
+    title = ipywidgets.TextWidget(description='Figure title',
+                                  value=' ')
+    labels_wid = ipywidgets.ContainerWidget(children=[legend_entries_wid,
+                                                      x_label, y_label, title])
 
-    # checkboxes
-    grid_visible = CheckboxWidget(description='Grid visible', value=False)
-    gridlinestyle_dict = OrderedDict()
-    gridlinestyle_dict['solid'] = '-'
-    gridlinestyle_dict['dashed'] = '--'
-    gridlinestyle_dict['dash-dot'] = '-.'
-    gridlinestyle_dict['dotted'] = ':'
-    gridlinestyle = DropdownWidget(values=gridlinestyle_dict,
-                                   value=':',
-                                   description='Grid style', disabled=False)
+    # viewer options widget
+    viewer_options_wid = viewer_options(viewer_options_default,
+                                        ['lines', 'markers', 'legend',
+                                         'figure_two', 'grid'],
+                                        objects_names=legend_entries,
+                                        plot_function=plot_function,
+                                        toggle_show_visible=False,
+                                        toggle_show_default=True,
+                                        labels=legend_entries)
 
-    def gridlinestyle_visibility(name, value):
-        gridlinestyle.disabled = not value
-    grid_visible.on_trait_change(gridlinestyle_visibility, 'value')
-    legend_visible = CheckboxWidget(description='Legend visible', value=True)
-    checkbox_wid = ContainerWidget(children=[grid_visible, gridlinestyle,
-                                             legend_visible])
-
-    # container of various options
-    tmp_various_wid = ContainerWidget(children=[fontsize_wid, checkbox_wid])
-    various_wid = ContainerWidget(children=[fig, tmp_various_wid])
-
-    # axis limits
-    y_axis_limit = FloatSliderWidget(min=0., max=1.1, step=0.1,
-                                     description='Y axis limit', value=1.)
-    x_axis_limit = FloatSliderWidget(min=error_range[0] + error_range[2],
-                                     max=error_range[1],
-                                     step=error_range[2],
-                                     description='X axis limit',
-                                     value=x_axis_limit_initial_value)
-    axis_limits_wid = ContainerWidget(children=[x_axis_limit, y_axis_limit])
-
-    # accordion widget
-    figure_wid = AccordionWidget(children=[axis_limits_wid, labels_wid,
-                                           various_wid])
-    figure_wid.set_title(0, 'Axes Limits')
-    figure_wid.set_title(1, 'Labels and Title')
-    figure_wid.set_title(2, 'Figure Size, Grid and Legend')
-
-    # per curve options
-    plot_options_wid = plot_options(plot_options_list,
-                                    plot_function=plot_function,
-                                    toggle_show_visible=False,
-                                    toggle_show_default=True)
-
-    # save figure options widget
-    # create figure and store its id
-    initial_figure_id = plt.figure()
-    save_figure_wid = save_figure_options(initial_figure_id,
+    # save figure widget
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = save_figure_options(initial_renderer,
                                           toggle_show_default=True,
                                           toggle_show_visible=False)
 
@@ -1936,64 +2462,322 @@ def plot_ced(errors, figure_size=(9, 5), popup=False, error_type='me_norm',
     x_label.on_trait_change(plot_function, 'value')
     y_label.on_trait_change(plot_function, 'value')
     title.on_trait_change(plot_function, 'value')
-    grid_visible.on_trait_change(plot_function, 'value')
-    gridlinestyle.on_trait_change(plot_function, 'value')
-    legend_visible.on_trait_change(plot_function, 'value')
-    y_axis_limit.on_trait_change(plot_function, 'value')
-    x_axis_limit.on_trait_change(plot_function, 'value')
-    labels_fontsize.on_trait_change(plot_function, 'value')
-    axes_fontsize.on_trait_change(plot_function, 'value')
+    legend_entries_wid.on_trait_change(plot_function, 'value')
+    errors_max.on_trait_change(plot_function, 'value')
+    errors_step.on_trait_change(plot_function, 'value')
 
     # create final widget
-    wid = TabWidget(children=[figure_wid, plot_options_wid,
-                              save_figure_wid])
+    tab_wid = ipywidgets.TabWidget(children=[error_range_wid, labels_wid,
+                                             viewer_options_wid,
+                                             save_figure_wid])
 
     # create popup widget if asked
     if popup:
-        wid = PopupWidget(children=[wid], button_text='CED Menu')
+        wid = ipywidgets.PopupWidget(children=[logo(), tab_wid],
+                                     button_text='CED Menu')
+    else:
+        wid = ipywidgets.ContainerWidget(children=[logo(), tab_wid],
+                                         button_text='CED Menu')
 
     # display final widget
-    display(wid)
+    ipydisplay.display(wid)
 
     # set final tab titles
-    tab_titles = ['Figure options', 'Per Curve options', 'Save figure']
-    if n_curves == 1:
-        tab_titles[1] = 'Curve options'
-    if popup:
-        for (k, tl) in enumerate(tab_titles):
-            wid.children[0].set_title(k, tl)
-    else:
-        for (k, tl) in enumerate(tab_titles):
-            wid.set_title(k, tl)
+    tab_titles = ['Error axis options', 'Labels options', 'Viewer options',
+                  'Save figure']
+    for (k, tl) in enumerate(tab_titles):
+        tab_wid.set_title(k, tl)
 
     # format options' widgets
     labels_wid.add_class('align-end')
-    axis_limits_wid.add_class('align-start')
-    fontsize_wid.add_class('align-end')
-    fontsize_wid.set_css('margin-right', '1cm')
-    checkbox_wid.add_class('align-end')
-    tmp_various_wid.remove_class('vbox')
-    tmp_various_wid.add_class('hbox')
-    format_plot_options(plot_options_wid, container_padding='1px',
-                        container_margin='1px',
-                        container_border='1px solid black',
-                        toggle_button_font_weight='bold', border_visible=False,
-                        suboptions_border_visible=True)
-    format_figure_options_two_scales(fig, container_padding='6px',
-                                     container_margin='6px',
-                                     container_border='1px solid black',
-                                     toggle_button_font_weight='bold',
-                                     border_visible=False)
+    legend_entries_wid.set_css('width', '6cm')
+    legend_entries_wid.set_css('height', '2cm')
+    x_label.set_css('width', '6cm')
+    y_label.set_css('width', '6cm')
+    title.set_css('width', '6cm')
+    errors_max.set_css('width', '6cm')
+    errors_step.set_css('width', '6cm')
+    format_viewer_options(viewer_options_wid, container_padding='6px',
+                          container_margin='6px',
+                          container_border='1px solid black',
+                          toggle_button_font_weight='bold',
+                          border_visible=False,
+                          suboptions_border_visible=True)
     format_save_figure_options(save_figure_wid, container_padding='6px',
                                container_margin='6px',
                                container_border='1px solid black',
                                toggle_button_font_weight='bold',
-                               tab_top_margin='0cm',
-                               border_visible=False)
+                               tab_top_margin='0cm', border_visible=False)
 
     # Reset value to trigger initial visualization
-    grid_visible.value = True
+    title.value = 'Cumulative error distribution'
 
     # return widget object if asked
     if return_widget:
         return wid
+
+
+def _visualize(image, renderer, render_image, render_landmarks, image_is_masked,
+               masked_enabled, channels, glyph_enabled, glyph_block_size,
+               glyph_use_negative, sum_enabled, groups, with_labels,
+               subplots_enabled, subplots_titles, image_axes_mode,
+               render_lines, line_style, line_width, line_colour,
+               render_markers, marker_style, marker_size, marker_edge_width,
+               marker_edge_colour, marker_face_colour, render_numbering,
+               numbers_horizontal_align, numbers_vertical_align,
+               numbers_font_name, numbers_font_size, numbers_font_style,
+               numbers_font_weight, numbers_font_colour, render_legend,
+               legend_title, legend_font_name, legend_font_style,
+               legend_font_size, legend_font_weight, legend_marker_scale,
+               legend_location, legend_bbox_to_anchor, legend_border_axes_pad,
+               legend_n_columns, legend_horizontal_spacing,
+               legend_vertical_spacing, legend_border, legend_border_padding,
+               legend_shadow, legend_rounded_corners, render_axes,
+               axes_font_name, axes_font_size, axes_font_style,
+               axes_font_weight, axes_x_limits, axes_y_limits, interpolation,
+               alpha, figure_size):
+    import matplotlib.pyplot as plt
+
+    global glyph
+    if glyph is None:
+        from menpo.visualize.image import glyph
+
+    # This makes the code shorter for dealing with masked images vs non-masked
+    # images
+    mask_arguments = ({'masked': masked_enabled}
+                      if image_is_masked else {})
+
+    # plot
+    if render_image:
+        # image will be displayed
+        if render_landmarks and len(groups) > 0:
+            # there are selected landmark groups and they will be displayed
+            if subplots_enabled:
+                # calculate subplots structure
+                subplots = MatplotlibSubplots()._subplot_layout(len(groups))
+            # show image with landmarks
+            for k, group in enumerate(groups):
+                if subplots_enabled:
+                    # create subplot
+                    plt.subplot(subplots[0], subplots[1], k + 1)
+                    if render_legend:
+                        # set subplot's title
+                        plt.title(subplots_titles[group],
+                                  fontname=legend_font_name,
+                                  fontstyle=legend_font_style,
+                                  fontweight=legend_font_weight,
+                                  fontsize=legend_font_size)
+                if glyph_enabled or sum_enabled:
+                    # image, landmarks, masked, glyph
+                    renderer = glyph(image, vectors_block_size=glyph_block_size,
+                                     use_negative=glyph_use_negative,
+                                     channels=channels).\
+                        view_landmarks(
+                            group=group, with_labels=with_labels[k],
+                            without_labels=None, figure_id=renderer.figure_id,
+                            new_figure=False, render_lines=render_lines[k],
+                            line_style=line_style[k], line_width=line_width[k],
+                            line_colour=line_colour[k],
+                            render_markers=render_markers[k],
+                            marker_style=marker_style[k],
+                            marker_size=marker_size[k],
+                            marker_edge_width=marker_edge_width[k],
+                            marker_edge_colour=marker_edge_colour[k],
+                            marker_face_colour=marker_face_colour[k],
+                            render_numbering=render_numbering,
+                            numbers_horizontal_align=numbers_horizontal_align,
+                            numbers_vertical_align=numbers_vertical_align,
+                            numbers_font_name=numbers_font_name,
+                            numbers_font_size=numbers_font_size,
+                            numbers_font_style=numbers_font_style,
+                            numbers_font_weight=numbers_font_weight,
+                            numbers_font_colour=numbers_font_colour,
+                            render_legend=render_legend and not subplots_enabled,
+                            legend_title=legend_title,
+                            legend_font_name=legend_font_name,
+                            legend_font_style=legend_font_style,
+                            legend_font_size=legend_font_size,
+                            legend_font_weight=legend_font_weight,
+                            legend_marker_scale=legend_marker_scale,
+                            legend_location=legend_location,
+                            legend_bbox_to_anchor=legend_bbox_to_anchor,
+                            legend_border_axes_pad=legend_border_axes_pad,
+                            legend_n_columns=legend_n_columns,
+                            legend_horizontal_spacing=legend_horizontal_spacing,
+                            legend_vertical_spacing=legend_vertical_spacing,
+                            legend_border=legend_border,
+                            legend_border_padding=legend_border_padding,
+                            legend_shadow=legend_shadow,
+                            legend_rounded_corners=legend_rounded_corners,
+                            render_axes=render_axes,
+                            axes_font_name=axes_font_name,
+                            axes_font_size=axes_font_size,
+                            axes_font_style=axes_font_style,
+                            axes_font_weight=axes_font_weight,
+                            axes_x_limits=axes_x_limits,
+                            axes_y_limits=axes_y_limits,
+                            interpolation=interpolation, alpha=alpha,
+                            figure_size=figure_size, **mask_arguments)
+                else:
+                    # image, landmarks, masked, not glyph
+                    renderer = image.view_landmarks(
+                        channels=channels, group=group,
+                        with_labels=with_labels[k], without_labels=None,
+                        figure_id=renderer.figure_id, new_figure=False,
+                        render_lines=render_lines[k], line_style=line_style[k],
+                        line_width=line_width[k], line_colour=line_colour[k],
+                        render_markers=render_markers[k],
+                        marker_style=marker_style[k],
+                        marker_size=marker_size[k],
+                        marker_edge_width=marker_edge_width[k],
+                        marker_edge_colour=marker_edge_colour[k],
+                        marker_face_colour=marker_face_colour[k],
+                        render_numbering=render_numbering,
+                        numbers_horizontal_align=numbers_horizontal_align,
+                        numbers_vertical_align=numbers_vertical_align,
+                        numbers_font_name=numbers_font_name,
+                        numbers_font_size=numbers_font_size,
+                        numbers_font_style=numbers_font_style,
+                        numbers_font_weight=numbers_font_weight,
+                        numbers_font_colour=numbers_font_colour,
+                        render_legend=render_legend and not subplots_enabled,
+                        legend_title=legend_title,
+                        legend_font_name=legend_font_name,
+                        legend_font_style=legend_font_style,
+                        legend_font_size=legend_font_size,
+                        legend_font_weight=legend_font_weight,
+                        legend_marker_scale=legend_marker_scale,
+                        legend_location=legend_location,
+                        legend_bbox_to_anchor=legend_bbox_to_anchor,
+                        legend_border_axes_pad=legend_border_axes_pad,
+                        legend_n_columns=legend_n_columns,
+                        legend_horizontal_spacing=legend_horizontal_spacing,
+                        legend_vertical_spacing=legend_vertical_spacing,
+                        legend_border=legend_border,
+                        legend_border_padding=legend_border_padding,
+                        legend_shadow=legend_shadow,
+                        legend_rounded_corners=legend_rounded_corners,
+                        render_axes=render_axes, axes_font_name=axes_font_name,
+                        axes_font_size=axes_font_size,
+                        axes_font_style=axes_font_style,
+                        axes_font_weight=axes_font_weight,
+                        axes_x_limits=axes_x_limits,
+                        axes_y_limits=axes_y_limits,
+                        interpolation=interpolation, alpha=alpha,
+                        figure_size=figure_size, **mask_arguments)
+        else:
+            # either there are not any landmark groups selected or they won't
+            # be displayed
+            if glyph_enabled or sum_enabled:
+                # image, not landmarks, masked, glyph
+                renderer = glyph(image, vectors_block_size=glyph_block_size,
+                                 use_negative=glyph_use_negative,
+                                 channels=channels).view(
+                    render_axes=render_axes, axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
+                    figure_size=figure_size, interpolation=interpolation,
+                    alpha=alpha, **mask_arguments)
+            else:
+                # image, not landmarks, masked, not glyph
+                renderer = image.view(
+                    channels=channels, render_axes=render_axes,
+                    axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits,
+                    axes_y_limits=axes_y_limits, figure_size=figure_size,
+                    interpolation=interpolation, alpha=alpha, **mask_arguments)
+    else:
+        # image won't be displayed
+        if render_landmarks and len(groups) > 0:
+            # there are selected landmark groups and they will be displayed
+            if subplots_enabled:
+                # calculate subplots structure
+                subplots = MatplotlibSubplots()._subplot_layout(len(groups))
+            # not image, landmarks
+            for k, group in enumerate(groups):
+                if subplots_enabled:
+                    # create subplot
+                    plt.subplot(subplots[0], subplots[1], k + 1)
+                    if render_legend:
+                        # set subplot's title
+                        plt.title(subplots_titles[group],
+                                  fontname=legend_font_name,
+                                  fontstyle=legend_font_style,
+                                  fontweight=legend_font_weight,
+                                  fontsize=legend_font_size)
+                image.landmarks[group].lms.view(
+                    image_view=image_axes_mode, render_lines=render_lines[k],
+                    line_style=line_style[k], line_width=line_width[k],
+                    line_colour=line_colour[k],
+                    render_markers=render_markers[k],
+                    marker_style=marker_style[k], marker_size=marker_size[k],
+                    marker_edge_width=marker_edge_width[k],
+                    marker_edge_colour=marker_edge_colour[k],
+                    marker_face_colour=marker_face_colour[k],
+                    render_axes=render_axes, axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
+                    figure_size=figure_size)
+            if not subplots_enabled:
+                if len(groups) % 2 == 0:
+                    plt.gca().invert_yaxis()
+                if render_legend:
+                    # Options related to legend's font
+                    prop = {'family': legend_font_name,
+                            'size': legend_font_size,
+                            'style': legend_font_style,
+                            'weight': legend_font_weight}
+
+                    # display legend on side
+                    plt.gca().legend(groups, title=legend_title, prop=prop,
+                                     loc=legend_location,
+                                     bbox_to_anchor=legend_bbox_to_anchor,
+                                     borderaxespad=legend_border_axes_pad,
+                                     ncol=legend_n_columns,
+                                     columnspacing=legend_horizontal_spacing,
+                                     labelspacing=legend_vertical_spacing,
+                                     frameon=legend_border,
+                                     borderpad=legend_border_padding,
+                                     shadow=legend_shadow,
+                                     fancybox=legend_rounded_corners,
+                                     markerscale=legend_marker_scale)
+
+    # show plot
+    plt.show()
+
+    return renderer
+
+
+def _check_n_parameters(n_params, n_levels, max_n_params):
+    r"""
+    Checks the maximum number of components per level either of the shape
+    or the appearance model. It must be None or int or float or a list of
+    those containing 1 or {n_levels} elements.
+    """
+    str_error = ("n_params must be None or 1 <= int <= max_n_params or "
+                 "a list of those containing 1 or {} elements").format(n_levels)
+    if not isinstance(n_params, list):
+        n_params_list = [n_params] * n_levels
+    elif len(n_params) == 1:
+        n_params_list = [n_params[0]] * n_levels
+    elif len(n_params) == n_levels:
+        n_params_list = n_params
+    else:
+        raise ValueError(str_error)
+    for i, comp in enumerate(n_params_list):
+        if comp is None:
+            n_params_list[i] = max_n_params[i]
+        else:
+            if isinstance(comp, int):
+                if comp > max_n_params[i]:
+                    n_params_list[i] = max_n_params[i]
+            else:
+                raise ValueError(str_error)
+    return n_params_list

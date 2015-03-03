@@ -120,21 +120,3 @@ def project_out(appearance_model, warped_image):
     """
     diff = warped_image.as_vector() - appearance_model.mean().as_vector()
     return appearance_model.distance_to_subspace_vector(diff).ravel()
-
-
-def probabilistic(appearance_model, warped_image):
-    r"""
-    Returns the sum of the projected-out reconstructed warped image and the
-    sheared (non-orthogonal) reconstruction of the image.
-
-    Parameters
-    ----------
-    appearance_model: :class:`menpo.model.pca`
-        The appearance model based on which the parametric features will be
-        computed.
-    warped_image: :class:`menpo.image.masked`
-        The warped image.
-    """
-    diff = warped_image.as_vector() - appearance_model.mean().as_vector()
-    po = appearance_model.distance_to_subspace_vector(diff).ravel()
-    return po + appearance_model.project_whitened_vector(diff).ravel()

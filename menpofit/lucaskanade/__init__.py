@@ -1,22 +1,3 @@
-from .appearance import (AdaptiveForwardAdditive,
-                         AdaptiveForwardCompositional,
-                         AdaptiveInverseCompositional,
+from .appearance import SFA, SFC, SIC, AFA, AFC, AIC, PIC
 
-                         AlternatingForwardAdditive,
-                         AlternatingForwardCompositional,
-                         AlternatingInverseCompositional,
-
-                         ProbabilisticForwardAdditive,
-                         ProbabilisticForwardCompositional,
-                         ProbabilisticInverseCompositional,
-
-                         ProjectOutForwardAdditive,
-                         ProjectOutForwardCompositional,
-                         ProjectOutInverseCompositional,
-
-                         SimultaneousForwardAdditive,
-                         SimultaneousForwardCompositional,
-                         SimultaneousInverseCompositional)
-
-from .image import (ImageForwardAdditive, ImageForwardCompositional,
-                    ImageInverseCompositional)
+from .image import FA, FC, IC

@@ -265,7 +265,7 @@ class NonParametricRegressorTrainer(RegressorTrainer):
 
     def _set_up(self):
         # work out feature length per patch
-        patch_img = Image.blank(self.patch_shape, fill=0)
+        patch_img = Image.init_blank(self.patch_shape, fill=0)
         self._feature_patch_length = self.regression_features(patch_img).n_parameters
 
     @property

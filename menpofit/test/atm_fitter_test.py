@@ -11,9 +11,7 @@ from menpofit.transform import DifferentiablePiecewiseAffine
 import menpo.io as mio
 from menpo.shape.pointcloud import PointCloud
 from menpofit.atm import ATMBuilder, LucasKanadeATMFitter
-from menpofit.lucaskanade.image import (ImageInverseCompositional,
-                                            ImageForwardAdditive,
-                                            ImageForwardCompositional)
+from menpofit.lucaskanade.image import FA, FC, IC
 
 
 initial_shape = []
@@ -302,9 +300,8 @@ for i in range(4):
     im.crop_to_landmarks_proportion_inplace(0.1)
     if im.n_channels == 3:
         im = im.as_greyscale(mode='luminosity')
-    training_shapes.append(im.landmarks['PTS']['all'])
+    training_shapes.append(im.landmarks[None].lms)
     templates.append(im)
-
 
 # build atm
 atm1 = ATMBuilder(features=igo,
@@ -314,7 +311,7 @@ atm1 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1, 2, 3],
-                  boundary=3).build(training_shapes, templates[0], group='PTS')
+                  boundary=3).build(training_shapes, templates[0])
 
 atm2 = ATMBuilder(features=igo,
                   transform=DifferentiablePiecewiseAffine,
@@ -323,7 +320,7 @@ atm2 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1],
-                  boundary=3).build(training_shapes, templates[1], group='PTS')
+                  boundary=3).build(training_shapes, templates[1])
 
 atm3 = ATMBuilder(features=igo,
                   transform=DifferentiablePiecewiseAffine,
@@ -332,7 +329,7 @@ atm3 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1, 2, 3],
-                  boundary=3).build(training_shapes, templates[2], group='PTS')
+                  boundary=3).build(training_shapes, templates[2])
 
 atm4 = ATMBuilder(features=igo,
                   transform=DifferentiablePiecewiseAffine,
@@ -341,7 +338,7 @@ atm4 = ATMBuilder(features=igo,
                   downscale=2,
                   scaled_shape_models=True,
                   max_shape_components=[1],
-                  boundary=3).build(training_shapes, templates[3], group='PTS')
+                  boundary=3).build(training_shapes, templates[3])
 
 
 def test_atm1():
@@ -371,7 +368,7 @@ def test_n_shape_exception_2():
 
 def test_pertrurb_shape():
     fitter = LucasKanadeATMFitter(atm1)
-    s = fitter.perturb_shape(templates[0].landmarks['PTS'].lms,
+    s = fitter.perturb_shape(templates[0].landmarks[None].lms,
                              noise_std=0.08, rotation=False)
     assert (s.n_dims == 2)
     assert (s.n_landmark_groups == 0)
@@ -391,7 +388,7 @@ def test_obtain_shape_from_bb():
 @raises(ValueError)
 def test_max_iters_exception():
     fitter = LucasKanadeATMFitter(atm1,
-                                  algorithm=ImageInverseCompositional)
+                                  algorithm=IC)
     fitter.fit(templates[0], initial_shape[0], max_iters=[10, 20, 30, 40])
 
 
@@ -399,11 +396,11 @@ def test_max_iters_exception():
 def test_str_mock(mock_stdout):
     print(atm1)
     fitter = LucasKanadeATMFitter(atm1,
-                                  algorithm=ImageInverseCompositional)
+                                  algorithm=IC)
     print(fitter)
     print(atm2)
     fitter = LucasKanadeATMFitter(atm2,
-                                  algorithm=ImageForwardAdditive)
+                                  algorithm=FA)
     print(fitter)
 
 
@@ -412,7 +409,7 @@ def atm_helper(atm, algorithm, im_number, max_iters, initial_error,
     fitter = LucasKanadeATMFitter(atm, algorithm=algorithm)
     fitting_result = fitter.fit(
         templates[im_number], initial_shape[im_number],
-        gt_shape=templates[im_number].landmarks['PTS'].lms,
+        gt_shape=templates[im_number].landmarks[None].lms,
         max_iters=max_iters)
     assert_allclose(
         np.around(fitting_result.initial_error(error_type=error_type), 5),
@@ -424,21 +421,18 @@ def atm_helper(atm, algorithm, im_number, max_iters, initial_error,
 
 @attr('fuzzy')
 def test_ic():
-    atm_helper(atm1, ImageInverseCompositional, 0, 6, 0.09062, 0.06783,
-               'me_norm')
+    atm_helper(atm1, IC, 0, 6, 0.09062, 0.06788, 'me_norm')
 
 
 @attr('fuzzy')
 def test_fa():
-    atm_helper(atm2, ImageForwardAdditive, 1, 8, 0.09051, 0.08237, 'me_norm')
+    atm_helper(atm2, FA, 1, 8, 0.09051, 0.08188, 'me_norm')
 
 
 @attr('fuzzy')
 def test_fc():
-    atm_helper(atm3, ImageForwardCompositional, 2, 6, 0.12615, 0.07522,
-               'me_norm')
+    atm_helper(atm3, FC, 2, 6, 0.12615, 0.08255, 'me_norm')
 
 @attr('fuzzy')
 def test_ic_2():
-    atm_helper(atm4, ImageInverseCompositional, 3, 7, 0.09748, 0.09509,
-               'me_norm')
+    atm_helper(atm4, IC, 3, 7, 0.09748, 0.09511, 'me_norm')
