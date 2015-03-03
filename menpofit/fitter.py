@@ -109,7 +109,7 @@ class MultilevelFitter(Fitter):
         return is_pyramid_on_features(self.features)
 
     def fit(self, image, initial_shape, max_iters=50, gt_shape=None,
-            crop_image=None, **kwargs):
+            crop_image=0.5, **kwargs):
         r"""
         Fits the multilevel fitter to an image.
 
@@ -225,7 +225,7 @@ class MultilevelFitter(Fitter):
                                    bounding_box).apply(reference_shape)
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
-                       crop_image=None):
+                       crop_image=0.5):
         r"""
         Prepares the image to be fitted.
 
