@@ -16,6 +16,7 @@ from menpo.visualize.widgets.options import (viewer_options,
 from menpo.visualize.widgets.tools import logo
 from menpo.visualize.widgets.base import _visualize as _visualize_menpo
 from menpo.visualize.widgets.base import _extract_groups_labels
+from menpo.visualize.widgets.compatibility import add_class, remove_class
 from menpo.visualize.viewmatplotlib import (MatplotlibImageViewer2d,
                                             sample_colours_from_colourmap,
                                             MatplotlibSubplots)
@@ -282,7 +283,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
     mode_dict = OrderedDict()
     mode_dict['Deformation'] = 1
     mode_dict['Vectors'] = 2
-    mode_wid = ipywidgets.RadioButtonsWidget(values=mode_dict,
+    mode_wid = ipywidgets.RadioButtonsWidget(options=mode_dict,
                                              description='Mode:', value=1)
     mode_wid.on_trait_change(plot_function, 'value')
     mean_wid = ipywidgets.CheckboxWidget(value=False,
@@ -307,7 +308,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
 
     # viewer options widget
     axes_mode_wid = ipywidgets.RadioButtonsWidget(
-        values={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
+        options={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
         value=2)
     axes_mode_wid.on_trait_change(plot_function, 'value')
     viewer_options_wid = viewer_options(viewer_options_default,
@@ -343,7 +344,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -371,8 +372,8 @@ def visualize_shape_model(shape_models, n_parameters=5,
         tab_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(model_parameters_wid, container_padding='6px',
                             container_margin='6px',
                             container_border='1px solid black',
@@ -677,7 +678,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -704,8 +705,8 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
         tab_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(model_parameters_wid, container_padding='6px',
                             container_margin='6px',
                             container_border='1px solid black',
@@ -1106,7 +1107,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -1136,8 +1137,8 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         model_parameters_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(shape_model_parameters_wid,
                             container_padding='6px', container_margin='6px',
                             container_border='1px solid black',
@@ -1489,7 +1490,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -1516,8 +1517,8 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
         tab_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(shape_model_parameters_wid,
                             container_padding='6px', container_margin='6px',
                             container_border='1px solid black',
@@ -2005,7 +2006,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
     error_type_values['Point-to-point Mean Error'] = 'me'
     error_type_values['RMS Error'] = 'rmse'
     error_type_wid = ipywidgets.RadioButtonsWidget(
-        values=error_type_values, value='me_norm', description='Error type')
+        options=error_type_values, value='me_norm', description='Error type')
     error_type_wid.on_trait_change(update_info, 'value')
     plot_ced_but = ipywidgets.ButtonWidget(description='Plot CED',
                                            visible=show_ced)
@@ -2151,8 +2152,8 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
 
     # format options' widgets
     if n_fitting_results > 1:
-        wid.children[0].remove_class('vbox')
-        wid.children[0].add_class('hbox')
+        remove_class(wid.children[0], 'vbox')
+        add_class(wid.children[0], 'hbox')
         format_animation_options(image_number_wid, index_text_width='1.0cm',
                                  container_padding='6px',
                                  container_margin='6px',
@@ -2489,14 +2490,14 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
         tab_wid.set_title(k, tl)
 
     # format options' widgets
-    labels_wid.add_class('align-end')
-    legend_entries_wid.set_css('width', '6cm')
-    legend_entries_wid.set_css('height', '2cm')
-    x_label.set_css('width', '6cm')
-    y_label.set_css('width', '6cm')
-    title.set_css('width', '6cm')
-    errors_max.set_css('width', '6cm')
-    errors_step.set_css('width', '6cm')
+    add_class(labels_wid, 'align-end')
+    legend_entries_wid.width = '6cm'
+    legend_entries_wid.height = '2cm'
+    x_label.width = '6cm'
+    y_label.width = '6cm'
+    title.width = '6cm'
+    errors_max.width = '6cm'
+    errors_step.width = '6cm'
     format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
