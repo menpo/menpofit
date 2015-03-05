@@ -35,7 +35,7 @@ glyph = None
 
 def visualize_shape_model(shape_models, n_parameters=5,
                           parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
-                          mode='multiple', popup=False):
+                          mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel shape model.
 
@@ -58,8 +58,6 @@ def visualize_shape_model(shape_models, n_parameters=5,
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -359,9 +357,6 @@ def visualize_shape_model(shape_models, n_parameters=5,
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='Shape Model Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -404,7 +399,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
 
 def visualize_appearance_model(appearance_models, n_parameters=5,
                                parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
-                               mode='multiple', popup=False):
+                               mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel appearance model.
 
@@ -427,8 +422,6 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -691,9 +684,6 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='Appearance Model Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -748,7 +738,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
 
 def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                   parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
-                  mode='multiple', popup=False):
+                  mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel AAM.
 
@@ -779,8 +769,6 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -1120,9 +1108,6 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='AAM Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -1184,7 +1169,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
 
 
 def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
-                  figure_size=(10, 8), mode='multiple', popup=False):
+                  figure_size=(10, 8), mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel ATM.
 
@@ -1208,8 +1193,6 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -1503,9 +1486,6 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='ATM Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -1559,7 +1539,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
 
 
 def visualize_fitting_results(fitting_results, figure_size=(10, 8),
-                              browser_style='buttons', popup=False):
+                              browser_style='buttons'):
     r"""
     Widget that allows browsing through a list of fitting results.
 
@@ -1574,8 +1554,6 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
     browser_style : {``buttons``, ``slider``}, optional
         It defines whether the selector of the fitting results will have the form of
         plus/minus buttons or a slider.
-    popup : `boolean`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -2094,12 +2072,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
     if n_fitting_results > 1:
         cont_wid.on_trait_change(save_fig_tab_fun, 'selected_index')
 
-    # create popup widget if asked
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[logo_wid, cont_wid],
-                                     button_text=button_title)
-    else:
-        wid = ipywidgets.ContainerWidget(children=[logo_wid, cont_wid])
+    wid = ipywidgets.ContainerWidget(children=[logo_wid, cont_wid])
 
     # invoke plot_ced widget
     def plot_ced_fun(name):
@@ -2119,7 +2092,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
 
         # call plot_ced
         plot_ced_widget = plot_ced(
-            errors, figure_size=(9, 5), popup=True, error_type=error_type,
+            errors, figure_size=(9, 5), error_type=error_type,
             error_range=None, legend_entries=['Final Fitting',
                                               'Initialization'],
             return_widget=True)
@@ -2196,7 +2169,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
         False
 
 
-def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
+def plot_ced(errors, figure_size=(10, 8), error_type='me_norm',
              error_range=None, legend_entries=None, return_widget=False):
     r"""
     Widget for visualizing the cumulative error curves of the provided errors.
@@ -2208,8 +2181,6 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
         The list of errors to be used.
     figure_size : (`int`, `int`), optional
         The initial size of the plotted figures.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     error_type : {``me_norm``, ``me``, ``rmse``}, optional
         Specifies the type of the provided errors.
     error_range : `list` of `float` with length 3, optional
@@ -2252,9 +2223,6 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
     # fix legend_entries
     if legend_entries is None:
         legend_entries = ["Curve {}".format(k) for k in range(n_curves)]
-    else:
-        if len(legend_entries) > len(set(legend_entries)):
-            raise ValueError("legent entries must be unique")
 
     # get horizontal axis errors
     x_label_initial_value = 'Error'
@@ -2450,7 +2418,7 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
                                         plot_function=plot_function,
                                         toggle_show_visible=False,
                                         toggle_show_default=True,
-                                        labels=legend_entries)
+                                        labels=[legend_entries])
 
     # save figure widget
     initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
@@ -2472,13 +2440,8 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
                                              viewer_options_wid,
                                              save_figure_wid])
 
-    # create popup widget if asked
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[logo(), tab_wid],
+    wid = ipywidgets.ContainerWidget(children=[logo(), tab_wid],
                                      button_text='CED Menu')
-    else:
-        wid = ipywidgets.ContainerWidget(children=[logo(), tab_wid],
-                                         button_text='CED Menu')
 
     # display final widget
     ipydisplay.display(wid)

@@ -87,43 +87,43 @@ def model_parameters(n_params, plot_function=None, params_str='',
         mode = 'multiple'
 
     # Create all necessary widgets
-    but = ipywidgets.ToggleButtonWidget(description=toggle_show_name,
-                                        value=toggle_show_default,
-                                        visible=toggle_show_visible)
-    reset_button = ipywidgets.ButtonWidget(description='Reset')
+    but = ipywidgets.ToggleButton(description=toggle_show_name,
+                                  value=toggle_show_default,
+                                  visible=toggle_show_visible)
+    reset_button = ipywidgets.Button(description='Reset')
     if mode == 'multiple':
-        sliders = [ipywidgets.FloatSliderWidget(
+        sliders = [ipywidgets.FloatSlider(
             description="{}{}".format(params_str, p),
             min=params_bounds[0], max=params_bounds[1],
             value=0.)
                    for p in range(n_params)]
-        parameters_wid = ipywidgets.ContainerWidget(children=sliders)
+        parameters_wid = ipywidgets.Box(children=sliders)
     else:
         vals = OrderedDict()
         for p in range(n_params):
             vals["{}{}".format(params_str, p)] = p
-        slider = ipywidgets.FloatSliderWidget(description='',
-                                              min=params_bounds[0],
-                                              max=params_bounds[1], value=0.)
-        dropdown_params = ipywidgets.DropdownWidget(options=vals)
-        parameters_wid = ipywidgets.ContainerWidget(
+        slider = ipywidgets.FloatSlider(description='',
+                                        min=params_bounds[0],
+                                        max=params_bounds[1], value=0.)
+        dropdown_params = ipywidgets.Dropdown(options=vals)
+        parameters_wid = ipywidgets.Box(
             children=[dropdown_params, slider])
 
     # Group widgets
     if plot_eig_visible:
-        plot_button = ipywidgets.ButtonWidget(description='Plot eigenvalues')
+        plot_button = ipywidgets.Button(description='Plot eigenvalues')
         if plot_eig_function is not None:
             plot_button.on_click(plot_eig_function)
-        plot_and_reset = ipywidgets.ContainerWidget(
+        plot_and_reset = ipywidgets.Box(
             children=[plot_button, reset_button])
-        params_and_reset = ipywidgets.ContainerWidget(children=[parameters_wid,
-                                                                plot_and_reset])
+        params_and_reset = ipywidgets.Box(children=[parameters_wid,
+                                                    plot_and_reset])
     else:
-        params_and_reset = ipywidgets.ContainerWidget(children=[parameters_wid,
-                                                                reset_button])
+        params_and_reset = ipywidgets.Box(children=[parameters_wid,
+                                                    reset_button])
 
     # Widget container
-    model_parameters_wid = ipywidgets.ContainerWidget(
+    model_parameters_wid = ipywidgets.Box(
         children=[but, params_and_reset])
 
     # Save mode and parameters values
@@ -288,7 +288,7 @@ def update_model_parameters(model_parameters_wid, n_params, plot_function=None,
             pb = [model_parameters_wid.children[1].children[0].children[0].min,
                   model_parameters_wid.children[1].children[0].children[0].max]
             # create sliders widgets
-            sliders = [ipywidgets.FloatSliderWidget(
+            sliders = [ipywidgets.FloatSlider(
                             description="{}{}".format(params_str,
                                                       p),
                             min=pb[0], max=pb[1], value=0.)
@@ -329,7 +329,7 @@ def update_model_parameters(model_parameters_wid, n_params, plot_function=None,
             vals = OrderedDict()
             for p in range(n_params):
                 vals["{}{}".format(params_str, p)] = p
-            model_parameters_wid.children[1].children[0].children[0].values = \
+            model_parameters_wid.children[1].children[0].children[0].options = \
                 vals
             # set initial value to the first and slider value to zero
             model_parameters_wid.children[1].children[0].children[0].value = \
@@ -384,30 +384,30 @@ def final_result_options(final_result_options_default, plot_function=None,
     """
     import IPython.html.widgets as ipywidgets
     # Toggle button that controls options' visibility
-    but = ipywidgets.ToggleButtonWidget(description=title,
+    but = ipywidgets.ToggleButton(description=title,
                                         value=toggle_show_default,
                                         visible=toggle_show_visible)
 
     # Create widgets
-    shapes_checkboxes = [ipywidgets.LatexWidget(value='Select shape:')]
+    shapes_checkboxes = [ipywidgets.Latex(value='Select shape:')]
     for group in final_result_options_default['all_groups']:
-        t = ipywidgets.ToggleButtonWidget(
+        t = ipywidgets.ToggleButton(
             description=group,
             value=group in final_result_options_default['selected_groups'])
         shapes_checkboxes.append(t)
-    render_image = ipywidgets.CheckboxWidget(
+    render_image = ipywidgets.Checkbox(
         description='Render image',
         value=final_result_options_default['render_image'])
-    mode = ipywidgets.RadioButtonsWidget(
+    mode = ipywidgets.RadioButtons(
         description='Plot mode:', options={'Single': False, 'Multiple': True},
         value=final_result_options_default['subplots_enabled'])
 
     # Group widgets
-    shapes_wid = ipywidgets.ContainerWidget(children=shapes_checkboxes)
-    opts = ipywidgets.ContainerWidget(children=[mode, render_image])
+    shapes_wid = ipywidgets.Box(children=shapes_checkboxes)
+    opts = ipywidgets.Box(children=[mode, render_image])
 
     # Widget container
-    final_result_wid = ipywidgets.ContainerWidget(children=[but, shapes_wid,
+    final_result_wid = ipywidgets.Box(children=[but, shapes_wid,
                                                             opts])
 
     # Initialize variables
@@ -536,9 +536,9 @@ def update_final_result_options(final_result_wid, group_keys, plot_function):
     if not _compare_groups_and_labels(
             group_keys, [], final_result_wid.selected_values['all_groups'], []):
         # Create all necessary widgets
-        shapes_checkboxes = [ipywidgets.LatexWidget(value='Select shape:')]
+        shapes_checkboxes = [ipywidgets.Latex(value='Select shape:')]
         for group in group_keys:
-            t = ipywidgets.ToggleButtonWidget(description=group, value=True)
+            t = ipywidgets.ToggleButton(description=group, value=True)
             shapes_checkboxes.append(t)
 
         # Group widgets
@@ -650,10 +650,10 @@ def iterations_result_options(iterations_result_options_default,
     """
     import IPython.html.widgets as ipywidgets
     # Create all necessary widgets
-    but = ipywidgets.ToggleButtonWidget(description=title,
+    but = ipywidgets.ToggleButton(description=title,
                                         value=toggle_show_default,
                                         visible=toggle_show_visible)
-    iterations_mode = ipywidgets.RadioButtonsWidget(
+    iterations_mode = ipywidgets.RadioButtons(
         options={'Animation': 'animation', 'Static': 'static'},
         value='animation', description='Mode:', visible=toggle_show_default)
     # Don't assign the plot function to the animation_wid at this point. We
@@ -667,24 +667,24 @@ def iterations_result_options(iterations_result_options_default,
         index_description='Iteration', index_style='slider', loop_default=False,
         interval_default=0.2, toggle_show_default=toggle_show_default,
         toggle_show_visible=False)
-    first_slider_wid = ipywidgets.IntSliderWidget(
+    first_slider_wid = ipywidgets.IntSlider(
         min=0, max=iterations_result_options_default['n_iters'] - 1, step=1,
         value=0, description='From', visible=False)
-    second_slider_wid = ipywidgets.IntSliderWidget(
+    second_slider_wid = ipywidgets.IntSlider(
         min=0, max=iterations_result_options_default['n_iters'] - 1, step=1,
         value=iterations_result_options_default['n_iters'] - 1,
         description='To', visible=False)
-    same_axes = ipywidgets.CheckboxWidget(
+    same_axes = ipywidgets.Checkbox(
         description='Same axes',
         value=not iterations_result_options_default['subplots_enabled'],
         visible=False)
-    update_but = ipywidgets.ButtonWidget(description='Update Plot',
+    update_but = ipywidgets.Button(description='Update Plot',
                                          visible=False)
-    render_image = ipywidgets.CheckboxWidget(
+    render_image = ipywidgets.Checkbox(
         description='Render image',
         value=iterations_result_options_default['render_image'])
-    plot_errors_button = ipywidgets.ButtonWidget(description='Plot Errors')
-    plot_displacements_button = ipywidgets.ButtonWidget(
+    plot_errors_button = ipywidgets.Button(description='Plot Errors')
+    plot_displacements_button = ipywidgets.Button(
         description='Plot Displacements')
     dropdown_menu = OrderedDict()
     dropdown_menu['mean'] = 'mean'
@@ -693,7 +693,7 @@ def iterations_result_options(iterations_result_options_default,
     dropdown_menu['min'] = 'min'
     for p in range(iterations_result_options_default['n_points']):
         dropdown_menu["point {}".format(p)] = p
-    plot_displacements_menu = ipywidgets.DropdownWidget(
+    plot_displacements_menu = ipywidgets.Dropdown(
         options=dropdown_menu,
         value=iterations_result_options_default['displacement_type'])
 
@@ -715,22 +715,22 @@ def iterations_result_options(iterations_result_options_default,
         plot_displacements_menu.disabled = True
 
     # Group widgets
-    update_and_subplots = ipywidgets.ContainerWidget(
+    update_and_subplots = ipywidgets.Box(
         children=[same_axes, update_but])
-    sliders = ipywidgets.ContainerWidget(
+    sliders = ipywidgets.Box(
         children=[animation_wid, first_slider_wid, second_slider_wid,
                   update_and_subplots])
-    iterations_mode_and_sliders = ipywidgets.ContainerWidget(
+    iterations_mode_and_sliders = ipywidgets.Box(
         children=[iterations_mode, sliders])
-    plot_displacements = ipywidgets.ContainerWidget(
+    plot_displacements = ipywidgets.Box(
         children=[plot_displacements_button, plot_displacements_menu])
-    opts = ipywidgets.ContainerWidget(
+    opts = ipywidgets.Box(
         children=[render_image, plot_errors_button, plot_displacements])
-    all_options = ipywidgets.ContainerWidget(
+    all_options = ipywidgets.Box(
         children=[iterations_mode_and_sliders, opts])
 
     # Widget container
-    iterations_result_wid = ipywidgets.ContainerWidget(children=[but,
+    iterations_result_wid = ipywidgets.Box(children=[but,
                                                                  all_options])
 
     # Initialize variables
@@ -904,7 +904,7 @@ def format_iterations_result_options(iterations_result_wid,
         border_visible=False)
 
     # align displacement button and drop down menu
-    removeclass(iterations_result_wid.children[1].children[1].children[2], 'vbox')
+    remove_class(iterations_result_wid.children[1].children[1].children[2], 'vbox')
     add_class(iterations_result_wid.children[1].children[1].children[2], 'hbox')
     add_class(iterations_result_wid.children[1].children[1].children[2], 'align-center')
     iterations_result_wid.children[1].children[1].children[2].children[0].\
@@ -1144,9 +1144,9 @@ def plot_options(plot_options_default, plot_function=None,
     The structure of the widgets is the following:
         plot_options_wid.children = [toggle_button, options]
         options.children = [curve_menu, per_curve_options_wid]
-        per_curve_options_wid = ipywidgets.ContainerWidget(children=[legend_entry,
+        per_curve_options_wid = ipywidgets.Box(children=[legend_entry,
                                                           line_marker_wid])
-        line_marker_wid = ipywidgets.ContainerWidget(children=[line_widget, marker_widget])
+        line_marker_wid = ipywidgets.Box(children=[line_widget, marker_widget])
         line_widget.children = [show_line_checkbox, line_options]
         marker_widget.children = [show_marker_checkbox, marker_options]
         line_options.children = [linestyle, linewidth, linecolour]
@@ -1208,7 +1208,7 @@ def plot_options(plot_options_default, plot_function=None,
 
     # Create widgets
     # toggle button
-    but = ipywidgets.ToggleButtonWidget(description='Plot Options',
+    but = ipywidgets.ToggleButton(description='Plot Options',
                                         value=toggle_show_default,
                                         visible=toggle_show_visible)
 
@@ -1216,32 +1216,32 @@ def plot_options(plot_options_default, plot_function=None,
     curves_dict = OrderedDict()
     for k in range(n_curves):
         curves_dict['Curve ' + str(k)] = k
-    curve_selection = ipywidgets.DropdownWidget(options=curves_dict,
+    curve_selection = ipywidgets.Dropdown(options=curves_dict,
                                                 value=0,
                                                 description='Select curve',
                                                 visible=n_curves > 1)
 
     # legend entry
-    legend_entry = ipywidgets.TextWidget(description='Legend entry',
+    legend_entry = ipywidgets.Text(description='Legend entry',
                                          value=plot_options_default[0][
                                              'legend_entry'])
 
     # show line, show markers checkboxes
-    show_line = ipywidgets.CheckboxWidget(description='Show line',
+    show_line = ipywidgets.Checkbox(description='Show line',
                                           value=plot_options_default[0][
                                               'show_line'])
-    show_marker = ipywidgets.CheckboxWidget(description='Show markers',
+    show_marker = ipywidgets.Checkbox(description='Show markers',
                                             value=plot_options_default[0][
                                                 'show_marker'])
 
     # linewidth, markersize
-    linewidth = ipywidgets.FloatTextWidget(description='Width',
+    linewidth = ipywidgets.FloatText(description='Width',
                                            value=plot_options_default[0][
                                                'linewidth'])
-    markersize = ipywidgets.IntTextWidget(description='Size',
+    markersize = ipywidgets.IntText(description='Size',
                                           value=plot_options_default[0][
                                               'markersize'])
-    markeredgewidth = ipywidgets.FloatTextWidget(
+    markeredgewidth = ipywidgets.FloatText(
         description='Edge width',
         value=plot_options_default[0]['markeredgewidth'])
 
@@ -1268,7 +1268,7 @@ def plot_options(plot_options_default, plot_function=None,
     markerstyle_dict['x'] = 'x'
     markerstyle_dict['diamond'] = 'D'
     markerstyle_dict['thin diamond'] = 'd'
-    markerstyle = ipywidgets.DropdownWidget(options=markerstyle_dict,
+    markerstyle = ipywidgets.Dropdown(options=markerstyle_dict,
                                             value=plot_options_default[0][
                                                 'markerstyle'],
                                             description='Style')
@@ -1279,7 +1279,7 @@ def plot_options(plot_options_default, plot_function=None,
     linestyle_dict['dashed'] = '--'
     linestyle_dict['dash-dot'] = '-.'
     linestyle_dict['dotted'] = ':'
-    linestyle = ipywidgets.DropdownWidget(options=linestyle_dict,
+    linestyle = ipywidgets.Dropdown(options=linestyle_dict,
                                           value=plot_options_default[0][
                                               'linestyle'],
                                           description='Style')
@@ -1296,24 +1296,24 @@ def plot_options(plot_options_default, plot_function=None,
         title='Edge Colour')
 
     # Group widgets
-    line_options = ipywidgets.ContainerWidget(
+    line_options = ipywidgets.Box(
         children=[linestyle, linewidth, linecolour])
-    marker_options = ipywidgets.ContainerWidget(
+    marker_options = ipywidgets.Box(
         children=[markerstyle, markersize,
                   markeredgewidth,
                   markerfacecolour,
                   markeredgecolour])
-    line_wid = ipywidgets.ContainerWidget(children=[show_line, line_options])
-    marker_wid = ipywidgets.ContainerWidget(
+    line_wid = ipywidgets.Box(children=[show_line, line_options])
+    marker_wid = ipywidgets.Box(
         children=[show_marker, marker_options])
-    line_options_options_wid = ipywidgets.ContainerWidget(
+    line_options_options_wid = ipywidgets.Box(
         children=[line_wid, marker_wid])
-    options_wid = ipywidgets.ContainerWidget(children=[legend_entry,
+    options_wid = ipywidgets.Box(children=[legend_entry,
                                                        line_options_options_wid])
-    options_and_curve_wid = ipywidgets.ContainerWidget(
+    options_and_curve_wid = ipywidgets.Box(
         children=[curve_selection,
                   options_wid])
-    plot_options_wid = ipywidgets.ContainerWidget(
+    plot_options_wid = ipywidgets.Box(
         children=[but, options_and_curve_wid])
 
     # initialize output
