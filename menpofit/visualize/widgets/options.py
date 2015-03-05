@@ -904,7 +904,7 @@ def format_iterations_result_options(iterations_result_wid,
         border_visible=False)
 
     # align displacement button and drop down menu
-    removeclass(iterations_result_wid.children[1].children[1].children[2], 'vbox')
+    remove_class(iterations_result_wid.children[1].children[1].children[2], 'vbox')
     add_class(iterations_result_wid.children[1].children[1].children[2], 'hbox')
     add_class(iterations_result_wid.children[1].children[1].children[2], 'align-center')
     iterations_result_wid.children[1].children[1].children[2].children[0].\
