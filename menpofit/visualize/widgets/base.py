@@ -16,6 +16,7 @@ from menpo.visualize.widgets.options import (viewer_options,
 from menpo.visualize.widgets.tools import logo
 from menpo.visualize.widgets.base import _visualize as _visualize_menpo
 from menpo.visualize.widgets.base import _extract_groups_labels
+from menpo.visualize.widgets.compatibility import add_class, remove_class
 from menpo.visualize.viewmatplotlib import (MatplotlibImageViewer2d,
                                             sample_colours_from_colourmap,
                                             MatplotlibSubplots)
@@ -34,7 +35,7 @@ glyph = None
 
 def visualize_shape_model(shape_models, n_parameters=5,
                           parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
-                          mode='multiple', popup=False):
+                          mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel shape model.
 
@@ -57,8 +58,6 @@ def visualize_shape_model(shape_models, n_parameters=5,
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -282,7 +281,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
     mode_dict = OrderedDict()
     mode_dict['Deformation'] = 1
     mode_dict['Vectors'] = 2
-    mode_wid = ipywidgets.RadioButtonsWidget(values=mode_dict,
+    mode_wid = ipywidgets.RadioButtonsWidget(options=mode_dict,
                                              description='Mode:', value=1)
     mode_wid.on_trait_change(plot_function, 'value')
     mean_wid = ipywidgets.CheckboxWidget(value=False,
@@ -307,7 +306,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
 
     # viewer options widget
     axes_mode_wid = ipywidgets.RadioButtonsWidget(
-        values={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
+        options={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
         value=2)
     axes_mode_wid.on_trait_change(plot_function, 'value')
     viewer_options_wid = viewer_options(viewer_options_default,
@@ -343,7 +342,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -358,9 +357,6 @@ def visualize_shape_model(shape_models, n_parameters=5,
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='Shape Model Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -371,8 +367,8 @@ def visualize_shape_model(shape_models, n_parameters=5,
         tab_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(model_parameters_wid, container_padding='6px',
                             container_margin='6px',
                             container_border='1px solid black',
@@ -403,7 +399,7 @@ def visualize_shape_model(shape_models, n_parameters=5,
 
 def visualize_appearance_model(appearance_models, n_parameters=5,
                                parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
-                               mode='multiple', popup=False):
+                               mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel appearance model.
 
@@ -426,8 +422,6 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -677,7 +671,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -690,9 +684,6 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='Appearance Model Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -704,8 +695,8 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
         tab_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(model_parameters_wid, container_padding='6px',
                             container_margin='6px',
                             container_border='1px solid black',
@@ -747,7 +738,7 @@ def visualize_appearance_model(appearance_models, n_parameters=5,
 
 def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                   parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
-                  mode='multiple', popup=False):
+                  mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel AAM.
 
@@ -778,8 +769,6 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -1106,7 +1095,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -1119,9 +1108,6 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='AAM Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -1136,8 +1122,8 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         model_parameters_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(shape_model_parameters_wid,
                             container_padding='6px', container_margin='6px',
                             container_border='1px solid black',
@@ -1183,7 +1169,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
 
 
 def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
-                  figure_size=(10, 8), mode='multiple', popup=False):
+                  figure_size=(10, 8), mode='multiple'):
     r"""
     Allows the dynamic visualization of a multilevel ATM.
 
@@ -1207,8 +1193,6 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
     mode : {``single``, ``multiple``}, optional
         If ``single``, only a single slider is constructed along with a drop
         down menu. If ``multiple``, a slider is constructed for each parameter.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -1489,7 +1473,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(values=radio_str,
+        level_wid = ipywidgets.RadioButtonsWidget(options=radio_str,
                                                   description='Pyramid:',
                                                   value=0)
         level_wid.on_trait_change(update_widgets, 'value')
@@ -1502,9 +1486,6 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
                                              info_wid, save_figure_wid])
     logo_wid = logo()
     wid = ipywidgets.ContainerWidget(children=[logo_wid, tab_wid])
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[wid],
-                                     button_text='ATM Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -1516,8 +1497,8 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
         tab_wid.set_title(k, tl)
 
     # align widgets
-    tmp_wid.remove_class('vbox')
-    tmp_wid.add_class('hbox')
+    remove_class(tmp_wid, 'vbox')
+    add_class(tmp_wid, 'hbox')
     format_model_parameters(shape_model_parameters_wid,
                             container_padding='6px', container_margin='6px',
                             container_border='1px solid black',
@@ -1558,7 +1539,7 @@ def visualize_atm(atm, n_shape_parameters=5, parameters_bounds=(-3.0, 3.0),
 
 
 def visualize_fitting_results(fitting_results, figure_size=(10, 8),
-                              browser_style='buttons', popup=False):
+                              browser_style='buttons'):
     r"""
     Widget that allows browsing through a list of fitting results.
 
@@ -1573,8 +1554,6 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
     browser_style : {``buttons``, ``slider``}, optional
         It defines whether the selector of the fitting results will have the form of
         plus/minus buttons or a slider.
-    popup : `boolean`, optional
-        If ``True``, the widget will appear as a popup window.
     """
     import IPython.html.widgets as ipywidgets
     import IPython.display as ipydisplay
@@ -2005,7 +1984,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
     error_type_values['Point-to-point Mean Error'] = 'me'
     error_type_values['RMS Error'] = 'rmse'
     error_type_wid = ipywidgets.RadioButtonsWidget(
-        values=error_type_values, value='me_norm', description='Error type')
+        options=error_type_values, value='me_norm', description='Error type')
     error_type_wid.on_trait_change(update_info, 'value')
     plot_ced_but = ipywidgets.ButtonWidget(description='Plot CED',
                                            visible=show_ced)
@@ -2093,12 +2072,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
     if n_fitting_results > 1:
         cont_wid.on_trait_change(save_fig_tab_fun, 'selected_index')
 
-    # create popup widget if asked
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[logo_wid, cont_wid],
-                                     button_text=button_title)
-    else:
-        wid = ipywidgets.ContainerWidget(children=[logo_wid, cont_wid])
+    wid = ipywidgets.ContainerWidget(children=[logo_wid, cont_wid])
 
     # invoke plot_ced widget
     def plot_ced_fun(name):
@@ -2118,7 +2092,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
 
         # call plot_ced
         plot_ced_widget = plot_ced(
-            errors, figure_size=(9, 5), popup=True, error_type=error_type,
+            errors, figure_size=(9, 5), error_type=error_type,
             error_range=None, legend_entries=['Final Fitting',
                                               'Initialization'],
             return_widget=True)
@@ -2151,8 +2125,8 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
 
     # format options' widgets
     if n_fitting_results > 1:
-        wid.children[0].remove_class('vbox')
-        wid.children[0].add_class('hbox')
+        remove_class(wid.children[0], 'vbox')
+        add_class(wid.children[0], 'hbox')
         format_animation_options(image_number_wid, index_text_width='1.0cm',
                                  container_padding='6px',
                                  container_margin='6px',
@@ -2195,7 +2169,7 @@ def visualize_fitting_results(fitting_results, figure_size=(10, 8),
         False
 
 
-def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
+def plot_ced(errors, figure_size=(10, 8), error_type='me_norm',
              error_range=None, legend_entries=None, return_widget=False):
     r"""
     Widget for visualizing the cumulative error curves of the provided errors.
@@ -2207,8 +2181,6 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
         The list of errors to be used.
     figure_size : (`int`, `int`), optional
         The initial size of the plotted figures.
-    popup : `bool`, optional
-        If ``True``, the widget will appear as a popup window.
     error_type : {``me_norm``, ``me``, ``rmse``}, optional
         Specifies the type of the provided errors.
     error_range : `list` of `float` with length 3, optional
@@ -2251,9 +2223,6 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
     # fix legend_entries
     if legend_entries is None:
         legend_entries = ["Curve {}".format(k) for k in range(n_curves)]
-    else:
-        if len(legend_entries) > len(set(legend_entries)):
-            raise ValueError("legent entries must be unique")
 
     # get horizontal axis errors
     x_label_initial_value = 'Error'
@@ -2449,7 +2418,7 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
                                         plot_function=plot_function,
                                         toggle_show_visible=False,
                                         toggle_show_default=True,
-                                        labels=legend_entries)
+                                        labels=[legend_entries])
 
     # save figure widget
     initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
@@ -2471,13 +2440,8 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
                                              viewer_options_wid,
                                              save_figure_wid])
 
-    # create popup widget if asked
-    if popup:
-        wid = ipywidgets.PopupWidget(children=[logo(), tab_wid],
+    wid = ipywidgets.ContainerWidget(children=[logo(), tab_wid],
                                      button_text='CED Menu')
-    else:
-        wid = ipywidgets.ContainerWidget(children=[logo(), tab_wid],
-                                         button_text='CED Menu')
 
     # display final widget
     ipydisplay.display(wid)
@@ -2489,14 +2453,14 @@ def plot_ced(errors, figure_size=(10, 8), popup=False, error_type='me_norm',
         tab_wid.set_title(k, tl)
 
     # format options' widgets
-    labels_wid.add_class('align-end')
-    legend_entries_wid.set_css('width', '6cm')
-    legend_entries_wid.set_css('height', '2cm')
-    x_label.set_css('width', '6cm')
-    y_label.set_css('width', '6cm')
-    title.set_css('width', '6cm')
-    errors_max.set_css('width', '6cm')
-    errors_step.set_css('width', '6cm')
+    add_class(labels_wid, 'align-end')
+    legend_entries_wid.width = '6cm'
+    legend_entries_wid.height = '2cm'
+    x_label.width = '6cm'
+    y_label.width = '6cm'
+    title.width = '6cm'
+    errors_max.width = '6cm'
+    errors_step.width = '6cm'
     format_viewer_options(viewer_options_wid, container_padding='6px',
                           container_margin='6px',
                           container_border='1px solid black',
