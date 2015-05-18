@@ -22,6 +22,11 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.idea/*
+
+# Ignore IPython notebook autosave files
+.ipynb_checkpoints
+*.log
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
