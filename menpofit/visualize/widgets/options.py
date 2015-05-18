@@ -2,19 +2,125 @@ from collections import OrderedDict
 
 import IPython.html.widgets as ipywidgets
 
+from menpo.visualize.widgets.tools import (_format_box, _format_font,
+                                           _map_styles_to_hex_colours)
+
 
 class LinearModelParametersWidget(ipywidgets.FlexBox):
-    def __init__(self, parameters, render_function=None, params_str='',
-                 mode='multiple', params_bounds=(-3., 3.),
+    r"""
+    Creates a widget for selecting parameters values when visualizing a linear
+    model (e.g. PCA model). The widget consists of the following parts from
+    `IPython.html.widgets`:
+
+    == =========== ================== =============================
+    No Object      Variable (`self.`) Description
+    == =========== ================== =============================
+    1  Button      `plot_button`      The plot eigenspectrum button
+    2  Button      `reset_button`     The reset button
+    3  HBox        `plot_and_reset`   Contains 1, 2
+                         If mode is 'single'
+    ---------------------------------------------------------------
+    4  FloatSlider `slider`           The parameter value slider
+    5  Dropdown    `dropdown_params`  The parameter selector
+    6  HBox        `parameters_wid`   Contains 4, 5
+                         If mode is 'multiple'
+    ---------------------------------------------------------------
+    7  FloatSlider `sliders`          `list` of all sliders
+    8  VBox        `parameters_wid`   Contains all 7
+    == =========== ================== =============================
+
+    Note that:
+
+    * The selected parameters are stored in the ``self.parameters`` `list`.
+    * To set the styling please refer to the ``style()`` and
+      ``predefined_style()`` methods.
+    * To update the state of the widget, please refer to the
+      ``set_widget_state()`` method.
+    * To update the callback function please refer to the
+      ``replace_render_function()`` and ``replace_eigenspectrumr_function()``
+      methods.
+
+    Parameters
+    ----------
+    parameters : `list`
+        The `list` of initial parameters values.
+    render_function : `function` or ``None``, optional
+        The render function that is executed when a widgets' value changes.
+        If ``None``, then nothing is assigned.
+    mode : {``'single'``, ``'multiple'``}, optional
+        If ``'single'``, only a single slider is constructed along with a
+        dropdown menu that allows the parameter selection.
+        If ``'multiple'``, a slider is constructed for each parameter.
+    params_str : `str`, optional
+        The string that will be used as description of the slider(s). The final
+        description has the form `"{}{}".format(params_str, p)`, where `p` is
+        the parameter number.
+    params_bounds : (`float`, `float`), optional
+        The minimum and maximum bounds, in std units, for the sliders.
+    params_step : `float`, optional
+        The step, in std units, of the sliders.
+    plot_eig_visible : `bool`, optional
+        Defines whether the button for plotting the eigenspectrum will be
+        visible upon construction.
+    plot_eig_function : `function` or ``None``, optional
+        The plot function that is executed when the plot eigenspectrum button is
+        clicked. If ``None``, then nothing is assigned.
+    style : See Below, optional
+        Sets a predefined style at the widget. Possible options are
+
+            ========= ============================
+            Style     Description
+            ========= ============================
+            'minimal' Simple black and white style
+            'success' Green-based style
+            'info'    Blue-based style
+            'warning' Yellow-based style
+            'danger'  Red-based style
+            ''        No style
+            ========= ============================
+
+    Example
+    -------
+    Let's create a linear model parameters values widget and then update its
+    state. Firstly, we need to import it:
+
+        >>> from menpofit.visualize.widgets import LinearModelParametersWidget
+        >>> from IPython.display import display
+
+    Now let's define a render function that will get called on every widget
+    change and will dynamically print the selected parameters:
+
+        >>> from menpo.visualize import print_dynamic
+        >>> def render_function(name, value):
+        >>>     s = "Selected parameters: {}".format(wid.parameters)
+        >>>     print_dynamic(s)
+
+    Create the widget with some initial options and display it:
+
+        >>> parameters = [-3., -2., -1., 0., 1., 2., 3.]
+        >>> wid = LinearModelParametersWidget(parameters,
+        >>>                                   render_function=render_function,
+        >>>                                   params_str='Parameter ',
+        >>>                                   mode='multiple',
+        >>>                                   params_bounds=(-3., 3.),
+        >>>                                   plot_eig_visible=True,
+        >>>                                   style='info')
+        >>> display(wid)
+
+    By moving the sliders, the printed message gets updated. Finally, let's
+    change the widget status with a new set of options:
+
+        >>> wid.set_widget_state(parameters=[-7.] * 3, params_str='',
+        >>>                      params_step=0.1, params_bounds=(-10, 10),
+        >>>                      plot_eig_visible=False, allow_callback=True)
+    """
+    def __init__(self, parameters, render_function=None, mode='multiple',
+                 params_str='', params_bounds=(-3., 3.), params_step=0.1,
                  plot_eig_visible=True, plot_eig_function=None,
                  style='minimal'):
         # Check given parameters
         n_params = len(parameters)
-        for p in range(n_params):
-            if parameters[p] < params_bounds[0]:
-                parameters[p] = params_bounds[0]
-            if parameters[p] > params_bounds[1]:
-                parameters[p] = params_bounds[1]
+        self._check_parameters(parameters, params_bounds)
 
         # If only one slider requested, then set mode to multiple
         if n_params == 1:
@@ -26,7 +132,7 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
                 ipywidgets.FloatSlider(
                     description="{}{}".format(params_str, p),
                     min=params_bounds[0], max=params_bounds[1],
-                    value=parameters[p])
+                    step=params_step, value=parameters[p])
                 for p in range(n_params)]
             self.parameters_wid = ipywidgets.VBox(children=self.sliders,
                                                   margin='0.2cm')
@@ -36,22 +142,18 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
                 vals["{}{}".format(params_str, p)] = p
             self.slider = ipywidgets.FloatSlider(
                 description='', min=params_bounds[0], max=params_bounds[1],
-                value=parameters[0], margin='0.2cm')
+                step=params_step, value=parameters[0], margin='0.2cm')
             self.dropdown_params = ipywidgets.Dropdown(options=vals,
                                                        margin='0.2cm')
             self.parameters_wid = ipywidgets.HBox(
                 children=[self.dropdown_params, self.slider])
-
-        # Group widgets
-        if plot_eig_visible:
-            self.plot_button = ipywidgets.Button(description='Eigenspectrum')
-            if plot_eig_function is not None:
-                self.plot_button.on_click(plot_eig_function)
-            self.reset_button = ipywidgets.Button(description='Reset')
-            self.plot_and_reset = ipywidgets.HBox(children=[self.plot_button,
-                                                            self.reset_button])
-        else:
-            self.plot_and_reset = ipywidgets.Button(description='Reset')
+        self.plot_button = ipywidgets.Button(
+            description='Eigenspectrum', margin='0.05cm',
+            visible=plot_eig_visible)
+        self.reset_button = ipywidgets.Button(description='Reset',
+                                              margin='0.05cm')
+        self.plot_and_reset = ipywidgets.HBox(children=[self.plot_button,
+                                                        self.reset_button])
 
         # Widget container
         super(LinearModelParametersWidget, self).__init__(
@@ -61,7 +163,13 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         # Assign output
         self.parameters = parameters
         self.mode = mode
+        self.params_str = params_str
+        self.params_bounds = params_bounds
+        self.params_step = params_step
         self.plot_eig_visible = plot_eig_visible
+
+        # Set style
+        self.predefined_style(style)
 
         # Set functionality
         if mode == 'single':
@@ -121,9 +229,166 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
                 self._render_function('', True)
         self.reset_button.on_click(reset_parameters)
 
+        # Set plot eigenspectrum function
+        self._eigenspectrum_function = None
+        self.add_eigenspectrum_function(plot_eig_function)
+
         # Set render function
         self._render_function = None
         self.add_render_function(render_function)
+
+    def _check_parameters(self, parameters, bounds):
+        if parameters is not None:
+            for p in range(len(parameters)):
+                if parameters[p] < bounds[0]:
+                    parameters[p] = bounds[0]
+                if parameters[p] > bounds[1]:
+                    parameters[p] = bounds[1]
+
+    def style(self, box_style=None, border_visible=False, border_color='black',
+              border_style='solid', border_width=1, border_radius=0, padding=0,
+              margin=0, font_family='', font_size=None, font_style='',
+              font_weight='', slider_width='', slider_handle_colour='',
+              slider_background_colour='', buttons_style=''):
+        r"""
+        Function that defines the styling of the widget.
+
+        Parameters
+        ----------
+        box_style : See Below, optional
+            Style options
+
+                ========= ============================
+                Style     Description
+                ========= ============================
+                'success' Green-based style
+                'info'    Blue-based style
+                'warning' Yellow-based style
+                'danger'  Red-based style
+                ''        Default style
+                None      No style
+                ========= ============================
+
+        border_visible : `bool`, optional
+            Defines whether to draw the border line around the widget.
+        border_color : `str`, optional
+            The color of the border around the widget.
+        border_style : `str`, optional
+            The line style of the border around the widget.
+        border_width : `float`, optional
+            The line width of the border around the widget.
+        border_radius : `float`, optional
+            The radius of the corners of the box.
+        padding : `float`, optional
+            The padding around the widget.
+        margin : `float`, optional
+            The margin around the widget.
+        font_family : See Below, optional
+            The font family to be used.
+            Example options ::
+
+                {'serif', 'sans-serif', 'cursive', 'fantasy', 'monospace',
+                 'helvetica'}
+
+        font_size : `int`, optional
+            The font size.
+        font_style : {``'normal'``, ``'italic'``, ``'oblique'``}, optional
+            The font style.
+        font_weight : See Below, optional
+            The font weight.
+            Example options ::
+
+                {'ultralight', 'light', 'normal', 'regular', 'book', 'medium',
+                 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy',
+                 'extra bold', 'black'}
+
+        slider_width : `str`, optional
+            The width of the slider(s).
+        slider_handle_colour : `str`, optional
+            The colour of the handle(s) of the slider(s).
+        slider_background_colour : `str`, optional
+            The background colour of the slider(s).
+        buttons_style : See Below, optional
+            Style options
+
+                ========= ============================
+                Style     Description
+                ========= ============================
+                'primary' Blue-based style
+                'success' Green-based style
+                'info'    Blue-based style
+                'warning' Yellow-based style
+                'danger'  Red-based style
+                ''        Default style
+                None      No style
+                ========= ============================
+        """
+        _format_box(self, box_style, border_visible, border_color, border_style,
+                    border_width, border_radius, padding, margin)
+        _format_font(self, font_family, font_size, font_style, font_weight)
+        _format_font(self.reset_button, font_family, font_size, font_style,
+                     font_weight)
+        _format_font(self.plot_button, font_family, font_size, font_style,
+                     font_weight)
+        if self.mode == 'single':
+            self.slider.width = slider_width
+            self.slider.slider_color = slider_handle_colour
+            self.slider.background_color = slider_background_colour
+            _format_font(self.slider, font_family, font_size, font_style,
+                         font_weight)
+            _format_font(self.dropdown_params, font_family, font_size,
+                         font_style, font_weight)
+        else:
+            for sl in self.sliders:
+                sl.width = slider_width
+                sl.slider_color = slider_handle_colour
+                sl.background_color = slider_background_colour
+                _format_font(sl, font_family, font_size, font_style,
+                             font_weight)
+        self.reset_button.button_style = buttons_style
+        self.plot_button.button_style = buttons_style
+
+    def predefined_style(self, style):
+        r"""
+        Function that sets a predefined style on the widget.
+
+        Parameters
+        ----------
+        style : `str` (see below)
+            Style options
+
+                ========= ============================
+                Style     Description
+                ========= ============================
+                'minimal' Simple black and white style
+                'success' Green-based style
+                'info'    Blue-based style
+                'warning' Yellow-based style
+                'danger'  Red-based style
+                ''        No style
+                ========= ============================
+        """
+        if style == 'minimal':
+            self.style(box_style=None, border_visible=True,
+                       border_color='black', border_style='solid',
+                       border_width=1, border_radius=0, padding='0.2cm',
+                       margin='0.3cm', font_family='', font_size=None,
+                       font_style='', font_weight='', slider_width='',
+                       slider_handle_colour='', slider_background_colour='',
+                       buttons_style='')
+        elif (style == 'info' or style == 'success' or style == 'danger' or
+              style == 'warning'):
+            self.style(box_style=style, border_visible=True,
+                       border_color=_map_styles_to_hex_colours(style),
+                       border_style='solid', border_width=1, border_radius=10,
+                       padding='0.2cm', margin='0.3cm', font_family='',
+                       font_size=None, font_style='', font_weight='',
+                       slider_width='',
+                       slider_handle_colour=_map_styles_to_hex_colours(style),
+                       slider_background_colour='', buttons_style='primary')
+        else:
+            raise ValueError('style must be minimal or info or success or '
+                             'danger or warning')
 
     def add_render_function(self, render_function):
         r"""
@@ -174,345 +439,180 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         # add new function
         self.add_render_function(render_function)
 
-# from collections import OrderedDict
-#
-# from menpo.visualize.widgets.compatibility import add_class, remove_class
-# from menpo.visualize.widgets.tools import (colour_selection,
-#                                            format_colour_selection)
-# from menpo.visualize.widgets.options import (animation_options,
-#                                              format_animation_options,
-#                                              _compare_groups_and_labels)
-#
-#
-# def model_parameters(n_params, plot_function=None, params_str='',
-#                      mode='multiple', params_bounds=(-3., 3.),
-#                      plot_eig_visible=True, plot_eig_function=None,
-#                      toggle_show_default=True, toggle_show_visible=True,
-#                      toggle_show_name='Parameters'):
-#     r"""
-#     Creates a widget with Model Parameters. Specifically, it has:
-#         1) A slider for each parameter if mode is 'multiple'.
-#         2) A single slider and a drop down menu selection if mode is 'single'.
-#         3) A reset button.
-#         4) A button and two radio buttons for plotting the eigenvalues variance
-#            ratio.
-#
-#     The structure of the widgets is the following:
-#         model_parameters_wid.children = [toggle_button, parameters_and_reset]
-#         parameters_and_reset.children = [parameters_widgets, reset]
-#         If plot_eig_visible is True:
-#             reset = [plot_eigenvalues, reset_button]
-#         Else:
-#             reset = reset_button
-#         If mode is single:
-#             parameters_widgets.children = [drop_down_menu, slider]
-#         If mode is multiple:
-#             parameters_widgets.children = [all_sliders]
-#
-#     The returned widget saves the selected values in the following fields:
-#         model_parameters_wid.parameters_values
-#         model_parameters_wid.mode
-#         model_parameters_wid.plot_eig_visible
-#
-#     To fix the alignment within this widget please refer to
-#     `format_model_parameters()` function.
-#
-#     To update the state of this widget, please refer to
-#     `update_model_parameters()` function.
-#
-#     Parameters
-#     ----------
-#     n_params : `int`
-#         The number of principal components to use for the sliders.
-#
-#     plot_function : `function` or None, optional
-#         The plot function that is executed when a widgets' value changes.
-#         If None, then nothing is assigned.
-#
-#     params_str : `str`, optional
-#         The string that will be used for each parameters name.
-#
-#     mode : 'single' or 'multiple', optional
-#         If single, only a single slider is constructed along with a drop down
-#         menu.
-#         If multiple, a slider is constructed for each parameter.
-#
-#     params_bounds : (`float`, `float`), optional
-#         The minimum and maximum bounds, in std units, for the sliders.
-#
-#     plot_eig_visible : `boolean`, optional
-#         Defines whether the options for plotting the eigenvalues variance ratio
-#         will be visible upon construction.
-#
-#     plot_eig_function : `function` or None, optional
-#         The plot function that is executed when the plot eigenvalues button is
-#         clicked. If None, then nothing is assigned.
-#
-#     toggle_show_default : `boolean`, optional
-#         Defines whether the options will be visible upon construction.
-#
-#     toggle_show_visible : `boolean`, optional
-#         The visibility of the toggle button.
-#
-#     toggle_show_name : `str`, optional
-#         The name of the toggle button.
-#     """
-#     import IPython.html.widgets as ipywidgets
-#     # If only one slider requested, then set mode to multiple
-#     if n_params == 1:
-#         mode = 'multiple'
-#
-#     # Create all necessary widgets
-#     but = ipywidgets.ToggleButton(description=toggle_show_name,
-#                                   value=toggle_show_default,
-#                                   visible=toggle_show_visible)
-#     reset_button = ipywidgets.Button(description='Reset')
-#     if mode == 'multiple':
-#         sliders = [ipywidgets.FloatSlider(
-#             description="{}{}".format(params_str, p),
-#             min=params_bounds[0], max=params_bounds[1],
-#             value=0.)
-#                    for p in range(n_params)]
-#         parameters_wid = ipywidgets.Box(children=sliders)
-#     else:
-#         vals = OrderedDict()
-#         for p in range(n_params):
-#             vals["{}{}".format(params_str, p)] = p
-#         slider = ipywidgets.FloatSlider(description='',
-#                                         min=params_bounds[0],
-#                                         max=params_bounds[1], value=0.)
-#         dropdown_params = ipywidgets.Dropdown(options=vals)
-#         parameters_wid = ipywidgets.Box(
-#             children=[dropdown_params, slider])
-#
-#     # Group widgets
-#     if plot_eig_visible:
-#         plot_button = ipywidgets.Button(description='Plot eigenvalues')
-#         if plot_eig_function is not None:
-#             plot_button.on_click(plot_eig_function)
-#         plot_and_reset = ipywidgets.Box(
-#             children=[plot_button, reset_button])
-#         params_and_reset = ipywidgets.Box(children=[parameters_wid,
-#                                                     plot_and_reset])
-#     else:
-#         params_and_reset = ipywidgets.Box(children=[parameters_wid,
-#                                                     reset_button])
-#
-#     # Widget container
-#     model_parameters_wid = ipywidgets.Box(
-#         children=[but, params_and_reset])
-#
-#     # Save mode and parameters values
-#     model_parameters_wid.parameters_values = [0.0] * n_params
-#     model_parameters_wid.mode = mode
-#     model_parameters_wid.plot_eig_visible = plot_eig_visible
-#
-#     # set up functions
-#     if mode == 'single':
-#         # assign slider value to parameters values list
-#         def save_slider_value(name, value):
-#             model_parameters_wid.parameters_values[dropdown_params.value] = \
-#                 value
-#         slider.on_trait_change(save_slider_value, 'value')
-#
-#         # set correct value to slider when drop down menu value changes
-#         def set_slider_value(name, value):
-#             slider.value = model_parameters_wid.parameters_values[value]
-#         dropdown_params.on_trait_change(set_slider_value, 'value')
-#
-#         # assign main plotting function when slider value changes
-#         if plot_function is not None:
-#             slider.on_trait_change(plot_function, 'value')
-#     else:
-#         # assign slider value to parameters values list
-#         def save_slider_value_from_id(description, name, value):
-#             i = int(description[len(params_str)::])
-#             model_parameters_wid.parameters_values[i] = value
-#
-#         # partial function that helps get the widget's description str
-#         def partial_widget(description):
-#             return lambda name, value: save_slider_value_from_id(description,
-#                                                                  name, value)
-#
-#         # assign saving values and main plotting function to all sliders
-#         for w in parameters_wid.children:
-#             # The widget (w) is lexically scoped and so we need a way of
-#             # ensuring that we don't just receive the final value of w at every
-#             # iteration. Therefore we create another lambda function that
-#             # creates a new lexical scoping so that we can ensure the value of w
-#             # is maintained (as x) at each iteration.
-#             # In JavaScript, we would just use the 'let' keyword...
-#             w.on_trait_change(partial_widget(w.description), 'value')
-#             if plot_function is not None:
-#                 w.on_trait_change(plot_function, 'value')
-#
-#     # reset function
-#     def reset_params(name):
-#         model_parameters_wid.parameters_values = \
-#             [0.0] * len(model_parameters_wid.parameters_values)
-#         if mode == 'multiple':
-#             for ww in parameters_wid.children:
-#                 ww.value = 0.
-#         else:
-#             parameters_wid.children[0].value = 0
-#             parameters_wid.children[1].value = 0.
-#     reset_button.on_click(reset_params)
-#
-#     # Toggle button function
-#     def show_options(name, value):
-#         params_and_reset.visible = value
-#     show_options('', toggle_show_default)
-#     but.on_trait_change(show_options, 'value')
-#
-#     return model_parameters_wid
-#
-#
-# def format_model_parameters(model_parameters_wid, container_padding='6px',
-#                             container_margin='6px',
-#                             container_border='1px solid black',
-#                             toggle_button_font_weight='bold',
-#                             border_visible=True):
-#     r"""
-#     Function that corrects the align (style format) of a given model_parameters
-#     widget. Usage example:
-#         model_parameters_wid = model_parameters()
-#         display(model_parameters_wid)
-#         format_model_parameters(model_parameters_wid)
-#
-#     Parameters
-#     ----------
-#     model_parameters_wid :
-#         The widget object generated by the `model_parameters()` function.
-#
-#     container_padding : `str`, optional
-#         The padding around the widget, e.g. '6px'
-#
-#     container_margin : `str`, optional
-#         The margin around the widget, e.g. '6px'
-#
-#     container_border : `str`, optional
-#         The border around the widget, e.g. '1px solid black'
-#
-#     toggle_button_font_weight : `str`
-#         The font weight of the toggle button, e.g. 'bold'
-#
-#     border_visible : `boolean`, optional
-#         Defines whether to draw the border line around the widget.
-#     """
-#     if model_parameters_wid.mode == 'single':
-#         # align drop down menu and slider
-#         remove_class(model_parameters_wid.children[1].children[0], 'vbox')
-#         add_class(model_parameters_wid.children[1].children[0], 'hbox')
-#     else:
-#         # align sliders
-#         add_class(model_parameters_wid.children[1].children[0], 'start')
-#
-#     # align reset button to right
-#     if model_parameters_wid.plot_eig_visible:
-#         remove_class(model_parameters_wid.children[1].children[1], 'vbox')
-#         add_class(model_parameters_wid.children[1].children[1], 'hbox')
-#     add_class(model_parameters_wid.children[1], 'align-end')
-#
-#     # set toggle button font bold
-#     model_parameters_wid.children[0].font_weight = toggle_button_font_weight
-#
-#     # margin and border around plot_eigenvalues widget
-#     if model_parameters_wid.plot_eig_visible:
-#         model_parameters_wid.children[1].children[1].children[0].margin_right = container_margin
-#
-#     # margin and border around container widget
-#     model_parameters_wid.padding = container_padding
-#     model_parameters_wid.margin = container_margin
-#     if border_visible:
-#         model_parameters_wid.border = container_border
-#
-#
-# def update_model_parameters(model_parameters_wid, n_params, plot_function=None,
-#                             params_str=''):
-#     r"""
-#     Function that updates the state of a given model_parameters widget if the
-#     requested number of parameters has changed. Usage example:
-#         model_parameters_wid = model_parameters(n_params=5)
-#         display(model_parameters_wid)
-#         format_model_parameters(model_parameters_wid)
-#         update_model_parameters(model_parameters_wid, 3)
-#
-#     Parameters
-#     ----------
-#     model_parameters_wid :
-#         The widget object generated by the `model_parameters()` function.
-#
-#     n_params : `int`
-#         The requested number of parameters.
-#
-#     plot_function : `function` or None, optional
-#         The plot function that is executed when a widgets' value changes.
-#         If None, then nothing is assigned.
-#
-#     params_str : `str`, optional
-#         The string that will be used for each parameters name.
-#     """
-#     import IPython.html.widgets as ipywidgets
-#
-#     if model_parameters_wid.mode == 'multiple':
-#         # get the number of enabled parameters (number of sliders)
-#         enabled_params = len(model_parameters_wid.children[1].children[0].children)
-#         if n_params != enabled_params:
-#             # reset all parameters values
-#             model_parameters_wid.parameters_values = [0.0] * n_params
-#             # get params_bounds
-#             pb = [model_parameters_wid.children[1].children[0].children[0].min,
-#                   model_parameters_wid.children[1].children[0].children[0].max]
-#             # create sliders widgets
-#             sliders = [ipywidgets.FloatSlider(
-#                             description="{}{}".format(params_str,
-#                                                       p),
-#                             min=pb[0], max=pb[1], value=0.)
-#                        for p in range(n_params)]
-#             # assign sliders to container
-#             model_parameters_wid.children[1].children[0].children = sliders
-#
-#             # assign slider value to parameters values list
-#             def save_slider_value_from_id(description, name, value):
-#                 i = int(description[len(params_str)::])
-#                 model_parameters_wid.parameters_values[i] = value
-#
-#             # partial function that helps get the widget's description str
-#             def partial_widget(description):
-#                 return lambda name, value: save_slider_value_from_id(
-#                     description,
-#                     name, value)
-#
-#             # assign saving values and main plotting function to all sliders
-#             for w in model_parameters_wid.children[1].children[0].children:
-#                 # The widget (w) is lexically scoped and so we need a way of
-#                 # ensuring that we don't just receive the final value of w at
-#                 # every iteration. Therefore we create another lambda function
-#                 # that creates a new lexical scoping so that we can ensure the
-#                 # value of w is maintained (as x) at each iteration
-#                 # In JavaScript, we would just use the 'let' keyword...
-#                 w.on_trait_change(partial_widget(w.description), 'value')
-#                 if plot_function is not None:
-#                     w.on_trait_change(plot_function, 'value')
-#     else:
-#         # get the number of enabled parameters (len of list of drop down menu)
-#         enabled_params = len(
-#             model_parameters_wid.children[1].children[0].children[0].values)
-#         if n_params != enabled_params:
-#             # reset all parameters values
-#             model_parameters_wid.parameters_values = [0.0] * n_params
-#             # change drop down menu values
-#             vals = OrderedDict()
-#             for p in range(n_params):
-#                 vals["{}{}".format(params_str, p)] = p
-#             model_parameters_wid.children[1].children[0].children[0].options = \
-#                 vals
-#             # set initial value to the first and slider value to zero
-#             model_parameters_wid.children[1].children[0].children[0].value = \
-#                 vals["{}{}".format(params_str, 0)]
-#             model_parameters_wid.children[1].children[0].children[1].value = 0.
-#
-#
+    def add_eigenspectrum_function(self, eigenspectrum_function):
+        r"""
+        Method that adds a `eigenspectrum_function()` to the `Eigenspectrum`
+        button of the widget. The signature of the given function is also stored
+        in `self._eigenspectrum_function`.
+
+        Parameters
+        ----------
+        eigenspectrum_function : `function` or ``None``, optional
+            The eigenspectrum function that behaves as a callback. If ``None``,
+            then nothing is added.
+        """
+        self._eigenspectrum_function = eigenspectrum_function
+        if self._eigenspectrum_function is not None:
+            self.plot_button.on_click(self._eigenspectrum_function)
+
+    def remove_eigenspectrum_function(self):
+        r"""
+        Method that removes the current `self._eigenspectrum_function()` from
+        the `Eigenspectrum` button of the widget and sets
+        ``self._eigenspectrum_function = None``.
+        """
+        self.plot_button.on_click(self._eigenspectrum_function, remove=True)
+        self._eigenspectrum_function = None
+
+    def replace_eigenspectrumr_function(self, eigenspectrum_function):
+        r"""
+        Method that replaces the current `self._eigenspectrum_function()` of the
+        `Eigenspectrum` button of the widget with the given
+        `eigenspectrum_function()`.
+
+        Parameters
+        ----------
+        eigenspectrum_function : `function` or ``None``, optional
+            The eigenspectrum function that behaves as a callback. If ``None``,
+            then nothing is happening.
+        """
+        # remove old function
+        self.remove_eigenspectrum_function()
+
+        # add new function
+        self.add_eigenspectrum_function(eigenspectrum_function)
+
+    def set_widget_state(self, parameters=None, params_str=None,
+                         params_bounds=None, params_step=None,
+                         plot_eig_visible=True, allow_callback=True):
+        r"""
+        Method that updates the state of the widget with a new set of options.
+
+        Parameters
+        ----------
+        parameters : `list` or ``None``, optional
+            The `list` of new parameters' values. If ``None``, then nothing
+            changes.
+        params_str : `str` or ``None``, optional
+            The string that will be used as description of the slider(s). The
+            final description has the form `"{}{}".format(params_str, p)`, where
+            `p` is the parameter number. If ``None``, then nothing changes.
+        params_bounds : (`float`, `float`) or ``None``, optional
+            The minimum and maximum bounds, in std units, for the sliders. If
+            ``None``, then nothing changes.
+        params_step : `float` or ``None``, optional
+            The step, in std units, of the sliders. If ``None``, then nothing
+            changes.
+        plot_eig_visible : `bool`, optional
+            Defines whether the button for plotting the eigenspectrum will be
+            visible.
+        allow_callback : `bool`, optional
+            If ``True``, it allows triggering of any callback functions.
+        """
+        # Temporarily remove render callback
+        render_function = self._render_function
+        self.remove_render_function()
+
+        # Parse given options
+        if parameters is None:
+            parameters = self.parameters
+        if params_str is None:
+            params_str = ''
+        if params_bounds is None:
+            params_bounds = self.params_bounds
+        if params_step is None:
+            params_step = self.params_step
+
+        # Check given parameters
+        self._check_parameters(parameters, params_bounds)
+
+        # Set plot eigenspectrum visibility
+        self.plot_button.visible = plot_eig_visible
+
+        # Update widget
+        if len(parameters) == len(self.parameters):
+            # The number of parameters hasn't changed
+            if self.mode == 'multiple':
+                for p, sl in enumerate(self.sliders):
+                    sl.value = parameters[p]
+                    sl.description = "{}{}".format(params_str, p)
+                    sl.min = params_bounds[0]
+                    sl.max = params_bounds[1]
+                    sl.step = params_step
+            else:
+                self.slider.min = params_bounds[0]
+                self.slider.max = params_bounds[1]
+                self.slider.step = params_step
+                if not params_str == '':
+                    vals = OrderedDict()
+                    for p in range(len(parameters)):
+                        vals["{}{}".format(params_str, p)] = p
+                    self.dropdown_params.options = vals
+                self.slider.value = parameters[self.dropdown_params.value]
+        else:
+            # The number of parameters has changed
+            if self.mode == 'multiple':
+                # Create new sliders
+                self.sliders = [
+                    ipywidgets.FloatSlider(
+                        description="{}{}".format(params_str, p),
+                        min=params_bounds[0], max=params_bounds[1],
+                        step=params_step, value=parameters[p])
+                    for p in range(len(parameters))]
+                # Set sliders as the children of the container
+                self.parameters_wid.children = self.sliders
+
+                # Assign slider value to parameters values list
+                def save_slider_value_from_id(description, name, value):
+                    i = int(description[len(params_str)::])
+                    self.parameters[i] = value
+
+                # Partial function that helps get the widget's description str
+                def partial_widget(description):
+                    return lambda name, value: save_slider_value_from_id(
+                        description, name, value)
+
+                # Assign saving values and main plotting function to all sliders
+                for w in self.sliders:
+                    # The widget (w) is lexically scoped and so we need a way of
+                    # ensuring that we don't just receive the final value of w
+                    # at every iteration. Therefore we create another lambda
+                    # function that creates a new lexical scoping so that we can
+                    # ensure the value of w is maintained (as x) at each
+                    # iteration. In JavaScript, we would just use the 'let'
+                    # keyword...
+                    w.on_trait_change(partial_widget(w.description), 'value')
+            else:
+                self.slider.min = params_bounds[0]
+                self.slider.max = params_bounds[1]
+                self.slider.step = params_step
+                vals = OrderedDict()
+                for p in range(len(parameters)):
+                    vals["{}{}".format(params_str, p)] = p
+                if self.dropdown_params.value == 0:
+                    self.dropdown_params.value = 1
+                    self.dropdown_params.value = 0
+                else:
+                    self.dropdown_params.value = 0
+                self.dropdown_params.options = vals
+                self.slider.value = parameters[0]
+
+        # Re-assign render callback
+        self.add_render_function(render_function)
+
+        # Assign new selected options
+        self.parameters = parameters
+        self.params_str = params_str
+        self.params_bounds = params_bounds
+        self.params_step = params_step
+        self.plot_eig_visible = plot_eig_visible
+
+        # trigger render function if allowed
+        if allow_callback:
+            self._render_function('', True)
+
+
+
 # def final_result_options(final_result_options_default, plot_function=None,
 #                          title='Final Result', toggle_show_default=True,
 #                          toggle_show_visible=True):
