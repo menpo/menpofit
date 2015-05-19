@@ -4,6 +4,7 @@ import IPython.html.widgets as ipywidgets
 
 from menpo.visualize.widgets.tools import (_format_box, _format_font,
                                            _map_styles_to_hex_colours)
+from menpo.visualize.widgets import AnimationOptionsWidget
 
 
 class LinearModelParametersWidget(ipywidgets.FlexBox):
@@ -432,7 +433,7 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         ----------
         render_function : `function` or ``None``, optional
             The render function that behaves as a callback. If ``None``, then
-            nothing is happening.
+            nothing happens.
         """
         # remove old function
         self.remove_render_function()
@@ -474,7 +475,7 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         ----------
         variance_function : `function` or ``None``, optional
             The variance function that behaves as a callback. If ``None``,
-            then nothing is happening.
+            then nothing happens.
         """
         # remove old function
         self.remove_variance_function()
@@ -918,7 +919,7 @@ class FittingResultOptionsWidget(ipywidgets.FlexBox):
         ----------
         render_function : `function` or ``None``, optional
             The render function that behaves as a callback. If ``None``, then
-            nothing is happening.
+            nothing happens.
         """
         # remove old function
         self.remove_render_function()
@@ -995,6 +996,344 @@ class FittingResultOptionsWidget(ipywidgets.FlexBox):
         # trigger render function if allowed
         if allow_callback:
             self._render_function('', True)
+
+
+def _convert_iterations_to_groups(from_iter, to_iter, iter_str):
+    r"""
+    Function that generates a `list` of group labels given the range bounds and
+    the `str` to be used.
+    """
+    return ["{}{}".format(iter_str, i) for i in range(from_iter, to_iter + 1)]
+
+
+class FittingResultIterationsOptionsWidget(ipywidgets.FlexBox):
+    r"""
+    Creates a widget for selecting parameters values when visualizing a linear
+    model (e.g. PCA model). The widget consists of the following parts from
+    `IPython.html.widgets`:
+
+    == =================== ========================= ========================
+    No Object              Variable (`self.`)        Description
+    == =================== ========================= ========================
+    1  Latex, ToggleButton `shape_selection`         The shape selectors
+    2  Checkbox            `render_image`            Controls image rendering
+    3  RadioButtons        `mode`                    The figure mode
+    4  HBox                `shapes_wid`              Contains all 1
+    5  VBox                `shapes_and_render_image` Contains 4, 2
+    == =================== ========================= ========================
+
+    Note that:
+
+    * The selected options are stored in the ``self.selected_options`` `dict`.
+    * To set the styling please refer to the ``style()`` and
+      ``predefined_style()`` methods.
+    * To update the state of the widget, please refer to the
+      ``set_widget_state()`` method.
+    * To update the callback function please refer to the
+      ``replace_render_function()`` method.
+
+    Parameters
+    ----------
+    fitting_result_options : `list`
+        The dictionary with the initial options. For example
+        ::
+
+            fitting_result_options = {'all_groups': ['initial', 'final',
+                                                     'ground'],
+                                      'selected_groups': ['final'],
+                                      'render_image': True,
+                                      'subplots_enabled': True}
+
+    style : See Below, optional
+        Sets a predefined style at the widget. Possible options are
+
+            ========= ============================
+            Style     Description
+            ========= ============================
+            'minimal' Simple black and white style
+            'success' Green-based style
+            'info'    Blue-based style
+            'warning' Yellow-based style
+            'danger'  Red-based style
+            ''        No style
+            ========= ============================
+
+    Example
+    -------
+    Let's create a fitting result options widget and then update its state.
+    Firstly, we need to import it:
+
+        >>> from menpofit.visualize.widgets import FittingResultOptionsWidget
+        >>> from IPython.display import display
+
+    Now let's define a render function that will get called on every widget
+    change and will dynamically print the selected options:
+
+        >>> from menpo.visualize import print_dynamic
+        >>> def render_function(name, value):
+        >>>     s = "Selected groups: {}, Render image: {}, Subplots enabled: {}".format(
+        >>>         wid.selected_values['selected_groups'],
+        >>>         wid.selected_values['render_image'],
+        >>>         wid.selected_values['subplots_enabled'])
+        >>>     print_dynamic(s)
+
+    Create the widget with some initial options and display it:
+
+        >>> fitting_result_options = {'all_groups': ['initial', 'final',
+        >>>                                          'ground'],
+        >>>                           'selected_groups': ['final'],
+        >>>                           'render_image': True,
+        >>>                           'subplots_enabled': True}
+        >>> wid = FittingResultOptionsWidget(fitting_result_options,
+        >>>                                  render_function=render_function,
+        >>>                                  style='info')
+        >>> display(wid)
+
+    By changing the various widgets, the printed message gets updated. Finally,
+    let's change the widget status with a new set of options:
+
+        >>> fitting_result_options = {'all_groups': ['initial', 'final'],
+        >>>                           'selected_groups': ['final'],
+        >>>                           'render_image': True,
+        >>>                           'subplots_enabled': True}
+        >>> wid.set_widget_state(fitting_result_options, allow_callback=True)
+    """
+    def __init__(self, fitting_result_iterations_options, render_function=None,
+                 plot_errors_function=None, plot_displacements_function=None,
+                 style='minimal'):
+        # Create widgets
+        self.iterations_mode = ipywidgets.RadioButtons(
+            options={'Animation': 'animation', 'Static': 'static'},
+            value='animation', description='Iterations:', margin='0.15cm')
+        self.index_selection = {
+            'min': 0, 'max': fitting_result_iterations_options['n_iters'] - 1,
+            'step': 1, 'index': 0}
+        self.index_animation = AnimationOptionsWidget(
+            self.index_selection, description='',
+            index_style='slider', loop_enabled=False, interval=0.2)
+        self.index_slider = ipywidgets.IntRangeSlider(
+            min=0, max=fitting_result_iterations_options['n_iters'] - 1, step=1,
+            value=(0, 0), description='', margin='0.15cm')
+        self.index_slider.width = '6cm'
+        self.common_figure = ipywidgets.ToggleButton(
+            description='Common figure', margin='0.15cm',
+            value=not fitting_result_iterations_options['subplots_enabled'])
+        self.render_image = ipywidgets.Checkbox(
+            description='Render image',
+            value=fitting_result_iterations_options['render_image'])
+        self.plot_errors_button = ipywidgets.Button(description='Errors')
+        self.plot_displacements_button = ipywidgets.Button(
+            description='Displacements')
+        dropdown_menu = OrderedDict()
+        dropdown_menu['mean'] = 'mean'
+        dropdown_menu['median'] = 'median'
+        dropdown_menu['max'] = 'max'
+        dropdown_menu['min'] = 'min'
+        for p in range(fitting_result_iterations_options['n_points']):
+            dropdown_menu["point {}".format(p)] = p
+        self.plot_displacements_menu = ipywidgets.Select(
+            options=dropdown_menu, height='2cm', width='2.5cm', visible=False,
+            value=fitting_result_iterations_options['displacement_type'])
+
+        # Group widgets
+        self.index_slider_and_common_figure = ipywidgets.HBox(
+            children=[self.index_slider, self.common_figure], align='start',
+            visible=False)
+        self.index_box = ipywidgets.VBox(
+            children=[self.index_animation,
+                      self.index_slider_and_common_figure])
+        self.iterations_mode_and_sliders = ipywidgets.HBox(
+            children=[self.iterations_mode, self.index_box], align='center')
+        self.plot_displacements = ipywidgets.VBox(
+            children=[self.plot_displacements_button,
+                      self.plot_displacements_menu], align='center')
+        self.render_image_and_plot = ipywidgets.HBox(
+            children=[self.render_image, self.plot_errors_button,
+                      self.plot_displacements])
+        super(FittingResultIterationsOptionsWidget, self).__init__(
+            children=[self.iterations_mode_and_sliders,
+                      self.render_image_and_plot])
+
+        # Assign output
+        #self.selected_values = index
+
+        # Set style
+        #self.predefined_style(style)
+
+        # Set functionality
+        self._plot_displacements_function = None
+        self.add_plot_displacements_function(plot_displacements_function)
+
+        def displacements_button_function(name):
+            self.plot_displacements_menu.visible = True
+            if self._plot_displacements_function is not None:
+                self._plot_displacements_function(
+                    '', self.plot_displacements_menu.value)
+        self.plot_displacements_button.on_click(displacements_button_function)
+
+        self._plot_errors_function = None
+        self.add_plot_errors_function(plot_errors_function)
+
+        def iterations_mode_function(name, value):
+            if value == 'animation':
+                # Get value that needs to be assigned
+                val = self.index_slider.value[0]
+                # Update visibility
+                self.index_animation.visible = True
+                self.index_slider_and_common_figure.visible = False
+                # Set correct values
+                self.index_animation.index_wid.slider.value = val
+                #animation_wid.selected_values['index'] = val
+            else:
+                # Stop the animation
+                self.index_animation.stop_toggle.value = True
+                # Get value that needs to be assigned
+                val = self.index_animation.selected_values['index']
+                # Update visibility
+                self.index_animation.visible = False
+                self.index_slider_and_common_figure.visible = True
+                # Set correct values
+                self.index_slider.value = (val, val)
+        self.iterations_mode.on_trait_change(iterations_mode_function, 'value')
+
+        def render_image_function(name, value):
+            self.selected_values['render_image'] = value
+        self.render_image.on_trait_change(render_image_function, 'value')
+
+        def common_figure_function(name, value):
+            self.selected_values['subplots_enabled'] = not value
+        self.common_figure.on_trait_change(common_figure_function, 'value')
+
+        # def get_groups(name, value):
+        #     if self.iterations_mode.value == 'animation':
+        #         self.selected_values['selected_groups'] = \
+        #             _convert_iterations_to_groups(
+        #                 self.index_animation.selected_values['index'],
+        #                 self.index_animation.selected_values['index'],
+        #                 self.selected_values['iter_str'])
+        #     else:
+        #         self.selected_values['selected_groups'] = \
+        #             _convert_iterations_to_groups(
+        #                 self.index_slider.value[0], self.index_slider.value[1],
+        #                 self.selected_values['iter_str'])
+        # self.index_slider.on_trait_change(get_groups, 'value')
+        # self.index_animation.index_wid.slider.on_trait_change(get_groups, 'value')
+
+    def _get_selected_options(self):
+        if self.iterations_mode.value == 'animation':
+            self.selected_values['selected_groups'] = \
+                _convert_iterations_to_groups(
+                    self.index_animation.selected_values['index'],
+                    self.index_animation.selected_values['index'],
+                    self.selected_values['iter_str'])
+        else:
+            self.selected_values['selected_groups'] = \
+                _convert_iterations_to_groups(
+                    self.index_slider.value[0], self.index_slider.value[1],
+                    self.selected_values['iter_str'])
+
+
+    def _widget_state_based_on_n_iters(self, n_iters):
+        if n_iters == 1:
+            self.iterations_mode.value = 'animation'
+        self.iterations_mode.visible = n_iters == 1
+        self.index_slider.visible = n_iters == 1
+        self.plot_errors_button.visible = n_iters == 1
+        self.plot_displacements_button.visible = n_iters == 1
+        self.plot_displacements_menu.visible = n_iters == 1
+
+    def add_plot_displacements_function(self, plot_displacements_function):
+        r"""
+        Method that adds a `plot_displacements_function()` to the widget. The
+        signature of the given function is also stored in
+        `self._plot_displacements_function`.
+
+        Parameters
+        ----------
+        plot_displacements_function : `function` or ``None``, optional
+            The plot displacements function that behaves as a callback.
+            If ``None``, then nothing is added.
+        """
+        self._plot_displacements_function = plot_displacements_function
+        if self._plot_displacements_function is not None:
+            self.plot_displacements_menu.on_trait_change(
+                self._plot_displacements_function, 'value')
+
+    def remove_plot_displacements_function(self):
+        r"""
+        Method that removes the current `self._plot_displacements_function()`
+        from the widget and sets ``self._plot_displacements_function = None``.
+        """
+        self.plot_displacements_menu.on_trait_change(
+            self._plot_displacements_function, 'value', remove=True)
+        self._plot_displacements_function = None
+
+    def replace_plot_displacements_function(self, plot_displacements_function):
+        r"""
+        Method that replaces the current `self._plot_displacements_function()`
+        of the widget with the given `plot_displacements_function()`.
+
+        Parameters
+        ----------
+        plot_displacements_function : `function` or ``None``, optional
+            The plot displacements function that behaves as a callback. If
+            ``None``, then nothing happens.
+        """
+        # remove old function
+        self.remove_plot_displacements_function()
+
+        # add new function
+        self.add_plot_displacements_function(plot_displacements_function)
+
+    def add_plot_errors_function(self, plot_errors_function):
+        r"""
+        Method that adds a `plot_errors_function()` to the widget. The
+        signature of the given function is also stored in
+        `self._plot_errors_function`.
+
+        Parameters
+        ----------
+        plot_errors_function : `function` or ``None``, optional
+            The plot errors function that behaves as a callback.
+            If ``None``, then nothing is added.
+        """
+        if plot_errors_function is None:
+            self._plot_errors_function = None
+        else:
+            def plot_errors_function_mine(name):
+                self.plot_displacements_menu.visible = False
+            self._plot_errors_function
+
+        self._plot_errors_function = plot_errors_function
+        if self._plot_errors_function is not None:
+
+            self.plot_errors_button.on_click(self._plot_errors_function)
+
+    def remove_plot_errors_function(self):
+        r"""
+        Method that removes the current `self._plot_errors_function()` from the
+        widget and sets ``self._plot_errors_function = None``.
+        """
+        self.plot_errors_button.on_click(self._plot_errors_function,
+                                         remove=True)
+        self._plot_errors_function = None
+
+    def replace_plot_errors_function(self, plot_errors_function):
+        r"""
+        Method that replaces the current `self._plot_errors_function()` of the
+        widget with the given `plot_errors_function()`.
+
+        Parameters
+        ----------
+        plot_errors_function : `function` or ``None``, optional
+            The plot errors function that behaves as a callback. If ``None``,
+            then nothing happens.
+        """
+        # remove old function
+        self.remove_plot_errors_function()
+
+        # add new function
+        self.add_plot_errors_function(plot_errors_function)
 
 
 # def iterations_result_options(iterations_result_options_default,
@@ -2029,11 +2368,4 @@ class FittingResultOptionsWidget(ipywidgets.FlexBox):
 #     plot_options_wid.margin = container_margin
 #     if border_visible:
 #         plot_options_wid.border = container_border
-#
-#
-# def _convert_iterations_to_groups(from_iter, to_iter, iter_str):
-#     r"""
-#     Function that generates a list of group labels given the range bounds and
-#     the str to be used.
-#     """
-#     return ["{}{}".format(iter_str, i) for i in range(from_iter, to_iter + 1)]
+
