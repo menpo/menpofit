@@ -12,22 +12,22 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
     model (e.g. PCA model). The widget consists of the following parts from
     `IPython.html.widgets`:
 
-    == =========== ================== =============================
+    == =========== ================== ==========================
     No Object      Variable (`self.`) Description
-    == =========== ================== =============================
-    1  Button      `plot_button`      The plot eigenspectrum button
+    == =========== ================== ==========================
+    1  Button      `plot_button`      The plot variance button
     2  Button      `reset_button`     The reset button
     3  HBox        `plot_and_reset`   Contains 1, 2
                          If mode is 'single'
-    ---------------------------------------------------------------
+    ------------------------------------------------------------
     4  FloatSlider `slider`           The parameter value slider
     5  Dropdown    `dropdown_params`  The parameter selector
     6  HBox        `parameters_wid`   Contains 4, 5
                          If mode is 'multiple'
-    ---------------------------------------------------------------
+    ------------------------------------------------------------
     7  FloatSlider `sliders`          `list` of all sliders
     8  VBox        `parameters_wid`   Contains all 7
-    == =========== ================== =============================
+    == =========== ================== ==========================
 
     Note that:
 
@@ -37,7 +37,7 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
     * To update the state of the widget, please refer to the
       ``set_widget_state()`` method.
     * To update the callback function please refer to the
-      ``replace_render_function()`` and ``replace_eigenspectrumr_function()``
+      ``replace_render_function()`` and ``replace_variance_function()``
       methods.
 
     Parameters
@@ -59,11 +59,11 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         The minimum and maximum bounds, in std units, for the sliders.
     params_step : `float`, optional
         The step, in std units, of the sliders.
-    plot_eig_visible : `bool`, optional
-        Defines whether the button for plotting the eigenspectrum will be
-        visible upon construction.
-    plot_eig_function : `function` or ``None``, optional
-        The plot function that is executed when the plot eigenspectrum button is
+    plot_variance_visible : `bool`, optional
+        Defines whether the button for plotting the variance will be visible
+        upon construction.
+    plot_variance_function : `function` or ``None``, optional
+        The plot function that is executed when the plot variance button is
         clicked. If ``None``, then nothing is assigned.
     style : See Below, optional
         Sets a predefined style at the widget. Possible options are
@@ -103,7 +103,7 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         >>>                                   params_str='Parameter ',
         >>>                                   mode='multiple',
         >>>                                   params_bounds=(-3., 3.),
-        >>>                                   plot_eig_visible=True,
+        >>>                                   plot_variance_visible=True,
         >>>                                   style='info')
         >>> display(wid)
 
@@ -112,11 +112,12 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
 
         >>> wid.set_widget_state(parameters=[-7.] * 3, params_str='',
         >>>                      params_step=0.1, params_bounds=(-10, 10),
-        >>>                      plot_eig_visible=False, allow_callback=True)
+        >>>                      plot_variance_visible=False,
+        >>>                      allow_callback=True)
     """
     def __init__(self, parameters, render_function=None, mode='multiple',
                  params_str='', params_bounds=(-3., 3.), params_step=0.1,
-                 plot_eig_visible=True, plot_eig_function=None,
+                 plot_variance_visible=True, plot_variance_function=None,
                  style='minimal'):
         # Check given parameters
         n_params = len(parameters)
@@ -148,8 +149,8 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
             self.parameters_wid = ipywidgets.HBox(
                 children=[self.dropdown_params, self.slider])
         self.plot_button = ipywidgets.Button(
-            description='Eigenspectrum', margin='0.05cm',
-            visible=plot_eig_visible)
+            description='Variance', margin='0.05cm',
+            visible=plot_variance_visible)
         self.reset_button = ipywidgets.Button(description='Reset',
                                               margin='0.05cm')
         self.plot_and_reset = ipywidgets.HBox(children=[self.plot_button,
@@ -166,7 +167,7 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         self.params_str = params_str
         self.params_bounds = params_bounds
         self.params_step = params_step
-        self.plot_eig_visible = plot_eig_visible
+        self.plot_variance_visible = plot_variance_visible
 
         # Set style
         self.predefined_style(style)
@@ -229,9 +230,9 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
                 self._render_function('', True)
         self.reset_button.on_click(reset_parameters)
 
-        # Set plot eigenspectrum function
-        self._eigenspectrum_function = None
-        self.add_eigenspectrum_function(plot_eig_function)
+        # Set plot variance function
+        self._variance_function = None
+        self.add_variance_function(plot_variance_function)
 
         # Set render function
         self._render_function = None
@@ -439,52 +440,51 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         # add new function
         self.add_render_function(render_function)
 
-    def add_eigenspectrum_function(self, eigenspectrum_function):
+    def add_variance_function(self, variance_function):
         r"""
-        Method that adds a `eigenspectrum_function()` to the `Eigenspectrum`
-        button of the widget. The signature of the given function is also stored
-        in `self._eigenspectrum_function`.
+        Method that adds a `variance_function()` to the `Variance` button of the
+        widget. The signature of the given function is also stored in
+        `self._variance_function`.
 
         Parameters
         ----------
-        eigenspectrum_function : `function` or ``None``, optional
-            The eigenspectrum function that behaves as a callback. If ``None``,
+        variance_function : `function` or ``None``, optional
+            The variance function that behaves as a callback. If ``None``,
             then nothing is added.
         """
-        self._eigenspectrum_function = eigenspectrum_function
-        if self._eigenspectrum_function is not None:
-            self.plot_button.on_click(self._eigenspectrum_function)
+        self._variance_function = variance_function
+        if self._variance_function is not None:
+            self.plot_button.on_click(self._variance_function)
 
-    def remove_eigenspectrum_function(self):
+    def remove_variance_function(self):
         r"""
-        Method that removes the current `self._eigenspectrum_function()` from
-        the `Eigenspectrum` button of the widget and sets
-        ``self._eigenspectrum_function = None``.
+        Method that removes the current `self._variance_function()` from
+        the `Variance` button of the widget and sets
+        ``self._variance_function = None``.
         """
-        self.plot_button.on_click(self._eigenspectrum_function, remove=True)
-        self._eigenspectrum_function = None
+        self.plot_button.on_click(self._variance_function, remove=True)
+        self._variance_function = None
 
-    def replace_eigenspectrumr_function(self, eigenspectrum_function):
+    def replace_variancer_function(self, variance_function):
         r"""
-        Method that replaces the current `self._eigenspectrum_function()` of the
-        `Eigenspectrum` button of the widget with the given
-        `eigenspectrum_function()`.
+        Method that replaces the current `self._variance_function()` of the
+        `Variance` button of the widget with the given `variance_function()`.
 
         Parameters
         ----------
-        eigenspectrum_function : `function` or ``None``, optional
-            The eigenspectrum function that behaves as a callback. If ``None``,
+        variance_function : `function` or ``None``, optional
+            The variance function that behaves as a callback. If ``None``,
             then nothing is happening.
         """
         # remove old function
-        self.remove_eigenspectrum_function()
+        self.remove_variance_function()
 
         # add new function
-        self.add_eigenspectrum_function(eigenspectrum_function)
+        self.add_variance_function(variance_function)
 
     def set_widget_state(self, parameters=None, params_str=None,
                          params_bounds=None, params_step=None,
-                         plot_eig_visible=True, allow_callback=True):
+                         plot_variance_visible=True, allow_callback=True):
         r"""
         Method that updates the state of the widget with a new set of options.
 
@@ -503,8 +503,8 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         params_step : `float` or ``None``, optional
             The step, in std units, of the sliders. If ``None``, then nothing
             changes.
-        plot_eig_visible : `bool`, optional
-            Defines whether the button for plotting the eigenspectrum will be
+        plot_variance_visible : `bool`, optional
+            Defines whether the button for plotting the variance will be
             visible.
         allow_callback : `bool`, optional
             If ``True``, it allows triggering of any callback functions.
@@ -526,8 +526,8 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         # Check given parameters
         self._check_parameters(parameters, params_bounds)
 
-        # Set plot eigenspectrum visibility
-        self.plot_button.visible = plot_eig_visible
+        # Set plot variance visibility
+        self.plot_button.visible = plot_variance_visible
 
         # Update widget
         if len(parameters) == len(self.parameters):
@@ -605,251 +605,398 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         self.params_str = params_str
         self.params_bounds = params_bounds
         self.params_step = params_step
-        self.plot_eig_visible = plot_eig_visible
+        self.plot_variance_visible = plot_variance_visible
 
         # trigger render function if allowed
         if allow_callback:
             self._render_function('', True)
 
 
+class FittingResultOptionsWidget(ipywidgets.FlexBox):
+    r"""
+    Creates a widget for selecting parameters values when visualizing a linear
+    model (e.g. PCA model). The widget consists of the following parts from
+    `IPython.html.widgets`:
 
-# def final_result_options(final_result_options_default, plot_function=None,
-#                          title='Final Result', toggle_show_default=True,
-#                          toggle_show_visible=True):
-#     r"""
-#     Creates a widget with Final Result Options. Specifically, it has:
-#         1) A set of toggle buttons representing usually the initial, final and
-#            ground truth shapes.
-#         2) A checkbox that controls the rendering of the image.
-#         3) A set of radio buttons that define whether subplots are enabled.
-#         4) A toggle button that controls the visibility of all the above, i.e.
-#            the final result options.
-#
-#     The structure of the widgets is the following:
-#         final_result_wid.children = [toggle_button, shapes_toggle_buttons,
-#                                      options]
-#         options.children = [plot_mode_radio_buttons, show_image_checkbox]
-#
-#     The returned widget saves the selected values in the following fields:
-#         final_result_wid.selected_values
-#
-#     To fix the alignment within this widget please refer to
-#     `format_final_result_options()` function.
-#
-#     To update the state of this widget, please refer to
-#     `update_final_result_options()` function.
-#
-#     Parameters
-#     ----------
-#     final_result_options_default : `dict`
-#         The default options. For example:
-#             final_result_options_default = {'all_groups': ['initial', 'final',
-#                                                            'ground'],
-#                                             'selected_groups': ['final'],
-#                                             'render_image': True,
-#                                             'subplots_enabled': True}
-#     plot_function : `function` or None, optional
-#         The plot function that is executed when a widgets' value changes.
-#         If None, then nothing is assigned.
-#     title : `str`, optional
-#         The title of the widget printed at the toggle button.
-#     toggle_show_default : `bool`, optional
-#         Defines whether the options will be visible upon construction.
-#     toggle_show_visible : `bool`, optional
-#         The visibility of the toggle button.
-#     """
-#     import IPython.html.widgets as ipywidgets
-#     # Toggle button that controls options' visibility
-#     but = ipywidgets.ToggleButton(description=title,
-#                                         value=toggle_show_default,
-#                                         visible=toggle_show_visible)
-#
-#     # Create widgets
-#     shapes_checkboxes = [ipywidgets.Latex(value='Select shape:')]
-#     for group in final_result_options_default['all_groups']:
-#         t = ipywidgets.ToggleButton(
-#             description=group,
-#             value=group in final_result_options_default['selected_groups'])
-#         shapes_checkboxes.append(t)
-#     render_image = ipywidgets.Checkbox(
-#         description='Render image',
-#         value=final_result_options_default['render_image'])
-#     mode = ipywidgets.RadioButtons(
-#         description='Plot mode:', options={'Single': False, 'Multiple': True},
-#         value=final_result_options_default['subplots_enabled'])
-#
-#     # Group widgets
-#     shapes_wid = ipywidgets.Box(children=shapes_checkboxes)
-#     opts = ipywidgets.Box(children=[mode, render_image])
-#
-#     # Widget container
-#     final_result_wid = ipywidgets.Box(children=[but, shapes_wid,
-#                                                             opts])
-#
-#     # Initialize variables
-#     final_result_wid.selected_values = final_result_options_default
-#
-#     # Groups function
-#     def groups_fun(name, value):
-#         final_result_wid.selected_values['selected_groups'] = []
-#         for i in shapes_wid.children[1::]:
-#             if i.value:
-#                 final_result_wid.selected_values['selected_groups'].\
-#                     append(str(i.description))
-#     for w in shapes_wid.children[1::]:
-#         w.on_trait_change(groups_fun, 'value')
-#
-#     # Render image function
-#     def render_image_fun(name, value):
-#         final_result_wid.selected_values['render_image'] = value
-#     render_image.on_trait_change(render_image_fun, 'value')
-#
-#     # Plot mode function
-#     def plot_mode_fun(name, value):
-#         final_result_wid.selected_values['subplots_enabled'] = value
-#     mode.on_trait_change(plot_mode_fun, 'value')
-#
-#     # Toggle button function
-#     def show_options(name, value):
-#         shapes_wid.visible = value
-#         opts.visible = value
-#     show_options('', toggle_show_default)
-#     but.on_trait_change(show_options, 'value')
-#
-#     # assign plot_function
-#     if plot_function is not None:
-#         render_image.on_trait_change(plot_function, 'value')
-#         mode.on_trait_change(plot_function, 'value')
-#         for w in shapes_wid.children[1::]:
-#             w.on_trait_change(plot_function, 'value')
-#
-#     return final_result_wid
-#
-#
-# def format_final_result_options(final_result_wid, container_padding='6px',
-#                                 container_margin='6px',
-#                                 container_border='1px solid black',
-#                                 toggle_button_font_weight='bold',
-#                                 border_visible=True):
-#     r"""
-#     Function that corrects the align (style format) of a given
-#     final_result_options widget. Usage example:
-#         final_result_options_default = {'all_groups': ['initial', 'final',
-#                                                        'ground'],
-#                                         'selected_groups': ['final'],
-#                                         'render_image': True,
-#                                         'subplots_enabled': True}
-#         final_result_wid = final_result_options(final_result_options_default)
-#         display(final_result_wid)
-#         format_final_result_options(final_result_wid)
-#
-#     Parameters
-#     ----------
-#     final_result_wid :
-#         The widget object generated by the `final_result_options()` function.
-#     container_padding : `str`, optional
-#         The padding around the widget, e.g. '6px'
-#     container_margin : `str`, optional
-#         The margin around the widget, e.g. '6px'
-#     container_border : `str`, optional
-#         The border around the widget, e.g. '1px solid black'
-#     toggle_button_font_weight : `str`
-#         The font weight of the toggle button, e.g. 'bold'
-#     border_visible : `boolean`, optional
-#         Defines whether to draw the border line around the widget.
-#     """
-#     # align shapes toggle buttons
-#     remove_class(final_result_wid.children[1], 'vbox')
-#     add_class(final_result_wid.children[1], 'hbox')
-#     add_class(final_result_wid.children[1], 'align-center')
-#     final_result_wid.children[1].children[0].margin_right = container_margin
-#
-#     # align mode and legend options
-#     remove_class(final_result_wid.children[2], 'vbox')
-#     add_class(final_result_wid.children[2], 'hbox')
-#     final_result_wid.children[2].children[0].margin_right = '20px'
-#
-#     # set toggle button font bold
-#     final_result_wid.children[0].font_weight = toggle_button_font_weight
-#     final_result_wid.children[1].margin_top = container_margin
-#
-#     # margin and border around container widget
-#     final_result_wid.padding = container_padding
-#     final_result_wid.margin = container_margin
-#     if border_visible:
-#         final_result_wid.border = container_border
-#
-#
-# def update_final_result_options(final_result_wid, group_keys, plot_function):
-#     r"""
-#     Function that updates the state of a given final_result_options widget if
-#     the group keys of an image has changed. Usage example:
-#         final_result_options_default = {'all_groups': ['group1', 'group2'],
-#                                         'selected_groups': ['group1'],
-#                                         'render_image': True,
-#                                         'subplots_enabled': True}
-#         final_result_wid = final_result_options(final_result_options_default)
-#         display(final_result_wid)
-#         format_final_result_options(final_result_wid)
-#         update_final_result_options(final_result_wid, group_keys=['group3'])
-#         format_final_result_options(final_result_wid)
-#
-#     Note that the `format_final_result_options()` function needs to be called
-#     again after the `update_final_result_options()` function.
-#
-#     Parameters
-#     ----------
-#     final_result_wid :
-#         The widget object generated by the `final_result_options()` function.
-#     group_keys : `list` of `str`
-#         A list of the available landmark groups.
-#     plot_function : `function` or None
-#         The plot function that is executed when a widgets' value changes.
-#         If None, then nothing is assigned.
-#     """
-#     import IPython.html.widgets as ipywidgets
-#     # check if the new group_keys are the same as the old ones
-#     if not _compare_groups_and_labels(
-#             group_keys, [], final_result_wid.selected_values['all_groups'], []):
-#         # Create all necessary widgets
-#         shapes_checkboxes = [ipywidgets.Latex(value='Select shape:')]
-#         for group in group_keys:
-#             t = ipywidgets.ToggleButton(description=group, value=True)
-#             shapes_checkboxes.append(t)
-#
-#         # Group widgets
-#         final_result_wid.children[1].children = shapes_checkboxes
-#
-#         # Initialize output variables
-#         final_result_wid.selected_values['all_groups'] = group_keys
-#         final_result_wid.selected_values['selected_groups'] = group_keys
-#
-#         # Groups function
-#         def groups_fun(name, value):
-#             final_result_wid.selected_values['selected_groups'] = []
-#             for i in final_result_wid.children[1].children[1::]:
-#                 if i.value:
-#                     final_result_wid.selected_values['selected_groups'].append(str(i.description))
-#         for w in final_result_wid.children[1].children[1::]:
-#             w.on_trait_change(groups_fun, 'value')
-#
-#         # Toggle button function
-#         def show_options(name, value):
-#             final_result_wid.children[1].visible = value
-#             final_result_wid.children[2].visible = value
-#         show_options('', final_result_wid.children[0].value)
-#         final_result_wid.children[0].on_trait_change(show_options, 'value')
-#
-#         # assign plot_function
-#         if plot_function is not None:
-#             final_result_wid.children[2].children[0].on_trait_change(
-#                 plot_function, 'value')
-#             final_result_wid.children[2].children[1].on_trait_change(
-#                 plot_function, 'value')
-#             for w in final_result_wid.children[1].children[1::]:
-#                 w.on_trait_change(plot_function, 'value')
-#
-#
+    == =================== ========================= ========================
+    No Object              Variable (`self.`)        Description
+    == =================== ========================= ========================
+    1  Latex, ToggleButton `shape_selection`         The shape selectors
+    2  Checkbox            `render_image`            Controls image rendering
+    3  RadioButtons        `mode`                    The figure mode
+    4  HBox                `shapes_wid`              Contains all 1
+    5  VBox                `shapes_and_render_image` Contains 4, 2
+    == =================== ========================= ========================
+
+    Note that:
+
+    * The selected options are stored in the ``self.selected_options`` `dict`.
+    * To set the styling please refer to the ``style()`` and
+      ``predefined_style()`` methods.
+    * To update the state of the widget, please refer to the
+      ``set_widget_state()`` method.
+    * To update the callback function please refer to the
+      ``replace_render_function()`` method.
+
+    Parameters
+    ----------
+    fitting_result_options : `list`
+        The dictionary with the initial options. For example
+        ::
+
+            fitting_result_options = {'all_groups': ['initial', 'final',
+                                                     'ground'],
+                                      'selected_groups': ['final'],
+                                      'render_image': True,
+                                      'subplots_enabled': True}
+
+    style : See Below, optional
+        Sets a predefined style at the widget. Possible options are
+
+            ========= ============================
+            Style     Description
+            ========= ============================
+            'minimal' Simple black and white style
+            'success' Green-based style
+            'info'    Blue-based style
+            'warning' Yellow-based style
+            'danger'  Red-based style
+            ''        No style
+            ========= ============================
+
+    Example
+    -------
+    Let's create a fitting result options widget and then update its state.
+    Firstly, we need to import it:
+
+        >>> from menpofit.visualize.widgets import FittingResultOptionsWidget
+        >>> from IPython.display import display
+
+    Now let's define a render function that will get called on every widget
+    change and will dynamically print the selected options:
+
+        >>> from menpo.visualize import print_dynamic
+        >>> def render_function(name, value):
+        >>>     s = "Selected groups: {}, Render image: {}, Subplots enabled: {}".format(
+        >>>         wid.selected_values['selected_groups'],
+        >>>         wid.selected_values['render_image'],
+        >>>         wid.selected_values['subplots_enabled'])
+        >>>     print_dynamic(s)
+
+    Create the widget with some initial options and display it:
+
+        >>> fitting_result_options = {'all_groups': ['initial', 'final',
+        >>>                                          'ground'],
+        >>>                           'selected_groups': ['final'],
+        >>>                           'render_image': True,
+        >>>                           'subplots_enabled': True}
+        >>> wid = FittingResultOptionsWidget(fitting_result_options,
+        >>>                                  render_function=render_function,
+        >>>                                  style='info')
+        >>> display(wid)
+
+    By changing the various widgets, the printed message gets updated. Finally,
+    let's change the widget status with a new set of options:
+
+        >>> fitting_result_options = {'all_groups': ['initial', 'final'],
+        >>>                           'selected_groups': ['final'],
+        >>>                           'render_image': True,
+        >>>                           'subplots_enabled': True}
+        >>> wid.set_widget_state(fitting_result_options, allow_callback=True)
+    """
+    def __init__(self, fitting_result_options, render_function=None,
+                 style='minimal'):
+        # Create widgets
+        self.shape_selection = [ipywidgets.Latex(value='Shape:',
+                                                 margin='0.2cm')]
+        for group in fitting_result_options['all_groups']:
+            t = ipywidgets.ToggleButton(
+                description=group,
+                value=group in fitting_result_options['selected_groups'])
+            self.shape_selection.append(t)
+        self.render_image = ipywidgets.Checkbox(
+            description='Render image',
+            value=fitting_result_options['render_image'])
+        self.mode = ipywidgets.RadioButtons(
+            description='Figure mode:',
+            options={'Single': False, 'Multiple': True},
+            value=fitting_result_options['subplots_enabled'])
+
+        # Group widgets
+        self.shapes_wid = ipywidgets.HBox(children=self.shape_selection,
+                                          align='center')
+        self.shapes_and_render_image = ipywidgets.VBox(
+            children=[self.shapes_wid, self.render_image], align='end')
+        super(FittingResultOptionsWidget, self).__init__(
+            children=[self.mode, self.shapes_and_render_image])
+
+        # Assign output
+        self.selected_values = fitting_result_options
+
+        # Set style
+        self.predefined_style(style)
+
+        # Set functionality
+        def groups_selection_function(name, value):
+            self.selected_values['selected_groups'] = []
+            for i in self.shapes_wid.children[1::]:
+                if i.value:
+                    self.selected_values['selected_groups'].append(
+                        str(i.description))
+        for w in self.shapes_wid.children[1::]:
+            w.on_trait_change(groups_selection_function, 'value')
+
+        def render_image_function(name, value):
+            self.selected_values['render_image'] = value
+        self.render_image.on_trait_change(render_image_function, 'value')
+
+        def figure_mode_function(name, value):
+            self.selected_values['subplots_enabled'] = value
+        self.mode.on_trait_change(figure_mode_function, 'value')
+
+        # Set render function
+        self._render_function = None
+        self.add_render_function(render_function)
+
+    def style(self, box_style=None, border_visible=False, border_color='black',
+              border_style='solid', border_width=1, border_radius=0, padding=0,
+              margin=0, font_family='', font_size=None, font_style='',
+              font_weight='', shapes_buttons_style=''):
+        r"""
+        Function that defines the styling of the widget.
+
+        Parameters
+        ----------
+        box_style : See Below, optional
+            Style options
+
+                ========= ============================
+                Style     Description
+                ========= ============================
+                'success' Green-based style
+                'info'    Blue-based style
+                'warning' Yellow-based style
+                'danger'  Red-based style
+                ''        Default style
+                None      No style
+                ========= ============================
+
+        border_visible : `bool`, optional
+            Defines whether to draw the border line around the widget.
+        border_color : `str`, optional
+            The color of the border around the widget.
+        border_style : `str`, optional
+            The line style of the border around the widget.
+        border_width : `float`, optional
+            The line width of the border around the widget.
+        border_radius : `float`, optional
+            The radius of the corners of the box.
+        padding : `float`, optional
+            The padding around the widget.
+        margin : `float`, optional
+            The margin around the widget.
+        font_family : See Below, optional
+            The font family to be used.
+            Example options ::
+
+                {'serif', 'sans-serif', 'cursive', 'fantasy', 'monospace',
+                 'helvetica'}
+
+        font_size : `int`, optional
+            The font size.
+        font_style : {``'normal'``, ``'italic'``, ``'oblique'``}, optional
+            The font style.
+        font_weight : See Below, optional
+            The font weight.
+            Example options ::
+
+                {'ultralight', 'light', 'normal', 'regular', 'book', 'medium',
+                 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy',
+                 'extra bold', 'black'}
+
+        shapes_buttons_style : See Below, optional
+            Style options
+
+                ========= ============================
+                Style     Description
+                ========= ============================
+                'primary' Blue-based style
+                'success' Green-based style
+                'info'    Blue-based style
+                'warning' Yellow-based style
+                'danger'  Red-based style
+                ''        Default style
+                None      No style
+                ========= ============================
+        """
+        _format_box(self, box_style, border_visible, border_color, border_style,
+                    border_width, border_radius, padding, margin)
+        _format_font(self, font_family, font_size, font_style, font_weight)
+        _format_font(self.render_image, font_family, font_size, font_style,
+                     font_weight)
+        _format_font(self.mode, font_family, font_size, font_style, font_weight)
+        _format_font(self.shapes_wid.children[0], font_family, font_size,
+                     font_style, font_weight)
+        for w in self.shapes_wid.children[1::]:
+            _format_font(w, font_family, font_size, font_style, font_weight)
+            w.button_style = shapes_buttons_style
+
+    def predefined_style(self, style):
+        r"""
+        Function that sets a predefined style on the widget.
+
+        Parameters
+        ----------
+        style : `str` (see below)
+            Style options
+
+                ========= ============================
+                Style     Description
+                ========= ============================
+                'minimal' Simple black and white style
+                'success' Green-based style
+                'info'    Blue-based style
+                'warning' Yellow-based style
+                'danger'  Red-based style
+                ''        No style
+                ========= ============================
+        """
+        if style == 'minimal':
+            self.style(box_style=None, border_visible=True,
+                       border_color='black', border_style='solid',
+                       border_width=1, border_radius=0, padding='0.2cm',
+                       margin='0.3cm', font_family='', font_size=None,
+                       font_style='', font_weight='', shapes_buttons_style='')
+        elif (style == 'info' or style == 'success' or style == 'danger' or
+              style == 'warning'):
+            self.style(box_style=style, border_visible=True,
+                       border_color=_map_styles_to_hex_colours(style),
+                       border_style='solid', border_width=1, border_radius=10,
+                       padding='0.2cm', margin='0.3cm', font_family='',
+                       font_size=None, font_style='', font_weight='',
+                       shapes_buttons_style='primary')
+        else:
+            raise ValueError('style must be minimal or info or success or '
+                             'danger or warning')
+
+    def add_render_function(self, render_function):
+        r"""
+        Method that adds a `render_function()` to the widget. The signature of
+        the given function is also stored in `self._render_function`.
+
+        Parameters
+        ----------
+        render_function : `function` or ``None``, optional
+            The render function that behaves as a callback. If ``None``, then
+            nothing is added.
+        """
+        self._render_function = render_function
+        if self._render_function is not None:
+            self.render_image.on_trait_change(self._render_function, 'value')
+            self.mode.on_trait_change(self._render_function, 'value')
+            for w in self.shapes_wid.children[1::]:
+                w.on_trait_change(self._render_function, 'value')
+
+    def remove_render_function(self):
+        r"""
+        Method that removes the current `self._render_function()` from the
+        widget and sets ``self._render_function = None``.
+        """
+        self.render_image.on_trait_change(self._render_function, 'value',
+                                          remove=True)
+        self.mode.on_trait_change(self._render_function, 'value', remove=True)
+        for w in self.shapes_wid.children[1::]:
+            w.on_trait_change(self._render_function, 'value', remove=True)
+        self._render_function = None
+
+    def replace_render_function(self, render_function):
+        r"""
+        Method that replaces the current `self._render_function()` of the widget
+        with the given `render_function()`.
+
+        Parameters
+        ----------
+        render_function : `function` or ``None``, optional
+            The render function that behaves as a callback. If ``None``, then
+            nothing is happening.
+        """
+        # remove old function
+        self.remove_render_function()
+
+        # add new function
+        self.add_render_function(render_function)
+
+    def set_widget_state(self, fitting_result_options, allow_callback=True):
+        r"""
+        Method that updates the state of the widget with a new set of values.
+
+        Parameters
+        ----------
+        fitting_result_options : `list`
+            The dictionary with the initial options. For example
+            ::
+
+                fitting_result_options = {'all_groups': ['initial', 'final',
+                                                         'ground'],
+                                          'selected_groups': ['final'],
+                                          'render_image': True,
+                                          'subplots_enabled': True}
+
+        allow_callback : `bool`, optional
+            If ``True``, it allows triggering of any callback functions.
+        """
+        # Temporarily remove render callback
+        render_function = self._render_function
+        self.remove_render_function()
+
+        # Update render image checkbox
+        self.render_image.value = fitting_result_options['render_image']
+
+        # Update figure mode
+        self.mode.value = fitting_result_options['subplots_enabled']
+
+        # Update shapes toggles
+        if (set(fitting_result_options['all_groups']) ==
+                set(self.selected_values['all_groups'])):
+            # groups haven't changed so simply update the toggles' values
+            for w in self.shapes_wid.children[1::]:
+                w.value = (str(w.description) in
+                           fitting_result_options['selected_groups'])
+        else:
+            # groups changed
+            # Get previous buttons style
+            buttons_style = self.shapes_wid.children[1].button_style
+            # Create new toggles
+            self.shape_selection = [ipywidgets.Latex(value='Shape:',
+                                                     margin='0.2cm')]
+            for group in fitting_result_options['all_groups']:
+                t = ipywidgets.ToggleButton(
+                    description=group, button_style=buttons_style,
+                    value=group in fitting_result_options['selected_groups'])
+                self.shape_selection.append(t)
+            self.shapes_wid.children = self.shape_selection
+
+            # Assign them the correct functionality
+            def groups_selection_function(name, value):
+                self.selected_values['selected_groups'] = []
+                for i in self.shapes_wid.children[1::]:
+                    if i.value:
+                        self.selected_values['selected_groups'].append(
+                            str(i.description))
+            for w in self.shapes_wid.children[1::]:
+                w.on_trait_change(groups_selection_function, 'value')
+
+        # Assign new options dict to selected_values
+        self.selected_values = fitting_result_options
+
+        # Re-assign render callback
+        self.add_render_function(render_function)
+
+        # trigger render function if allowed
+        if allow_callback:
+            self._render_function('', True)
+
+
 # def iterations_result_options(iterations_result_options_default,
 #                               plot_function=None, plot_errors_function=None,
 #                               plot_displacements_function=None,
