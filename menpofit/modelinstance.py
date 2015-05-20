@@ -1,5 +1,4 @@
 import numpy as np
-
 from menpo.base import Targetable, Vectorizable
 from menpo.model import MeanInstanceLinearModel
 from menpofit.differentiable import DP
@@ -185,7 +184,7 @@ class PDM(ModelInstance, DP):
         return d_dp.swapaxes(0, 1)
 
 
-# TODO: document me
+# TODO: document me!
 class GlobalPDM(PDM):
     r"""
     """
@@ -319,7 +318,7 @@ class GlobalPDM(PDM):
         return self.global_transform.d_dp(points)
 
 
-# TODO: document me
+# TODO: document me!
 class OrthoPDM(GlobalPDM):
     r"""
     """
