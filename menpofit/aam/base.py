@@ -338,7 +338,7 @@ class GlobalAAM(AAM):
 
 class PatchAAM(AAM):
     r"""
-    Patch Based Active Appearance Model class.
+    Patch based Based Active Appearance Model class.
 
     Parameters
     -----------
@@ -427,7 +427,7 @@ class PatchAAM(AAM):
 # TODO: document me!
 class LinearGlobalAAM(AAM):
     r"""
-    Active Appearance Model class.
+    Linear Active Appearance Model class.
 
     Parameters
     -----------
@@ -499,7 +499,7 @@ class LinearGlobalAAM(AAM):
 # TODO: document me!
 class LinearPatchAAM(AAM):
     r"""
-    Linear Patch Active Appearance Model class.
+    Linear Patch based Active Appearance Model class.
 
     Parameters
     -----------
@@ -573,7 +573,7 @@ class LinearPatchAAM(AAM):
 # TODO: document me!
 class PartsAAM(AAM):
     r"""
-    Parts Active Appearance Model class.
+    Parts based Active Appearance Model class.
 
     Parameters
     -----------

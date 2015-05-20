@@ -140,7 +140,7 @@ class AAMBuilder(object):
 # TODO: document me!
 class GlobalAAMBuilder(AAMBuilder):
     r"""
-    Class that builds a Global Active Appearance Model.
+    Class that builds Active Appearance Models.
 
     Parameters
     ----------
@@ -282,7 +282,7 @@ class GlobalAAMBuilder(AAMBuilder):
 # TODO: document me!
 class PatchAAMBuilder(AAMBuilder):
     r"""
-    Class that builds a Patch Active Appearance Model.
+    Class that builds Patch based Active Appearance Models.
 
     Parameters
     ----------
@@ -423,7 +423,7 @@ class PatchAAMBuilder(AAMBuilder):
 # TODO: document me!
 class LinearGlobalAAMBuilder(AAMBuilder):
     r"""
-    Class that builds a Linear Global Active Appearance Model.
+    Class that builds Linear Active Appearance Models.
 
     Parameters
     ----------
@@ -577,7 +577,7 @@ class LinearGlobalAAMBuilder(AAMBuilder):
 # TODO: document me!
 class LinearPatchAAMBuilder(AAMBuilder):
     r"""
-    Class that builds a Linear Patch Active Appearance Model.
+    Class that builds Linear Patch based Active Appearance Models.
 
     Parameters
     ----------
@@ -730,7 +730,7 @@ class LinearPatchAAMBuilder(AAMBuilder):
 # TODO: implement offsets support?
 class PartsAAMBuilder(AAMBuilder):
     r"""
-    Class that builds a Parts Active Appearance Model.
+    Class that builds Parts based Active Appearance Models.
 
     Parameters
     ----------
