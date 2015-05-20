@@ -256,14 +256,15 @@ class GlobalAAM(AAM):
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
 
-    n_training_images : `int`
-        The number of training images used to build the AAM.
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
 
     transform : :map:`PureAlignmentTransform`
         The transform used to warp the images from which the AAM was
         constructed.
 
-    features : `callable` or ``[callable]``, optional
+    features : `callable` or ``[callable]``,
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
@@ -277,24 +278,11 @@ class GlobalAAM(AAM):
         once and then creating a pyramid on top tends to lead to better
         performing AAMs.
 
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
+    scales : `int` or float` or list of those, optional
 
-    downscale : `float`
-        The downscale factor that was used to create the different pyramidal
-        levels.
+    scale_shapes : `boolean`
 
-    scaled_shape_models : `boolean`, optional
-        If ``True``, the reference frames are the mean shapes of each pyramid
-        level, so the shape models are scaled.
-
-        If ``False``, the reference frames of all levels are the mean shape of
-        the highest level, so the shape models are not scaled; they have the
-        same size.
-
-        Note that from our experience, if scaled_shape_models is ``False``, AAMs
-        tend to have slightly better performance.
+    scale_features : `boolean`
 
     """
     def __init__(self, shape_models, appearance_models, reference_shape,
@@ -360,17 +348,14 @@ class PatchAAM(AAM):
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
 
-    n_training_images : `int`
-        The number of training images used to build the AAM.
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
 
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
 
-    transform : :map:`PureAlignmentTransform`
-        The transform used to warp the images from which the AAM was
-        constructed.
-
-    features : `callable` or ``[callable]``, optional
+    features : `callable` or ``[callable]``
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
@@ -384,24 +369,11 @@ class PatchAAM(AAM):
         once and then creating a pyramid on top tends to lead to better
         performing AAMs.
 
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
+    scales : `int` or float` or list of those
 
-    downscale : `float`
-        The downscale factor that was used to create the different pyramidal
-        levels.
+    scale_shapes : `boolean`
 
-    scaled_shape_models : `boolean`, optional
-        If ``True``, the reference frames are the mean shapes of each pyramid
-        level, so the shape models are scaled.
-
-        If ``False``, the reference frames of all levels are the mean shape of
-        the highest level, so the shape models are not scaled; they have the
-        same size.
-
-        Note that from our experience, if ``scaled_shape_models`` is ``False``,
-        AAMs tend to have slightly better performance.
+    scale_features : `boolean`
 
     """
     def __init__(self, shape_models, appearance_models, reference_shape,
@@ -455,6 +427,44 @@ class PatchAAM(AAM):
 # TODO: document me!
 class LinearGlobalAAM(AAM):
     r"""
+    Active Appearance Model class.
+
+    Parameters
+    -----------
+    shape_models : :map:`PCAModel` list
+        A list containing the shape models of the AAM.
+
+    appearance_models : :map:`PCAModel` list
+        A list containing the appearance models of the AAM.
+
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
+
+    transform : :map:`PureAlignmentTransform`
+        The transform used to warp the images from which the AAM was
+        constructed.
+
+    features : `callable` or ``[callable]``, optional
+        If list of length ``n_levels``, feature extraction is performed at
+        each level after downscaling of the image.
+        The first element of the list specifies the features to be extracted at
+        the lowest pyramidal level and so on.
+
+        If ``callable`` the specified feature will be applied to the original
+        image and pyramid generation will be performed on top of the feature
+        image. Also see the `pyramid_on_features` property.
+
+        Note that from our experience, this approach of extracting features
+        once and then creating a pyramid on top tends to lead to better
+        performing AAMs.
+
+    scales : `int` or float` or list of those
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
     """
     def __init__(self, shape_models, appearance_models, reference_shape,
                  transform, features, scales, scale_shapes, scale_features,
@@ -489,6 +499,45 @@ class LinearGlobalAAM(AAM):
 # TODO: document me!
 class LinearPatchAAM(AAM):
     r"""
+    Linear Patch Active Appearance Model class.
+
+    Parameters
+    -----------
+    shape_models : :map:`PCAModel` list
+        A list containing the shape models of the AAM.
+
+    appearance_models : :map:`PCAModel` list
+        A list containing the appearance models of the AAM.
+
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
+
+    patch_shape : tuple of `int`
+        The shape of the patches used to build the Patch Based AAM.
+
+    features : `callable` or ``[callable]``
+        If list of length ``n_levels``, feature extraction is performed at
+        each level after downscaling of the image.
+        The first element of the list specifies the features to be extracted at
+        the lowest pyramidal level and so on.
+
+        If ``callable`` the specified feature will be applied to the original
+        image and pyramid generation will be performed on top of the feature
+        image. Also see the `pyramid_on_features` property.
+
+        Note that from our experience, this approach of extracting features
+        once and then creating a pyramid on top tends to lead to better
+        performing AAMs.
+
+    scales : `int` or float` or list of those
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
+    n_landmarks: `int`
+
     """
     def __init__(self, shape_models, appearance_models, reference_shape,
                  patch_shape, features, scales, scale_shapes,
@@ -524,6 +573,45 @@ class LinearPatchAAM(AAM):
 # TODO: document me!
 class PartsAAM(AAM):
     r"""
+    Parts Active Appearance Model class.
+
+    Parameters
+    -----------
+    shape_models : :map:`PCAModel` list
+        A list containing the shape models of the AAM.
+
+    appearance_models : :map:`PCAModel` list
+        A list containing the appearance models of the AAM.
+
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
+
+    patch_shape : tuple of `int`
+        The shape of the patches used to build the Patch Based AAM.
+
+    features : `callable` or ``[callable]``
+        If list of length ``n_levels``, feature extraction is performed at
+        each level after downscaling of the image.
+        The first element of the list specifies the features to be extracted at
+        the lowest pyramidal level and so on.
+
+        If ``callable`` the specified feature will be applied to the original
+        image and pyramid generation will be performed on top of the feature
+        image. Also see the `pyramid_on_features` property.
+
+        Note that from our experience, this approach of extracting features
+        once and then creating a pyramid on top tends to lead to better
+        performing AAMs.
+
+    normalize_parts: `callable`
+
+    scales : `int` or float` or list of those
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
     """
     def __init__(self, shape_models, appearance_models, reference_shape,
                  parts_shape, features, normalize_parts, scales,
