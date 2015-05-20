@@ -1,4 +1,4 @@
-from .modeldriven import ModelDrivenTransform, OrthoMDTransform
+from .modeldriven import OrthoMDTransform, LinearOrthoMDTransform
 from .homogeneous import (DifferentiableAffine, DifferentiableSimilarity,
                           DifferentiableAlignmentSimilarity,
                           DifferentiableAlignmentAffine)
