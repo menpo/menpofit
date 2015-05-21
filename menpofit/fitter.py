@@ -1,112 +1,21 @@
 from __future__ import division
-import abc
-from menpo.transform import AlignmentAffine, Scale, AlignmentSimilarity
 import numpy as np
 from menpo.shape import PointCloud
-from menpofit.base import is_pyramid_on_features, pyramid_of_feature_images, \
-    noisy_align
-from menpofit.fittingresult import MultilevelFittingResult
+from menpo.transform import Scale, AlignmentAffine, AlignmentSimilarity
 
 
-class Fitter(object):
+# TODO: document me!
+class MultiFitter(object):
     r"""
-    Abstract interface that all :map:`Fitter` objects must implement.
     """
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractmethod
-    def _set_up(self, **kwargs):
-        r"""
-        Abstract method that sets up the fitter object.
-        """
-        pass
-
-    def fit(self, image, initial_parameters, gt_shape=None, **kwargs):
-        r"""
-        Fits the fitter to an image.
-
-        Parameters
-        -----------
-        image: :map:`Image` or subclass
-            The image to be fitted.
-        initial_parameters: list
-            The initial parameters of the model.
-        gt_shape: :map:`PointCloud`
-            The ground truth shape associated to the image.
-
-        Returns
-        -------
-        fitting_result: :map:`FittingResult`
-            The fitting result containing the result of fitting procedure.
-        """
-        fitting_result = self._create_fitting_result(
-            image, initial_parameters, gt_shape=gt_shape)
-        return self._fit(fitting_result, **kwargs)
-
-    @abc.abstractmethod
-    def _create_fitting_result(self, **kwargs):
-        r"""
-        Abstract method that defines the fitting result object associated to
-        the fitter object.
-        """
-        pass
-
-    @abc.abstractmethod
-    def _fit(self, **kwargs):
-        r"""
-        Abstract method implements a particular alignment algorithm.
-        """
-        pass
-
-    def get_parameters(self, shape):
-        r"""
-        Abstract method that gets the parameters.
-        """
-        pass
-
-
-class MultilevelFitter(Fitter):
-    r"""
-    Abstract interface that all :map:`MultilevelFitter` must implement.
-    """
-
-    @abc.abstractproperty
-    def reference_shape(self):
-        r"""
-        The reference shape of the multilevel fitter.
-        """
-        pass
-
-    @abc.abstractproperty
-    def features(self):
-        r"""
-        Returns the feature computation functions applied at each pyramidal
-        level.
-        """
-        pass
-
-    @abc.abstractproperty
+    @property
     def n_levels(self):
         r"""
-        The number of pyramidal levels.
-        """
-        pass
+        The number of pyramidal levels used during alignment.
 
-    @abc.abstractproperty
-    def downscale(self):
-        r"""
-        The downscale factor used by the multiple fitter.
+        :type: `int`
         """
-        pass
-
-    @property
-    def pyramid_on_features(self):
-        r"""
-        Returns True if the pyramid is computed on the feature image and False
-        if it is computed on the original (intensities) image and features are
-        extracted at each level.
-        """
-        return is_pyramid_on_features(self.features)
+        return len(self.scales)
 
     def fit(self, image, initial_shape, max_iters=50, gt_shape=None,
             crop_image=0.5, **kwargs):
@@ -165,64 +74,16 @@ class MultilevelFitter(Fitter):
         affine_correction = AlignmentAffine(initial_shapes[-1], initial_shape)
 
         # run multilevel fitting
-        fitting_results = self._fit(images, initial_shapes[0],
-                                    max_iters=max_iters,
-                                    gt_shapes=gt_shapes, **kwargs)
+        algorithm_results = self._fit(images, initial_shapes[0],
+                                      max_iters=max_iters,
+                                      gt_shapes=gt_shapes, **kwargs)
 
         # build multilevel fitting result
-        multi_fitting_result = self._create_fitting_result(
-            image, fitting_results, affine_correction, gt_shape=gt_shape)
+        fitter_result = self._fitter_result(
+            image, self, algorithm_results, affine_correction,
+            gt_shape=gt_shape)
 
-        return multi_fitting_result
-
-    def perturb_shape(self, gt_shape, noise_std=0.04, rotation=False):
-        r"""
-        Generates an initial shape by adding gaussian noise to the perfect
-        similarity alignment between the ground truth and reference_shape.
-
-        Parameters
-        -----------
-        gt_shape: :class:`menpo.shape.PointCloud`
-            The ground truth shape.
-        noise_std: float, optional
-            The standard deviation of the gaussian noise used to produce the
-            initial shape.
-
-            Default: 0.04
-        rotation: boolean, optional
-            Specifies whether ground truth in-plane rotation is to be used
-            to produce the initial shape.
-
-            Default: False
-
-        Returns
-        -------
-        initial_shape: :class:`menpo.shape.PointCloud`
-            The initial shape.
-        """
-        reference_shape = self.reference_shape
-        return noisy_align(reference_shape, gt_shape, noise_std=noise_std,
-                           rotation=rotation).apply(reference_shape)
-
-    def obtain_shape_from_bb(self, bounding_box):
-        r"""
-        Generates an initial shape given a bounding box detection.
-
-        Parameters
-        -----------
-        bounding_box: (2, 2) ndarray
-            The bounding box specified as:
-
-                np.array([[x_min, y_min], [x_max, y_max]])
-
-        Returns
-        -------
-        initial_shape: :class:`menpo.shape.PointCloud`
-            The initial shape.
-        """
-        reference_shape = self.reference_shape
-        return align_shape_with_bb(reference_shape,
-                                   bounding_box).apply(reference_shape)
+        return fitter_result
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
                        crop_image=0.5):
@@ -267,6 +128,7 @@ class MultilevelFitter(Fitter):
         gt_shapes : `list` of :map:`PointCloud`
             The ground truth shape for each one of the previous images.
         """
+
         # attach landmarks to the image
         image.landmarks['initial_shape'] = initial_shape
         if gt_shape:
@@ -283,8 +145,24 @@ class MultilevelFitter(Fitter):
         image = image.rescale_to_reference_shape(self.reference_shape,
                                                  group='initial_shape')
 
-        images = list(reversed(list(pyramid_of_feature_images(
-            self.n_levels, self.downscale, self.features, image))))
+        # obtain image representation
+        from copy import deepcopy
+        scales = deepcopy(self.scales)
+        scales.reverse()
+        images = []
+        for j, s in enumerate(scales):
+            if j == 0:
+                # compute features at highest level
+                feature_image = self.features(image)
+            elif self.scale_features:
+                # scale features at other levels
+                feature_image = images[0].rescale(s)
+            else:
+                # scale image and compute features at other levels
+                scaled_image = image.rescale(s)
+                feature_image = self.features(scaled_image)
+            images.append(feature_image)
+        images.reverse()
 
         # get initial shapes per level
         initial_shapes = [i.landmarks['initial_shape'].lms for i in images]
@@ -292,45 +170,10 @@ class MultilevelFitter(Fitter):
         # get ground truth shapes per level
         if gt_shape:
             gt_shapes = [i.landmarks['gt_shape'].lms for i in images]
-            del image.landmarks['gt_shape']
         else:
             gt_shapes = None
 
         return images, initial_shapes, gt_shapes
-
-    def _create_fitting_result(self, image, fitting_results, affine_correction,
-                               gt_shape=None):
-        r"""
-        Creates the :class: `menpo.aam.fitting.MultipleFitting` object
-        associated with a particular Fitter object.
-
-        Parameters
-        -----------
-        image: :class:`menpo.image.masked.MaskedImage`
-            The original image to be fitted.
-        fitting_results: :class:`menpo.fit.fittingresult.FittingResultList`
-            A list of basic fitting objects containing the state of the
-            different fitting levels.
-        affine_correction: :class: `menpo.transforms.affine.Affine`
-            An affine transform that maps the result of the top resolution
-            fitting level to the space scale of the original image.
-        gt_shape: class:`menpo.shape.PointCloud`, optional
-            The ground truth shape associated to the image.
-
-            Default: None
-        error_type: 'me_norm', 'me' or 'rmse', optional
-            Specifies the way in which the error between the fitted and
-            ground truth shapes is to be computed.
-
-            Default: 'me_norm'
-
-        Returns
-        -------
-        fitting: :class:`menpo.fitmultilevel.fittingresult.MultilevelFittingResult`
-            The fitting object that will hold the state of the fitter.
-        """
-        return MultilevelFittingResult(image, self, fitting_results,
-                                       affine_correction, gt_shape=gt_shape)
 
     def _fit(self, images, initial_shape, gt_shapes=None, max_iters=50,
              **kwargs):
@@ -359,14 +202,32 @@ class MultilevelFitter(Fitter):
 
         Returns
         -------
-        fitting_results: :class:`menpo.fit.fittingresult.FittingResult` list
+        algorithm_results: :class:`menpo.fg2015.fittingresult.FittingResult` list
             The fitting object containing the state of the whole fitting
             procedure.
         """
+        max_iters = self._prepare_max_iters(max_iters)
         shape = initial_shape
         gt_shape = None
-        n_levels = self.n_levels
+        algorithm_results = []
+        for j, (i, alg, it, s) in enumerate(zip(images, self.algorithms,
+                                                max_iters, self.scales)):
+            if gt_shapes:
+                gt_shape = gt_shapes[j]
 
+            algorithm_result = alg.run(i, shape, gt_shape=gt_shape,
+                                       max_iters=it, **kwargs)
+            algorithm_results.append(algorithm_result)
+
+            shape = algorithm_result.final_shape
+            if s != self.scales[-1]:
+                Scale(self.scales[j+1]/s,
+                      n_dims=shape.n_dims).apply_inplace(shape)
+
+        return algorithm_results
+
+    def _prepare_max_iters(self, max_iters):
+        n_levels = self.n_levels
         # check max_iters parameter
         if type(max_iters) is int:
             max_iters = [np.round(max_iters/n_levels)
@@ -378,22 +239,111 @@ class MultilevelFitter(Fitter):
             raise ValueError('max_iters can be integer, integer list '
                              'containing 1 or {} elements or '
                              'None'.format(self.n_levels))
+        return np.require(max_iters, dtype=np.int)
 
-        # fit images
-        fitting_results = []
-        for j, (i, f, it) in enumerate(zip(images, self._fitters, max_iters)):
-            if gt_shapes is not None:
-                gt_shape = gt_shapes[j]
 
-            parameters = f.get_parameters(shape)
-            fitting_result = f.fit(i, parameters, gt_shape=gt_shape,
-                                   max_iters=it, **kwargs)
-            fitting_results.append(fitting_result)
+# TODO: document me!
+class ModelFitter(MultiFitter):
+    r"""
+    """
+    @property
+    def reference_shape(self):
+        r"""
+        The reference shape of the AAM.
 
-            shape = fitting_result.final_shape
-            Scale(self.downscale, n_dims=shape.n_dims).apply_inplace(shape)
+        :type: :map:`PointCloud`
+        """
+        return self._model.reference_shape
 
-        return fitting_results
+    @property
+    def features(self):
+        r"""
+        The feature extracted at each pyramidal level during AAM building.
+        Stored in ascending pyramidal order.
+
+        :type: `list`
+        """
+        return self._model.features
+
+    @property
+    def n_levels(self):
+        r"""
+        The number of pyramidal levels used during AAM building.
+
+        :type: `int`
+        """
+        return self._model.n_levels
+
+    @property
+    def scales(self):
+        return self._model.scales
+
+    @property
+    def scale_features(self):
+        r"""
+        Flag that defined the nature of Gaussian pyramid used to build the
+        AAM.
+        If ``True``, the feature space is computed once at the highest scale
+        and the Gaussian pyramid is applied to the feature images.
+        If ``False``, the Gaussian pyramid is applied to the original images
+        and features are extracted at each level.
+
+        :type: `boolean`
+        """
+        return self._model.scale_features
+
+    def _check_n_shape(self, n_shape):
+        if n_shape is not None:
+            if type(n_shape) is int or type(n_shape) is float:
+                for sm in self._model.shape_models:
+                    sm.n_active_components = n_shape
+            elif len(n_shape) == 1 and self._model.n_levels > 1:
+                for sm in self._model.shape_models:
+                    sm.n_active_components = n_shape[0]
+            elif len(n_shape) == self._model.n_levels:
+                for sm, n in zip(self._model.shape_models, n_shape):
+                    sm.n_active_components = n
+            else:
+                raise ValueError('n_shape can be an integer or a float or None'
+                                 'or a list containing 1 or {} of '
+                                 'those'.format(self._model.n_levels))
+
+    def perturb_shape(self, gt_shape, noise_std=0.04, rotation=False):
+        transform = noisy_align(AlignmentSimilarity, self.reference_shape,
+                                gt_shape, noise_std=noise_std,
+                                rotation=rotation)
+        return transform.apply(self.reference_shape)
+
+    def obtain_shape_from_bb(self, bounding_box):
+        r"""
+        Generates an initial shape given a bounding box detection.
+
+        Parameters
+        -----------
+        bounding_box: (2, 2) ndarray
+            The bounding box specified as:
+
+                np.array([[x_min, y_min], [x_max, y_max]])
+
+        Returns
+        -------
+        initial_shape: :class:`menpo.shape.PointCloud`
+            The initial shape.
+        """
+
+        reference_shape = self.reference_shape
+        return align_shape_with_bb(reference_shape,
+                                   bounding_box).apply(reference_shape)
+
+
+# TODO: document me!
+def noisy_align(alignment_transform_cls, source, target, noise_std=0.04,
+                rotation=True):
+    r"""
+    """
+    noise = noise_std * np.random.randn(target.n_points, target.n_dims)
+    noisy_target = PointCloud(target.points + noise)
+    return alignment_transform_cls(source, noisy_target, rotation=rotation)
 
 
 def align_shape_with_bb(shape, bounding_box):
@@ -418,3 +368,38 @@ def align_shape_with_bb(shape, bounding_box):
     shape_box = PointCloud(shape.bounds())
     bounding_box = PointCloud(bounding_box)
     return AlignmentSimilarity(shape_box, bounding_box, rotation=False)
+
+
+# TODO: implement as a method on Similarity? AlignableTransforms?
+# def noisy_align(source, target, noise_std=0.04, rotation=False):
+#     r"""
+#     Constructs and perturbs the optimal similarity transform between source
+#     to the target by adding white noise to its weights.
+#
+#     Parameters
+#     ----------
+#     source: :class:`menpo.shape.PointCloud`
+#         The source pointcloud instance used in the alignment
+#     target: :class:`menpo.shape.PointCloud`
+#         The target pointcloud instance used in the alignment
+#     noise_std: float
+#         The standard deviation of the white noise
+#
+#         Default: 0.04
+#     rotation: boolean
+#         If False the second parameter of the Similarity,
+#         which captures captures inplane rotations, is set to 0.
+#
+#         Default:False
+#
+#     Returns
+#     -------
+#     noisy_transform : :class: `menpo.transform.Similarity`
+#         The noisy Similarity Transform
+#     """
+#     transform = AlignmentSimilarity(source, target, rotation=rotation)
+#     parameters = transform.as_vector()
+#     parameter_range = np.hstack((parameters[:2], target.range()))
+#     noise = (parameter_range * noise_std *
+#              np.random.randn(transform.n_parameters))
+#     return Similarity.init_identity(source.n_dims).from_vector(parameters + noise)
