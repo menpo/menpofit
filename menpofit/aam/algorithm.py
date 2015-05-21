@@ -7,7 +7,7 @@ from .result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
 # TODO: implement more clever sampling?
-class AAMInterface(object):
+class LKAAMInterface(object):
 
     def __init__(self, aam_algorithm, sampling=None):
         self.algorithm = aam_algorithm
@@ -129,7 +129,7 @@ class AAMInterface(object):
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
-class LinearAAMInterface(AAMInterface):
+class LinearLKAAMInterface(LKAAMInterface):
 
     @property
     def shape_model(self):
@@ -142,7 +142,7 @@ class LinearAAMInterface(AAMInterface):
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
-class PartsAAMInterface(AAMInterface):
+class PartsLKAAMInterface(LKAAMInterface):
 
     def __init__(self, aam_algorithm, sampling=None):
         self.algorithm = aam_algorithm
@@ -208,7 +208,9 @@ class PartsAAMInterface(AAMInterface):
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
-class AAMAlgorithm(object):
+# TODO: handle costs for all LKAAMAlgorithms
+# TODO document me!
+class LKAAMAlgorithm(object):
 
     def __init__(self, aam_interface, appearance_model, transform,
                  eps=10**-5, **kwargs):
@@ -257,7 +259,7 @@ class AAMAlgorithm(object):
         pass
 
 
-class ProjectOut(AAMAlgorithm):
+class ProjectOut(LKAAMAlgorithm):
     r"""
     Abstract Interface for Project-out AAM algorithms
     """
@@ -378,7 +380,7 @@ class PIC(ProjectOut):
             self.transform.as_vector() - self.dp)
 
 
-class Simultaneous(AAMAlgorithm):
+class Simultaneous(LKAAMAlgorithm):
     r"""
     Abstract Interface for Simultaneous AAM algorithms
     """
@@ -498,7 +500,7 @@ class SIC(Simultaneous):
             self.transform.as_vector() - self.dp)
 
 
-class Alternating(AAMAlgorithm):
+class Alternating(LKAAMAlgorithm):
     r"""
     Abstract Interface for Alternating AAM algorithms
     """
@@ -723,7 +725,7 @@ class MAIC(ModifiedAlternating):
             self.transform.as_vector() - self.dp)
 
 
-class Wiberg(AAMAlgorithm):
+class Wiberg(LKAAMAlgorithm):
     r"""
     Abstract Interface for Wiberg AAM algorithms
     """
