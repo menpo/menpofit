@@ -89,4 +89,3 @@ class LKAAMFitter(ModelFitter):
                        gt_shape=None):
         return AAMFitterResult(image, self, algorithm_results,
                                affine_correction, gt_shape=gt_shape)
-

@@ -240,7 +240,7 @@ class MultiFitter(object):
         pass
 
 
-
+# TODO: correctly implement initialization from bounding box
 # TODO: document me!
 class ModelFitter(MultiFitter):
     r"""
@@ -329,13 +329,12 @@ class ModelFitter(MultiFitter):
 
 
 # TODO: document me!
-def noisy_align(alignment_transform_cls, source, target, noise_std=0.04,
-                rotation=True):
+def noisy_align(alignment_transform_cls, source, target, noise_std=10):
     r"""
     """
     noise = noise_std * np.random.randn(target.n_points, target.n_dims)
     noisy_target = PointCloud(target.points + noise)
-    return alignment_transform_cls(source, noisy_target, rotation=rotation)
+    return alignment_transform_cls(source, noisy_target)
 
 
 def align_shape_with_bb(shape, bounding_box):
