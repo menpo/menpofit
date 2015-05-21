@@ -10,8 +10,56 @@ from menpofit.builder import (
 
 class AAM(object):
     r"""
-    Abstract interface for Active Appearance Model.
+    Active Appearance Model class.
+
+    Parameters
+    -----------
+    shape_models : :map:`PCAModel` list
+        A list containing the shape models of the AAM.
+
+    appearance_models : :map:`PCAModel` list
+        A list containing the appearance models of the AAM.
+
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
+
+    transform : :map:`PureAlignmentTransform`
+        The transform used to warp the images from which the AAM was
+        constructed.
+
+    features : `callable` or ``[callable]``,
+        If list of length ``n_levels``, feature extraction is performed at
+        each level after downscaling of the image.
+        The first element of the list specifies the features to be extracted at
+        the lowest pyramidal level and so on.
+
+        If ``callable`` the specified feature will be applied to the original
+        image and pyramid generation will be performed on top of the feature
+        image. Also see the `pyramid_on_features` property.
+
+        Note that from our experience, this approach of extracting features
+        once and then creating a pyramid on top tends to lead to better
+        performing AAMs.
+
+    scales : `int` or float` or list of those, optional
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
     """
+    def __init__(self, shape_models, appearance_models, reference_shape,
+                 transform, features, scales, scale_shapes, scale_features):
+        self.shape_models = shape_models
+        self.appearance_models = appearance_models
+        self.transform = transform
+        self.features = features
+        self.reference_shape = reference_shape
+        self.scales = scales
+        self.scale_shapes = scale_shapes
+        self.scale_features = scale_features
+
     @property
     def n_levels(self):
         """
@@ -91,54 +139,44 @@ class AAM(object):
 
         return self._instance(level, shape_instance, appearance_instance)
 
-    @abc.abstractmethod
     def _instance(self, level, shape_instance, appearance_instance):
-        pass
+        template = self.appearance_models[level].mean()
+        landmarks = template.landmarks['source'].lms
 
-    def view_shape_models_widget(self, n_parameters=5,
-                                 parameters_bounds=(-3.0, 3.0),
-                                 mode='multiple', figure_size=(10, 8)):
-        r"""
-        Visualizes the shape models of the AAM object using the
-        `menpo.visualize.widgets.visualize_shape_model` widget.
+        if type(landmarks) == TriMesh:
+            trilist = landmarks.trilist
+        else:
+            trilist = None
+        reference_frame = build_reference_frame(shape_instance,
+                                                trilist=trilist)
 
-        Parameters
-        -----------
-        n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
-        parameters_bounds : (`float`, `float`), optional
-            The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
-        """
-        from menpofit.visualize import visualize_shape_model
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode,)
+        transform = self.transform(
+            reference_frame.landmarks['source'].lms, landmarks)
 
-    @abc.abstractmethod
+        instance = appearance_instance.warp_to_mask(
+            reference_frame.mask, transform)
+        instance.landmarks = reference_frame.landmarks
+
+        return instance
+
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
                                       mode='multiple', figure_size=(10, 8)):
-        pass
+        from menpofit.visualize import visualize_appearance_model
+        visualize_appearance_model(self.appearance_models,
+                                   n_parameters=n_parameters,
+                                   parameters_bounds=parameters_bounds,
+                                   figure_size=figure_size, mode=mode)
 
-    @abc.abstractmethod
+    # TODO: fix me!
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        pass
+        from menpofit.visualize import visualize_aam
+        visualize_aam(self, n_shape_parameters=n_shape_parameters,
+                      n_appearance_parameters=n_appearance_parameters,
+                      parameters_bounds=parameters_bounds,
+                      figure_size=figure_size, mode=mode)
 
     # TODO: fix me!
     def __str__(self):
@@ -244,98 +282,6 @@ class AAM(object):
         return out
 
 
-class GlobalAAM(AAM):
-    r"""
-    Active Appearance Model class.
-
-    Parameters
-    -----------
-    shape_models : :map:`PCAModel` list
-        A list containing the shape models of the AAM.
-
-    appearance_models : :map:`PCAModel` list
-        A list containing the appearance models of the AAM.
-
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
-
-    transform : :map:`PureAlignmentTransform`
-        The transform used to warp the images from which the AAM was
-        constructed.
-
-    features : `callable` or ``[callable]``,
-        If list of length ``n_levels``, feature extraction is performed at
-        each level after downscaling of the image.
-        The first element of the list specifies the features to be extracted at
-        the lowest pyramidal level and so on.
-
-        If ``callable`` the specified feature will be applied to the original
-        image and pyramid generation will be performed on top of the feature
-        image. Also see the `pyramid_on_features` property.
-
-        Note that from our experience, this approach of extracting features
-        once and then creating a pyramid on top tends to lead to better
-        performing AAMs.
-
-    scales : `int` or float` or list of those, optional
-
-    scale_shapes : `boolean`
-
-    scale_features : `boolean`
-
-    """
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 transform, features, scales, scale_shapes, scale_features):
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = transform
-        self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-
-    def _instance(self, level, shape_instance, appearance_instance):
-        template = self.appearance_models[level].mean()
-        landmarks = template.landmarks['source'].lms
-
-        if type(landmarks) == TriMesh:
-            trilist = landmarks.trilist
-        else:
-            trilist = None
-        reference_frame = build_reference_frame(shape_instance,
-                                                trilist=trilist)
-
-        transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
-
-        instance = appearance_instance.warp_to_mask(
-            reference_frame.mask, transform)
-        instance.landmarks = reference_frame.landmarks
-
-        return instance
-
-    def view_appearance_models_widget(self, n_parameters=5,
-                                      parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
-        from menpofit.visualize import visualize_appearance_model
-        visualize_appearance_model(self.appearance_models,
-                                   n_parameters=n_parameters,
-                                   parameters_bounds=parameters_bounds,
-                                   figure_size=figure_size, mode=mode)
-
-    # TODO: fix me!
-    def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
-        from menpofit.visualize import visualize_aam
-        visualize_aam(self, n_shape_parameters=n_shape_parameters,
-                      n_appearance_parameters=n_appearance_parameters,
-                      parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode)
-
-
 class PatchAAM(AAM):
     r"""
     Patch based Based Active Appearance Model class.
@@ -425,7 +371,7 @@ class PatchAAM(AAM):
 
 
 # TODO: document me!
-class LinearGlobalAAM(AAM):
+class LinearAAM(AAM):
     r"""
     Linear Active Appearance Model class.
 
@@ -614,11 +560,11 @@ class PartsAAM(AAM):
 
     """
     def __init__(self, shape_models, appearance_models, reference_shape,
-                 parts_shape, features, normalize_parts, scales,
+                 patch_shape, features, normalize_parts, scales,
                  scale_shapes, scale_features):
         self.shape_models = shape_models
         self.appearance_models = appearance_models
-        self.parts_shape = parts_shape
+        self.patch_shape = patch_shape
         self.features = features
         self.normalize_parts = normalize_parts
         self.reference_shape = reference_shape
