@@ -14,131 +14,9 @@ from menpofit.transform import (
     DifferentiablePiecewiseAffine, DifferentiableThinPlateSplines)
 
 
-class AAMBuilder(object):
-    r"""
-    Abstract interface for Active Appearance Model Builder.
-    """
-    def build(self, images, group=None, label=None, verbose=False):
-        r"""
-        Builds an Active Appearance Model from a list of landmarked images.
-
-        Parameters
-        ----------
-        images : list of :map:`MaskedImage`
-            The set of landmarked images from which to build the AAM.
-
-        group : `string`, optional
-            The key of the landmark set that should be used. If ``None``,
-            and if there is only one set of landmarks, this set will be used.
-
-        label : `string`, optional
-            The label of of the landmark manager that you wish to use. If no
-            label is passed, the convex hull of all landmarks is used.
-
-        verbose : `boolean`, optional
-            Flag that controls information and progress printing.
-
-        Returns
-        -------
-        aam : :map:`AAM`
-            The AAM object. Shape and appearance models are stored from
-            lowest to highest level
-        """
-        # normalize images and compute reference shape
-        reference_shape, images = normalization_wrt_reference_shape(
-            images, group, label, self.diagonal, verbose=verbose)
-
-        # build models at each scale
-        if verbose:
-            print_dynamic('- Building models\n')
-        shape_models = []
-        appearance_models = []
-        # for each pyramid level (high --> low)
-        for j, s in enumerate(self.scales):
-            if verbose:
-                if len(self.scales) > 1:
-                    level_str = '  - Level {}: '.format(j)
-                else:
-                    level_str = '  - '
-
-            # obtain image representation
-            if j == 0:
-                # compute features at highest level
-                feature_images = compute_features(images, self.features,
-                                                  level_str=level_str,
-                                                  verbose=verbose)
-                level_images = feature_images
-            elif self.scale_features:
-                # scale features at other levels
-                level_images = scale_images(feature_images, s,
-                                            level_str=level_str,
-                                            verbose=verbose)
-            else:
-                # scale images and compute features at other levels
-                scaled_images = scale_images(images, s, level_str=level_str,
-                                             verbose=verbose)
-                level_images = compute_features(scaled_images, self.features,
-                                                level_str=level_str,
-                                                verbose=verbose)
-
-            # extract potentially rescaled shapes
-            level_shapes = [i.landmarks[group][label]
-                            for i in level_images]
-
-            # obtain shape representation
-            if j == 0 or self.scale_shapes:
-                # obtain shape model
-                if verbose:
-                    print_dynamic('{}Building shape model'.format(level_str))
-                shape_model = self._build_shape_model(
-                    level_shapes, self.max_shape_components[j], j)
-                # add shape model to the list
-                shape_models.append(shape_model)
-            else:
-                # copy precious shape model and add it to the list
-                shape_models.append(deepcopy(shape_model))
-
-            # obtain warped images
-            warped_images = self._warp_images(level_images, level_shapes,
-                                              shape_model.mean(), j,
-                                              level_str, verbose)
-
-            # obtain appearance model
-            if verbose:
-                print_dynamic('{}Building appearance model'.format(level_str))
-            appearance_model = PCAModel(warped_images)
-            # trim appearance model if required
-            if self.max_appearance_components is not None:
-                appearance_model.trim_components(
-                    self.max_appearance_components[j])
-            # add appearance model to the list
-            appearance_models.append(appearance_model)
-
-            if verbose:
-                print_dynamic('{}Done\n'.format(level_str))
-
-        # reverse the list of shape and appearance models so that they are
-        # ordered from lower to higher resolution
-        shape_models.reverse()
-        appearance_models.reverse()
-        self.scales.reverse()
-
-        aam = self._build_aam(shape_models, appearance_models, reference_shape)
-
-        return aam
-
-    @classmethod
-    def _build_shape_model(cls, shapes, max_components, level):
-        return build_shape_model(shapes, max_components=max_components)
-
-    @abc.abstractmethod
-    def _build_aam(self, shape_models, appearance_models, reference_shape):
-        pass
-
-
 # TODO: implement checker for conflict between features and scale_features
 # TODO: document me!
-class GlobalAAMBuilder(AAMBuilder):
+class AAMBuilder(object):
     r"""
     Class that builds Active Appearance Models.
 
@@ -266,6 +144,119 @@ class GlobalAAMBuilder(AAMBuilder):
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
 
+    def build(self, images, group=None, label=None, verbose=False):
+        r"""
+        Builds an Active Appearance Model from a list of landmarked images.
+
+        Parameters
+        ----------
+        images : list of :map:`MaskedImage`
+            The set of landmarked images from which to build the AAM.
+
+        group : `string`, optional
+            The key of the landmark set that should be used. If ``None``,
+            and if there is only one set of landmarks, this set will be used.
+
+        label : `string`, optional
+            The label of of the landmark manager that you wish to use. If no
+            label is passed, the convex hull of all landmarks is used.
+
+        verbose : `boolean`, optional
+            Flag that controls information and progress printing.
+
+        Returns
+        -------
+        aam : :map:`AAM`
+            The AAM object. Shape and appearance models are stored from
+            lowest to highest level
+        """
+        # normalize images and compute reference shape
+        reference_shape, images = normalization_wrt_reference_shape(
+            images, group, label, self.diagonal, verbose=verbose)
+
+        # build models at each scale
+        if verbose:
+            print_dynamic('- Building models\n')
+        shape_models = []
+        appearance_models = []
+        # for each pyramid level (high --> low)
+        for j, s in enumerate(self.scales):
+            if verbose:
+                if len(self.scales) > 1:
+                    level_str = '  - Level {}: '.format(j)
+                else:
+                    level_str = '  - '
+
+            # obtain image representation
+            if j == 0:
+                # compute features at highest level
+                feature_images = compute_features(images, self.features,
+                                                  level_str=level_str,
+                                                  verbose=verbose)
+                level_images = feature_images
+            elif self.scale_features:
+                # scale features at other levels
+                level_images = scale_images(feature_images, s,
+                                            level_str=level_str,
+                                            verbose=verbose)
+            else:
+                # scale images and compute features at other levels
+                scaled_images = scale_images(images, s, level_str=level_str,
+                                             verbose=verbose)
+                level_images = compute_features(scaled_images, self.features,
+                                                level_str=level_str,
+                                                verbose=verbose)
+
+            # extract potentially rescaled shapes
+            level_shapes = [i.landmarks[group][label]
+                            for i in level_images]
+
+            # obtain shape representation
+            if j == 0 or self.scale_shapes:
+                # obtain shape model
+                if verbose:
+                    print_dynamic('{}Building shape model'.format(level_str))
+                shape_model = self._build_shape_model(
+                    level_shapes, self.max_shape_components[j], j)
+                # add shape model to the list
+                shape_models.append(shape_model)
+            else:
+                # copy precious shape model and add it to the list
+                shape_models.append(deepcopy(shape_model))
+
+            # obtain warped images
+            warped_images = self._warp_images(level_images, level_shapes,
+                                              shape_model.mean(), j,
+                                              level_str, verbose)
+
+            # obtain appearance model
+            if verbose:
+                print_dynamic('{}Building appearance model'.format(level_str))
+            appearance_model = PCAModel(warped_images)
+            # trim appearance model if required
+            if self.max_appearance_components is not None:
+                appearance_model.trim_components(
+                    self.max_appearance_components[j])
+            # add appearance model to the list
+            appearance_models.append(appearance_model)
+
+            if verbose:
+                print_dynamic('{}Done\n'.format(level_str))
+
+        # reverse the list of shape and appearance models so that they are
+        # ordered from lower to higher resolution
+        shape_models.reverse()
+        appearance_models.reverse()
+        self.scales.reverse()
+
+        aam = self._build_aam(shape_models, appearance_models, reference_shape)
+
+        return aam
+
+    @classmethod
+    def _build_shape_model(cls, shapes, max_components, level):
+        return build_shape_model(shapes, max_components=max_components)
+
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
         self.reference_frame = build_reference_frame(reference_shape)
@@ -274,9 +265,9 @@ class GlobalAAMBuilder(AAMBuilder):
                            verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
-        return GlobalAAM(shape_models, appearance_models, reference_shape,
-                         self.transform, self.features, self.scales,
-                         self.scale_shapes, self.scale_features)
+        return AAM(shape_models, appearance_models, reference_shape,
+                   self.transform, self.features, self.scales,
+                   self.scale_shapes, self.scale_features)
 
 
 # TODO: document me!
@@ -421,7 +412,7 @@ class PatchAAMBuilder(AAMBuilder):
 
 
 # TODO: document me!
-class LinearGlobalAAMBuilder(AAMBuilder):
+class LinearAAMBuilder(AAMBuilder):
     r"""
     Class that builds Linear Active Appearance Models.
 
@@ -567,11 +558,11 @@ class LinearGlobalAAMBuilder(AAMBuilder):
                            verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
-        return LinearGlobalAAM(shape_models, appearance_models,
-                               reference_shape, self.transform,
-                               self.features, self.scales,
-                               self.scale_shapes, self.scale_features,
-                               self.n_landmarks)
+        return LinearAAM(shape_models, appearance_models,
+                         reference_shape, self.transform,
+                         self.features, self.scales,
+                         self.scale_shapes, self.scale_features,
+                         self.n_landmarks)
 
 
 # TODO: document me!
@@ -869,7 +860,6 @@ class PartsAAMBuilder(AAMBuilder):
                         self.scale_shapes, self.scale_features)
 
 
-from .base import (
-    GlobalAAM, PatchAAM, LinearGlobalAAM, LinearPatchAAM, PartsAAM)
+from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
 
 
