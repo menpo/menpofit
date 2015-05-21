@@ -13,9 +13,8 @@ class LKAAMFitter(ModelFitter):
     """
     def __init__(self, aam, algorithm_cls=AIC, n_shape=None,
                  n_appearance=None, **kwargs):
-        super(LKAAMFitter, self).__init__()
-        self.algorithms = []
-        self._model = aam
+        super(LKAAMFitter, self).__init__(aam)
+        self._algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
         self._set_up(algorithm_cls, **kwargs)
@@ -57,11 +56,14 @@ class LKAAMFitter(ModelFitter):
                                              LinearPatchAAM, PartsAAM))
 
             # append algorithms to list
-            self.algorithms.append(algorithm)
+            self._algorithms.append(algorithm)
 
     @property
     def aam(self):
         return self._model
+
+    def algorithms(self):
+        return self._algorithms
 
     def _check_n_appearance(self, n_appearance):
         if n_appearance is not None:
