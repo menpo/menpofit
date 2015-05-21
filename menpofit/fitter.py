@@ -101,8 +101,7 @@ class MultiFitter(object):
 
         # build multilevel fitting result
         fitter_result = self._fitter_result(
-            image, self, algorithm_results, affine_correction,
-            gt_shape=gt_shape)
+            image, algorithm_results, affine_correction, gt_shape=gt_shape)
 
         return fitter_result
 
@@ -263,7 +262,8 @@ class MultiFitter(object):
         return np.require(max_iters, dtype=np.int)
 
     @abc.abstractmethod
-    def _fitter_result(self):
+    def _fitter_result(self, image, algorithm_results, affine_correction,
+                       gt_shape=None):
         pass
 
 

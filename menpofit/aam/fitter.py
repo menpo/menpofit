@@ -62,6 +62,7 @@ class LKAAMFitter(ModelFitter):
     def aam(self):
         return self._model
 
+    @property
     def algorithms(self):
         return self._algorithms
 
