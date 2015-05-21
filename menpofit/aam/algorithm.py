@@ -6,6 +6,7 @@ from menpo.feature import gradient as fast_gradient
 from .result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
+# TODO: implement more clever sampling?
 class AAMInterface(object):
 
     def __init__(self, aam_algorithm, sampling=None):

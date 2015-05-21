@@ -27,11 +27,11 @@ class MultiFitter(object):
         pass
 
     @abc.abstractproperty
-    def scales(self):
+    def features(self):
         pass
 
     @abc.abstractproperty
-    def features(self):
+    def scales(self):
         pass
 
     @abc.abstractproperty
@@ -266,15 +266,6 @@ class ModelFitter(MultiFitter):
         :type: `list`
         """
         return self._model.features
-
-    @property
-    def n_levels(self):
-        r"""
-        The number of pyramidal levels used during AAM building.
-
-        :type: `int`
-        """
-        return self._model.n_levels
 
     @property
     def scales(self):
