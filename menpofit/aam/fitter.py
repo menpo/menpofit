@@ -12,14 +12,14 @@ class LKAAMFitter(ModelFitter):
     r"""
     """
     def __init__(self, aam, algorithm_cls=AIC, n_shape=None,
-                 n_appearance=None, **kwargs):
+                 n_appearance=None, sampling=None, **kwargs):
         super(LKAAMFitter, self).__init__(aam)
         self._algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
-        self._set_up(algorithm_cls, **kwargs)
+        self._set_up(algorithm_cls, sampling, **kwargs)
 
-    def _set_up(self, algorithm_cls, **kwargs):
+    def _set_up(self, algorithm_cls, sampling, **kwargs):
         for j, (am, sm) in enumerate(zip(self._model.appearance_models,
                                          self._model.shape_models)):
 
@@ -30,7 +30,7 @@ class LKAAMFitter(ModelFitter):
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
                 algorithm = algorithm_cls(AAMInterface, am, md_transform,
-                                          **kwargs)
+                                          sampling=sampling, **kwargs)
 
             elif (type(self.aam) is LinearAAM or
                   type(self.aam) is LinearPatchAAM):
@@ -39,7 +39,8 @@ class LKAAMFitter(ModelFitter):
                     sm, self._model.n_landmarks)
                 # set up algorithm using linear aam interface
                 algorithm = algorithm_cls(LinearAAMInterface, am,
-                                          md_transform, **kwargs)
+                                          md_transform, sampling=sampling,
+                                          **kwargs)
 
             elif type(self.aam) is PartsAAM:
                 # build orthogonal point distribution model
@@ -47,7 +48,8 @@ class LKAAMFitter(ModelFitter):
                 # set up algorithm using parts aam interface
                 am.patch_shape = self._model.patch_shape[j]
                 am.normalize_parts = self._model.normalize_parts
-                algorithm = algorithm_cls(PartsAAMInterface, am, pdm, **kwargs)
+                algorithm = algorithm_cls(PartsAAMInterface, am, pdm,
+                                          sampling=sampling,  **kwargs)
 
             else:
                 raise ValueError("AAM object must be of one of the "

@@ -8,7 +8,7 @@ from .result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 class AAMInterface(object):
 
-    def __init__(self, aam_algorithm, sampling_step=None):
+    def __init__(self, aam_algorithm, sampling=None):
         self.algorithm = aam_algorithm
 
         n_true_pixels = self.template.n_true_pixels()
@@ -16,9 +16,9 @@ class AAMInterface(object):
         n_parameters = self.transform.n_parameters
         sampling_mask = np.zeros(n_true_pixels, dtype=np.bool)
 
-        if sampling_step is None:
-            sampling_step = 1
-        sampling_pattern = xrange(0, n_true_pixels, sampling_step)
+        if sampling is None:
+            sampling = 1
+        sampling_pattern = xrange(0, n_true_pixels, sampling)
         sampling_mask[sampling_pattern] = 1
 
         self.i_mask = np.nonzero(np.tile(
@@ -143,14 +143,14 @@ class LinearAAMInterface(AAMInterface):
 
 class PartsAAMInterface(AAMInterface):
 
-    def __init__(self, aam_algorithm, sampling_mask=None):
+    def __init__(self, aam_algorithm, sampling=None):
         self.algorithm = aam_algorithm
 
-        if sampling_mask is None:
-            sampling_mask = np.ones(self.patch_shape, dtype=np.bool)
+        if sampling is None:
+            sampling = np.ones(self.patch_shape, dtype=np.bool)
 
         image_shape = self.algorithm.template.pixels.shape
-        image_mask = np.tile(sampling_mask[None, None, None, ...],
+        image_mask = np.tile(sampling[None, None, None, ...],
                              image_shape[:3] + (1, 1))
         self.i_mask = np.nonzero(image_mask.flatten())[0]
         self.gradient_mask = np.nonzero(np.tile(
