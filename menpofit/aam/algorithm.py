@@ -88,33 +88,6 @@ class AAMInterface(object):
         # sdi: (n_channels x n_pixels) x n_params
         return sdi.reshape((-1, sdi.shape[2]))
 
-    def partial_newton_hessian(self, nabla2, dw_dp):
-        # reshape gradient
-        # gradient: n_dims x n_dims x n_channels x n_pixels
-        nabla2 = nabla2[self.nabla2_mask].reshape(
-            (2,) + nabla2.shape[:2] + (-1,))
-
-        # compute partial hessian
-        # gradient: n_dims x n_dims x n_channels x n_pixels
-        # warp_jacobian:    n_dims x                     x n_pixels x n_params
-        # h:                 n_dims x n_channels x n_pixels x n_params
-        h1 = 0
-        aux = nabla2[..., None] * dw_dp[:, None, None, ...]
-        for d in aux:
-            h1 += d
-        # compute partial hessian
-        # h:     n_dims x n_channels x n_pixels x n_params
-        # warp_jacobian: n_dims x            x n_pixels x          x n_params
-        # h:
-        h2 = 0
-        aux = h1[..., None] * dw_dp[..., None, :, None, :]
-        for d in aux:
-            h2 += d
-
-        # reshape hessian
-        # 2:  (n_channels x n_pixels) x n_params x n_params
-        return h2.reshape((-1, h2.shape[3] * h2.shape[4]))
-
     @classmethod
     def solve_shape_map(cls, H, J, e, J_prior, p):
         if p.shape[0] is not H.shape[0]:
@@ -226,33 +199,6 @@ class PartsAAMInterface(AAMInterface):
         # reshape steepest descent images
         # sdi: (parts x offsets x ch x w x h) x params
         return sdi.reshape((-1, sdi.shape[-1]))
-
-    def partial_newton_hessian(self, nabla2, dw_dp):
-        # reshape gradient
-        # gradient: dims x dims x parts x off x ch x (h x w)
-        nabla2 = nabla2[self.gradient2_mask].reshape(
-            nabla2.shape[:-2] + (-1,))
-
-        # compute partial hessian
-        # gradient: dims x dims x parts x off x ch x (h x w)
-        # dw_dp:    dims x      x parts x                    x params
-        # h:               dims x parts x off x ch x (h x w) x params
-        h1 = 0
-        aux = nabla2[..., None] * dw_dp[:, None, :, None, None, None, ...]
-        for d in aux:
-            h1 += d
-        # compute partial hessian
-        # h:     dims x parts x off x ch x (h x w) x params
-        # dw_dp: dims x parts x                             x params
-        # h:
-        h2 = 0
-        aux = h1[..., None] * dw_dp[..., None, None, None, None, :]
-        for d in aux:
-            h2 += d
-
-        # reshape hessian
-        # 2:  (parts x off x ch x w x h) x params x params
-        return h2.reshape((-1, h2.shape[-2] * h2.shape[-1]))
 
     def algorithm_result(self, image, shape_parameters,
                          appearance_parameters=None, gt_shape=None):
