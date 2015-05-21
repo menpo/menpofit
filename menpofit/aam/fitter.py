@@ -3,8 +3,7 @@ from menpofit.fitter import ModelFitter
 from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
-from .algorithm import (
-    StandardAAMInterface, LinearAAMInterface, PartsAAMInterface, AIC)
+from .algorithm import AAMInterface, LinearAAMInterface, PartsAAMInterface, AIC
 from .result import AAMFitterResult
 
 
@@ -15,8 +14,8 @@ class LKAAMFitter(ModelFitter):
     def __init__(self, aam, algorithm_cls=AIC, n_shape=None,
                  n_appearance=None, **kwargs):
         super(LKAAMFitter, self).__init__()
+        self.algorithms = []
         self._model = aam
-        self._algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
         self._set_up(algorithm_cls, **kwargs)
@@ -31,8 +30,8 @@ class LKAAMFitter(ModelFitter):
                     sm, self._model.transform,
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
-                algorithm = algorithm_cls(StandardAAMInterface, am,
-                                          md_transform, **kwargs)
+                algorithm = algorithm_cls(AAMInterface, am, md_transform,
+                                          **kwargs)
 
             elif (type(self.aam) is LinearAAM or
                   type(self.aam) is LinearPatchAAM):
@@ -58,7 +57,7 @@ class LKAAMFitter(ModelFitter):
                                              LinearPatchAAM, PartsAAM))
 
             # append algorithms to list
-            self._algorithms.append(algorithm)
+            self.algorithms.append(algorithm)
 
     @property
     def aam(self):
