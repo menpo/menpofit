@@ -2,9 +2,9 @@ from __future__ import division
 from menpo.feature import no_op
 from menpofit.transform import DifferentiableAlignmentAffine
 from menpofit.fitter import MultiFitter, noisy_align
-from menpofit.result import MultiFitterResult
 from .algorithm import IC
 from .residual import SSD, FourierSSD
+from .result import LKFitterResult
 
 
 # TODO: document me!
@@ -97,12 +97,12 @@ class LKFitter(MultiFitter):
 
         return templates, sources
 
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
-        return MultiFitterResult(image, self, algorithm_results,
-                                 affine_correction, gt_shape=gt_shape)
-
     def perturb_shape(self, gt_shape, noise_std=0.04):
         transform = noisy_align(self.transform_cls, self.reference_shape,
                                 gt_shape, noise_std=noise_std)
         return transform.apply(self.reference_shape)
+
+    def _fitter_result(self, image, algorithm_results, affine_correction,
+                       gt_shape=None):
+        return LKFitterResult(image, self, algorithm_results,
+                              affine_correction, gt_shape=gt_shape)
