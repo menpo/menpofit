@@ -3,7 +3,8 @@ from menpofit.fitter import ModelFitter
 from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
-from .algorithm import AAMInterface, LinearAAMInterface, PartsAAMInterface, AIC
+from .algorithm import (
+    LKAAMInterface, LinearLKAAMInterface, PartsLKAAMInterface, AIC)
 from .result import AAMFitterResult
 
 
@@ -29,7 +30,7 @@ class LKAAMFitter(ModelFitter):
                     sm, self._model.transform,
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
-                algorithm = algorithm_cls(AAMInterface, am, md_transform,
+                algorithm = algorithm_cls(LKAAMInterface, am, md_transform,
                                           sampling=sampling, **kwargs)
 
             elif (type(self.aam) is LinearAAM or
@@ -38,7 +39,7 @@ class LKAAMFitter(ModelFitter):
                 md_transform = LinearOrthoMDTransform(
                     sm, self._model.n_landmarks)
                 # set up algorithm using linear aam interface
-                algorithm = algorithm_cls(LinearAAMInterface, am,
+                algorithm = algorithm_cls(LinearLKAAMInterface, am,
                                           md_transform, sampling=sampling,
                                           **kwargs)
 
@@ -48,7 +49,7 @@ class LKAAMFitter(ModelFitter):
                 # set up algorithm using parts aam interface
                 am.patch_shape = self._model.patch_shape[j]
                 am.normalize_parts = self._model.normalize_parts
-                algorithm = algorithm_cls(PartsAAMInterface, am, pdm,
+                algorithm = algorithm_cls(PartsLKAAMInterface, am, pdm,
                                           sampling=sampling,  **kwargs)
 
             else:
