@@ -519,8 +519,8 @@ class OrthoMDTransform(GlobalMDTransform):
         The source landmarks of the transform. If no `source` is provided the
         mean of the model is used.
     """
-    def __init__(self, model, transform_cls, global_transform, source=None):
-        self.pdm = OrthoPDM(model, global_transform)
+    def __init__(self, model, transform_cls, source=None):
+        self.pdm = OrthoPDM(model)
         self._cached_points = None
         self.transform = transform_cls(source, self.target)
 
