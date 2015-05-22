@@ -1,5 +1,4 @@
 from __future__ import division
-import abc
 from copy import deepcopy
 from menpo.model import PCAModel
 from menpo.shape import mean_pointcloud
@@ -14,6 +13,7 @@ from menpofit.transform import (
     DifferentiablePiecewiseAffine, DifferentiableThinPlateSplines)
 
 
+# TODO: fix features checker
 # TODO: implement checker for conflict between features and scale_features
 # TODO: document me!
 class AAMBuilder(object):
