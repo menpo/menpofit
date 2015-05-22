@@ -1,5 +1,4 @@
 from __future__ import division
-import abc
 import numpy as np
 from menpo.shape import TriMesh
 from menpofit.transform import DifferentiableThinPlateSplines
@@ -8,6 +7,7 @@ from menpofit.builder import (
     build_reference_frame, build_patch_reference_frame)
 
 
+# TODO: document me!
 class AAM(object):
     r"""
     Active Appearance Model class.
@@ -68,6 +68,15 @@ class AAM(object):
         :type: `int`
         """
         return len(self.scales)
+
+    # TODO: Could we directly use class names instead of this?
+    @property
+    def _str_title(self):
+        r"""
+        Returns a string containing name of the model.
+        :type: `string`
+        """
+        return 'Active Appearance Model'
 
     def instance(self, shape_weights=None, appearance_weights=None, level=-1):
         r"""
@@ -365,6 +374,7 @@ class AAM(object):
         return out
 
 
+# TODO: document me!
 class PatchAAM(AAM):
     r"""
     Patch based Based Active Appearance Model class.
@@ -417,6 +427,10 @@ class PatchAAM(AAM):
         self.scale_shapes = scale_shapes
         self.scale_features = scale_features
 
+    @property
+    def _str_title(self):
+        return 'Patch-Based Active Appearance Model'
+
     def _instance(self, level, shape_instance, appearance_instance):
         template = self.appearance_models[level].mean
         landmarks = template.landmarks['source'].lms
@@ -443,14 +457,13 @@ class PatchAAM(AAM):
                                    figure_size=figure_size, mode=mode)
 
     # TODO: fix me!
-    def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
-        from menpofit.visualize import visualize_aam
-        visualize_aam(self, n_shape_parameters=n_shape_parameters,
-                      n_appearance_parameters=n_appearance_parameters,
-                      parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode)
+    def __str__(self):
+        out = super(PatchAAM, self).__str__()
+        out_splitted = out.splitlines()
+        out_splitted[0] = self._str_title
+        out_splitted.insert(5, "   - Patch size is {}W x {}H.".format(
+            self.patch_shape[1], self.patch_shape[0]))
+        return '\n'.join(out_splitted)
 
 
 # TODO: document me!
@@ -522,6 +535,10 @@ class LinearAAM(AAM):
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
+        raise NotImplemented
+
+    # TODO: implement me!
+    def __str__(self):
         raise NotImplemented
 
 
@@ -598,6 +615,10 @@ class LinearPatchAAM(AAM):
                         figure_size=(10, 8)):
         raise NotImplemented
 
+    # TODO: implement me!
+    def __str__(self):
+        raise NotImplemented
+
 
 # TODO: document me!
 class PartsAAM(AAM):
@@ -669,4 +690,8 @@ class PartsAAM(AAM):
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
+        raise NotImplemented
+
+    # TODO: implement me!
+    def __str__(self):
         raise NotImplemented
