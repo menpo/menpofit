@@ -201,12 +201,6 @@ class PartsLKAAMInterface(LKAAMInterface):
         # sdi: (parts x offsets x ch x w x h) x params
         return sdi.reshape((-1, sdi.shape[-1]))
 
-    def algorithm_result(self, image, shape_parameters,
-                         appearance_parameters=None, gt_shape=None):
-        return AAMAlgorithmResult(
-            image, self.algorithm, shape_parameters,
-            appearance_parameters=appearance_parameters, gt_shape=gt_shape)
-
 
 # TODO: handle costs for all LKAAMAlgorithms
 # TODO document me!
@@ -263,12 +257,6 @@ class ProjectOut(LKAAMAlgorithm):
     r"""
     Abstract Interface for Project-out AAM algorithms
     """
-    def __init__(self, aam_interface, appearance_model, transform,
-                 eps=10**-5, **kwargs):
-        # call super constructor
-        super(ProjectOut, self).__init__(
-            aam_interface, appearance_model, transform, eps, **kwargs)
-
     def project_out(self, J):
         # project-out appearance bases from a particular vector or matrix
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
@@ -384,12 +372,6 @@ class Simultaneous(LKAAMAlgorithm):
     r"""
     Abstract Interface for Simultaneous AAM algorithms
     """
-    def __init__(self, aam_interface, appearance_model, transform,
-                 eps=10**-5, **kwargs):
-        # call super constructor
-        super(Simultaneous, self).__init__(
-            aam_interface, appearance_model, transform, eps, **kwargs)
-
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
         # initialize transform
@@ -504,12 +486,6 @@ class Alternating(LKAAMAlgorithm):
     r"""
     Abstract Interface for Alternating AAM algorithms
     """
-    def __init__(self, aam_interface, appearance_model, transform,
-                 eps=10**-5, **kwargs):
-        # call super constructor
-        super(Alternating, self).__init__(
-            aam_interface, appearance_model, transform, eps, **kwargs)
-
     def precompute(self, **kwargs):
         # call super method
         super(Alternating, self).precompute()
@@ -633,12 +609,6 @@ class ModifiedAlternating(Alternating):
     r"""
     Abstract Interface for Modified Alternating AAM algorithms
     """
-    def __init__(self, aam_interface, appearance_model, transform,
-                 eps=10**-5, **kwargs):
-        # call super constructor
-        super(ModifiedAlternating, self).__init__(
-            aam_interface, appearance_model, transform, eps, **kwargs)
-
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
         # initialize transform
@@ -729,12 +699,6 @@ class Wiberg(LKAAMAlgorithm):
     r"""
     Abstract Interface for Wiberg AAM algorithms
     """
-    def __init__(self, aam_interface, appearance_model, transform,
-                 eps=10**-5, **kwargs):
-        # call super constructor
-        super(Wiberg, self).__init__(
-            aam_interface, appearance_model, transform, eps, **kwargs)
-
     def project_out(self, J):
         # project-out appearance bases from a particular vector or matrix
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
@@ -832,4 +796,3 @@ class WIC(Wiberg):
         # update warp based on inverse composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() - self.dp)
-
