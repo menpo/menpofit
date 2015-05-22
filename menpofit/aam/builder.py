@@ -259,10 +259,9 @@ class AAMBuilder(object):
 
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
-        self.reference_frame = build_reference_frame(reference_shape)
-        return warp_images(images, shapes, self.reference_frame,
-                           self.transform, level_str=level_str,
-                           verbose=verbose)
+        reference_frame = build_reference_frame(reference_shape)
+        return warp_images(images, shapes, reference_frame, self.transform,
+                           level_str=level_str, verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
         return AAM(shape_models, appearance_models, reference_shape,
@@ -399,11 +398,10 @@ class PatchAAMBuilder(AAMBuilder):
 
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
-        self.reference_frame = build_patch_reference_frame(
+        reference_frame = build_patch_reference_frame(
             reference_shape, patch_shape=self.patch_shape[level])
-        return warp_images(images, shapes, self.reference_frame,
-                           self.transform, level_str=level_str,
-                           verbose=verbose)
+        return warp_images(images, shapes, reference_frame, self.transform,
+                           level_str=level_str, verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
         return PatchAAM(shape_models, appearance_models, reference_shape,
@@ -861,5 +859,3 @@ class PartsAAMBuilder(AAMBuilder):
 
 
 from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
-
-

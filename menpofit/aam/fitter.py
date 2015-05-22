@@ -21,13 +21,13 @@ class LKAAMFitter(ModelFitter):
         self._set_up(algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, algorithm_cls, sampling, **kwargs):
-        for j, (am, sm) in enumerate(zip(self._model.appearance_models,
-                                         self._model.shape_models)):
+        for j, (am, sm) in enumerate(zip(self.aam.appearance_models,
+                                         self.aam.shape_models)):
 
             if type(self.aam) is AAM or type(self.aam) is PatchAAM:
                 # build orthonormal model driven transform
                 md_transform = OrthoMDTransform(
-                    sm, self._model.transform,
+                    sm, self.aam.transform,
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
                 algorithm = algorithm_cls(LKAAMInterface, am, md_transform,
@@ -37,7 +37,7 @@ class LKAAMFitter(ModelFitter):
                   type(self.aam) is LinearPatchAAM):
                 # build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
-                    sm, self._model.n_landmarks)
+                    sm, self.aam.n_landmarks)
                 # set up algorithm using linear aam interface
                 algorithm = algorithm_cls(LinearLKAAMInterface, am,
                                           md_transform, sampling=sampling,
@@ -47,10 +47,10 @@ class LKAAMFitter(ModelFitter):
                 # build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
                 # set up algorithm using parts aam interface
-                am.patch_shape = self._model.patch_shape[j]
-                am.normalize_parts = self._model.normalize_parts
                 algorithm = algorithm_cls(PartsLKAAMInterface, am, pdm,
                                           sampling=sampling,  **kwargs)
+                algorithm.patch_shape = self.aam.patch_shape[j]
+                algorithm.normalize_parts = self.aam.normalize_parts
 
             else:
                 raise ValueError("AAM object must be of one of the "
