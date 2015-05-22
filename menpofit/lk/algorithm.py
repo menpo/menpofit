@@ -4,6 +4,7 @@ import numpy as np
 from .result import LKAlgorithmResult
 
 
+# TODO: implement Inverse Additive Algorithm?
 # TODO: implement Linear, Parts interfaces? Will they play nice with residuals?
 # TODO: implement sampling?
 # TODO: handle costs for all LKAlgorithms
