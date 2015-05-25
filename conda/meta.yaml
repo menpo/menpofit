@@ -21,9 +21,6 @@ test:
   imports:
   - menpofit
 
-  commands:
-  - python -c "import nose; nose.main()" -s menpofit
-
 about:
   home: https://github.com/menpo/menpofit/
   license: BSD
