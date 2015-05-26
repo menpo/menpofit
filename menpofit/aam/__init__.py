@@ -8,4 +8,4 @@ from .algorithm import (
     AFC, AIC,
     MAFC, MAIC,
     WFC, WIC)
-from .result import SerializableAAMFitterResult
+

@@ -43,11 +43,3 @@ class AAMFitterResult(MultiFitterResult):
     r"""
     """
     pass
-
-
-# TODO: document me!
-# TODO: handle costs
-class SerializableAAMFitterResult(SerializableIterativeResult):
-    r"""
-    """
-    pass
