@@ -148,6 +148,7 @@ def scale_images(images, scale, level_str='', verbose=None):
         return images
 
 
+# TODO: Can be done more efficiently for PWA defining a dummy transform
 # TODO: document me!
 def warp_images(images, shapes, reference_frame, transform, level_str='',
                 verbose=None):
@@ -169,7 +170,7 @@ def warp_images(images, shapes, reference_frame, transform, level_str='',
 
 
 # TODO: document me!
-def extract_patches(images, shapes, parts_shape, normalize_function=no_op,
+def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
                     level_str='', verbose=None):
     parts_images = []
     for c, (i, s) in enumerate(zip(images, shapes)):
@@ -178,7 +179,7 @@ def extract_patches(images, shapes, parts_shape, normalize_function=no_op,
                 level_str,
                 progress_bar_str(float(c + 1) / len(images),
                                  show_bar=False)))
-        parts = i.extract_patches(s, patch_size=parts_shape,
+        parts = i.extract_patches(s, patch_size=patch_shape,
                                   as_single_array=True)
         if normalize_function:
             parts = normalize_function(parts)
