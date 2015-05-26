@@ -301,12 +301,13 @@ class ModelFitter(MultiFitter):
                                  'or a list containing 1 or {} of '
                                  'those'.format(self._model.n_levels))
 
-    def perturb_shape(self, gt_shape, noise_std=0.04, rotation=False):
+    # TODO: Fix me!
+    def perturb_shape(self, gt_shape, noise_std=10, rotation=False):
         transform = noisy_align(AlignmentSimilarity, self.reference_shape,
-                                gt_shape, noise_std=noise_std,
-                                rotation=rotation)
+                                gt_shape, noise_std=noise_std)
         return transform.apply(self.reference_shape)
 
+    # TODO: Bounding boxes should be PointGraphs
     def obtain_shape_from_bb(self, bounding_box):
         r"""
         Generates an initial shape given a bounding box detection.
