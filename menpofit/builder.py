@@ -181,8 +181,7 @@ def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
                                  show_bar=False)))
         parts = i.extract_patches(s, patch_size=patch_shape,
                                   as_single_array=True)
-        if normalize_function:
-            parts = normalize_function(parts)
+        parts = normalize_function(parts)
         parts_images.append(Image(parts))
     return parts_images
 
