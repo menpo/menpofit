@@ -1,14 +1,13 @@
 from __future__ import division
-
 import numpy as np
 from menpo.shape import TriMesh
+from menpofit.transform import DifferentiableThinPlateSplines
+from menpofit.base import name_of_callable
+from menpofit.aam.builder import (
+    build_patch_reference_frame, build_reference_frame)
 
-from menpofit.base import DeformableModel, name_of_callable
-from menpofit.aam.builder import (build_patch_reference_frame,
-                                  build_reference_frame)
 
-
-class ATM(DeformableModel):
+class ATM(object):
     r"""
     Active Template Model class.
 
@@ -20,14 +19,15 @@ class ATM(DeformableModel):
     warped_templates : :map:`MaskedImage` list
         A list containing the warped templates models of the ATM.
 
-    n_training_shapes: `int`
-        The number of training shapes used to build the ATM.
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
 
     transform : :map:`PureAlignmentTransform`
         The transform used to warp the images from which the AAM was
         constructed.
 
-    features : `callable` or ``[callable]``, optional
+    features : `callable` or ``[callable]``,
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
@@ -41,46 +41,42 @@ class ATM(DeformableModel):
         once and then creating a pyramid on top tends to lead to better
         performing AAMs.
 
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
+    scales : `int` or float` or list of those, optional
 
-    downscale : `float`
-        The downscale factor that was used to create the different pyramidal
-        levels.
+    scale_shapes : `boolean`
 
-    scaled_shape_models : `boolean`, optional
-        If ``True``, the reference frames are the mean shapes of each pyramid
-        level, so the shape models are scaled.
-
-        If ``False``, the reference frames of all levels are the mean shape of
-        the highest level, so the shape models are not scaled; they have the
-        same size.
-
-        Note that from our experience, if scaled_shape_models is ``False``, AAMs
-        tend to have slightly better performance.
+    scale_features : `boolean`
 
     """
-    def __init__(self, shape_models, warped_templates, n_training_shapes,
-                 transform, features, reference_shape, downscale,
-                 scaled_shape_models):
-        DeformableModel.__init__(self, features)
-        self.n_training_shapes = n_training_shapes
+    def __init__(self, shape_models, warped_templates, reference_shape,
+                 transform, features, scales, scale_shapes, scale_features):
         self.shape_models = shape_models
         self.warped_templates = warped_templates
         self.transform = transform
+        self.features = features
         self.reference_shape = reference_shape
-        self.downscale = downscale
-        self.scaled_shape_models = scaled_shape_models
+        self.scales = scales
+        self.scale_shapes = scale_shapes
+        self.scale_features = scale_features
 
     @property
     def n_levels(self):
         """
-        The number of multi-resolution pyramidal levels of the ATM.
+        The number of scale level of the ATM.
 
         :type: `int`
         """
-        return len(self.warped_templates)
+        return len(self.scales)
+
+    # TODO: Could we directly use class names instead of this?
+    @property
+    def _str_title(self):
+        r"""
+        Returns a string containing name of the model.
+
+        :type: `string`
+        """
+        return 'Active Template Model'
 
     def instance(self, shape_weights=None, level=-1):
         r"""
@@ -140,8 +136,12 @@ class ATM(DeformableModel):
         template = self.warped_templates[level]
         landmarks = template.landmarks['source'].lms
 
-        reference_frame = self._build_reference_frame(
-            shape_instance, landmarks)
+        if type(landmarks) == TriMesh:
+            trilist = landmarks.trilist
+        else:
+            trilist = None
+        reference_frame = build_reference_frame(shape_instance,
+                                                trilist=trilist)
 
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
@@ -149,26 +149,9 @@ class ATM(DeformableModel):
         return template.warp_to_mask(reference_frame.mask, transform,
                                      warp_landmarks=True)
 
-    def _build_reference_frame(self, reference_shape, landmarks):
-        if type(landmarks) == TriMesh:
-            trilist = landmarks.trilist
-        else:
-            trilist = None
-        return build_reference_frame(
-            reference_shape, trilist=trilist)
-
-    @property
-    def _str_title(self):
-        r"""
-        Returns a string containing name of the model.
-
-        :type: `string`
-        """
-        return 'Active Template Model'
-
     def view_shape_models_widget(self, n_parameters=5,
-                                 parameters_bounds=(-3.0, 3.0), mode='multiple',
-                                 popup=False, figure_size=(10, 8)):
+                                 parameters_bounds=(-3.0, 3.0),
+                                 mode='multiple', figure_size=(10, 8)):
         r"""
         Visualizes the shape models of the AAM object using the
         `menpo.visualize.widgets.visualize_shape_model` widget.
@@ -189,19 +172,18 @@ class ATM(DeformableModel):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu.
             If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
         from menpofit.visualize import visualize_shape_model
         visualize_shape_model(self.shape_models, n_parameters=n_parameters,
                               parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode, popup=popup)
+                              figure_size=figure_size, mode=mode)
 
+    # TODO: fix me!
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        popup=False, figure_size=(10, 8)):
+                        figure_size=(10, 8)):
         r"""
         Visualizes the ATM object using the
         menpo.visualize.widgets.visualize_atm widget.
@@ -221,17 +203,16 @@ class ATM(DeformableModel):
         mode : {``single``, ``multiple``}, optional
             If ``'single'``, only a single slider is constructed along with a
             drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
+            If ``'multiple'``, a slider is constructed for each pp window.
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
         from menpofit.visualize import visualize_atm
         visualize_atm(self, n_shape_parameters=n_shape_parameters,
                       parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode, popup=popup)
+                      figure_size=figure_size, mode=mode)
 
+    # TODO: fix me!
     def __str__(self):
         out = "{}\n - {} training shapes.\n".format(self._str_title,
                                                     self.n_training_shapes)
@@ -332,7 +313,7 @@ class ATM(DeformableModel):
         return out
 
 
-class PatchBasedATM(ATM):
+class PatchATM(ATM):
     r"""
     Patch Based Active Template Model class.
 
@@ -344,14 +325,92 @@ class PatchBasedATM(ATM):
     warped_templates : :map:`MaskedImage` list
         A list containing the warped templates models of the ATM.
 
-    n_training_shapes: `int`
-        The number of training shapes used to build the ATM.
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
 
     patch_shape : tuple of `int`
-        The shape of the patches used to build the Patch Based ATM.
+        The shape of the patches used to build the Patch Based AAM.
+
+    features : `callable` or ``[callable]``
+        If list of length ``n_levels``, feature extraction is performed at
+        each level after downscaling of the image.
+        The first element of the list specifies the features to be extracted at
+        the lowest pyramidal level and so on.
+
+        If ``callable`` the specified feature will be applied to the original
+        image and pyramid generation will be performed on top of the feature
+        image. Also see the `pyramid_on_features` property.
+
+        Note that from our experience, this approach of extracting features
+        once and then creating a pyramid on top tends to lead to better
+        performing AAMs.
+
+    scales : `int` or float` or list of those
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
+    """
+    def __init__(self, shape_models, warped_templates, reference_shape,
+                 patch_shape, features, scales, scale_shapes, scale_features):
+        self.shape_models = shape_models
+        self.warped_templates = warped_templates
+        self.transform = DifferentiableThinPlateSplines
+        self.patch_shape = patch_shape
+        self.features = features
+        self.reference_shape = reference_shape
+        self.scales = scales
+        self.scale_shapes = scale_shapes
+        self.scale_features = scale_features
+
+    @property
+    def _str_title(self):
+        return 'Patch-Based Active Template Model'
+
+    def _instance(self, level, shape_instance):
+        template = self.warped_templates[level]
+        landmarks = template.landmarks['source'].lms
+
+        reference_frame = build_patch_reference_frame(
+            shape_instance, patch_shape=self.patch_shape)
+
+        transform = self.transform(
+            reference_frame.landmarks['source'].lms, landmarks)
+
+        return template.warp_to_mask(reference_frame.mask, transform,
+                                     warp_landmarks=True)
+
+    # TODO: fix me!
+    def __str__(self):
+        out = super(PatchBasedATM, self).__str__()
+        out_splitted = out.splitlines()
+        out_splitted[0] = self._str_title
+        out_splitted.insert(5, "   - Patch size is {}W x {}H.".format(
+            self.patch_shape[1], self.patch_shape[0]))
+        return '\n'.join(out_splitted)
+
+
+# TODO: document me!
+class LinearATM(ATM):
+    r"""
+    Linear Active Template Model class.
+
+    Parameters
+    -----------
+    shape_models : :map:`PCAModel` list
+        A list containing the shape models of the AAM.
+
+    warped_templates : :map:`MaskedImage` list
+        A list containing the warped templates models of the ATM.
+
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
 
     transform : :map:`PureAlignmentTransform`
-        The transform used to warp the images from which the ATM was
+        The transform used to warp the images from which the AAM was
         constructed.
 
     features : `callable` or ``[callable]``, optional
@@ -368,51 +427,179 @@ class PatchBasedATM(ATM):
         once and then creating a pyramid on top tends to lead to better
         performing AAMs.
 
+    scales : `int` or float` or list of those
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
+    """
+    def __init__(self, shape_models, warped_templates, reference_shape,
+                 transform, features, scales, scale_shapes, scale_features,
+                 n_landmarks):
+        self.shape_models = shape_models
+        self.warped_templates = warped_templates
+        self.transform = transform
+        self.features = features
+        self.reference_shape = reference_shape
+        self.scales = scales
+        self.scale_shapes = scale_shapes
+        self.scale_features = scale_features
+        self.n_landmarks = n_landmarks
+
+    # TODO: implement me!
+    def _instance(self, level, shape_instance):
+        raise NotImplemented
+
+    # TODO: implement me!
+    def view_atm_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
+                        parameters_bounds=(-3.0, 3.0), mode='multiple',
+                        figure_size=(10, 8)):
+        raise NotImplemented
+
+    # TODO: implement me!
+    def __str__(self):
+        raise NotImplemented
+
+
+# TODO: document me!
+class LinearPatchATM(ATM):
+    r"""
+    Linear Patch based Active Template Model class.
+
+    Parameters
+    -----------
+    shape_models : :map:`PCAModel` list
+        A list containing the shape models of the AAM.
+
+    warped_templates : :map:`MaskedImage` list
+        A list containing the warped templates models of the ATM.
+
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
 
-    downscale : `float`
-        The downscale factor that was used to create the different pyramidal
-        levels.
+    patch_shape : tuple of `int`
+        The shape of the patches used to build the Patch Based AAM.
 
-    scaled_shape_models : `boolean`, optional
-        If ``True``, the reference frames are the mean shapes of each pyramid
-        level, so the shape models are scaled.
+    features : `callable` or ``[callable]``
+        If list of length ``n_levels``, feature extraction is performed at
+        each level after downscaling of the image.
+        The first element of the list specifies the features to be extracted at
+        the lowest pyramidal level and so on.
 
-        If ``False``, the reference frames of all levels are the mean shape of
-        the highest level, so the shape models are not scaled; they have the
-        same size.
+        If ``callable`` the specified feature will be applied to the original
+        image and pyramid generation will be performed on top of the feature
+        image. Also see the `pyramid_on_features` property.
 
-        Note that from our experience, if ``scaled_shape_models`` is ``False``,
-        AAMs tend to have slightly better performance.
+        Note that from our experience, this approach of extracting features
+        once and then creating a pyramid on top tends to lead to better
+        performing AAMs.
+
+    scales : `int` or float` or list of those
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
+    n_landmarks: `int`
 
     """
-    def __init__(self, shape_models, warped_templates, n_training_shapes,
-                 patch_shape, transform, features, reference_shape,
-                 downscale, scaled_shape_models):
-        super(PatchBasedATM, self).__init__(
-            shape_models, warped_templates, n_training_shapes, transform,
-            features, reference_shape, downscale, scaled_shape_models)
+    def __init__(self, shape_models, warped_templates, reference_shape,
+                 patch_shape, features, scales, scale_shapes,
+                 scale_features, n_landmarks):
+        self.shape_models = shape_models
+        self.warped_templates = warped_templates
+        self.transform = DifferentiableThinPlateSplines
         self.patch_shape = patch_shape
+        self.features = features
+        self.reference_shape = reference_shape
+        self.scales = scales
+        self.scale_shapes = scale_shapes
+        self.scale_features = scale_features
+        self.n_landmarks = n_landmarks
 
-    def _build_reference_frame(self, reference_shape, landmarks):
-        return build_patch_reference_frame(
-            reference_shape, patch_shape=self.patch_shape)
+    # TODO: implement me!
+    def _instance(self, level, shape_instance):
+        raise NotImplemented
 
-    @property
-    def _str_title(self):
-        r"""
-        Returns a string containing name of the model.
+    # TODO: implement me!
+    def view_atm_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
+                        parameters_bounds=(-3.0, 3.0), mode='multiple',
+                        figure_size=(10, 8)):
+        raise NotImplemented
 
-        :type: `string`
-        """
-        return 'Patch-Based Active Template Model'
-
+    # TODO: implement me!
     def __str__(self):
-        out = super(PatchBasedATM, self).__str__()
-        out_splitted = out.splitlines()
-        out_splitted[0] = self._str_title
-        out_splitted.insert(5, "   - Patch size is {}W x {}H.".format(
-            self.patch_shape[1], self.patch_shape[0]))
-        return '\n'.join(out_splitted)
+        raise NotImplemented
+
+
+# TODO: document me!
+class PartsATM(ATM):
+    r"""
+    Parts based Active Template Model class.
+
+    Parameters
+    -----------
+    shape_models : :map:`PCAModel` list
+        A list containing the shape models of the AAM.
+
+    warped_templates : :map:`MaskedImage` list
+        A list containing the warped templates models of the ATM.
+
+    reference_shape : :map:`PointCloud`
+        The reference shape that was used to resize all training images to a
+        consistent object size.
+
+    patch_shape : tuple of `int`
+        The shape of the patches used to build the Patch Based AAM.
+
+    features : `callable` or ``[callable]``
+        If list of length ``n_levels``, feature extraction is performed at
+        each level after downscaling of the image.
+        The first element of the list specifies the features to be extracted at
+        the lowest pyramidal level and so on.
+
+        If ``callable`` the specified feature will be applied to the original
+        image and pyramid generation will be performed on top of the feature
+        image. Also see the `pyramid_on_features` property.
+
+        Note that from our experience, this approach of extracting features
+        once and then creating a pyramid on top tends to lead to better
+        performing AAMs.
+
+    normalize_parts: `callable`
+
+    scales : `int` or float` or list of those
+
+    scale_shapes : `boolean`
+
+    scale_features : `boolean`
+
+    """
+    def __init__(self, shape_models, warped_templates, reference_shape,
+                 patch_shape, features, normalize_parts, scales,
+                 scale_shapes, scale_features):
+        self.shape_models = shape_models
+        self.warped_templates = warped_templates
+        self.patch_shape = patch_shape
+        self.features = features
+        self.normalize_parts = normalize_parts
+        self.reference_shape = reference_shape
+        self.scales = scales
+        self.scale_shapes = scale_shapes
+        self.scale_features = scale_features
+
+    # TODO: implement me!
+    def _instance(self, level, shape_instance):
+        raise NotImplemented
+
+    # TODO: implement me!
+    def view_atm_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
+                        parameters_bounds=(-3.0, 3.0), mode='multiple',
+                        figure_size=(10, 8)):
+        raise NotImplemented
+
+    # TODO: implement me!
+    def __str__(self):
+        raise NotImplemented
