@@ -9,7 +9,7 @@ import IPython.display as ipydisplay
 from menpo.visualize.widgets import (RendererOptionsWidget,
                                      ChannelOptionsWidget,
                                      LandmarkOptionsWidget, TextPrintWidget,
-                                     AnimationOptionsWidget,
+                                     AnimationOptionsWidget, GraphOptionsWidget,
                                      SaveFigureOptionsWidget)
 from menpo.visualize.widgets.tools import (_format_box, LogoWidget,
                                            _map_styles_to_hex_colours)
@@ -1219,7 +1219,6 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
     # Define the styling options
     if style == 'coloured':
         model_style = 'info'
-        model_tab_style = 'danger'
         model_parameters_style = 'danger'
         channels_style = 'danger'
         landmarks_style = 'danger'
@@ -1233,7 +1232,6 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         save_figure_style = 'danger'
     elif style == 'minimal':
         model_style = ''
-        model_tab_style = ''
         model_parameters_style = 'minimal'
         channels_style = 'minimal'
         landmarks_style = 'minimal'
@@ -1525,7 +1523,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
         tmp_children.insert(0, level_wid)
-    tmp_wid = ipywidgets.HBox(children=tmp_children, 
+    tmp_wid = ipywidgets.HBox(children=tmp_children, align='center',
                               box_style=model_style)
     options_box = ipywidgets.Tab(children=[tmp_wid, channel_options_wid,
                                            landmark_options_wid,
@@ -1551,3 +1549,217 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
 
     # Reset value to trigger initial visualization
     renderer_options_wid.options_widgets[2].render_axes_checkbox.value = False
+
+def plot_ced(errors, legend_entries=None, error_range=None,
+             error_type='me_norm', figure_size=(10, 6), style='coloured',
+             return_widget=False):
+    r"""
+    Widget for visualizing the cumulative error curves of the provided errors.
+
+    Parameters
+    ----------
+    errors : `list` of `lists` of `float`
+        A `list` that stores a `list` of errors to be plotted.
+    legend_entries : `list` or `str` or ``None``, optional
+        The `list` of names that will appear on the legend for each curve. If
+        ``None``, then the names format is ``Curve {}.format(i)``.
+    error_range : `list` of `float` with length 3, optional
+        Specifies the horizontal axis range, i.e. ::
+
+            error_range[0] = min_error
+            error_range[1] = max_error
+            error_range[2] = error_step
+
+        If ``None``, then ::
+
+            error_range = [0., 0.101, 0.005] for error_type = 'me_norm'
+            error_range = [0., 20., 1.] for error_type = 'me'
+            error_range = [0., 20., 1.] for error_type = 'rmse'
+
+    error_type : {``'me_norm'``, ``'me'``, ``'rmse'``}, optional
+        Specifies the type of the provided errors.
+    figure_size : (`int`, `int`), optional
+        The initial size of the rendered figure.
+    style : {``'coloured'``, ``'minimal'``}, optional
+        If ``'coloured'``, then the style of the widget will be coloured. If
+        ``minimal``, then the style is simple using black and white colours.
+    return_widget : `bool`, optional
+        If ``True``, the widget object will be returned so that it can be used
+        as part of a parent widget. If ``False``, the widget object is not
+        returned, it is just visualized.
+    """
+    from menpofit.fittingresult import plot_cumulative_error_distribution
+    print('Initializing...')
+
+    # Make sure that errors is a list even with one list member
+    if not isinstance(errors[0], list):
+        errors = [errors]
+
+    # Get number of curves to be plotted
+    n_curves = len(errors)
+
+    # Define the styling options
+    if style == 'coloured':
+        logo_style = 'danger'
+        widget_box_style = 'danger'
+        tabs_style = 'warning'
+        renderer_tabs_style = 'info'
+        save_figure_style = 'warning'
+    else:
+        logo_style = 'minimal'
+        widget_box_style = 'minimal'
+        tabs_style = 'minimal'
+        renderer_tabs_style = 'minimal'
+        save_figure_style = 'minimal'
+
+    # Parse options
+    if legend_entries is None:
+        legend_entries = ["Curve {}".format(i) for i in range(n_curves)]
+
+    # Get horizontal axis errors
+    if error_range is None:
+        if error_type == 'me_norm':
+            error_range = [0., 0.101, 0.005]
+            x_axis_limit = 0.05
+            x_axis_step = 0.005
+            x_label = 'Normalized Point-to-Point Error'
+        elif error_type == 'me' or error_type == 'rmse':
+            error_range = [0., 20., 0.5]
+            x_axis_limit = 5.
+            x_axis_step = 0.5
+            x_label = 'Point-to-Point Error'
+        else:
+            raise ValueError('error_type must be me_norm or me or rmse')
+    else:
+        x_axis_limit = (error_range[1] + error_range[0]) / 2
+        x_axis_step = error_range[2]
+        x_label = 'Error'
+    y_slider_options = (0., 1., 0.05)
+    y_label = 'Images Proportion'
+    title = 'Cumulative error distribution'
+
+    # Get initial line and marker colours for each curve
+    if n_curves == 1:
+        line_colours = ['b']
+        marker_edge_colours = ['b']
+    else:
+        colours_tmp = sample_colours_from_colourmap(n_curves, 'jet')
+        line_colours = [list(i) for i in colours_tmp]
+        marker_edge_colours = [list(i) for i in colours_tmp]
+
+    # Initial options dictionaries
+    graph_options = {'legend_entries': legend_entries, 'x_label': x_label,
+                     'y_label': y_label, 'title': title,
+                     'x_axis_limits': [0., x_axis_limit],
+                     'y_axis_limits': [0., 1.],
+                     'render_lines': [True] * n_curves,
+                     'line_colour': line_colours,
+                     'line_style': ['-'] * n_curves,
+                     'line_width': [2] * n_curves,
+                     'render_markers': [True] * n_curves,
+                     'marker_style': ['s'] * n_curves,
+                     'marker_size': [8] * n_curves,
+                     'marker_face_colour': ['w'] * n_curves,
+                     'marker_edge_colour': marker_edge_colours,
+                     'marker_edge_width': [2] * n_curves,
+                     'render_legend': n_curves > 1, 'legend_title': '',
+                     'legend_font_name': 'sans-serif',
+                     'legend_font_style': 'normal', 'legend_font_size': 10,
+                     'legend_font_weight': 'normal', 'legend_marker_scale': 1.,
+                     'legend_location': 2, 'legend_bbox_to_anchor': (1.05, 1.),
+                     'legend_border_axes_pad': 1., 'legend_n_columns': 1,
+                     'legend_horizontal_spacing': 1.,
+                     'legend_vertical_spacing': 1., 'legend_border': True,
+                     'legend_border_padding': 0.5, 'legend_shadow': False,
+                     'legend_rounded_corners': False, 'render_axes': False,
+                     'axes_font_name': 'sans-serif', 'axes_font_size': 10,
+                     'axes_font_style': 'normal', 'axes_font_weight': 'normal',
+                     'figure_size': figure_size, 'render_grid': True,
+                     'grid_line_style': '--', 'grid_line_width': 1}
+
+    # Define render function
+    def render_function(name, value):
+        # Clear current figure, but wait until the generation of the new data
+        # that will be rendered
+        ipydisplay.clear_output(wait=True)
+
+        # plot with selected options
+        opts = wid.selected_values
+        renderer = plot_cumulative_error_distribution(
+            errors, error_range=[opts['x_axis_limits'][0],
+                                 1.0001 * opts['x_axis_limits'][1],
+                                 x_axis_step],
+            figure_id=save_figure_wid.renderer.figure_id, new_figure=False,
+            title=opts['title'], x_label=opts['x_label'],
+            y_label=opts['y_label'], legend_entries=opts['legend_entries'],
+            render_lines=opts['render_lines'], line_colour=opts['line_colour'],
+            line_style=opts['line_style'], line_width=opts['line_width'],
+            render_markers=opts['render_markers'],
+            marker_style=opts['marker_style'], marker_size=opts['marker_size'],
+            marker_face_colour=opts['marker_face_colour'],
+            marker_edge_colour=opts['marker_edge_colour'],
+            marker_edge_width=opts['marker_edge_width'],
+            render_legend=opts['render_legend'],
+            legend_title=opts['legend_title'],
+            legend_font_name=opts['legend_font_name'],
+            legend_font_style=opts['legend_font_style'],
+            legend_font_size=opts['legend_font_size'],
+            legend_font_weight=opts['legend_font_weight'],
+            legend_marker_scale=opts['legend_marker_scale'],
+            legend_location=opts['legend_location'],
+            legend_bbox_to_anchor=opts['legend_bbox_to_anchor'],
+            legend_border_axes_pad=opts['legend_border_axes_pad'],
+            legend_n_columns=opts['legend_n_columns'],
+            legend_horizontal_spacing=opts['legend_horizontal_spacing'],
+            legend_vertical_spacing=opts['legend_vertical_spacing'],
+            legend_border=opts['legend_border'],
+            legend_border_padding=opts['legend_border_padding'],
+            legend_shadow=opts['legend_shadow'],
+            legend_rounded_corners=opts['legend_rounded_corners'],
+            render_axes=opts['render_axes'],
+            axes_font_name=opts['axes_font_name'],
+            axes_font_size=opts['axes_font_size'],
+            axes_font_style=opts['axes_font_style'],
+            axes_font_weight=opts['axes_font_weight'],
+            axes_x_limits=opts['x_axis_limits'],
+            axes_y_limits=opts['y_axis_limits'],
+            figure_size=opts['figure_size'], render_grid=opts['render_grid'],
+            grid_line_style=opts['grid_line_style'],
+            grid_line_width=opts['grid_line_width'])
+
+        # show plot
+        plt.show()
+
+        # Save the current figure id
+        save_figure_wid.renderer = renderer
+
+    # Create widgets
+    wid = GraphOptionsWidget(graph_options, error_range, y_slider_options,
+                             render_function=render_function,
+                             style=widget_box_style, tabs_style=tabs_style,
+                             renderer_tabs_style=renderer_tabs_style)
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = SaveFigureOptionsWidget(initial_renderer,
+                                              style=save_figure_style)
+
+    # Group widgets
+    logo = LogoWidget(style=logo_style)
+    logo.margin = '0.1cm'
+    wid.options_tab.children = [wid.graph_related_options, wid.renderer_widget,
+                                save_figure_wid]
+    wid.options_tab.set_title(0, 'Graph')
+    wid.options_tab.set_title(1, 'Renderer')
+    wid.options_tab.set_title(2, 'Export')
+    wid.children = [logo, wid.options_tab]
+    wid.align = 'start'
+
+    # Display final widget
+    ipydisplay.display(wid)
+
+    # Reset value to trigger initial visualization
+    wid.renderer_widget.options_widgets[3].render_axes_checkbox.value = True
+
+    # return widget object if asked
+    if return_widget:
+        return wid
