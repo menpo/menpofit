@@ -466,7 +466,7 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
         self.plot_button.on_click(self._variance_function, remove=True)
         self._variance_function = None
 
-    def replace_variancer_function(self, variance_function):
+    def replace_variance_function(self, variance_function):
         r"""
         Method that replaces the current `self._variance_function()` of the
         `Variance` button of the widget with the given `variance_function()`.
