@@ -1202,7 +1202,7 @@ class FittingResultIterationsOptionsWidget(ipywidgets.FlexBox):
             children=[self.index_animation,
                       self.index_slider_and_common_figure])
         self.iterations_mode_and_sliders = ipywidgets.HBox(
-            children=[self.iterations_mode, self.index_box], align='center',
+            children=[self.iterations_mode, self.index_box], align='start',
             margin='0.2cm')
         self.plot_displacements = ipywidgets.HBox(
             children=[self.plot_displacements_button,

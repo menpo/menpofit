@@ -13,7 +13,8 @@ from menpo.visualize.widgets import (RendererOptionsWidget,
                                      SaveFigureOptionsWidget)
 from menpo.visualize.widgets.tools import (_format_box, LogoWidget,
                                            _map_styles_to_hex_colours)
-from menpo.visualize.widgets.base import _extract_groups_labels, _visualize
+from menpo.visualize.widgets.base import _extract_groups_labels
+from menpo.visualize.widgets.base import _visualize as _visualize_menpo
 from menpo.visualize.viewmatplotlib import (MatplotlibImageViewer2d,
                                             sample_colours_from_colourmap,
                                             MatplotlibSubplots)
@@ -578,7 +579,7 @@ def visualize_appearance_model(appearance_model, n_parameters=5,
         marker_edge_colour = [tmp2['marker_edge_colour'][lbl_idx]
                               for lbl_idx in with_labels_idx]
 
-        renderer = _visualize(
+        renderer = _visualize_menpo(
             instance, save_figure_wid.renderer,
             landmark_options_wid.selected_values['render_landmarks'],
             channel_options_wid.selected_values['image_is_masked'],
@@ -923,7 +924,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         marker_edge_colour = [tmp2['marker_edge_colour'][lbl_idx]
                               for lbl_idx in with_labels_idx]
 
-        renderer = _visualize(
+        renderer = _visualize_menpo(
             instance, save_figure_wid.renderer,
             landmark_options_wid.selected_values['render_landmarks'],
             channel_options_wid.selected_values['image_is_masked'],
@@ -1342,7 +1343,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         marker_edge_colour = [tmp2['marker_edge_colour'][lbl_idx]
                               for lbl_idx in with_labels_idx]
 
-        renderer = _visualize(
+        renderer = _visualize_menpo(
             instance, save_figure_wid.renderer,
             landmark_options_wid.selected_values['render_landmarks'],
             channel_options_wid.selected_values['image_is_masked'],
@@ -1763,3 +1764,853 @@ def plot_ced(errors, legend_entries=None, error_range=None,
     # return widget object if asked
     if return_widget:
         return wid
+
+def _visualize(image, renderer, render_image, render_landmarks, image_is_masked,
+               masked_enabled, channels, glyph_enabled, glyph_block_size,
+               glyph_use_negative, sum_enabled, groups, with_labels,
+               subplots_enabled, subplots_titles, image_axes_mode,
+               render_lines, line_style, line_width, line_colour,
+               render_markers, marker_style, marker_size, marker_edge_width,
+               marker_edge_colour, marker_face_colour, render_numbering,
+               numbers_horizontal_align, numbers_vertical_align,
+               numbers_font_name, numbers_font_size, numbers_font_style,
+               numbers_font_weight, numbers_font_colour, render_legend,
+               legend_title, legend_font_name, legend_font_style,
+               legend_font_size, legend_font_weight, legend_marker_scale,
+               legend_location, legend_bbox_to_anchor, legend_border_axes_pad,
+               legend_n_columns, legend_horizontal_spacing,
+               legend_vertical_spacing, legend_border, legend_border_padding,
+               legend_shadow, legend_rounded_corners, render_axes,
+               axes_font_name, axes_font_size, axes_font_style,
+               axes_font_weight, axes_x_limits, axes_y_limits, interpolation,
+               alpha, figure_size):
+    import matplotlib.pyplot as plt
+
+    global glyph
+    if glyph is None:
+        from menpo.visualize.image import glyph
+
+    # This makes the code shorter for dealing with masked images vs non-masked
+    # images
+    mask_arguments = ({'masked': masked_enabled}
+                      if image_is_masked else {})
+
+    # plot
+    if render_image:
+        # image will be displayed
+        if render_landmarks and len(groups) > 0:
+            # there are selected landmark groups and they will be displayed
+            if subplots_enabled:
+                # calculate subplots structure
+                subplots = MatplotlibSubplots()._subplot_layout(len(groups))
+            # show image with landmarks
+            for k, group in enumerate(groups):
+                if subplots_enabled:
+                    # create subplot
+                    plt.subplot(subplots[0], subplots[1], k + 1)
+                    if render_legend:
+                        # set subplot's title
+                        plt.title(subplots_titles[group],
+                                  fontname=legend_font_name,
+                                  fontstyle=legend_font_style,
+                                  fontweight=legend_font_weight,
+                                  fontsize=legend_font_size)
+                if glyph_enabled or sum_enabled:
+                    # image, landmarks, masked, glyph
+                    renderer = glyph(image, vectors_block_size=glyph_block_size,
+                                     use_negative=glyph_use_negative,
+                                     channels=channels).\
+                        view_landmarks(
+                            group=group, with_labels=with_labels[k],
+                            without_labels=None, figure_id=renderer.figure_id,
+                            new_figure=False, render_lines=render_lines[k],
+                            line_style=line_style[k], line_width=line_width[k],
+                            line_colour=line_colour[k],
+                            render_markers=render_markers[k],
+                            marker_style=marker_style[k],
+                            marker_size=marker_size[k],
+                            marker_edge_width=marker_edge_width[k],
+                            marker_edge_colour=marker_edge_colour[k],
+                            marker_face_colour=marker_face_colour[k],
+                            render_numbering=render_numbering,
+                            numbers_horizontal_align=numbers_horizontal_align,
+                            numbers_vertical_align=numbers_vertical_align,
+                            numbers_font_name=numbers_font_name,
+                            numbers_font_size=numbers_font_size,
+                            numbers_font_style=numbers_font_style,
+                            numbers_font_weight=numbers_font_weight,
+                            numbers_font_colour=numbers_font_colour,
+                            render_legend=render_legend and not subplots_enabled,
+                            legend_title=legend_title,
+                            legend_font_name=legend_font_name,
+                            legend_font_style=legend_font_style,
+                            legend_font_size=legend_font_size,
+                            legend_font_weight=legend_font_weight,
+                            legend_marker_scale=legend_marker_scale,
+                            legend_location=legend_location,
+                            legend_bbox_to_anchor=legend_bbox_to_anchor,
+                            legend_border_axes_pad=legend_border_axes_pad,
+                            legend_n_columns=legend_n_columns,
+                            legend_horizontal_spacing=legend_horizontal_spacing,
+                            legend_vertical_spacing=legend_vertical_spacing,
+                            legend_border=legend_border,
+                            legend_border_padding=legend_border_padding,
+                            legend_shadow=legend_shadow,
+                            legend_rounded_corners=legend_rounded_corners,
+                            render_axes=render_axes,
+                            axes_font_name=axes_font_name,
+                            axes_font_size=axes_font_size,
+                            axes_font_style=axes_font_style,
+                            axes_font_weight=axes_font_weight,
+                            axes_x_limits=axes_x_limits,
+                            axes_y_limits=axes_y_limits,
+                            interpolation=interpolation, alpha=alpha,
+                            figure_size=figure_size, **mask_arguments)
+                else:
+                    # image, landmarks, masked, not glyph
+                    renderer = image.view_landmarks(
+                        channels=channels, group=group,
+                        with_labels=with_labels[k], without_labels=None,
+                        figure_id=renderer.figure_id, new_figure=False,
+                        render_lines=render_lines[k], line_style=line_style[k],
+                        line_width=line_width[k], line_colour=line_colour[k],
+                        render_markers=render_markers[k],
+                        marker_style=marker_style[k],
+                        marker_size=marker_size[k],
+                        marker_edge_width=marker_edge_width[k],
+                        marker_edge_colour=marker_edge_colour[k],
+                        marker_face_colour=marker_face_colour[k],
+                        render_numbering=render_numbering,
+                        numbers_horizontal_align=numbers_horizontal_align,
+                        numbers_vertical_align=numbers_vertical_align,
+                        numbers_font_name=numbers_font_name,
+                        numbers_font_size=numbers_font_size,
+                        numbers_font_style=numbers_font_style,
+                        numbers_font_weight=numbers_font_weight,
+                        numbers_font_colour=numbers_font_colour,
+                        render_legend=render_legend and not subplots_enabled,
+                        legend_title=legend_title,
+                        legend_font_name=legend_font_name,
+                        legend_font_style=legend_font_style,
+                        legend_font_size=legend_font_size,
+                        legend_font_weight=legend_font_weight,
+                        legend_marker_scale=legend_marker_scale,
+                        legend_location=legend_location,
+                        legend_bbox_to_anchor=legend_bbox_to_anchor,
+                        legend_border_axes_pad=legend_border_axes_pad,
+                        legend_n_columns=legend_n_columns,
+                        legend_horizontal_spacing=legend_horizontal_spacing,
+                        legend_vertical_spacing=legend_vertical_spacing,
+                        legend_border=legend_border,
+                        legend_border_padding=legend_border_padding,
+                        legend_shadow=legend_shadow,
+                        legend_rounded_corners=legend_rounded_corners,
+                        render_axes=render_axes, axes_font_name=axes_font_name,
+                        axes_font_size=axes_font_size,
+                        axes_font_style=axes_font_style,
+                        axes_font_weight=axes_font_weight,
+                        axes_x_limits=axes_x_limits,
+                        axes_y_limits=axes_y_limits,
+                        interpolation=interpolation, alpha=alpha,
+                        figure_size=figure_size, **mask_arguments)
+        else:
+            # either there are not any landmark groups selected or they won't
+            # be displayed
+            if glyph_enabled or sum_enabled:
+                # image, not landmarks, masked, glyph
+                renderer = glyph(image, vectors_block_size=glyph_block_size,
+                                 use_negative=glyph_use_negative,
+                                 channels=channels).view(
+                    render_axes=render_axes, axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
+                    figure_size=figure_size, interpolation=interpolation,
+                    alpha=alpha, **mask_arguments)
+            else:
+                # image, not landmarks, masked, not glyph
+                renderer = image.view(
+                    channels=channels, render_axes=render_axes,
+                    axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits,
+                    axes_y_limits=axes_y_limits, figure_size=figure_size,
+                    interpolation=interpolation, alpha=alpha, **mask_arguments)
+    else:
+        # image won't be displayed
+        if render_landmarks and len(groups) > 0:
+            # there are selected landmark groups and they will be displayed
+            if subplots_enabled:
+                # calculate subplots structure
+                subplots = MatplotlibSubplots()._subplot_layout(len(groups))
+            # not image, landmarks
+            for k, group in enumerate(groups):
+                if subplots_enabled:
+                    # create subplot
+                    plt.subplot(subplots[0], subplots[1], k + 1)
+                    if render_legend:
+                        # set subplot's title
+                        plt.title(subplots_titles[group],
+                                  fontname=legend_font_name,
+                                  fontstyle=legend_font_style,
+                                  fontweight=legend_font_weight,
+                                  fontsize=legend_font_size)
+                image.landmarks[group].lms.view(
+                    image_view=image_axes_mode, render_lines=render_lines[k],
+                    line_style=line_style[k], line_width=line_width[k],
+                    line_colour=line_colour[k],
+                    render_markers=render_markers[k],
+                    marker_style=marker_style[k], marker_size=marker_size[k],
+                    marker_edge_width=marker_edge_width[k],
+                    marker_edge_colour=marker_edge_colour[k],
+                    marker_face_colour=marker_face_colour[k],
+                    render_axes=render_axes, axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
+                    figure_size=figure_size)
+            if not subplots_enabled:
+                if len(groups) % 2 == 0:
+                    plt.gca().invert_yaxis()
+                if render_legend:
+                    # Options related to legend's font
+                    prop = {'family': legend_font_name,
+                            'size': legend_font_size,
+                            'style': legend_font_style,
+                            'weight': legend_font_weight}
+
+                    # display legend on side
+                    plt.gca().legend(groups, title=legend_title, prop=prop,
+                                     loc=legend_location,
+                                     bbox_to_anchor=legend_bbox_to_anchor,
+                                     borderaxespad=legend_border_axes_pad,
+                                     ncol=legend_n_columns,
+                                     columnspacing=legend_horizontal_spacing,
+                                     labelspacing=legend_vertical_spacing,
+                                     frameon=legend_border,
+                                     borderpad=legend_border_padding,
+                                     shadow=legend_shadow,
+                                     fancybox=legend_rounded_corners,
+                                     markerscale=legend_marker_scale)
+
+    # show plot
+    plt.show()
+
+    return renderer
+
+def visualize_fitting_results(fitting_results, figure_size=(10, 8),
+                              style='coloured', browser_style='buttons'):
+    r"""
+    Widget that allows browsing through a `list` of fitting results.
+
+    Parameters
+    -----------
+    fitting_results : `list` of :map:`FittingResult` or subclass
+        The `list` of fitting results to be displayed. Note that the fitting
+        results can have different attributes between them, i.e. different
+        number of iterations, number of channels etc.
+    figure_size : (`int`, `int`), optional
+        The initial size of the plotted figures.
+    style : {``'coloured'``, ``'minimal'``}, optional
+        If ``'coloured'``, then the style of the widget will be coloured. If
+        ``minimal``, then the style is simple using black and white colours.
+    browser_style : {``'buttons'``, ``'slider'``}, optional
+        It defines whether the selector of the objects will have the form of
+        plus/minus buttons or a slider.
+    """
+    from menpo.image import MaskedImage
+    print('Initializing...')
+
+    # Make sure that fitting_results is a list even with one fitting_result
+    if not isinstance(fitting_results, list):
+        fitting_results = [fitting_results]
+
+    # Get the number of fitting_results
+    n_fitting_results = len(fitting_results)
+
+    # Define the styling options
+    if style == 'coloured':
+        logo_style = 'info'
+        widget_box_style = 'info'
+        widget_border_radius = 10
+        widget_border_width = 1
+        animation_style = 'info'
+        fitting_result_style = 'danger'
+        fitting_result_iterations_style = 'danger'
+        fitting_result_iterations_sliders_style = 'warning'
+        channels_style = 'danger'
+        info_style = 'danger'
+        renderer_style = 'danger'
+        renderer_tabs_style = 'info'
+        save_figure_style = 'danger'
+        plot_ced_but_style = 'primary'
+    else:
+        logo_style = 'minimal'
+        widget_box_style = ''
+        widget_border_radius = 0
+        widget_border_width = 0
+        fitting_result_style = 'minimal'
+        fitting_result_iterations_style = 'minimal'
+        fitting_result_iterations_sliders_style = 'minimal'
+        channels_style = 'minimal'
+        animation_style = 'minimal'
+        info_style = 'minimal'
+        renderer_style = 'minimal'
+        renderer_tabs_style = 'minimal'
+        save_figure_style = 'minimal'
+        plot_ced_but_style = ''
+
+    # Check if all fitting_results have gt_shape in order to show the ced button
+    show_ced = all(f.gt_shape is not None for f in fitting_results)
+
+    # Create dictionaries
+    all_groups = ['final', 'initial', 'ground', 'iterations']
+    groups_final_dict = dict()
+    colour_final_dict = dict()
+    groups_final_dict['initial'] = 'Initial shape'
+    colour_final_dict['initial'] = 'b'
+    groups_final_dict['final'] = 'Final shape'
+    colour_final_dict['final'] = 'r'
+    groups_final_dict['ground'] = 'Ground-truth shape'
+    colour_final_dict['ground'] = 'y'
+    groups_final_dict['iterations'] = 'Iterations'
+    colour_final_dict['iterations'] = 'r'
+
+    # Initial options dictionaries
+    channels_default = 0
+    if fitting_results[0].fitted_image.n_channels == 3:
+        channels_default = None
+    channel_options = \
+        {'n_channels': fitting_results[0].fitted_image.n_channels,
+         'image_is_masked': isinstance(fitting_results[0].fitted_image,
+                                       MaskedImage),
+         'channels': channels_default,
+         'glyph_enabled': False,
+         'glyph_block_size': 3,
+         'glyph_use_negative': False,
+         'sum_enabled': False,
+         'masked_enabled': False}
+    all_groups_keys, _ = _extract_groups_labels(fitting_results[0].fitted_image)
+    fitting_result_options = {'all_groups': all_groups_keys,
+                              'render_image': True,
+                              'selected_groups': ['final'],
+                              'subplots_enabled': True}
+    fitting_result_iterations_options = \
+        {'n_iters': fitting_results[0].n_iters,
+         'image_has_gt_shape': not fitting_results[0].gt_shape is None,
+         'n_points': fitting_results[0].fitted_image.landmarks['final'].lms.n_points,
+         'iter_str': 'iter_',
+         'selected_groups': ['iter_0'],
+         'render_image': True,
+         'subplots_enabled': True,
+         'displacement_type': 'mean'}
+    index = {'min': 0, 'max': n_fitting_results - 1, 'step': 1, 'index': 0}
+    figure_options = {'x_scale': 1., 'y_scale': 1., 'render_axes': True,
+                      'axes_font_name': 'sans-serif', 'axes_font_size': 10,
+                      'axes_font_style': 'normal', 'axes_font_weight': 'normal',
+                      'axes_x_limits': None, 'axes_y_limits': None}
+    numbering_options = {'render_numbering': False,
+                         'numbers_font_name': 'serif',
+                         'numbers_font_size': 10,
+                         'numbers_font_style': 'normal',
+                         'numbers_font_weight': 'normal',
+                         'numbers_font_colour': ['k'],
+                         'numbers_horizontal_align': 'center',
+                         'numbers_vertical_align': 'bottom'}
+    legend_options = {'render_legend': False, 'legend_title': '',
+                      'legend_font_name': 'sans-serif',
+                      'legend_font_style': 'normal', 'legend_font_size': 11,
+                      'legend_font_weight': 'normal', 'legend_marker_scale': 1.,
+                      'legend_location': 2, 'legend_bbox_to_anchor': (1.05, 1.),
+                      'legend_border_axes_pad': 1., 'legend_n_columns': 1,
+                      'legend_horizontal_spacing': 1,
+                      'legend_vertical_spacing': 1., 'legend_border': True,
+                      'legend_border_padding': 0.5, 'legend_shadow': False,
+                      'legend_rounded_corners': True}
+    image_options = {'interpolation': 'bilinear', 'cmap_name': None,
+                     'alpha': 1.0}
+    renderer_options = []
+    for group in all_groups:
+        lines_options = {'render_lines': True, 'line_width': 1,
+                         'line_colour': [colour_final_dict[group]],
+                         'line_style': '-'}
+        marker_options = {'render_markers': True, 'marker_size': 20,
+                          'marker_face_colour': [colour_final_dict[group]],
+                          'marker_edge_colour': [colour_final_dict[group]],
+                          'marker_style': 'o', 'marker_edge_width': 1}
+        tmp = {'lines': lines_options, 'markers': marker_options,
+               'numbering': numbering_options, 'legend': legend_options,
+               'figure': figure_options, 'image': image_options}
+        renderer_options.append(tmp)
+
+    # Define function that plots errors curve
+    def plot_errors_function(name):
+        # Clear current figure, but wait until the new data to be displayed are
+        # generated
+        ipydisplay.clear_output(wait=True)
+
+        # Get selected index
+        im = 0
+        if n_fitting_results > 1:
+            im = image_number_wid.selected_values['index']
+
+        # Render
+        new_figure_size = (
+            renderer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+            renderer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        renderer = fitting_results[im].plot_errors(
+            error_type=error_type_wid.value,
+            figure_id=save_figure_wid.renderer.figure_id,
+            figure_size=new_figure_size)
+
+        # Show figure
+        plt.show()
+
+        # Save the current figure id
+        save_figure_wid.renderer = renderer
+
+    # Define function that plots displacements curve
+    def plot_displacements_function(name, value):
+        # Clear current figure, but wait until the new data to be displayed are
+        # generated
+        ipydisplay.clear_output(wait=True)
+
+        # Get selected index
+        im = 0
+        if n_fitting_results > 1:
+            im = image_number_wid.selected_values['index']
+
+        # Render
+        new_figure_size = (
+            renderer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+            renderer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        d_type = fitting_result_iterations_wid.selected_values[
+            'displacement_type']
+        if (d_type == 'max' or d_type == 'min' or d_type == 'mean' or
+                d_type == 'median'):
+            renderer = fitting_results[im].plot_displacements(
+                figure_id=save_figure_wid.renderer.figure_id,
+                figure_size=new_figure_size, stat_type=d_type)
+        else:
+            all_displacements = fitting_results[im].displacements()
+            d_curve = [iteration_displacements[d_type]
+                       for iteration_displacements in all_displacements]
+            from menpo.visualize import GraphPlotter
+            ylabel = "Displacement of Point {}".format(d_type)
+            title = "Point {} displacement per " \
+                    "iteration of Image {}".format(d_type, im)
+            renderer = GraphPlotter(
+                figure_id=save_figure_wid.renderer.figure_id,
+                new_figure=False, x_axis=range(len(d_curve)), y_axis=[d_curve],
+                title=title, x_label='Iteration', y_label=ylabel,
+                x_axis_limits=(0, len(d_curve)-1), y_axis_limits=None).render(
+                    render_lines=True, line_colour='b', line_style='-',
+                    line_width=2, render_markers=True, marker_style='o',
+                    marker_size=4, marker_face_colour='b',
+                    marker_edge_colour='k', marker_edge_width=1.,
+                    render_legend=False, render_axes=True,
+                    axes_font_name='sans-serif', axes_font_size=10,
+                    axes_font_style='normal', axes_font_weight='normal',
+                    render_grid=True, grid_line_style='--', grid_line_width=0.5,
+                    figure_size=new_figure_size)
+
+        # Show figure
+        plt.show()
+
+        # Save the current figure id
+        save_figure_wid.renderer = renderer
+
+    # Define render function
+    def render_function(name, value):
+        # Clear current figure, but wait until the generation of the new data
+        # that will be rendered
+        ipydisplay.clear_output(wait=True)
+
+        # get selected image
+        im = 0
+        if n_fitting_results > 1:
+            im = image_number_wid.selected_values['index']
+
+        # selected mode: final or iterations
+        final_enabled = False
+        if result_wid.selected_index == 0:
+            final_enabled = True
+
+        # update info text widget
+        update_info('', error_type_wid.value)
+
+        # get selected options
+        if final_enabled:
+            # image object
+            image = fitting_results[im].fitted_image
+            render_image = fitting_result_wid.selected_values['render_image']
+            # groups
+            groups = fitting_result_wid.selected_values['selected_groups']
+            # subplots
+            subplots_enabled = fitting_result_wid.selected_values[
+                'subplots_enabled']
+            subplots_titles = groups_final_dict
+            # lines and markers options
+            render_lines = []
+            line_colour = []
+            line_style = []
+            line_width = []
+            render_markers = []
+            marker_style = []
+            marker_size = []
+            marker_face_colour = []
+            marker_edge_colour = []
+            marker_edge_width = []
+            for g in groups:
+                group_idx = all_groups.index(g)
+                tmp1 = renderer_options_wid.selected_values[group_idx]['lines']
+                tmp2 = renderer_options_wid.selected_values[group_idx]['markers']
+                render_lines.append(tmp1['render_lines'])
+                line_colour.append(tmp1['line_colour'])
+                line_style.append(tmp1['line_style'])
+                line_width.append(tmp1['line_width'])
+                render_markers.append(tmp2['render_markers'])
+                marker_style.append(tmp2['marker_style'])
+                marker_size.append(tmp2['marker_size'])
+                marker_face_colour.append(tmp2['marker_face_colour'])
+                marker_edge_colour.append(tmp2['marker_edge_colour'])
+                marker_edge_width.append(tmp2['marker_edge_width'])
+        else:
+            # image object
+            image = fitting_results[im].iter_image
+            render_image = fitting_result_iterations_wid.selected_values[
+                'render_image']
+            # groups
+            groups = fitting_result_iterations_wid.selected_values[
+                'selected_groups']
+            # subplots
+            subplots_enabled = fitting_result_iterations_wid.selected_values[
+                'subplots_enabled']
+            subplots_titles = dict()
+            iter_str = fitting_result_iterations_wid.selected_values['iter_str']
+            for i, g in enumerate(groups):
+                iter_num = g[len(iter_str)::]
+                subplots_titles[iter_str + iter_num] = "Iteration " + iter_num
+            # lines and markers options
+            group_idx = all_groups.index('iterations')
+            tmp1 = renderer_options_wid.selected_values[group_idx]['lines']
+            tmp2 = renderer_options_wid.selected_values[group_idx]['markers']
+            render_lines = [tmp1['render_lines']] * len(groups)
+            line_style = [tmp1['line_style']] * len(groups)
+            line_width = [tmp1['line_width']] * len(groups)
+            render_markers = [tmp2['render_markers']] * len(groups)
+            marker_style = [tmp2['marker_style']] * len(groups)
+            marker_size = [tmp2['marker_size']] * len(groups)
+            marker_edge_colour = [tmp2['marker_edge_colour']] * len(groups)
+            marker_edge_width = [tmp2['marker_edge_width']] * len(groups)
+            if (subplots_enabled or
+                    fitting_result_iterations_wid.iterations_mode.value ==
+                    'animation'):
+                line_colour = [tmp1['line_colour']] * len(groups)
+                marker_face_colour = [tmp2['marker_face_colour']] * len(groups)
+            else:
+                cols = sample_colours_from_colourmap(len(groups), 'jet')
+                line_colour = cols
+                marker_face_colour = cols
+
+        tmp1 = renderer_options_wid.selected_values[0]['numbering']
+        tmp2 = renderer_options_wid.selected_values[0]['legend']
+        tmp3 = renderer_options_wid.selected_values[0]['figure']
+        tmp4 = renderer_options_wid.selected_values[0]['image']
+        new_figure_size = (tmp3['x_scale'] * figure_size[0],
+                           tmp3['y_scale'] * figure_size[1])
+
+        # call helper _visualize
+        renderer = _visualize(
+            image=image, renderer=save_figure_wid.renderer,
+            render_image=render_image, render_landmarks=True,
+            image_is_masked=False, masked_enabled=False,
+            channels=channel_options_wid.selected_values['channels'],
+            glyph_enabled=channel_options_wid.selected_values['glyph_enabled'],
+            glyph_block_size=channel_options_wid.selected_values['glyph_block_size'],
+            glyph_use_negative=channel_options_wid.selected_values['glyph_use_negative'],
+            sum_enabled=channel_options_wid.selected_values['sum_enabled'],
+            groups=groups, with_labels=[None] * len(groups),
+            subplots_enabled=subplots_enabled, subplots_titles=subplots_titles,
+            image_axes_mode=True, render_lines=render_lines,
+            line_style=line_style, line_width=line_width,
+            line_colour=line_colour, render_markers=render_markers,
+            marker_style=marker_style, marker_size=marker_size,
+            marker_edge_width=marker_edge_width,
+            marker_edge_colour=marker_edge_colour,
+            marker_face_colour=marker_face_colour,
+            render_numbering=tmp1['render_numbering'],
+            numbers_horizontal_align=tmp1['numbers_horizontal_align'],
+            numbers_vertical_align=tmp1['numbers_vertical_align'],
+            numbers_font_name=tmp1['numbers_font_name'],
+            numbers_font_size=tmp1['numbers_font_size'],
+            numbers_font_style=tmp1['numbers_font_style'],
+            numbers_font_weight=tmp1['numbers_font_weight'],
+            numbers_font_colour=tmp1['numbers_font_colour'],
+            render_legend=tmp2['render_legend'],
+            legend_title=tmp2['legend_title'],
+            legend_font_name=tmp2['legend_font_name'],
+            legend_font_style=tmp2['legend_font_style'],
+            legend_font_size=tmp2['legend_font_size'],
+            legend_font_weight=tmp2['legend_font_weight'],
+            legend_marker_scale=tmp2['legend_marker_scale'],
+            legend_location=tmp2['legend_location'],
+            legend_bbox_to_anchor=tmp2['legend_bbox_to_anchor'],
+            legend_border_axes_pad=tmp2['legend_border_axes_pad'],
+            legend_n_columns=tmp2['legend_n_columns'],
+            legend_horizontal_spacing=tmp2['legend_horizontal_spacing'],
+            legend_vertical_spacing=tmp2['legend_vertical_spacing'],
+            legend_border=tmp2['legend_border'],
+            legend_border_padding=tmp2['legend_border_padding'],
+            legend_shadow=tmp2['legend_shadow'],
+            legend_rounded_corners=tmp2['legend_rounded_corners'],
+            render_axes=tmp3['render_axes'],
+            axes_font_name=tmp3['axes_font_name'],
+            axes_font_size=tmp3['axes_font_size'],
+            axes_font_style=tmp3['axes_font_style'],
+            axes_font_weight=tmp3['axes_font_weight'],
+            axes_x_limits=tmp3['axes_x_limits'],
+            axes_y_limits=tmp3['axes_y_limits'],
+            interpolation=tmp4['interpolation'],
+            alpha=tmp4['alpha'], figure_size=new_figure_size)
+
+        # Save the current figure id
+        save_figure_wid.renderer = renderer
+
+    # Define function that updates info text
+    def update_info(name, value):
+        # Get selected image
+        im = 0
+        if n_fitting_results > 1:
+            im = image_number_wid.selected_values['index']
+
+        # Create output str
+        if fitting_results[im].gt_shape is not None:
+            text_per_line = [
+                "> Initial error: {:.4f}".format(
+                    fitting_results[im].initial_error(error_type=value)),
+                "> Final error: {:.4f}".format(
+                    fitting_results[im].final_error(error_type=value)),
+                "> {} iterations".format(fitting_results[im].n_iters)]
+        else:
+            text_per_line = [
+                "> {} iterations".format(fitting_results[im].n_iters)]
+        if hasattr(fitting_results[im], 'n_levels'):  # Multilevel result
+            text_per_line.append("> {} levels with downscale of {:.1f}".format(
+                fitting_results[im].n_levels, fitting_results[im].downscale))
+        info_wid.set_widget_state(n_lines=len(text_per_line),
+                                  text_per_line=text_per_line)
+
+    # Create options widgets
+    fitting_result_wid = FittingResultOptionsWidget(
+        fitting_result_options, render_function=render_function,
+        style=fitting_result_style)
+    fitting_result_iterations_wid = FittingResultIterationsOptionsWidget(
+        fitting_result_iterations_options, render_function=render_function,
+        plot_errors_function=plot_errors_function,
+        plot_displacements_function=plot_displacements_function,
+        style=fitting_result_iterations_style,
+        sliders_style=fitting_result_iterations_sliders_style)
+    channel_options_wid = ChannelOptionsWidget(
+        channel_options, render_function=render_function, style=channels_style)
+    renderer_options_wid = RendererOptionsWidget(
+        renderer_options,
+        ['markers', 'lines', 'figure_one', 'legend', 'numbering', 'image'],
+        objects_names=all_groups,
+        object_selection_dropdown_visible=True,
+        render_function=render_function, selected_object=0,
+        style=renderer_style, tabs_style=renderer_tabs_style)
+    info_wid = TextPrintWidget(n_lines=4, text_per_line=[''] * 4,
+                               style=info_style)
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = SaveFigureOptionsWidget(initial_renderer,
+                                              style=save_figure_style)
+
+    # Create error type radio buttons
+    error_type_values = OrderedDict()
+    error_type_values['Point-to-point Normalized Mean Error'] = 'me_norm'
+    error_type_values['Point-to-point Mean Error'] = 'me'
+    error_type_values['RMS Error'] = 'rmse'
+    error_type_wid = ipywidgets.RadioButtons(
+        options=error_type_values, value='me_norm', description='Error type')
+    error_type_wid.on_trait_change(update_info, 'value')
+    plot_ced_but = ipywidgets.Button(description='Plot CED', visible=show_ced,
+                                     button_style=plot_ced_but_style)
+    error_wid = ipywidgets.VBox(children=[error_type_wid, plot_ced_but],
+                                align='center')
+
+    # Invoke plot_ced widget
+    def plot_ced_fun(name):
+        # Make button invisible, so that it cannot be pressed again until
+        # widget closes
+        plot_ced_but.visible = False
+
+        # Get error type
+        error_type = error_type_wid.value
+
+        # Create errors list
+        fit_errors = [f.final_error(error_type=error_type)
+                      for f in fitting_results]
+        initial_errors = [f.initial_error(error_type=error_type)
+                          for f in fitting_results]
+        errors = [fit_errors, initial_errors]
+
+        # Call plot_ced
+        plot_ced_widget = plot_ced(
+            errors, figure_size=(9, 5), error_type=error_type,
+            error_range=None, legend_entries=['Final Fitting',
+                                              'Initialization'],
+            style=style, return_widget=True)
+
+        # If another tab is selected, then close the widget.
+        def close_plot_ced_fun(name, value):
+            if value != 3:
+                plot_ced_widget.close()
+                plot_ced_but.visible = True
+        options_box.on_trait_change(close_plot_ced_fun, 'selected_index')
+
+        # If another error type, then close the widget
+        def close_plot_ced_fun_2(name, value):
+            plot_ced_widget.close()
+            plot_ced_but.visible = True
+        error_type_wid.on_trait_change(close_plot_ced_fun_2, 'value')
+    plot_ced_but.on_click(plot_ced_fun)
+
+    # Define function that updates options' widgets state
+    def update_widgets(name, value):
+        # Get new groups and labels
+        group_keys, labels_keys = _extract_groups_labels(
+            fitting_results[value].fitted_image)
+        # Update channel options
+        tmp_channels = channel_options_wid.selected_values['channels']
+        tmp_glyph_enabled = channel_options_wid.selected_values['glyph_enabled']
+        tmp_sum_enabled = channel_options_wid.selected_values['sum_enabled']
+        if (np.max(tmp_channels) >
+                fitting_results[value].fitted_image.n_channels - 1):
+            tmp_channels = 0
+            tmp_glyph_enabled = False
+            tmp_sum_enabled = False
+        tmp_glyph_block_size = \
+            channel_options_wid.selected_values['glyph_block_size']
+        tmp_glyph_use_negative = \
+            channel_options_wid.selected_values['glyph_use_negative']
+        if (not(fitting_results[value].fitted_image.n_channels == 3) and
+                tmp_channels is None):
+            tmp_channels = 0
+        channel_options = {
+            'n_channels': fitting_results[value].fitted_image.n_channels,
+            'image_is_masked': isinstance(fitting_results[value].fitted_image,
+                                          MaskedImage),
+            'channels': tmp_channels, 'glyph_enabled': tmp_glyph_enabled,
+            'glyph_block_size': tmp_glyph_block_size,
+            'glyph_use_negative': tmp_glyph_use_negative,
+            'sum_enabled': tmp_sum_enabled,
+            'masked_enabled': isinstance(fitting_results[value].fitted_image,
+                                         MaskedImage)}
+        channel_options_wid.set_widget_state(channel_options, False)
+
+        # Update final result's options
+        tmp_groups = []
+        for g in fitting_result_wid.selected_values['selected_groups']:
+            if g in group_keys:
+                tmp_groups.append(g)
+        fitting_result_options = {
+            'all_groups': group_keys, 'selected_groups': tmp_groups,
+            'render_image': fitting_result_wid.selected_values['render_image'],
+            'subplots_enabled':
+                fitting_result_wid.selected_values['subplots_enabled']}
+        fitting_result_wid.set_widget_state(fitting_result_options,
+                                            allow_callback=False)
+
+        # Update iterations result's options
+        fitting_result_iterations_options = {
+            'n_iters': fitting_results[value].n_iters,
+            'image_has_gt_shape': fitting_results[value].gt_shape is not None,
+            'n_points':
+            fitting_results[value].fitted_image.landmarks['final'].lms.n_points,
+            'render_image': None,
+            'iter_str': 'iter_',
+            'selected_groups': ['iter_0'],
+            'subplots_enabled': None,
+            'displacement_type': None}
+        fitting_result_iterations_wid.set_widget_state(
+            fitting_result_iterations_options, allow_callback=True)
+
+    # Group widgets
+    options_wid = ipywidgets.Tab(children=[channel_options_wid,
+                                           renderer_options_wid])
+    options_wid.set_title(0, 'Channels')
+    options_wid.set_title(1, 'Renderer')
+    result_wid = ipywidgets.Tab(children=[fitting_result_wid,
+                                          fitting_result_iterations_wid])
+    result_wid.set_title(0, 'Final')
+    result_wid.set_title(1, 'Iterations')
+    result_wid.on_trait_change(render_function, 'selected_index')
+    if n_fitting_results > 1:
+        # Image selection slider
+        image_number_wid = AnimationOptionsWidget(
+            index, render_function=render_function,
+            update_function=update_widgets, index_style=browser_style,
+            interval=0.3, description='Image', minus_description='<',
+            plus_description='>', loop_enabled=True, text_editable=True,
+            style=animation_style)
+
+        # Header widget
+        header_wid = ipywidgets.HBox(
+            children=[LogoWidget(style=logo_style), image_number_wid],
+            align='start')
+
+        # Define function that combines the results' tab widget with the
+        # animation. Specifically, if the animation is activated and the user
+        # selects the iterations tab, then the animation stops.
+        def results_tab_fun(name, value):
+            if value == 1 and image_number_wid.play_toggle.value:
+                image_number_wid.stop_toggle.value = True
+        result_wid.on_trait_change(results_tab_fun, 'selected_index')
+
+        # Widget titles
+        if show_ced:
+            tab_titles = ['Info', 'Result', 'Options', 'CED', 'Export']
+        else:
+            tab_titles = ['Info', 'Result', 'Options', 'Error type', 'Export']
+    else:
+        # Do not show the plot ced button
+        plot_ced_but.visible = False
+
+        # Header widget
+        header_wid = LogoWidget(style=logo_style)
+        tab_titles = ['Info', 'Result', 'Options', 'Error type', 'Export']
+    header_wid.margin = '0.2cm'
+    options_box = ipywidgets.Tab(
+        children=[info_wid, result_wid, options_wid, error_wid,
+                  save_figure_wid], margin='0.2cm')
+    for (k, tl) in enumerate(tab_titles):
+        options_box.set_title(k, tl)
+    if n_fitting_results > 1:
+        wid = ipywidgets.VBox(children=[header_wid, options_box], align='start')
+    else:
+        wid = ipywidgets.HBox(children=[header_wid, options_box], align='start')
+    if n_fitting_results > 1:
+        # If animation is activated and the user selects the save figure tab,
+        # then the animation stops.
+        def save_fig_tab_fun(name, value):
+            if value == 3 and image_number_wid.play_toggle.value:
+                image_number_wid.stop_toggle.value = True
+        options_box.on_trait_change(save_fig_tab_fun, 'selected_index')
+
+    # Set widget's style
+    wid.box_style = widget_box_style
+    wid.border_radius = widget_border_radius
+    wid.border_width = widget_border_width
+    wid.border_color = _map_styles_to_hex_colours(widget_box_style)
+
+    # Display final widget
+    ipydisplay.display(wid)
+
+    # Reset value to trigger initial visualization
+    renderer_options_wid.options_widgets[3].render_legend_checkbox.value = True
