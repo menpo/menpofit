@@ -120,7 +120,7 @@ class AAM(DeformableModel):
         shape_instance = sm.instance(shape_weights)
         n_appearance_weights = len(appearance_weights)
         appearance_weights *= am.eigenvalues[:n_appearance_weights] ** 0.5
-        appearance_instance = am.instance(appearance_weights)
+        appearance_instance = am.instance(appearance_weights).as_unmasked()
 
         return self._instance(level, shape_instance, appearance_instance)
 
