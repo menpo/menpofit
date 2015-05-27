@@ -2002,8 +2002,8 @@ def _visualize(image, renderer, render_image, render_landmarks, image_is_masked,
 
     return renderer
 
-def visualize_fitting_results(fitting_results, figure_size=(10, 8),
-                              style='coloured', browser_style='buttons'):
+def visualize_fitting_result(fitting_results, figure_size=(10, 8),
+                             style='coloured', browser_style='buttons'):
     r"""
     Widget that allows browsing through a `list` of fitting results.
 
