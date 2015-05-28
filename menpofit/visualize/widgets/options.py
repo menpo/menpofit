@@ -1167,7 +1167,7 @@ class FittingResultIterationsOptionsWidget(ipywidgets.FlexBox):
             'min': 0, 'max': fitting_result_iterations_options['n_iters'] - 1,
             'step': 1, 'index': 0}
         self.index_animation = AnimationOptionsWidget(
-            self.index_selection, description='',
+            self.index_selection, description='', style=sliders_style,
             index_style='slider', loop_enabled=False, interval=0.2)
         self.index_slider = ipywidgets.IntRangeSlider(
             min=0, max=fitting_result_iterations_options['n_iters'] - 1, step=1,
@@ -1252,7 +1252,7 @@ class FittingResultIterationsOptionsWidget(ipywidgets.FlexBox):
                 self.index_animation.index_wid.slider.value = val
             else:
                 # Stop the animation
-                self.index_animation.stop_toggle.value = True
+                self.index_animation.play_stop_toggle.value = False
                 # Get value that needs to be assigned
                 val = self.index_animation.selected_values['index']
                 # Update visibility
@@ -1376,10 +1376,8 @@ class FittingResultIterationsOptionsWidget(ipywidgets.FlexBox):
                     sliders_border_style, sliders_border_width,
                     sliders_border_radius, 0, '0.2cm')
         if sliders_box_style == '' or sliders_box_style is None:
-            self.index_animation.play_toggle.button_style = ''
-            self.index_animation.play_toggle.font_weight = 'normal'
-            self.index_animation.stop_toggle.button_style = ''
-            self.index_animation.stop_toggle.font_weight = 'normal'
+            self.index_animation.play_stop_toggle.button_style = ''
+            self.index_animation.play_stop_toggle.font_weight = 'normal'
             self.index_animation.play_options_toggle.button_style = ''
             _format_box(self.index_animation.loop_interval_box, '', False,
                         'black', 'solid', 1, 10, '0.1cm', '0.1cm')
@@ -1389,10 +1387,8 @@ class FittingResultIterationsOptionsWidget(ipywidgets.FlexBox):
             self.index_slider.background_color = ''
             self.common_figure.button_style = ''
         else:
-            self.index_animation.play_toggle.button_style = 'success'
-            self.index_animation.play_toggle.font_weight = 'bold'
-            self.index_animation.stop_toggle.button_style = 'danger'
-            self.index_animation.stop_toggle.font_weight = 'bold'
+            self.index_animation.play_stop_toggle.button_style = 'success'
+            self.index_animation.play_stop_toggle.font_weight = 'bold'
             self.index_animation.play_options_toggle.button_style = 'info'
             _format_box(self.index_animation.loop_interval_box, 'info', True,
                         _map_styles_to_hex_colours('info'), 'solid', 1, 10,
