@@ -166,71 +166,72 @@ class ATM(DeformableModel):
         """
         return 'Active Template Model'
 
-    def view_shape_models_widget(self, n_parameters=5,
-                                 parameters_bounds=(-3.0, 3.0), mode='multiple',
-                                 figure_size=(10, 8)):
+    def view_shape_models_widget(self, n_parameters=5, mode='multiple',
+                                 parameters_bounds=(-3.0, 3.0),
+                                 figure_size=(10, 8), style='coloured'):
         r"""
-        Visualizes the shape models of the AAM object using the
+        Visualizes the shape models of the ATM object using the
         `menpo.visualize.widgets.visualize_shape_model` widget.
 
         Parameters
         -----------
         n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+            The number of principal components to be used for the parameters
+            sliders. If `int`, then the number of sliders per level is the
+            minimum between `n_parameters` and the number of active components
+            per level. If `list` of `int`, then a number of sliders is defined
+            per level. If ``None``, all the active components per level will
+            have a slider.
+        mode : {``'single'``, ``'multiple'``}, optional
+            If ``'single'``, then only a single slider is constructed along with
+            a drop down menu. If ``'multiple'``, then a slider is constructed
+            for each parameter.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
         """
         from menpofit.visualize import visualize_shape_model
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode)
+        visualize_shape_model(
+            self.shape_models, n_parameters=n_parameters,
+            parameters_bounds=parameters_bounds, figure_size=figure_size,
+            mode=mode, style=style)
 
-    def view_atm_widget(self, n_shape_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+    def view_atm_widget(self, n_shape_parameters=5, mode='multiple',
+                        parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
+                        style='coloured'):
         r"""
         Visualizes the ATM object using the
         menpo.visualize.widgets.visualize_atm widget.
 
         Parameters
         -----------
-        n_shape_parameters : `int` or `list` of `int` or None, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of principal components to be used for the shape
+            parameters sliders. If `int`, then the number of sliders per level
+            is the minimum between `n_parameters` and the number of active
+            components per level. If `list` of `int`, then a number of sliders
+            is defined per level. If ``None``, all the active components per
+            level will have a slider.
+        mode : {``'single'``, ``'multiple'``}, optional
+            If ``'single'``, then only a single slider is constructed along with
+            a drop down menu. If ``'multiple'``, then a slider is constructed
+            for each parameter.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
         """
         from menpofit.visualize import visualize_atm
         visualize_atm(self, n_shape_parameters=n_shape_parameters,
                       parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode)
+                      figure_size=figure_size, mode=mode, style=style)
 
     def __str__(self):
         out = "{}\n - {} training shapes.\n".format(self._str_title,

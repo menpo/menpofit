@@ -198,21 +198,26 @@ class FittingResult(object):
             raise ValueError('Ground truth has not been set, final error '
                              'cannot be computed')
 
-    def view_widget(self, browser_style='buttons'):
+    def view_widget(self, browser_style='buttons', figure_size=(10, 8),
+                    style='coloured'):
         r"""
         Visualizes the multilevel fitting result object using the
-        `menpo.visualize.widgets.visualize_fitting_results` widget.
+        `menpo.visualize.widgets.visualize_fitting_result` widget.
 
         Parameters
         -----------
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
-        browser_style : {``buttons``, ``slider``}, optional
+        browser_style : {``'buttons'``, ``'slider'``}, optional
             It defines whether the selector of the fitting results will have the
             form of plus/minus buttons or a slider.
+        figure_size : (`int`, `int`), optional
+            The initial size of the rendered figure.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
         """
-        from menpofit.visualize import visualize_fitting_results
-        visualize_fitting_results(self, figure_size=(10, 8), browser_style=browser_style)
+        from menpofit.visualize import visualize_fitting_result
+        visualize_fitting_result(self, figure_size=figure_size,
+                                 browser_style=browser_style, style=style)
 
     def plot_errors(self, error_type='me_norm', figure_id=None,
                     new_figure=False, render_lines=True, line_colour='b',
