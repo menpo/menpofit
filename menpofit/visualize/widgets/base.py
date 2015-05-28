@@ -350,7 +350,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
         value=2)
     axes_mode_wid.on_trait_change(render_function, 'value')
     renderer_options_wid = RendererOptionsWidget(
-        renderer_options, ['lines', 'markers', 'figure_one'],
+        renderer_options, ['markers', 'lines', 'figure_one'],
         object_selection_dropdown_visible=False,
         render_function=render_function, style=renderer_style,
         tabs_style=renderer_tabs_style)
@@ -662,7 +662,7 @@ def visualize_appearance_model(appearance_model, n_parameters=5,
         landmark_options, render_function=render_function,
         style=landmarks_style)
     renderer_options_wid = RendererOptionsWidget(
-        renderer_options, ['lines', 'markers', 'figure_one', 'image'],
+        renderer_options, ['image', 'markers', 'lines', 'figure_one'],
         object_selection_dropdown_visible=False,
         render_function=render_function, style=renderer_style,
         tabs_style=renderer_tabs_style)
@@ -746,7 +746,7 @@ def visualize_appearance_model(appearance_model, n_parameters=5,
     ipydisplay.display(wid)
 
     # Reset value to trigger initial visualization
-    renderer_options_wid.options_widgets[2].render_axes_checkbox.value = False
+    renderer_options_wid.options_widgets[3].render_axes_checkbox.value = False
 
 def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                   mode='multiple', parameters_bounds=(-3.0, 3.0),
@@ -1081,7 +1081,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         landmark_options, render_function=render_function,
         style=landmarks_style)
     renderer_options_wid = RendererOptionsWidget(
-        renderer_options, ['lines', 'markers', 'figure_one', 'image'],
+        renderer_options, ['markers', 'lines', 'image', 'figure_one'],
         object_selection_dropdown_visible=False,
         render_function=render_function, style=renderer_style,
         tabs_style=renderer_tabs_style)
@@ -1179,7 +1179,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     ipydisplay.display(wid)
 
     # Reset value to trigger initial visualization
-    renderer_options_wid.options_widgets[2].render_axes_checkbox.value = False
+    renderer_options_wid.options_widgets[3].render_axes_checkbox.value = False
 
 def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
                   parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
@@ -1463,7 +1463,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         landmark_options, render_function=render_function,
         style=landmarks_style)
     renderer_options_wid = RendererOptionsWidget(
-        renderer_options, ['lines', 'markers', 'figure_one', 'image'],
+        renderer_options, ['markers', 'lines', 'image', 'figure_one'],
         object_selection_dropdown_visible=False,
         render_function=render_function, style=renderer_style,
         tabs_style=renderer_tabs_style)
@@ -1549,7 +1549,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
     ipydisplay.display(wid)
 
     # Reset value to trigger initial visualization
-    renderer_options_wid.options_widgets[2].render_axes_checkbox.value = False
+    renderer_options_wid.options_widgets[3].render_axes_checkbox.value = False
 
 def plot_ced(errors, legend_entries=None, error_range=None,
              error_type='me_norm', figure_size=(10, 6), style='coloured',
@@ -2188,21 +2188,19 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         new_figure_size = (
             renderer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
             renderer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
-        d_type = fitting_result_iterations_wid.selected_values[
-            'displacement_type']
-        if (d_type == 'max' or d_type == 'min' or d_type == 'mean' or
-                d_type == 'median'):
+        if (value == 'max' or value == 'min' or value == 'mean' or
+                value == 'median'):
             renderer = fitting_results[im].plot_displacements(
                 figure_id=save_figure_wid.renderer.figure_id,
-                figure_size=new_figure_size, stat_type=d_type)
+                figure_size=new_figure_size, stat_type=value)
         else:
             all_displacements = fitting_results[im].displacements()
-            d_curve = [iteration_displacements[d_type]
+            d_curve = [iteration_displacements[value]
                        for iteration_displacements in all_displacements]
             from menpo.visualize import GraphPlotter
-            ylabel = "Displacement of Point {}".format(d_type)
+            ylabel = "Displacement of Point {}".format(value)
             title = "Point {} displacement per " \
-                    "iteration of Image {}".format(d_type, im)
+                    "iteration of Image {}".format(value, im)
             renderer = GraphPlotter(
                 figure_id=save_figure_wid.renderer.figure_id,
                 new_figure=False, x_axis=range(len(d_curve)), y_axis=[d_curve],
