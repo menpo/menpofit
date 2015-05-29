@@ -323,32 +323,6 @@ class ProjectOut(CRAAMAlgorithm):
 
 
 # TODO: document me!
-class ProjectOut2(CRAAMAlgorithm):
-    r"""
-    """
-    def project_out(self, J):
-        # project-out appearance bases from a particular vector or matrix
-        return J - self.A_m.dot(self.pinv_A_m.dot(J))
-
-    def _compute_features(self, image):
-        # warp image
-        i = self.interface.warp(image)
-        # vectorize it and mask it
-        i_m = i.as_vector()[self.interface.i_mask]
-        # compute masked error
-        e_m = i_m - self.a_bar_m
-        return self.project_out(e_m)
-
-    def _compute_features2(self, image):
-        # warp image
-        i = self.interface.warp(image)
-        # vectorize it and mask it
-        i_m = i.as_vector()[self.interface.i_mask]
-        # compute masked error
-        return i_m - self.a_bar_m
-
-
-# TODO: document me!
 class PSD(ProjectOut):
     r"""
     """
