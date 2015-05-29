@@ -1,3 +1,4 @@
+import numpy as np
 from menpofit.base import is_pyramid_on_features
 
 
@@ -111,6 +112,21 @@ def check_max_components(max_components, n_levels, var_name):
                 if not isinstance(comp, float):
                     raise ValueError(str_error)
     return max_components_list
+
+
+def check_max_iters(max_iters, n_levels):
+    # check max_iters parameter
+    if type(max_iters) is int:
+        max_iters = [np.round(max_iters/n_levels)
+                     for _ in range(n_levels)]
+    elif len(max_iters) == 1 and n_levels > 1:
+        max_iters = [np.round(max_iters[0]/n_levels)
+                     for _ in range(n_levels)]
+    elif len(max_iters) != n_levels:
+        raise ValueError('max_iters can be integer, integer list '
+                         'containing 1 or {} elements or '
+                         'None'.format(n_levels))
+    return np.require(max_iters, dtype=np.int)
 
 
 # def check_n_levels(n_levels):
