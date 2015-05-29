@@ -112,18 +112,10 @@ class IterativeResult(Result):
         """
 
     @abc.abstractproperty
-    def shapes(self, as_points=False):
+    def shapes(self):
         r"""
         Generates a list containing the shapes obtained at each fitting
         iteration.
-
-        Parameters
-        -----------
-        as_points : boolean, optional
-            Whether the results is returned as a list of :map:`PointCloud`s or
-            ndarrays.
-
-            Default: `False`
 
         Returns
         -------
@@ -145,7 +137,7 @@ class IterativeResult(Result):
         :type: :map:`Image`
         """
         image = Image(self.image.pixels)
-        for j, s in enumerate(self.shapes()):
+        for j, s in enumerate(self.shapes):
             image.landmarks['iter_'+str(j)] = s
         return image
 
@@ -166,7 +158,7 @@ class IterativeResult(Result):
         """
         if self.gt_shape is not None:
             return [compute_error(t, self.gt_shape, error_type)
-                    for t in self.shapes()]
+                    for t in self.shapes]
         else:
             raise ValueError('Ground truth has not been set, errors cannot '
                              'be computed')
@@ -428,7 +420,7 @@ class ParametricAlgorithmResult(IterativeResult):
 
     @property
     def n_iters(self):
-        return len(self.shapes()) - 1
+        return len(self.shapes) - 1
 
     @property
     def transforms(self):
@@ -453,14 +445,10 @@ class ParametricAlgorithmResult(IterativeResult):
         """
         return self.fitter.transform.from_vector(self.shape_parameters[0])
 
-    def shapes(self, as_points=False):
-        if as_points:
-            return [self.fitter.transform.from_vector(p).target.points
-                    for p in self.shape_parameters]
-
-        else:
-            return [self.fitter.transform.from_vector(p).target
-                    for p in self.shape_parameters]
+    @property
+    def shapes(self):
+        return [self.fitter.transform.from_vector(p).target
+                for p in self.shape_parameters]
 
     @property
     def final_shape(self):
@@ -509,7 +497,8 @@ class MultiFitterResult(IterativeResult):
             n_iters += f.n_iters
         return n_iters
 
-    def shapes(self, as_points=False):
+    @property
+    def shapes(self):
         r"""
         Generates a list containing the shapes obtained at each fitting
         iteration.
@@ -561,11 +550,9 @@ class SerializableIterativeResult(IterativeResult):
     def n_iters(self):
         return self._n_iters
 
-    def shapes(self, as_points=False):
-        if as_points:
-            return [s.points for s in self._shapes]
-        else:
-            return self._shapes
+    @property
+    def shapes(self):
+        return self._shapes
 
     @property
     def initial_shape(self):
