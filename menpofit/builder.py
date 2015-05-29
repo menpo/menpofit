@@ -46,6 +46,26 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
     return reference_shape
 
 
+# TODO: document me!
+def rescale_images_to_reference_shape(images, group, label, reference_shape,
+                                      verbose=False):
+    r"""
+    """
+    # normalize the scaling of all images wrt the reference_shape size
+    normalized_images = []
+    for c, i in enumerate(images):
+        if verbose:
+            print_dynamic('- Normalizing images size: {}'.format(
+                progress_bar_str((c + 1.) / len(images),
+                                 show_bar=False)))
+        normalized_images.append(i.rescale_to_reference_shape(
+            reference_shape, group=group, label=label))
+
+    if verbose:
+        print_dynamic('- Normalizing images size: Done\n')
+    return normalized_images
+
+
 def normalization_wrt_reference_shape(images, group, label, diagonal,
                                       verbose=False):
     r"""
@@ -103,17 +123,8 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
                                               verbose=verbose)
 
     # normalize the scaling of all images wrt the reference_shape size
-    normalized_images = []
-    for c, i in enumerate(images):
-        if verbose:
-            print_dynamic('- Normalizing images size: {}'.format(
-                progress_bar_str((c + 1.) / len(images),
-                                 show_bar=False)))
-        normalized_images.append(i.rescale_to_reference_shape(
-            reference_shape, group=group, label=label))
-
-    if verbose:
-        print_dynamic('- Normalizing images size: Done\n')
+    normalized_images = rescale_images_to_reference_shape(
+        images, group, label, reference_shape, verbose=False)
     return reference_shape, normalized_images
 
 
