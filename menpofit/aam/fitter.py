@@ -62,11 +62,12 @@ class LKAAMFitter(AAMFitter):
                  lk_algorithm_cls=AIC, sampling=None, **kwargs):
         super(LKAAMFitter, self).__init__(
             aam, n_shape=n_shape, n_appearance=n_appearance)
+        sampling = checks.check_sampling(sampling, self.n_levels)
         self._set_up(lk_algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, lk_algorithm_cls, sampling, **kwargs):
-        for j, (am, sm) in enumerate(zip(self.aam.appearance_models,
-                                         self.aam.shape_models)):
+        for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
+                                            self.aam.shape_models, sampling)):
 
             if type(self.aam) is AAM or type(self.aam) is PatchAAM:
                 # build orthonormal model driven transform
@@ -75,7 +76,7 @@ class LKAAMFitter(AAMFitter):
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
                 algorithm = lk_algorithm_cls(
-                    LKAAMInterface, am, md_transform, sampling=sampling,
+                    LKAAMInterface, am, md_transform, sampling=s,
                     **kwargs)
 
             elif (type(self.aam) is LinearAAM or
@@ -85,7 +86,7 @@ class LKAAMFitter(AAMFitter):
                     sm, self.aam.n_landmarks)
                 # set up algorithm using linear aam interface
                 algorithm = lk_algorithm_cls(
-                    LinearLKAAMInterface, am, md_transform, sampling=sampling,
+                    LinearLKAAMInterface, am, md_transform, sampling=s,
                     **kwargs)
 
             elif type(self.aam) is PartsAAM:
@@ -93,8 +94,8 @@ class LKAAMFitter(AAMFitter):
                 pdm = OrthoPDM(sm)
                 # set up algorithm using parts aam interface
                 algorithm = lk_algorithm_cls(
-                    PartsLKAAMInterface, am, pdm,
-                    sampling=sampling, patch_shape=self.aam.patch_shape[j],
+                    PartsLKAAMInterface, am, pdm, sampling=s,
+                    patch_shape=self.aam.patch_shape[j],
                     normalize_parts=self.aam.normalize_parts, **kwargs)
 
             else:
@@ -116,13 +117,14 @@ class CRAAMFitter(AAMFitter):
                  max_iters=6, **kwargs):
         super(CRAAMFitter, self).__init__(
             aam, n_shape=n_shape, n_appearance=n_appearance)
+        sampling = checks.check_sampling(sampling, self.n_levels)
         self.n_perturbations = n_perturbations
         self.max_iters = checks.check_max_iters(max_iters, self.n_levels)
         self._set_up(cr_algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, cr_algorithm_cls, sampling, **kwargs):
-        for j, (am, sm) in enumerate(zip(self.aam.appearance_models,
-                                         self.aam.shape_models)):
+        for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
+                                            self.aam.shape_models, sampling)):
 
             if type(self.aam) is AAM or type(self.aam) is PatchAAM:
                 # build orthonormal model driven transform
@@ -131,7 +133,7 @@ class CRAAMFitter(AAMFitter):
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
                 algorithm = cr_algorithm_cls(
-                    CRAAMInterface, am, md_transform, sampling=sampling,
+                    CRAAMInterface, am, md_transform, sampling=s,
                     max_iters=self.max_iters[j], **kwargs)
 
             elif (type(self.aam) is LinearAAM or
@@ -141,8 +143,8 @@ class CRAAMFitter(AAMFitter):
                     sm, self.aam.n_landmarks)
                 # set up algorithm using linear aam interface
                 algorithm = cr_algorithm_cls(
-                    CRLinearAAMInterface, am, md_transform,
-                    sampling=sampling, max_iters=self.max_iters[j], **kwargs)
+                    CRLinearAAMInterface, am, md_transform, sampling=s,
+                    max_iters=self.max_iters[j], **kwargs)
 
             elif type(self.aam) is PartsAAM:
                 # build orthogonal point distribution model
@@ -150,7 +152,7 @@ class CRAAMFitter(AAMFitter):
                 # set up algorithm using parts aam interface
                 algorithm = cr_algorithm_cls(
                     CRPartsAAMInterface, am, pdm,
-                    sampling=sampling, max_iters=self.max_iters[j],
+                    sampling=s, max_iters=self.max_iters[j],
                     patch_shape=self.aam.patch_shape[j],
                     normalize_parts=self.aam.normalize_parts, **kwargs)
 
@@ -209,7 +211,8 @@ class CRAAMFitter(AAMFitter):
                 for gt_s in level_gt_shapes:
                     perturbed_shapes = []
                     for _ in range(self.n_perturbations):
-                        perturbed_shapes.append(self.perturb_shape(gt_s))
+                        p_s = self.get_initial_shape_from_shape(gt_s)
+                        perturbed_shapes.append(p_s)
                     current_shapes.append(perturbed_shapes)
 
             # train cascaded regression algorithm

@@ -114,8 +114,8 @@ def check_max_components(max_components, n_levels, var_name):
     return max_components_list
 
 
+# TODO: document me!
 def check_max_iters(max_iters, n_levels):
-    # check max_iters parameter
     if type(max_iters) is int:
         max_iters = [np.round(max_iters/n_levels)
                      for _ in range(n_levels)]
@@ -127,6 +127,24 @@ def check_max_iters(max_iters, n_levels):
                          'containing 1 or {} elements or '
                          'None'.format(n_levels))
     return np.require(max_iters, dtype=np.int)
+
+
+# TODO: document me!
+def check_sampling(sampling, n_levels):
+    if isinstance(sampling, (list, tuple)):
+        if len(sampling) == 1:
+            sampling = sampling * n_levels
+        elif len(sampling) != n_levels:
+            raise ValueError('A sampling list can only '
+                             'contain 1 element or {} '
+                             'elements'.format(n_levels))
+    elif isinstance(sampling, np.ndarray):
+        sampling = [sampling] * n_levels
+    else:
+        raise ValueError('sampling can be a ndarray, a ndarray list '
+                         'containing 1 or {} elements or '
+                         'None'.format(n_levels))
+    return sampling
 
 
 # def check_n_levels(n_levels):
