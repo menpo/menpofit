@@ -1,11 +1,11 @@
 from __future__ import division
-import abc
 from menpo.transform import Scale
 from menpofit.builder import (
     rescale_images_to_reference_shape, compute_features, scale_images)
 from menpofit.fitter import ModelFitter
 from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
+import menpofit.checks as checks
 from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
 from .algorithm.lk import (
     LKAAMInterface, LinearLKAAMInterface, PartsLKAAMInterface, AIC)
@@ -117,7 +117,7 @@ class CRAAMFitter(AAMFitter):
         super(CRAAMFitter, self).__init__(
             aam, n_shape=n_shape, n_appearance=n_appearance)
         self.n_perturbations = n_perturbations
-        self.max_iters = self._prepare_max_iters(max_iters)
+        self.max_iters = checks.check_max_iters(max_iters, self.n_levels)
         self._set_up(cr_algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, cr_algorithm_cls, sampling, **kwargs):

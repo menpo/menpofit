@@ -3,6 +3,7 @@ import abc
 import numpy as np
 from menpo.shape import PointCloud
 from menpo.transform import Scale, AlignmentAffine, AlignmentSimilarity
+import menpofit.checks as checks
 
 
 # TODO: document me!
@@ -226,7 +227,7 @@ class MultiFitter(object):
             The fitting object containing the state of the whole fitting
             procedure.
         """
-        max_iters = self._prepare_max_iters(max_iters)
+        max_iters = checks.check_max_iters(max_iters, self.n_levels)
         shape = initial_shape
         gt_shape = None
         algorithm_results = []
@@ -245,21 +246,6 @@ class MultiFitter(object):
                       n_dims=shape.n_dims).apply_inplace(shape)
 
         return algorithm_results
-
-    def _prepare_max_iters(self, max_iters):
-        n_levels = self.n_levels
-        # check max_iters parameter
-        if type(max_iters) is int:
-            max_iters = [np.round(max_iters/n_levels)
-                         for _ in range(n_levels)]
-        elif len(max_iters) == 1 and n_levels > 1:
-            max_iters = [np.round(max_iters[0]/n_levels)
-                         for _ in range(n_levels)]
-        elif len(max_iters) != n_levels:
-            raise ValueError('max_iters can be integer, integer list '
-                             'containing 1 or {} elements or '
-                             'None'.format(self.n_levels))
-        return np.require(max_iters, dtype=np.int)
 
     @abc.abstractmethod
     def _fitter_result(self, image, algorithm_results, affine_correction,
