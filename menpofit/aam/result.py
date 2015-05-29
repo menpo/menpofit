@@ -19,14 +19,10 @@ class AAMAlgorithmResult(ParametricAlgorithmResult):
 class LinearAAMAlgorithmResult(AAMAlgorithmResult):
     r"""
     """
+    @property
     def shapes(self, as_points=False):
-        if as_points:
-            return [self.fitter.transform.from_vector(p).sparse_target.points
-                    for p in self.shape_parameters]
-
-        else:
-            return [self.fitter.transform.from_vector(p).sparse_target
-                    for p in self.shape_parameters]
+        return [self.fitter.transform.from_vector(p).sparse_target
+                for p in self.shape_parameters]
 
     @property
     def final_shape(self):
