@@ -39,7 +39,7 @@ class MultiFitter(object):
         pass
 
     def fit(self, image, initial_shape, max_iters=50, gt_shape=None,
-            **kwargs):
+            crop_image=0.5, **kwargs):
         r"""
         Fits the multilevel fitter to an image.
 
@@ -61,6 +61,16 @@ class MultiFitter(object):
         gt_shape: :map:`PointCloud`
             The ground truth shape associated to the image.
 
+        crop_image: `None` or float`, optional
+            If `float`, it specifies the proportion of the border wrt the
+            initial shape to which the image will be internally cropped around
+            the initial shape range.
+            If `None`, no cropping is performed.
+
+            This will limit the fitting algorithm search region but is
+            likely to speed up its running time, specially when the
+            modeled object occupies a small portion of the image.
+
         **kwargs:
             Additional keyword arguments that can be passed to specific
             implementations of ``_fit`` method.
@@ -73,7 +83,7 @@ class MultiFitter(object):
         """
         # generate the list of images to be fitted
         images, initial_shapes, gt_shapes = self._prepare_image(
-            image, initial_shape, gt_shape=gt_shape)
+            image, initial_shape, gt_shape=gt_shape, crop_image=crop_image)
 
         # detach added landmarks from image
         del image.landmarks['initial_shape']
@@ -95,7 +105,8 @@ class MultiFitter(object):
 
         return fitter_result
 
-    def _prepare_image(self, image, initial_shape, gt_shape=None):
+    def _prepare_image(self, image, initial_shape, gt_shape=None,
+                       crop_image=0.5):
         r"""
         Prepares the image to be fitted.
 
@@ -116,6 +127,16 @@ class MultiFitter(object):
         gt_shape : class : :map:`PointCloud`, optional
             The original ground truth shape associated to the image.
 
+        crop_image: `None` or float`, optional
+            If `float`, it specifies the proportion of the border wrt the
+            initial shape to which the image will be internally cropped around
+            the initial shape range.
+            If `None`, no cropping is performed.
+
+            This will limit the fitting algorithm search region but is
+            likely to speed up its running time, specially when the
+            modeled object occupies a small portion of the image.
+
         Returns
         -------
         images : `list` of :map:`Image` or subclass
@@ -132,6 +153,12 @@ class MultiFitter(object):
         image.landmarks['initial_shape'] = initial_shape
         if gt_shape:
             image.landmarks['gt_shape'] = gt_shape
+
+        # if specified, crop the image
+        if crop_image:
+            image = image.copy()
+            image.crop_to_landmarks_proportion_inplace(crop_image,
+                                                       group='initial_shape')
 
         # rescale image wrt the scale factor between reference_shape and
         # initial_shape
