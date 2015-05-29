@@ -285,6 +285,10 @@ class ModelFitter(MultiFitter):
         return self._model.reference_shape
 
     @property
+    def reference_bounding_box(self):
+        return self.reference_shape.bounding_box()
+
+    @property
     def features(self):
         r"""
         The feature extracted at each pyramidal level during AAM building.
@@ -328,97 +332,36 @@ class ModelFitter(MultiFitter):
                                  'or a list containing 1 or {} of '
                                  'those'.format(self._model.n_levels))
 
-    # TODO: Fix me!
-    def perturb_shape(self, gt_shape, noise_std=10, rotation=False):
-        transform = noisy_align(AlignmentSimilarity, self.reference_shape,
-                                gt_shape, noise_std=noise_std)
+    # TODO: Bounding boxes should be PointGraphs
+    def get_initial_shape_from_bounding_box(self, bounding_box, noise_std=0.04,
+                                            rotation=False):
+        transform = noisy_align(AlignmentSimilarity,
+                                self.reference_bounding_box, bounding_box,
+                                noise_std=noise_std, rotation=rotation)
         return transform.apply(self.reference_shape)
 
-    # TODO: Bounding boxes should be PointGraphs
-    def obtain_shape_from_bb(self, bounding_box):
-        r"""
-        Generates an initial shape given a bounding box detection.
-
-        Parameters
-        -----------
-        bounding_box: (2, 2) ndarray
-            The bounding box specified as:
-
-                np.array([[x_min, y_min], [x_max, y_max]])
-
-        Returns
-        -------
-        initial_shape: :class:`menpo.shape.PointCloud`
-            The initial shape.
-        """
-        reference_shape = self.reference_shape
-        return align_shape_with_bb(reference_shape,
-                                   bounding_box).apply(reference_shape)
+    def get_initial_shape_from_shape(self, shape, noise_std=0.04,
+                                     rotation=False):
+        return self.get_initial_shape_from_bounding_box(
+            shape.bounding_box(), noise_std=noise_std, rotation=rotation)
 
 
 # TODO: document me!
-def noisy_align(alignment_transform_cls, source, target, noise_std=10):
+def noisy_align(alignment_transform_cls, source, target, noise_std=0.1,
+                **kwargs):
     r"""
     """
-    noise = noise_std * np.random.randn(target.n_points, target.n_dims)
+    noise = noise_std * target.range() * np.random.randn(target.n_points,
+                                                         target.n_dims)
     noisy_target = PointCloud(target.points + noise)
-    return alignment_transform_cls(source, noisy_target)
+    return alignment_transform_cls(source, noisy_target, **kwargs)
 
 
-def align_shape_with_bb(shape, bounding_box):
+# TODO: document me!
+def align_shape_with_bounding_box(alignment_transform_cls, shape,
+                                  bounding_box, **kwargs):
     r"""
-    Returns the Similarity transform that aligns the provided shape with the
-    provided bounding box.
-
-    Parameters
-    ----------
-    shape: :class:`menpo.shape.PointCloud`
-        The shape to be aligned.
-    bounding_box: (2, 2) ndarray
-        The bounding box specified as:
-
-            np.array([[x_min, y_min], [x_max, y_max]])
-
-    Returns
-    -------
-    transform : :class: `menpo.transform.Similarity`
-        The align transform
     """
-    shape_box = PointCloud(shape.bounds())
-    bounding_box = PointCloud(bounding_box)
-    return AlignmentSimilarity(shape_box, bounding_box, rotation=False)
+    shape_bb = shape.bounding_box()
+    return alignment_transform_cls(shape_bb, bounding_box, **kwargs)
 
-
-# TODO: implement as a method on Similarity? AlignableTransforms?
-# def noisy_align(source, target, noise_std=0.04, rotation=False):
-#     r"""
-#     Constructs and perturbs the optimal similarity transform between source
-#     to the target by adding white noise to its weights.
-#
-#     Parameters
-#     ----------
-#     source: :class:`menpo.shape.PointCloud`
-#         The source pointcloud instance used in the alignment
-#     target: :class:`menpo.shape.PointCloud`
-#         The target pointcloud instance used in the alignment
-#     noise_std: float
-#         The standard deviation of the white noise
-#
-#         Default: 0.04
-#     rotation: boolean
-#         If False the second parameter of the Similarity,
-#         which captures captures inplane rotations, is set to 0.
-#
-#         Default:False
-#
-#     Returns
-#     -------
-#     noisy_transform : :class: `menpo.transform.Similarity`
-#         The noisy Similarity Transform
-#     """
-#     transform = AlignmentSimilarity(source, target, rotation=rotation)
-#     parameters = transform.as_vector()
-#     parameter_range = np.hstack((parameters[:2], target.range()))
-#     noise = (parameter_range * noise_std *
-#              np.random.randn(transform.n_parameters))
-#     return Similarity.init_identity(source.n_dims).from_vector(parameters + noise)
