@@ -327,7 +327,7 @@ class ModelFitter(MultiFitter):
         return transform.apply(self.reference_shape)
 
     def noisy_shape_from_shape(self, shape, noise_std=0.04, rotation=False):
-        return self.get_initial_shape_from_bounding_box(
+        return self.noisy_shape_from_bounding_box(
             shape.bounding_box(), noise_std=noise_std, rotation=rotation)
 
 
