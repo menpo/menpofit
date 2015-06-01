@@ -146,8 +146,8 @@ class ATM(object):
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        return template.warp_to_mask(reference_frame.mask, transform,
-                                     warp_landmarks=True)
+        return template.as_unmasked().warp_to_mask(
+            reference_frame.mask, transform, warp_landmarks=True)
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
@@ -379,8 +379,8 @@ class PatchATM(ATM):
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        return template.warp_to_mask(reference_frame.mask, transform,
-                                     warp_landmarks=True)
+        return template.as_unmasked().warp_to_mask(
+            reference_frame.mask, transform, warp_landmarks=True)
 
     # TODO: fix me!
     def __str__(self):

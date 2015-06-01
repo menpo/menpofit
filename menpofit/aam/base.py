@@ -162,11 +162,8 @@ class AAM(object):
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        instance = appearance_instance.warp_to_mask(
-            reference_frame.mask, transform)
-        instance.landmarks = reference_frame.landmarks
-
-        return instance
+        return appearance_instance.as_unmasked().warp_to_mask(
+            reference_frame.mask, transform, warp_landmarks=True)
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
@@ -441,11 +438,8 @@ class PatchAAM(AAM):
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        instance = appearance_instance.warp_to_mask(reference_frame.mask,
-                                                    transform)
-        instance.landmarks = reference_frame.landmarks
-
-        return instance
+        return appearance_instance.as_unmasked().warp_to_mask(
+            reference_frame.mask, transform, warp_landmarks=True)
 
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
