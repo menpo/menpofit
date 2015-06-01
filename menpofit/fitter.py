@@ -319,15 +319,14 @@ class ModelFitter(MultiFitter):
                                  'those'.format(self._model.n_levels))
 
     # TODO: Bounding boxes should be PointGraphs
-    def get_initial_shape_from_bounding_box(self, bounding_box, noise_std=0.04,
-                                            rotation=False):
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.04,
+                                      rotation=False):
         transform = noisy_align(AlignmentSimilarity,
                                 self.reference_bounding_box, bounding_box,
                                 noise_std=noise_std, rotation=rotation)
         return transform.apply(self.reference_shape)
 
-    def get_initial_shape_from_shape(self, shape, noise_std=0.04,
-                                     rotation=False):
+    def noisy_shape_from_shape(self, shape, noise_std=0.04, rotation=False):
         return self.get_initial_shape_from_bounding_box(
             shape.bounding_box(), noise_std=noise_std, rotation=rotation)
 
