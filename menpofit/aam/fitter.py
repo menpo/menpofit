@@ -170,6 +170,11 @@ class CRAAMFitter(AAMFitter):
         images = rescale_images_to_reference_shape(
             images, group, label, self.reference_shape, verbose=verbose)
 
+        if self.scale_features:
+            # compute features at highest level
+            feature_images = compute_features(images, self.features,
+                                              verbose=verbose)
+
         # for each pyramid level (low --> high)
         for j, s in enumerate(self.scales):
             if verbose:
@@ -180,16 +185,8 @@ class CRAAMFitter(AAMFitter):
 
             # obtain image representation
             if s == self.scales[-1]:
-                # compute features at highest level
-                feature_images = compute_features(images, self.features,
-                                                  level_str=level_str,
-                                                  verbose=verbose)
                 level_images = feature_images
             elif self.scale_features:
-                # compute features at highest level
-                feature_images = compute_features(images, self.features,
-                                                  level_str=level_str,
-                                                  verbose=verbose)
                 # scale features at other levels
                 level_images = scale_images(feature_images, s,
                                             level_str=level_str,
@@ -211,7 +208,7 @@ class CRAAMFitter(AAMFitter):
                 for gt_s in level_gt_shapes:
                     perturbed_shapes = []
                     for _ in range(self.n_perturbations):
-                        p_s = self.get_initial_shape_from_shape(gt_s)
+                        p_s = self.noisy_shape_from_shape(gt_s)
                         perturbed_shapes.append(p_s)
                     current_shapes.append(perturbed_shapes)
 

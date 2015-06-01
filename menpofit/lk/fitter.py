@@ -97,7 +97,7 @@ class LKFitter(MultiFitter):
 
         return templates, sources
 
-    def perturb_shape(self, gt_shape, noise_std=0.04):
+    def noisy_shape_from_shape(self, gt_shape, noise_std=0.04):
         transform = noisy_align(self.transform_cls, self.reference_shape,
                                 gt_shape, noise_std=noise_std)
         return transform.apply(self.reference_shape)
