@@ -146,7 +146,7 @@ class ATM(DeformableModel):
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        return template.as_unmasked().warp_to_mask(
+        return template.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
 
     def _build_reference_frame(self, reference_shape, landmarks):
