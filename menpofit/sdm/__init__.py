@@ -1,2 +1,2 @@
-from .trainer import SDMTrainer, SDAAMTrainer, SDCLMTrainer
-from .fitter import SDMFitter, SDAAMFitter, SDCLMFitter
+from .algorithm import SN, SGN
+from .fitter import CRFitter, SDMFitter

@@ -1,304 +1,411 @@
-import numpy as np
-from menpo.image import Image
+from __future__ import division
+from functools import partial
+from menpo.transform import Scale, AlignmentSimilarity
+from menpo.feature import no_op
+from menpofit.builder import normalization_wrt_reference_shape, scale_images
+from menpofit.fitter import MultiFitter, noisy_align
+from menpofit.result import MultiFitterResult
+import menpofit.checks as checks
+from .algorithm import SN
 
-from menpofit.base import name_of_callable
-from menpofit.aam.fitter import AAMFitter
-from menpofit.clm.fitter import CLMFitter
-from menpofit.fitter import MultilevelFitter
 
-
-class SDFitter(MultilevelFitter):
+# TODO: document me!
+class CRFitter(MultiFitter):
     r"""
-    Abstract Supervised Descent Fitter.
     """
-    def _set_up(self):
-        r"""
-        Sets up the SD fitter object.
-        """
+    def __init__(self, cr_algorithm_cls=SN, features=no_op,
+                 patch_shape=(17, 17), diagonal=None, scales=(1, 0.5),
+                 iterations=6, n_perturbations=10, **kwargs):
+        # check parameters
+        checks.check_diagonal(diagonal)
+        scales, n_levels = checks.check_scales(scales)
+        features = checks.check_features(features, n_levels)
+        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
+        # set parameters
+        self._algorithms = []
+        self.diagonal = diagonal
+        self.scales = list(scales)[::-1]
+        self.n_perturbations = n_perturbations
+        self.iterations = checks.check_iterations(iterations, n_levels)
+        # set up algorithms
+        self._set_up(cr_algorithm_cls, features, patch_shape, **kwargs)
 
-    def fit(self, image, initial_shape, max_iters=None, gt_shape=None,
-            **kwargs):
+    @property
+    def algorithms(self):
+        return self._algorithms
+
+    @property
+    def reference_bounding_box(self):
+        return self.reference_shape.bounding_box()
+
+    def _set_up(self, cr_algorithm_cls, features, patch_shape, **kwargs):
+        for j in range(self.n_levels):
+            algorithm = cr_algorithm_cls(
+                features=features[j], patch_shape=patch_shape[j],
+                iterations=self.iterations[j], **kwargs)
+            self._algorithms.append(algorithm)
+
+    def train(self, images, group=None, label=None, verbose=False, **kwargs):
+        # normalize images and compute reference shape
+        self.reference_shape, images = normalization_wrt_reference_shape(
+            images, group, label, self.diagonal, verbose=verbose)
+
+        # for each pyramid level (low --> high)
+        for j in range(self.n_levels):
+            if verbose:
+                if len(self.scales) > 1:
+                    level_str = '  - Level {}: '.format(j)
+                else:
+                    level_str = '  - '
+
+            # scale images and compute features at other levels
+            level_images = scale_images(images, self.scales[j],
+                                        level_str=level_str, verbose=verbose)
+
+            # extract ground truth shapes for current level
+            level_gt_shapes = [i.landmarks[group][label] for i in level_images]
+
+            if j == 0:
+                # generate perturbed shapes
+                current_shapes = []
+                for gt_s in level_gt_shapes:
+                    perturbed_shapes = []
+                    for _ in range(self.n_perturbations):
+                        p_s = self.noisy_shape_from_shape(gt_s)
+                        perturbed_shapes.append(p_s)
+                    current_shapes.append(perturbed_shapes)
+
+            # train cascaded regression algorithm
+            current_shapes = self.algorithms[j].train(
+                level_images, level_gt_shapes, current_shapes,
+                verbose=verbose, **kwargs)
+
+            # scale current shapes to next level resolution
+            if self.scales[j] != (1 or self.scales[-1]):
+                transform = Scale(self.scales[j+1]/self.scales[j], n_dims=2)
+                for image_shapes in current_shapes:
+                    for shape in image_shapes:
+                        transform.apply_inplace(shape)
+
+    def _prepare_image(self, image, initial_shape, gt_shape=None,
+                       crop_image=0.5):
         r"""
-        Fits a single image.
+        Prepares the image to be fitted.
+
+        The image is first rescaled wrt the ``reference_landmarks`` and then
+        a gaussian pyramid is applied. Depending on the
+        ``pyramid_on_features`` flag, the pyramid is either applied to the
+        features image computed from the rescaled imaged or applied to the
+        rescaled image and features extracted at each pyramidal level.
 
         Parameters
-        -----------
-        image : :map:`MaskedImage`
+        ----------
+        image : :map:`Image` or subclass
             The image to be fitted.
+
         initial_shape : :map:`PointCloud`
-            The initial shape estimate from which the fitting procedure
-            will start.
-        max_iters :  int  or `list`, optional
-            The maximum number of iterations.
+            The initial shape from which the fitting will start.
 
-            If `int`, then this will be the overall maximum number of iterations
-            for all the pyramidal levels.
+        gt_shape : class : :map:`PointCloud`, optional
+            The original ground truth shape associated to the image.
 
-            If `list`, then a maximum number of iterations is specified for each
-            pyramidal level.
+        crop_image: `None` or float`, optional
+            If `float`, it specifies the proportion of the border wrt the
+            initial shape to which the image will be internally cropped around
+            the initial shape range.
+            If `None`, no cropping is performed.
 
-        gt_shape : :map:`PointCloud`
-            The ground truth shape of the image.
-
-        **kwargs : `dict`
-            optional arguments to be passed through.
+            This will limit the fitting algorithm search region but is
+            likely to speed up its running time, specially when the
+            modeled object occupies a small portion of the image.
 
         Returns
         -------
-        fitting_list : :map:`FittingResultList`
-            A fitting result object.
+        images : `list` of :map:`Image` or subclass
+            The list of images that will be fitted by the fitters.
+
+        initial_shapes : `list` of :map:`PointCloud`
+            The initial shape for each one of the previous images.
+
+        gt_shapes : `list` of :map:`PointCloud`
+            The ground truth shape for each one of the previous images.
         """
-        if max_iters is None:
-            max_iters = self.n_levels
-        return MultilevelFitter.fit(self, image, initial_shape,
-                                    max_iters=max_iters, gt_shape=gt_shape,
-                                    **kwargs)
+        # attach landmarks to the image
+        image.landmarks['initial_shape'] = initial_shape
+        if gt_shape:
+            image.landmarks['gt_shape'] = gt_shape
 
+        # if specified, crop the image
+        if crop_image:
+            image = image.copy()
+            image.crop_to_landmarks_proportion_inplace(crop_image,
+                                                       group='initial_shape')
 
-class SDMFitter(SDFitter):
-    r"""
-    Supervised Descent Method.
+        # rescale image wrt the scale factor between reference_shape and
+        # initial_shape
+        image = image.rescale_to_reference_shape(self.reference_shape,
+                                                 group='initial_shape')
 
-    Parameters
-    -----------
-    regressors : :map:`RegressorTrainer`
-        The trained regressors.
-
-    n_training_images : `int`
-        The number of images that were used to train the SDM fitter. It is
-        only used for informational reasons.
-
-    features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
-        each level after downscaling of the image.
-        The first element of the list specifies the features to be extracted at
-        the lowest pyramidal level and so on.
-
-        If ``callable`` the specified feature will be applied to the original
-        image and pyramid generation will be performed on top of the feature
-        image. Also see the `pyramid_on_features` property.
-
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
-
-    downscale : `float`
-        The downscale factor that will be used to create the different
-        pyramidal levels. The scale factor will be::
-
-            (downscale ** k) for k in range(n_levels)
-
-    References
-    ----------
-    .. [XiongD13] Supervised Descent Method and its Applications to
-       Face Alignment
-       Xuehan Xiong and Fernando De la Torre Fernando
-       IEEE International Conference on Computer Vision and Pattern Recognition
-       May, 2013
-    """
-    def __init__(self, regressors, n_training_images, features,
-                 reference_shape, downscale):
-        self._fitters = regressors
-        self._features = features
-        self._reference_shape = reference_shape
-        self._downscale = downscale
-        self._n_training_images = n_training_images
-
-    @property
-    def algorithm(self):
-        r"""
-        Returns a string containing the algorithm used from the SDM family.
-
-        : str
-        """
-        return 'SDM-' + self._fitters[0].algorithm
-
-    @property
-    def reference_shape(self):
-        r"""
-        The reference shape used during training.
-
-        :type: :map:`PointCloud`
-        """
-        return self._reference_shape
-
-    @property
-    def features(self):
-        r"""
-        The feature type per pyramid level. Note that they are stored from
-        lowest to highest level resolution.
-
-        :type: `list`
-        """
-        return self._features
-
-    @property
-    def n_levels(self):
-        r"""
-        The number of pyramidal levels used during training.
-
-        : int
-        """
-        return len(self._fitters)
-
-    @property
-    def downscale(self):
-        r"""
-        The downscale per pyramidal level used during building the AAM.
-        The scale factor is: (downscale ** k) for k in range(n_levels)
-
-        :type: `float`
-        """
-        return self._downscale
-
-    def __str__(self):
-        out = "Supervised Descent Method\n" \
-              " - Non-Parametric '{}' Regressor\n" \
-              " - {} training images.\n".format(
-            name_of_callable(self._fitters[0].regressor),
-            self._n_training_images)
-        # small strings about number of channels, channels string and downscale
-        down_str = []
-        for j in range(self.n_levels):
-            if j == self.n_levels - 1:
-                down_str.append('(no downscale)')
+        # obtain image representation
+        images = []
+        for s in self.scales:
+            if s != 1:
+                # scale image
+                scaled_image = image.rescale(s)
             else:
-                down_str.append('(downscale by {})'.format(
-                    self.downscale**(self.n_levels - j - 1)))
-        temp_img = Image(image_data=np.random.rand(40, 40))
-        if self.pyramid_on_features:
-            temp = self.features(temp_img)
-            n_channels = [temp.n_channels] * self.n_levels
+                scaled_image = image
+            images.append(scaled_image)
+
+        # get initial shapes per level
+        initial_shapes = [i.landmarks['initial_shape'].lms for i in images]
+
+        # get ground truth shapes per level
+        if gt_shape:
+            gt_shapes = [i.landmarks['gt_shape'].lms for i in images]
         else:
-            n_channels = []
-            for j in range(self.n_levels):
-                temp = self.features[j](temp_img)
-                n_channels.append(temp.n_channels)
-        # string about features and channels
-        if self.pyramid_on_features:
-            feat_str = "- Feature is {} with ".format(
-                name_of_callable(self.features))
-            if n_channels[0] == 1:
-                ch_str = ["channel"]
-            else:
-                ch_str = ["channels"]
-        else:
-            feat_str = []
-            ch_str = []
-            for j in range(self.n_levels):
-                if isinstance(self.features[j], str):
-                    feat_str.append("- Feature is {} with ".format(
-                        self.features[j]))
-                elif self.features[j] is None:
-                    feat_str.append("- No features extracted. ")
-                else:
-                    feat_str.append("- Feature is {} with ".format(
-                        self.features[j].__name__))
-                if n_channels[j] == 1:
-                    ch_str.append("channel")
-                else:
-                    ch_str.append("channels")
-        if self.n_levels > 1:
-            out = "{} - Gaussian pyramid with {} levels and downscale " \
-                  "factor of {}.\n".format(out, self.n_levels,
-                                           self.downscale)
-            if self.pyramid_on_features:
-                out = "{}   - Pyramid was applied on feature space.\n   " \
-                      "{}{} {} per image.\n".format(out, feat_str,
-                                                    n_channels[0], ch_str[0])
-            else:
-                out = "{}   - Features were extracted at each pyramid " \
-                      "level.\n".format(out)
-                for i in range(self.n_levels - 1, -1, -1):
-                    out = "{}   - Level {} {}: \n     {}{} {} per " \
-                          "image.\n".format(
-                        out, self.n_levels - i, down_str[i], feat_str[i],
-                        n_channels[i], ch_str[i])
-        else:
-            if self.pyramid_on_features:
-                feat_str = [feat_str]
-            out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n".format(
-                out, feat_str[0], n_channels[0], ch_str[0])
-        return out
+            gt_shapes = None
 
+        return images, initial_shapes, gt_shapes
 
-class SDAAMFitter(AAMFitter, SDFitter):
-    r"""
-    Supervised Descent Fitter for AAMs.
+    def _fitter_result(self, image, algorithm_results, affine_correction,
+                       gt_shape=None):
+        return MultiFitterResult(image, self, algorithm_results,
+                                 affine_correction, gt_shape=gt_shape)
 
-    Parameters
-    -----------
-    aam : :map:`AAM`
-        The Active Appearance Model to be used.
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.04,
+                                      rotation=False):
+        transform = noisy_align(AlignmentSimilarity,
+                                self.reference_bounding_box, bounding_box,
+                                noise_std=noise_std, rotation=rotation)
+        return transform.apply(self.reference_shape)
 
-    regressors : :map:``RegressorTrainer`
-        The trained regressors.
+    def noisy_shape_from_shape(self, shape, noise_std=0.04, rotation=False):
+        return self.noisy_shape_from_bounding_box(
+            shape.bounding_box(), noise_std=noise_std, rotation=rotation)
 
-    n_training_images : `int`
-        The number of training images used to train the SDM fitter.
-    """
-    def __init__(self, aam, regressors, n_training_images):
-        super(SDAAMFitter, self).__init__(aam)
-        self._fitters = regressors
-        self._n_training_images = n_training_images
-
-    @property
-    def algorithm(self):
-        r"""
-        Returns a string containing the algorithm used from the SDM family.
-
-        :type: `string`
-        """
-        return 'SD-AAM-' + self._fitters[0].algorithm
-
+    # TODO: fix me!
     def __str__(self):
-        return "{}Supervised Descent Method for AAMs:\n" \
-               " - Parametric '{}' Regressor\n" \
-               " - {} training images.\n".format(
-            self.aam.__str__(), name_of_callable(self._fitters[0].regressor),
-            self._n_training_images)
+        pass
+        # out = "Supervised Descent Method\n" \
+        #       " - Non-Parametric '{}' Regressor\n" \
+        #       " - {} training images.\n".format(
+        #     name_of_callable(self._fitters[0].regressor),
+        #     self._n_training_images)
+        # # small strings about number of channels, channels string and downscale
+        # down_str = []
+        # for j in range(self.n_levels):
+        #     if j == self.n_levels - 1:
+        #         down_str.append('(no downscale)')
+        #     else:
+        #         down_str.append('(downscale by {})'.format(
+        #             self.downscale**(self.n_levels - j - 1)))
+        # temp_img = Image(image_data=np.random.rand(40, 40))
+        # if self.pyramid_on_features:
+        #     temp = self.features(temp_img)
+        #     n_channels = [temp.n_channels] * self.n_levels
+        # else:
+        #     n_channels = []
+        #     for j in range(self.n_levels):
+        #         temp = self.features[j](temp_img)
+        #         n_channels.append(temp.n_channels)
+        # # string about features and channels
+        # if self.pyramid_on_features:
+        #     feat_str = "- Feature is {} with ".format(
+        #         name_of_callable(self.features))
+        #     if n_channels[0] == 1:
+        #         ch_str = ["channel"]
+        #     else:
+        #         ch_str = ["channels"]
+        # else:
+        #     feat_str = []
+        #     ch_str = []
+        #     for j in range(self.n_levels):
+        #         if isinstance(self.features[j], str):
+        #             feat_str.append("- Feature is {} with ".format(
+        #                 self.features[j]))
+        #         elif self.features[j] is None:
+        #             feat_str.append("- No features extracted. ")
+        #         else:
+        #             feat_str.append("- Feature is {} with ".format(
+        #                 self.features[j].__name__))
+        #         if n_channels[j] == 1:
+        #             ch_str.append("channel")
+        #         else:
+        #             ch_str.append("channels")
+        # if self.n_levels > 1:
+        #     out = "{} - Gaussian pyramid with {} levels and downscale " \
+        #           "factor of {}.\n".format(out, self.n_levels,
+        #                                    self.downscale)
+        #     if self.pyramid_on_features:
+        #         out = "{}   - Pyramid was applied on feature space.\n   " \
+        #               "{}{} {} per image.\n".format(out, feat_str,
+        #                                             n_channels[0], ch_str[0])
+        #     else:
+        #         out = "{}   - Features were extracted at each pyramid " \
+        #               "level.\n".format(out)
+        #         for i in range(self.n_levels - 1, -1, -1):
+        #             out = "{}   - Level {} {}: \n     {}{} {} per " \
+        #                   "image.\n".format(
+        #                 out, self.n_levels - i, down_str[i], feat_str[i],
+        #                 n_channels[i], ch_str[i])
+        # else:
+        #     if self.pyramid_on_features:
+        #         feat_str = [feat_str]
+        #     out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n".format(
+        #         out, feat_str[0], n_channels[0], ch_str[0])
+        # return out
 
 
-class SDCLMFitter(CLMFitter, SDFitter):
-    r"""
-    Supervised Descent Fitter for CLMs.
+# TODO: document me!
+SDMFitter = partial(CRFitter, cr_algorithm_cls=SN)
 
-    Parameters
-    -----------
-    clm : :map:`CLM`
-        The Constrained Local Model to be used.
 
-    regressors : :map:`RegressorTrainer`
-        The trained regressors.
-
-    n_training_images : `int`
-        The number of training images used to train the SDM fitter.
-
-    References
-    ----------
-    .. [Asthana13] Robust Discriminative Response Map Fitting with Constrained
-       Local Models
-       A. Asthana, S. Zafeiriou, S. Cheng, M. Pantic.
-       IEEE Conference onComputer Vision and Pattern Recognition.
-       Portland, Oregon, USA, June 2013.
-    """
-    def __init__(self, clm, regressors, n_training_images):
-        super(SDCLMFitter, self).__init__(clm)
-        self._fitters = regressors
-        self._n_training_images = n_training_images
-
-    @property
-    def algorithm(self):
-        r"""
-        Returns a string containing the algorithm used from the SDM family.
-
-        :type: `string`
-        """
-        return 'SD-CLM-' + self._fitters[0].algorithm
-
-    def __str__(self):
-        return "{}Supervised Descent Method for CLMs:\n" \
-               " - Parametric '{}' Regressor\n" \
-               " - {} training images.\n".format(
-            self.clm.__str__(), name_of_callable(self._fitters[0].regressor),
-            self._n_training_images)
+# class CRFitter(MultiFitter):
+#     r"""
+#     """
+#     def __init__(self, cr_algorithm_cls=SN, features=no_op, diagonal=None,
+#                  scales=(1, 0.5), sampling=None, n_perturbations=10,
+#                  iterations=6, **kwargs):
+#         # check parameters
+#         checks.check_diagonal(diagonal)
+#         scales, n_levels = checks.check_scales(scales)
+#         features = checks.check_features(features, n_levels)
+#         sampling = checks.check_sampling(sampling, n_levels)
+#         # set parameters
+#         self._algorithms = []
+#         self.diagonal = diagonal
+#         self.scales = list(scales)
+#         self.n_perturbations = n_perturbations
+#         self.iterations = checks.check_iterations(iterations, n_levels)
+#         # set up algorithms
+#         self._set_up(cr_algorithm_cls, features, sampling, **kwargs)
+#
+#     @property
+#     def algorithms(self):
+#         return self._algorithms
+#
+#     def _set_up(self, cr_algorithm_cls, features, sampling, **kwargs):
+#         for j, s in range(self.n_levels):
+#             algorithm = cr_algorithm_cls(
+#                 features=features[j], sampling=sampling[j],
+#                 max_iters=self.iterations[j], **kwargs)
+#             self._algorithms.append(algorithm)
+#
+#     def train(self, images, group=None, label=None, verbose=False, **kwargs):
+#         # normalize images and compute reference shape
+#         reference_shape, images = normalization_wrt_reference_shape(
+#             images, group, label, self.diagonal, verbose=verbose)
+#
+#         # for each pyramid level (low --> high)
+#         for j in range(self.n_levels):
+#             if verbose:
+#                 if len(self.scales) > 1:
+#                     level_str = '  - Level {}: '.format(j)
+#                 else:
+#                     level_str = '  - '
+#
+#             # scale images and compute features at other levels
+#             level_images = scale_images(images, self.scales[j],
+#                                         level_str=level_str, verbose=verbose)
+#
+#             # extract ground truth shapes for current level
+#             level_gt_shapes = [i.landmarks[group][label] for i in level_images]
+#
+#             if j == 0:
+#                 # generate perturbed shapes
+#                 current_shapes = []
+#                 for gt_s in level_gt_shapes:
+#                     perturbed_shapes = []
+#                     for _ in range(self.n_perturbations):
+#                         p_s = self.noisy_shape_from_shape(gt_s)
+#                         perturbed_shapes.append(p_s)
+#                     current_shapes.append(perturbed_shapes)
+#
+#             # train cascaded regression algorithm
+#             current_shapes = self.algorithms[j].train(
+#                 level_images, level_gt_shapes, current_shapes,
+#                 verbose=verbose, **kwargs)
+#
+#             # scale current shapes to next level resolution
+#             if self.scales[j] != self.scales[-1]:
+#                 transform = Scale(self.scales[j+1]/self.scales[j], n_dims=2)
+#                 for image_shapes in current_shapes:
+#                     for shape in image_shapes:
+#                         transform.apply_inplace(shape)
+#
+#     def _fitter_result(self, image, algorithm_results, affine_correction,
+#                        gt_shape=None):
+#         return MultiFitterResult(image, algorithm_results, affine_correction,
+#                                  gt_shape=gt_shape)
+#
+#     # TODO: fix me!
+#     def __str__(self):
+#         pass
+#         # out = "Supervised Descent Method\n" \
+#         #       " - Non-Parametric '{}' Regressor\n" \
+#         #       " - {} training images.\n".format(
+#         #     name_of_callable(self._fitters[0].regressor),
+#         #     self._n_training_images)
+#         # # small strings about number of channels, channels string and downscale
+#         # down_str = []
+#         # for j in range(self.n_levels):
+#         #     if j == self.n_levels - 1:
+#         #         down_str.append('(no downscale)')
+#         #     else:
+#         #         down_str.append('(downscale by {})'.format(
+#         #             self.downscale**(self.n_levels - j - 1)))
+#         # temp_img = Image(image_data=np.random.rand(40, 40))
+#         # if self.pyramid_on_features:
+#         #     temp = self.features(temp_img)
+#         #     n_channels = [temp.n_channels] * self.n_levels
+#         # else:
+#         #     n_channels = []
+#         #     for j in range(self.n_levels):
+#         #         temp = self.features[j](temp_img)
+#         #         n_channels.append(temp.n_channels)
+#         # # string about features and channels
+#         # if self.pyramid_on_features:
+#         #     feat_str = "- Feature is {} with ".format(
+#         #         name_of_callable(self.features))
+#         #     if n_channels[0] == 1:
+#         #         ch_str = ["channel"]
+#         #     else:
+#         #         ch_str = ["channels"]
+#         # else:
+#         #     feat_str = []
+#         #     ch_str = []
+#         #     for j in range(self.n_levels):
+#         #         if isinstance(self.features[j], str):
+#         #             feat_str.append("- Feature is {} with ".format(
+#         #                 self.features[j]))
+#         #         elif self.features[j] is None:
+#         #             feat_str.append("- No features extracted. ")
+#         #         else:
+#         #             feat_str.append("- Feature is {} with ".format(
+#         #                 self.features[j].__name__))
+#         #         if n_channels[j] == 1:
+#         #             ch_str.append("channel")
+#         #         else:
+#         #             ch_str.append("channels")
+#         # if self.n_levels > 1:
+#         #     out = "{} - Gaussian pyramid with {} levels and downscale " \
+#         #           "factor of {}.\n".format(out, self.n_levels,
+#         #                                    self.downscale)
+#         #     if self.pyramid_on_features:
+#         #         out = "{}   - Pyramid was applied on feature space.\n   " \
+#         #               "{}{} {} per image.\n".format(out, feat_str,
+#         #                                             n_channels[0], ch_str[0])
+#         #     else:
+#         #         out = "{}   - Features were extracted at each pyramid " \
+#         #               "level.\n".format(out)
+#         #         for i in range(self.n_levels - 1, -1, -1):
+#         #             out = "{}   - Level {} {}: \n     {}{} {} per " \
+#         #                   "image.\n".format(
+#         #                 out, self.n_levels - i, down_str[i], feat_str[i],
+#         #                 n_channels[i], ch_str[i])
+#         # else:
+#         #     if self.pyramid_on_features:
+#         #         feat_str = [feat_str]
+#         #     out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n".format(
+#         #         out, feat_str[0], n_channels[0], ch_str[0])
+#         # return out

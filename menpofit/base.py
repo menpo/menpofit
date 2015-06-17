@@ -98,40 +98,6 @@ class DeformableModel(object):
         return is_pyramid_on_features(self.features)
 
 
-# TODO: Should this be a method on Similarity? AlignableTransforms?
-def noisy_align(source, target, noise_std=0.04, rotation=False):
-    r"""
-    Constructs and perturbs the optimal similarity transform between source
-    to the target by adding white noise to its weights.
-
-    Parameters
-    ----------
-    source: :class:`menpo.shape.PointCloud`
-        The source pointcloud instance used in the alignment
-    target: :class:`menpo.shape.PointCloud`
-        The target pointcloud instance used in the alignment
-    noise_std: float
-        The standard deviation of the white noise
-
-        Default: 0.04
-    rotation: boolean
-        If False the second parameter of the Similarity,
-        which captures captures inplane rotations, is set to 0.
-
-        Default:False
-
-    Returns
-    -------
-    noisy_transform : :class: `menpo.transform.Similarity`
-        The noisy Similarity Transform
-    """
-    transform = AlignmentSimilarity(source, target, rotation=rotation)
-    parameters = transform.as_vector()
-    parameter_range = np.hstack((parameters[:2], target.range()))
-    noise = (parameter_range * noise_std *
-             np.random.randn(transform.n_parameters))
-    return Similarity.init_identity(source.n_dims).from_vector(parameters + noise)
-
 
 def build_sampling_grid(patch_shape):
     r"""

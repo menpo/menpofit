@@ -1,3 +1,5 @@
-from .base import ATM, PatchBasedATM
-from .builder import ATMBuilder, PatchBasedATMBuilder
-from .fitter import LucasKanadeATMFitter
+from .builder import (
+    ATMBuilder, PatchATMBuilder, LinearATMBuilder,
+    LinearPatchATMBuilder, PartsATMBuilder)
+from .fitter import LKATMFitter
+from .algorithm import FC, IC

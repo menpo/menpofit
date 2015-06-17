@@ -1,243 +1,38 @@
 from __future__ import division
-from itertools import chain
+from menpo.transform import Scale
+from menpofit.builder import (
+    rescale_images_to_reference_shape, compute_features, scale_images)
+from menpofit.fitter import ModelFitter
+from menpofit.modelinstance import OrthoPDM
+from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
+import menpofit.checks as checks
+from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
+from .algorithm.lk import (
+    LKAAMInterface, LinearLKAAMInterface, PartsLKAAMInterface, AIC)
+from .algorithm.cr import (
+    CRAAMInterface, CRLinearAAMInterface, CRPartsAAMInterface, PAJ)
+from .result import AAMFitterResult
 
-from menpofit.base import name_of_callable
-from menpofit.fitter import MultilevelFitter
-from menpofit.fittingresult import AMMultilevelFittingResult
-from menpofit.transform import (ModelDrivenTransform, OrthoMDTransform,
-                                DifferentiableAlignmentSimilarity)
-from menpofit.lucaskanade.appearance import SIC
 
-
-class AAMFitter(MultilevelFitter):
+# TODO: document me!
+class AAMFitter(ModelFitter):
     r"""
-    Abstract Interface for defining Active Appearance Models Fitters.
-
-    Parameters
-    -----------
-    aam : :map:`AAM`
-        The Active Appearance Model to be used.
     """
-    def __init__(self, aam):
-        self.aam = aam
+    def __init__(self, aam, n_shape=None, n_appearance=None):
+        super(AAMFitter, self).__init__(aam)
+        self._algorithms = []
+        self._check_n_shape(n_shape)
+        self._check_n_appearance(n_appearance)
 
     @property
-    def reference_shape(self):
-        r"""
-        The reference shape of the AAM.
-
-        :type: :map:`PointCloud`
-        """
-        return self.aam.reference_shape
+    def aam(self):
+        return self._model
 
     @property
-    def features(self):
-        r"""
-        The feature extracted at each pyramidal level during AAM building.
-        Stored in ascending pyramidal order.
+    def algorithms(self):
+        return self._algorithms
 
-        :type: `list`
-        """
-        return self.aam.features
-
-    @property
-    def n_levels(self):
-        r"""
-        The number of pyramidal levels used during AAM building.
-
-        :type: `int`
-        """
-        return self.aam.n_levels
-
-    @property
-    def downscale(self):
-        r"""
-        The downscale used to generate the final scale factor applied at
-        each pyramidal level during AAM building.
-        The scale factor is computed as:
-
-            ``(downscale ** k) for k in range(n_levels)``
-
-        :type: `float`
-        """
-        return self.aam.downscale
-
-    def _create_fitting_result(self, image, fitting_results, affine_correction,
-                               gt_shape=None):
-        r"""
-        Creates a :map:`AAMMultilevelFittingResult` associated to a
-        particular fitting of the AAM fitter.
-
-        Parameters
-        -----------
-        image : :map:`Image` or subclass
-            The image to be fitted.
-
-        fitting_results : `list` of :map:`FittingResult`
-            A list of fitting result objects containing the state of the
-            the fitting for each pyramidal level.
-
-        affine_correction : :map:`Affine`
-            An affine transform that maps the result of the top resolution
-            level to the scale space of the original image.
-
-        gt_shape : :map:`PointCloud`, optional
-            The ground truth shape associated to the image.
-
-        error_type : 'me_norm', 'me' or 'rmse', optional
-            Specifies how the error between the fitted and ground truth
-            shapes must be computed.
-
-        Returns
-        -------
-        fitting : :map:`AAMMultilevelFittingResult`
-            A fitting result object that will hold the state of the AAM
-            fitter for a particular fitting.
-        """
-        return AAMMultilevelFittingResult(
-            image, self, fitting_results, affine_correction, gt_shape=gt_shape)
-
-
-class LucasKanadeAAMFitter(AAMFitter):
-    r"""
-    Lucas-Kanade based :map:`Fitter` for Active Appearance Models.
-
-    Parameters
-    -----------
-    aam : :map:`AAM`
-        The Active Appearance Model to be used.
-    algorithm : subclass of :map:`AppearanceLucasKanade`, optional
-        The Appearance Lucas-Kanade class to be used.
-    md_transform : :map:`ModelDrivenTransform` or subclass, optional
-        The model driven transform class to be used.
-    n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
-        previous or ``None``, optional
-        The number of shape components or amount of shape variance to be
-        used per pyramidal level.
-
-        If `None`, all available shape components ``(n_active_components)``
-        will be used.
-        If `int` ``> 1``, the specified number of shape components will be
-        used.
-        If ``0. <=`` `float` ``<= 1.``, the number of components capturing the
-        specified variance ratio will be computed and used.
-
-        If `list` of length ``n_levels``, then the number of components is
-        defined per level. The first element of the list corresponds to the
-        lowest pyramidal level and so on.
-        If not a `list` or a `list` of length 1, then the specified number of
-        components will be used for all levels.
-    n_appearance : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
-        previous or ``None``, optional
-        The number of appearance components or amount of appearance variance
-        to be used per pyramidal level.
-
-        If `None`, all available appearance components
-        ``(n_active_components)`` will be used.
-        If `int` ``> 1``, the specified number of appearance components will
-        be used.
-        If ``0. <=`` `float` ``<= 1.``, the number of appearance components
-        capturing the specified variance ratio will be computed and used.
-
-        If `list` of length ``n_levels``, then the number of components is
-        defined per level. The first element of the list corresponds to the
-        lowest pyramidal level and so on.
-        If not a `list` or a `list` of length 1, then the specified number of
-        components will be used for all levels.
-    """
-    def __init__(self, aam, algorithm=SIC,
-                 md_transform=OrthoMDTransform, n_shape=None,
-                 n_appearance=None, **kwargs):
-        super(LucasKanadeAAMFitter, self).__init__(aam)
-        self._set_up(algorithm=algorithm, md_transform=md_transform,
-                     n_shape=n_shape, n_appearance=n_appearance, **kwargs)
-
-    @property
-    def algorithm(self):
-        r"""
-        Returns a string containing the name of fitting algorithm.
-
-        :type: `str`
-        """
-        return 'LK-AAM-' + self._fitters[0].algorithm
-
-    def _set_up(self, algorithm=SIC,
-                md_transform=OrthoMDTransform,
-                global_transform=DifferentiableAlignmentSimilarity,
-                n_shape=None, n_appearance=None, **kwargs):
-        r"""
-        Sets up the Lucas-Kanade fitter object.
-
-        Parameters
-        -----------
-        algorithm : subclass of :map:`AppearanceLucasKanade`, optional
-            The Appearance Lucas-Kanade class to be used.
-
-        md_transform : :map:`ModelDrivenTransform` or subclass, optional
-            The model driven transform class to be used.
-
-        n_shape : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
-            previous or ``None``, optional
-            The number of shape components or amount of shape variance to be
-            used per pyramidal level.
-
-            If `None`, all available shape components ``(n_active_components)``
-            will be used.
-            If `int` ``> 1``, the specified number of shape components will be
-            used.
-            If ``0. <=`` `float` ``<= 1.``, the number of components capturing the
-            specified variance ratio will be computed and used.
-
-            If `list` of length ``n_levels``, then the number of components is
-            defined per level. The first element of the list corresponds to the
-            lowest pyramidal level and so on.
-            If not a `list` or a `list` of length 1, then the specified number of
-            components will be used for all levels.
-
-        n_appearance : `int` ``> 1``, ``0. <=`` `float` ``<= 1.``, `list` of the
-            previous or ``None``, optional
-            The number of appearance components or amount of appearance variance
-            to be used per pyramidal level.
-
-            If `None`, all available appearance components
-            ``(n_active_components)`` will be used.
-            If `int` ``> 1``, the specified number of appearance components will
-            be used.
-            If ``0. <=`` `float` ``<= 1.``, the number of appearance components
-            capturing the specified variance ratio will be computed and used.
-
-            If `list` of length ``n_levels``, then the number of components is
-            defined per level. The first element of the list corresponds to the
-            lowest pyramidal level and so on.
-            If not a `list` or a `list` of length 1, then the specified number of
-            components will be used for all levels.
-
-        Raises
-        -------
-        ValueError
-            ``n_shape`` can be an `int`, `float`, ``None`` or a `list`
-            containing ``1`` or ``n_levels`` of those.
-        ValueError
-            ``n_appearance`` can be an `int`, `float`, `None` or a `list`
-            containing ``1`` or ``n_levels`` of those.
-        """
-        # check n_shape parameter
-        if n_shape is not None:
-            if type(n_shape) is int or type(n_shape) is float:
-                for sm in self.aam.shape_models:
-                    sm.n_active_components = n_shape
-            elif len(n_shape) == 1 and self.aam.n_levels > 1:
-                for sm in self.aam.shape_models:
-                    sm.n_active_components = n_shape[0]
-            elif len(n_shape) == self.aam.n_levels:
-                for sm, n in zip(self.aam.shape_models, n_shape):
-                    sm.n_active_components = n
-            else:
-                raise ValueError('n_shape can be an integer or a float or None '
-                                 'or a list containing 1 or {} of '
-                                 'those'.format(self.aam.n_levels))
-
-        # check n_appearance parameter
+    def _check_n_appearance(self, n_appearance):
         if n_appearance is not None:
             if type(n_appearance) is int or type(n_appearance) is float:
                 for am in self.aam.appearance_models:
@@ -253,173 +48,180 @@ class LucasKanadeAAMFitter(AAMFitter):
                                  'or None or a list containing 1 or {} of '
                                  'those'.format(self.aam.n_levels))
 
-        self._fitters = []
-        for j, (am, sm) in enumerate(zip(self.aam.appearance_models,
-                                         self.aam.shape_models)):
+    def _fitter_result(self, image, algorithm_results, affine_correction,
+                       gt_shape=None):
+        return AAMFitterResult(image, self, algorithm_results,
+                               affine_correction, gt_shape=gt_shape)
 
-            if md_transform is not ModelDrivenTransform:
-                md_trans = md_transform(
-                    sm, self.aam.transform, global_transform,
-                    source=am.mean().landmarks['source'].lms)
-            else:
-                md_trans = md_transform(
+
+# TODO: document me!
+class LKAAMFitter(AAMFitter):
+    r"""
+    """
+    def __init__(self, aam,  n_shape=None, n_appearance=None,
+                 lk_algorithm_cls=AIC, sampling=None, **kwargs):
+        super(LKAAMFitter, self).__init__(
+            aam, n_shape=n_shape, n_appearance=n_appearance)
+        sampling = checks.check_sampling(sampling, self.n_levels)
+        self._set_up(lk_algorithm_cls, sampling, **kwargs)
+
+    def _set_up(self, lk_algorithm_cls, sampling, **kwargs):
+        for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
+                                            self.aam.shape_models, sampling)):
+
+            if type(self.aam) is AAM or type(self.aam) is PatchAAM:
+                # build orthonormal model driven transform
+                md_transform = OrthoMDTransform(
                     sm, self.aam.transform,
                     source=am.mean().landmarks['source'].lms)
-            self._fitters.append(
-                algorithm(am, md_trans, **kwargs))
+                # set up algorithm using standard aam interface
+                algorithm = lk_algorithm_cls(
+                    LKAAMInterface, am, md_transform, sampling=s,
+                    **kwargs)
 
-    def __str__(self):
-        out = "{0} Fitter\n" \
-              " - Lucas-Kanade {1}\n" \
-              " - Transform is {2} and residual is {3}.\n" \
-              " - {4} training images.\n".format(
-            self.aam._str_title, self._fitters[0].algorithm,
-            self._fitters[0].transform.__class__.__name__,
-            self._fitters[0].residual.type, self.aam.n_training_images)
-        # small strings about number of channels, channels string and downscale
-        n_channels = []
-        down_str = []
-        for j in range(self.n_levels):
-            n_channels.append(
-                self._fitters[j].appearance_model.template_instance.n_channels)
-            if j == self.n_levels - 1:
-                down_str.append('(no downscale)')
-            else:
-                down_str.append('(downscale by {})'.format(
-                    self.downscale**(self.n_levels - j - 1)))
-        # string about features and channels
-        if self.pyramid_on_features:
-            feat_str = "- Feature is {} with ".format(name_of_callable(
-                self.features))
-            if n_channels[0] == 1:
-                ch_str = ["channel"]
-            else:
-                ch_str = ["channels"]
-        else:
-            feat_str = []
-            ch_str = []
-            for j in range(self.n_levels):
-                if isinstance(self.features[j], str):
-                    feat_str.append("- Feature is {} with ".format(
-                        self.features[j]))
-                elif self.features[j] is None:
-                    feat_str.append("- No features extracted. ")
-                else:
-                    feat_str.append("- Feature is {} with ".format(
-                        self.features[j].__name__))
-                if n_channels[j] == 1:
-                    ch_str.append("channel")
-                else:
-                    ch_str.append("channels")
-        if self.n_levels > 1:
-            if self.aam.scaled_shape_models:
-                out = "{} - Gaussian pyramid with {} levels and downscale " \
-                      "factor of {}.\n   - Each level has a scaled shape " \
-                      "model (reference frame).\n".format(out, self.n_levels,
-                                                          self.downscale)
+            elif (type(self.aam) is LinearAAM or
+                  type(self.aam) is LinearPatchAAM):
+                # build linear version of orthogonal model driven transform
+                md_transform = LinearOrthoMDTransform(
+                    sm, self.aam.n_landmarks)
+                # set up algorithm using linear aam interface
+                algorithm = lk_algorithm_cls(
+                    LinearLKAAMInterface, am, md_transform, sampling=s,
+                    **kwargs)
+
+            elif type(self.aam) is PartsAAM:
+                # build orthogonal point distribution model
+                pdm = OrthoPDM(sm)
+                # set up algorithm using parts aam interface
+                algorithm = lk_algorithm_cls(
+                    PartsLKAAMInterface, am, pdm, sampling=s,
+                    patch_shape=self.aam.patch_shape[j],
+                    normalize_parts=self.aam.normalize_parts, **kwargs)
 
             else:
-                out = "{} - Gaussian pyramid with {} levels and downscale " \
-                      "factor of {}:\n   - Shape models (reference frames) " \
-                      "are not scaled.\n".format(out, self.n_levels,
-                                                 self.downscale)
-            if self.pyramid_on_features:
-                out = "{}   - Pyramid was applied on feature space.\n   " \
-                      "{}{} {} per image.\n".format(out, feat_str,
-                                                    n_channels[0], ch_str[0])
-                if not self.aam.scaled_shape_models:
-                    out = "{}   - Reference frames of length {} " \
-                          "({} x {}C, {} x {}C)\n".format(
-                        out, self._fitters[0].appearance_model.n_features,
-                        self._fitters[0].template.n_true_pixels(),
-                        n_channels[0], self._fitters[0].template._str_shape,
-                        n_channels[0])
-            else:
-                out = "{}   - Features were extracted at each pyramid " \
-                      "level.\n".format(out)
-            for i in range(self.n_levels - 1, -1, -1):
-                out = "{}   - Level {} {}: \n".format(out, self.n_levels - i,
-                                                      down_str[i])
-                if not self.pyramid_on_features:
-                    out = "{}     {}{} {} per image.\n".format(
-                        out, feat_str[i], n_channels[i], ch_str[i])
-                if (self.aam.scaled_shape_models or
-                        (not self.pyramid_on_features)):
-                    out = "{}     - Reference frame of length {} " \
-                          "({} x {}C, {} x {}C)\n".format(
-                        out, self._fitters[i].appearance_model.n_features,
-                        self._fitters[i].template.n_true_pixels(),
-                        n_channels[i], self._fitters[i].template._str_shape,
-                        n_channels[i])
-                out = "{0}     - {1} motion components\n     - {2} active " \
-                      "appearance components ({3:.2f}% of original " \
-                      "variance)\n".format(
-                    out, self._fitters[i].transform.n_parameters,
-                    self._fitters[i].appearance_model.n_active_components,
-                    self._fitters[i].appearance_model.variance_ratio() * 100)
-        else:
-            if self.pyramid_on_features:
-                feat_str = [feat_str]
-            out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n" \
-                  "   - Reference frame of length {4} ({5} x {6}C, " \
-                  "{7} x {8}C)\n   - {9} motion parameters\n" \
-                  "   - {10} appearance components ({11:.2f}% of original " \
-                  "variance)\n".format(
-                out, feat_str[0], n_channels[0], ch_str[0],
-                self._fitters[0].appearance_model.n_features,
-                self._fitters[0].template.n_true_pixels(),
-                n_channels[0], self._fitters[0].template._str_shape,
-                n_channels[0], self._fitters[0].transform.n_parameters,
-                self._fitters[0].appearance_model.n_active_components,
-                self._fitters[0].appearance_model.variance_ratio() * 100)
-        return out
+                raise ValueError("AAM object must be of one of the "
+                                 "following classes: {}, {}, {}, {}, "
+                                 "{}".format(AAM, PatchAAM, LinearAAM,
+                                             LinearPatchAAM, PartsAAM))
+
+            # append algorithms to list
+            self._algorithms.append(algorithm)
 
 
-class AAMMultilevelFittingResult(AMMultilevelFittingResult):
+# TODO: document me!
+class CRAAMFitter(AAMFitter):
     r"""
-    Class that holds the state of a :map:`AAMFitter` object before,
-    during and after it has fitted a particular image.
     """
-    @property
-    def appearance_reconstructions(self):
-        r"""
-        The list containing the appearance reconstruction obtained at
-        each fitting iteration.
+    def __init__(self, aam, cr_algorithm_cls=PAJ, n_shape=None,
+                 n_appearance=None, sampling=None, n_perturbations=10,
+                 max_iters=6, **kwargs):
+        super(CRAAMFitter, self).__init__(
+            aam, n_shape=n_shape, n_appearance=n_appearance)
+        sampling = checks.check_sampling(sampling, self.n_levels)
+        self.n_perturbations = n_perturbations
+        self.max_iters = checks.check_max_iters(max_iters, self.n_levels)
+        self._set_up(cr_algorithm_cls, sampling, **kwargs)
 
-        :type: `list` of :map:`Image` or subclass
-        """
-        return list(chain(
-            *[f.appearance_reconstructions for f in self.fitting_results]))
+    def _set_up(self, cr_algorithm_cls, sampling, **kwargs):
+        for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
+                                            self.aam.shape_models, sampling)):
 
-    @property
-    def aam_reconstructions(self):
-        r"""
-        The list containing the aam reconstruction (i.e. the appearance
-        reconstruction warped on the shape instance reconstruction) obtained at
-        each fitting iteration.
+            if type(self.aam) is AAM or type(self.aam) is PatchAAM:
+                # build orthonormal model driven transform
+                md_transform = OrthoMDTransform(
+                    sm, self.aam.transform,
+                    source=am.mean().landmarks['source'].lms)
+                # set up algorithm using standard aam interface
+                algorithm = cr_algorithm_cls(
+                    CRAAMInterface, am, md_transform, sampling=s,
+                    max_iters=self.max_iters[j], **kwargs)
 
-        Note that this reconstruction is only tested to work for the
-        :map:`OrthoMDTransform`
+            elif (type(self.aam) is LinearAAM or
+                  type(self.aam) is LinearPatchAAM):
+                # build linear version of orthogonal model driven transform
+                md_transform = LinearOrthoMDTransform(
+                    sm, self.aam.n_landmarks)
+                # set up algorithm using linear aam interface
+                algorithm = cr_algorithm_cls(
+                    CRLinearAAMInterface, am, md_transform, sampling=s,
+                    max_iters=self.max_iters[j], **kwargs)
 
-        :type: list` of :map:`Image` or subclass
-        """
-        aam_reconstructions = []
-        for level, f in enumerate(self.fitting_results):
-            if f.weights:
-                for shape_w, aw in zip(f.parameters, f.weights):
-                    shape_w = shape_w[4:]
-                    sm_level = self.fitter.aam.shape_models[level]
-                    am_level = self.fitter.aam.appearance_models[level]
-                    swt = shape_w / sm_level.eigenvalues[:len(shape_w)] ** 0.5
-                    awt = aw / am_level.eigenvalues[:len(aw)] ** 0.5
-                    aam_reconstructions.append(self.fitter.aam.instance(
-                        shape_weights=swt, appearance_weights=awt, level=level))
+            elif type(self.aam) is PartsAAM:
+                # build orthogonal point distribution model
+                pdm = OrthoPDM(sm)
+                # set up algorithm using parts aam interface
+                algorithm = cr_algorithm_cls(
+                    CRPartsAAMInterface, am, pdm,
+                    sampling=s, max_iters=self.max_iters[j],
+                    patch_shape=self.aam.patch_shape[j],
+                    normalize_parts=self.aam.normalize_parts, **kwargs)
+
             else:
-                for shape_w in f.parameters:
-                    shape_w = shape_w[4:]
-                    sm_level = self.fitter.aam.shape_models[level]
-                    swt = shape_w / sm_level.eigenvalues[:len(shape_w)] ** 0.5
-                    aam_reconstructions.append(self.fitter.aam.instance(
-                        shape_weights=swt, appearance_weights=None,
-                        level=level))
-        return aam_reconstructions
+                raise ValueError("AAM object must be of one of the "
+                                 "following classes: {}, {}, {}, {}, "
+                                 "{}".format(AAM, PatchAAM, LinearAAM,
+                                             LinearPatchAAM, PartsAAM))
+
+            # append algorithms to list
+            self._algorithms.append(algorithm)
+
+    def train(self, images, group=None, label=None, verbose=False, **kwargs):
+        # normalize images with respect to reference shape of aam
+        images = rescale_images_to_reference_shape(
+            images, group, label, self.reference_shape, verbose=verbose)
+
+        if self.scale_features:
+            # compute features at highest level
+            feature_images = compute_features(images, self.features,
+                                              verbose=verbose)
+
+        # for each pyramid level (low --> high)
+        for j, s in enumerate(self.scales):
+            if verbose:
+                if len(self.scales) > 1:
+                    level_str = '  - Level {}: '.format(j)
+                else:
+                    level_str = '  - '
+
+            # obtain image representation
+            if s == self.scales[-1]:
+                level_images = feature_images
+            elif self.scale_features:
+                # scale features at other levels
+                level_images = scale_images(feature_images, s,
+                                            level_str=level_str,
+                                            verbose=verbose)
+            else:
+                # scale images and compute features at other levels
+                scaled_images = scale_images(images, s, level_str=level_str,
+                                             verbose=verbose)
+                level_images = compute_features(scaled_images, self.features,
+                                                level_str=level_str,
+                                                verbose=verbose)
+
+            # extract ground truth shapes for current level
+            level_gt_shapes = [i.landmarks[group][label] for i in level_images]
+
+            if j == 0:
+                # generate perturbed shapes
+                current_shapes = []
+                for gt_s in level_gt_shapes:
+                    perturbed_shapes = []
+                    for _ in range(self.n_perturbations):
+                        p_s = self.noisy_shape_from_shape(gt_s)
+                        perturbed_shapes.append(p_s)
+                    current_shapes.append(perturbed_shapes)
+
+            # train cascaded regression algorithm
+            current_shapes = self.algorithms[j].train(
+                level_images, level_gt_shapes, current_shapes,
+                verbose=verbose, **kwargs)
+
+            # scale current shapes to next level resolution
+            if s != self.scales[-1]:
+                transform = Scale(self.scales[j+1]/s, n_dims=2)
+                for image_shapes in current_shapes:
+                    for shape in image_shapes:
+                        transform.apply_inplace(shape)
+
+
