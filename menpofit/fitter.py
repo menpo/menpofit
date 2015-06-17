@@ -23,21 +23,21 @@ class MultiFitter(object):
     def algorithms(self):
         pass
 
-    @abc.abstractproperty
-    def reference_shape(self):
-        pass
-
-    @abc.abstractproperty
-    def features(self):
-        pass
-
-    @abc.abstractproperty
-    def scales(self):
-        pass
-
-    @abc.abstractproperty
-    def scale_features(self):
-        pass
+    # @abc.abstractproperty
+    # def reference_shape(self):
+    #     pass
+    #
+    # @abc.abstractproperty
+    # def features(self):
+    #     pass
+    #
+    # @abc.abstractproperty
+    # def scales(self):
+    #     pass
+    #
+    # @abc.abstractproperty
+    # def scale_features(self):
+    #     pass
 
     def fit(self, image, initial_shape, max_iters=50, gt_shape=None,
             crop_image=0.5, **kwargs):
