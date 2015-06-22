@@ -460,6 +460,33 @@ class ParametricAlgorithmResult(IterativeResult):
 
 
 # TODO: document me!
+class NonParametricAlgorithmResult(IterativeResult):
+    r"""
+    """
+    def __init__(self, image, fitter, shapes, gt_shape=None):
+        self.image = image
+        self.fitter = fitter
+        self._shapes = shapes
+        self._gt_shape = gt_shape
+
+    @property
+    def n_iters(self):
+        return len(self.shapes) - 1
+
+    @property
+    def shapes(self):
+        return self._shapes
+
+    @property
+    def final_shape(self):
+        return self.shapes[-1]
+
+    @property
+    def initial_shape(self):
+        return self.shapes[0]
+
+
+# TODO: document me!
 class MultiFitterResult(IterativeResult):
     r"""
     """
@@ -584,7 +611,7 @@ def compute_error(target, ground_truth, error_type='me_norm'):
     target_points = target.points
 
     if error_type == 'me_norm':
-        return _compute_me_norm(target_points, gt_points)
+        return _compute_norm_p2p_error(target_points, gt_points)
     elif error_type == 'me':
         return _compute_me(target_points, gt_points)
     elif error_type == 'rmse':
@@ -611,13 +638,14 @@ def _compute_rmse(target, ground_truth):
 
 
 # TODO: Document me!
-# TODO: rename to more descriptive name
-def _compute_me_norm(target, ground_truth):
+def _compute_norm_p2p_error(target, source, ground_truth=None):
     r"""
     """
+    if ground_truth is None:
+        ground_truth = source
     normalizer = np.mean(np.max(ground_truth, axis=0) -
                          np.min(ground_truth, axis=0))
-    return _compute_me(target, ground_truth) / normalizer
+    return _compute_me(target, source) / normalizer
 
 
 # TODO: Document me!
@@ -628,8 +656,8 @@ def compute_cumulative_error(errors, x_axis):
     return [np.count_nonzero([errors <= x]) / n_errors for x in x_axis]
 
 
-def plot_cumulative_error_distribution(errors, error_range=None, figure_id=None,
-                                       new_figure=False,
+def plot_cumulative_error_distribution(errors, error_range=None,
+                                       figure_id=None, new_figure=False,
                                        title='Cumulative Error Distribution',
                                        x_label='Normalized Point-to-Point Error',
                                        y_label='Images Proportion',
