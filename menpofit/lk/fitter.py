@@ -62,10 +62,7 @@ class LKFitter(MultiFitter):
         return self._scale_features
 
     def _prepare_template(self, template, group=None, label=None):
-        # copy template
-        template = template.copy()
-
-        template = template.crop_to_landmarks_inplace(group=group, label=label)
+        template = template.crop_to_landmarks(group=group, label=label)
         template = template.as_masked()
 
         # rescale template to diagonal range
