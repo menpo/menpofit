@@ -157,8 +157,7 @@ class MultiFitter(object):
 
         # if specified, crop the image
         if crop_image:
-            image = image.copy()
-            image.crop_to_landmarks_proportion_inplace(crop_image,
+            image = image.crop_to_landmarks_proportion(crop_image,
                                                        group='initial_shape')
 
         # rescale image wrt the scale factor between reference_shape and
