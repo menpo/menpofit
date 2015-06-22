@@ -11,9 +11,6 @@ class CRAlgorithm(object):
     """
     def train(self, images, gt_shapes, current_shapes, verbose=False,
               **kwargs):
-        n_images = len(images)
-        n_samples_image = len(current_shapes[0])
-
         self._features_patch_length = compute_features_info(
             images[0], gt_shapes[0], self.features,
             patch_shape=self.patch_shape)[1]
@@ -155,7 +152,7 @@ class _supervised_newton(object):
         XX = features.T.dot(features)
         XT = features.T.dot(deltas)
         if gamma:
-            XX += gamma * np.eye(features.shape[1])
+            np.fill_diagonal(XX, gamma + np.diag(XX))
         # descent direction
         self.R = np.linalg.solve(XX, XT)
 
@@ -167,13 +164,12 @@ class _supervised_newton(object):
 class _supervised_gauss_newton(object):
     r"""
     """
-
     def __init__(self, features, deltas, gamma=None):
         # ridge regression
         XX = deltas.T.dot(deltas)
         XT = deltas.T.dot(features)
         if gamma:
-            XX += gamma * np.eye(deltas.shape[1])
+            np.fill_diagonal(XX, gamma + np.diag(XX))
         # average Jacobian
         self.J = np.linalg.solve(XX, XT)
         # average Hessian

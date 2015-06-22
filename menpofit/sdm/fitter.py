@@ -26,7 +26,7 @@ class CRFitter(MultiFitter):
         self.diagonal = diagonal
         self.scales = list(scales)[::-1]
         self.n_perturbations = n_perturbations
-        self.iterations = checks.check_iterations(iterations, n_levels)
+        self.iterations = checks.check_max_iters(iterations, n_levels)
         # set up algorithms
         self._set_up(cr_algorithm_cls, features, patch_shape, **kwargs)
 
