@@ -109,7 +109,7 @@ class AAM(DeformableModel):
         """
         sm = self.shape_models[level]
         am = self.appearance_models[level]
-
+        print(appearance_weights)
         # TODO: this bit of logic should to be transferred down to PCAModel
         if shape_weights is None:
             shape_weights = [0]
