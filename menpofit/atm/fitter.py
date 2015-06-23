@@ -36,7 +36,7 @@ class LKATMFitter(ModelFitter):
                   type(self.atm) is LinearPatchATM):
                 # build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
-                    sm, self.atm.n_landmarks)
+                    sm, self.atm.reference_shape)
                 # set up algorithm using linear aam interface
                 algorithm = algorithm_cls(LKLinearATMInterface, wt,
                                           md_transform, sampling=sampling,

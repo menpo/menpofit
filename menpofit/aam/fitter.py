@@ -83,7 +83,7 @@ class LKAAMFitter(AAMFitter):
                   type(self.aam) is LinearPatchAAM):
                 # build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
-                    sm, self.aam.n_landmarks)
+                    sm, self.aam.reference_shape)
                 # set up algorithm using linear aam interface
                 algorithm = lk_algorithm_cls(
                     LinearLKAAMInterface, am, md_transform, sampling=s,
@@ -140,7 +140,7 @@ class CRAAMFitter(AAMFitter):
                   type(self.aam) is LinearPatchAAM):
                 # build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
-                    sm, self.aam.n_landmarks)
+                    sm, self.aam.reference_shape)
                 # set up algorithm using linear aam interface
                 algorithm = cr_algorithm_cls(
                     CRLinearAAMInterface, am, md_transform, sampling=s,
