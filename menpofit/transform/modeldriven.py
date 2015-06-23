@@ -529,13 +529,17 @@ class OrthoMDTransform(GlobalMDTransform):
 class LinearOrthoMDTransform(OrthoPDM, Transform):
     r"""
     """
-    def __init__(self, model, n_landmarks):
+    def __init__(self, model, sparse_instance):
         super(LinearOrthoMDTransform, self).__init__(model)
-        self.n_landmarks = n_landmarks
+        self._sparse_instance = sparse_instance
         self.W = np.vstack((self.similarity_model.components,
                             self.model.components))
         V = self.W[:, :self.n_dims*self.n_landmarks]
         self.pinv_V = np.linalg.pinv(V)
+
+    @property
+    def n_landmarks(self):
+        return self._sparse_instance.n_points
 
     @property
     def dense_target(self):
@@ -543,7 +547,8 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
 
     @property
     def sparse_target(self):
-        return PointCloud(self.target.points[:self.n_landmarks])
+        sparse_target = PointCloud(self.target.points[:self.n_landmarks])
+        return self._sparse_instance.from_vector(sparse_target.as_vector())
 
     def set_target(self, target):
         if target.n_points == self.n_landmarks:
