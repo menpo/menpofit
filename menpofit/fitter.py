@@ -2,7 +2,8 @@ from __future__ import division
 import abc
 import numpy as np
 from menpo.shape import PointCloud
-from menpo.transform import Scale, AlignmentAffine, AlignmentSimilarity
+from menpo.transform import (
+    Scale, Similarity, AlignmentAffine, AlignmentSimilarity)
 import menpofit.checks as checks
 
 
@@ -317,23 +318,80 @@ class ModelFitter(MultiFitter):
                                  'or a list containing 1 or {} of '
                                  'those'.format(self._model.n_levels))
 
-    # TODO: Bounding boxes should be PointGraphs
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.04,
-                                      rotation=False):
-        transform = noisy_align(AlignmentSimilarity,
-                                self.reference_bounding_box, bounding_box,
-                                noise_std=noise_std, rotation=rotation)
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.5):
+        transform = noisy_params_alignment_similarity(
+            self.reference_bounding_box, bounding_box, noise_std=noise_std)
         return transform.apply(self.reference_shape)
 
-    def noisy_shape_from_shape(self, shape, noise_std=0.04, rotation=False):
+    def noisy_shape_from_shape(self, shape, noise_std=0.5):
         return self.noisy_shape_from_bounding_box(
-            shape.bounding_box(), noise_std=noise_std, rotation=rotation)
+            shape.bounding_box(), noise_std=noise_std)
 
 
-# TODO: document me!
-def noisy_align(alignment_transform_cls, source, target, noise_std=0.1,
-                **kwargs):
+def noisy_params_alignment_similarity(source, target, noise_std=0.5):
     r"""
+    Constructs and perturbs the optimal similarity transform between source
+    and target by adding white noise to its parameters.
+    Parameters
+    ----------
+    source: :class:`menpo.shape.PointCloud`
+        The source pointcloud instance used in the alignment
+    target: :class:`menpo.shape.PointCloud`
+        The target pointcloud instance used in the alignment
+    noise_std: float or triplet of floats, optional
+        The standard deviation of the white noise. If float the same amount
+        of noise is applied to the scale, rotation and translation
+        parameters of the true similarity transform. If triplet of
+        floats, the first, second and third elements denote the amount of
+        noise to be applied to the scale, rotation and translation
+        parameters respectively.
+    Returns
+    -------
+    noisy_transform : :class: `menpo.transform.Similarity`
+        The noisy Similarity Transform
+    """
+    if isinstance(noise_std, float):
+        noise_std = [noise_std] * 3
+    elif len(noise_std) == 1:
+        noise_std *= 3
+
+    transform = AlignmentSimilarity(source, target, rotation=True)
+    parameters = transform.as_vector()
+
+    scale = noise_std[0] * parameters[0]
+    rotation = noise_std[1] * parameters[1]
+    translation = noise_std[2] * target.range()
+
+    noise = (([scale, rotation] + list(translation)) *
+             np.random.randn(transform.n_parameters))
+    return Similarity.init_identity(source.n_dims).from_vector(
+        parameters + noise)
+
+
+def noisy_target_alignment_transform(source, target,
+                                     alignment_transform_cls=AlignmentAffine,
+                                     noise_std=0.1, **kwargs):
+    r"""
+    Constructs and the optimal alignment transform between the source and
+    a noisy version of the target obtained by adding white noise to each of
+    its points.
+
+    Parameters
+    ----------
+    source: :class:`menpo.shape.PointCloud`
+        The source pointcloud instance used in the alignment
+    target: :class:`menpo.shape.PointCloud`
+        The target pointcloud instance used in the alignment
+    alignment_transform_cls: :class:`menpo.transform.Alignment`, optional
+        The alignment transform class used to perform the alignment.
+    noise_std: float or triplet of floats, optional
+        The standard deviation of the white noise to be added to each one of
+        the target points.
+
+    Returns
+    -------
+    noisy_transform : :class: `menpo.transform.Alignment`
+        The noisy Similarity Transform
     """
     noise = noise_std * target.range() * np.random.randn(target.n_points,
                                                          target.n_dims)
@@ -341,11 +399,27 @@ def noisy_align(alignment_transform_cls, source, target, noise_std=0.1,
     return alignment_transform_cls(source, noisy_target, **kwargs)
 
 
-# TODO: document me!
-def align_shape_with_bounding_box(alignment_transform_cls, shape,
-                                  bounding_box, **kwargs):
+def align_shape_with_bounding_box(shape, bounding_box,
+                                  alignment_transform_cls=AlignmentSimilarity,
+                                  **kwargs):
     r"""
+    Aligns the shape with the bounding box using a particular ali .
+
+    Parameters
+    ----------
+    source: :class:`menpo.shape.PointCloud`
+        The shape instance used in the alignment.
+    bounding_box: :class:`menpo.shape.PointCloud`
+        The bounding box instance used in the alignment.
+    alignment_transform_cls: :class:`menpo.transform.Alignment`, optional
+        The class of the alignment transform used to perform the alignment.
+
+    Returns
+    -------
+    noisy_transform : :class: `menpo.transform.Alignment`
+        The noisy Alignment Transform
     """
     shape_bb = shape.bounding_box()
-    return alignment_transform_cls(shape_bb, bounding_box, **kwargs)
+    transform = alignment_transform_cls(shape_bb, bounding_box, **kwargs)
+    return transform.apply(shape)
 
