@@ -55,7 +55,16 @@ class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
         k = np.hstack([k_points, np.ones([n_points, 1]), points])
 
         # (n_centres+3, n_centres+3)
-        inv_L = np.linalg.inv(self.l)
+        try:
+            inv_L = np.linalg.inv(self.l)
+        except np.linalg.LinAlgError:
+            # If two points are coincident, or very close to being so, then the
+            # matrix is rank deficient and thus not-invertible. Therefore,
+            # only take the inverse on the full-rank set of indices.
+            _u, _s, _v = np.linalg.svd(self.l)
+            keep = _s.shape[0] - sum(_s < self.min_singular_val)
+            inv_L = _u[:, :keep].dot(1.0 / _s[:keep, None] * _v[:keep, :])
+
 
         # Taking the derivative of L for changes in l must yield an x,y change
         # for each centre.

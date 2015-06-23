@@ -14,7 +14,7 @@ def test_tps_d_dx():
     assert_allclose(result, np.array([[[2, 0], [0., 2]],
                                       [[2, 0], [0, 2]],
                                       [[2, 0], [0, 2]],
-                                      [[2, 0], [0, 2]]]), atol=10 ** -14)
+                                      [[2, 0], [0, 2]]]), atol=10 ** -6)
 
 
 def test_tps_d_dl():

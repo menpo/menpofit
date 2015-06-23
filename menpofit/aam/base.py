@@ -161,8 +161,8 @@ class AAM(DeformableModel):
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        return appearance_instance.warp_to_mask(reference_frame.mask,
-                                                transform, warp_landmarks=True)
+        return appearance_instance.as_unmasked(copy=False).warp_to_mask(
+            reference_frame.mask, transform, warp_landmarks=True)
 
     def _build_reference_frame(self, reference_shape, landmarks):
         if type(landmarks) == TriMesh:
@@ -181,9 +181,9 @@ class AAM(DeformableModel):
         """
         return 'Active Appearance Model'
 
-    def view_shape_models_widget(self, n_parameters=5,
-                                 parameters_bounds=(-3.0, 3.0), mode='multiple',
-                                 popup=False, figure_size=(10, 8)):
+    def view_shape_models_widget(self, n_parameters=5, mode='multiple',
+                                 parameters_bounds=(-3.0, 3.0),
+                                 figure_size=(10, 8), style='coloured'):
         r"""
         Visualizes the shape models of the AAM object using the
         `menpo.visualize.widgets.visualize_shape_model` widget.
@@ -191,33 +191,33 @@ class AAM(DeformableModel):
         Parameters
         -----------
         n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+            The number of principal components to be used for the parameters
+            sliders. If `int`, then the number of sliders per level is the
+            minimum between `n_parameters` and the number of active components
+            per level. If `list` of `int`, then a number of sliders is defined
+            per level. If ``None``, all the active components per level will
+            have a slider.
+        mode : {``'single'``, ``'multiple'``}, optional
+            If ``'single'``, then only a single slider is constructed along with
+            a drop down menu. If ``'multiple'``, then a slider is constructed
+            for each parameter.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
         """
         from menpofit.visualize import visualize_shape_model
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode, popup=popup)
+        visualize_shape_model(
+            self.shape_models, n_parameters=n_parameters,
+            parameters_bounds=parameters_bounds, figure_size=figure_size,
+            mode=mode, style=style)
 
-    def view_appearance_models_widget(self, n_parameters=5,
+    def view_appearance_models_widget(self, n_parameters=5, mode='multiple',
                                       parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', popup=False,
-                                      figure_size=(10, 8)):
+                                      figure_size=(10, 8), style='coloured'):
         r"""
         Visualizes the appearance models of the AAM object using the
         `menpo.visualize.widgets.visualize_appearance_model` widget.
@@ -225,72 +225,70 @@ class AAM(DeformableModel):
         Parameters
         -----------
         n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of appearance principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+            The number of principal components to be used for the parameters
+            sliders. If `int`, then the number of sliders per level is the
+            minimum between `n_parameters` and the number of active components
+            per level. If `list` of `int`, then a number of sliders is defined
+            per level. If ``None``, all the active components per level will
+            have a slider.
+        mode : {``'single'``, ``'multiple'``}, optional
+            If ``'single'``, then only a single slider is constructed along with
+            a drop down menu. If ``'multiple'``, then a slider is constructed
+            for each parameter.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
         """
         from menpofit.visualize import visualize_appearance_model
-        visualize_appearance_model(self.appearance_models,
-                                   n_parameters=n_parameters,
-                                   parameters_bounds=parameters_bounds,
-                                   figure_size=figure_size, mode=mode,
-                                   popup=popup)
+        visualize_appearance_model(
+            self.appearance_models, n_parameters=n_parameters,
+            parameters_bounds=parameters_bounds, figure_size=figure_size,
+            mode=mode, style=style)
 
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        popup=False, figure_size=(10, 8)):
+                        mode='multiple', parameters_bounds=(-3.0, 3.0),
+                        figure_size=(10, 8), style='coloured'):
         r"""
         Visualizes both the shape and appearance models of the AAM object using
         the `menpo.visualize.widgets.visualize_aam` widget.
 
         Parameters
         -----------
-        n_shape_parameters : `int` or `list` of `int` or None, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
-        n_appearance_parameters : `int` or `list` of `int` or None, optional
-            The number of appearance principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of principal components to be used for the shape
+            parameters sliders. If `int`, then the number of sliders per level
+            is the minimum between `n_parameters` and the number of active
+            components per level. If `list` of `int`, then a number of sliders
+            is defined per level. If ``None``, all the active components per
+            level will have a slider.
+        n_appearance_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of principal components to be used for the appearance
+            parameters sliders. If `int`, then the number of sliders per level
+            is the minimum between `n_parameters` and the number of active
+            components per level. If `list` of `int`, then a number of sliders
+            is defined per level. If ``None``, all the active components per
+            level will have a slider.
+        mode : {``'single'``, ``'multiple'``}, optional
+            If ``'single'``, then only a single slider is constructed along with
+            a drop down menu. If ``'multiple'``, then a slider is constructed
+            for each parameter.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
         """
         from menpofit.visualize import visualize_aam
         visualize_aam(self, n_shape_parameters=n_shape_parameters,
                       n_appearance_parameters=n_appearance_parameters,
                       parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode, popup=popup)
+                      figure_size=figure_size, mode=mode, style=style)
 
     def __str__(self):
         out = "{}\n - {} training images.\n".format(self._str_title,
