@@ -118,6 +118,10 @@ class AAMBuilder(DeformableModelBuilder):
         of the reference frame (has potential effects on the gradient
         computation).
 
+    appearance_model_method: `PCAModel`, optional
+        The technique to use to construct an appearance model. Defaults to use
+        PCAModel.
+
     Returns
     -------
     aam : :map:`AAMBuilder`
