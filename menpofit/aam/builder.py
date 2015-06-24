@@ -22,7 +22,7 @@ class AAMBuilder(DeformableModelBuilder):
 
     Parameters
     ----------
-    features : `callable` or ``[callable]``, optional0
+    features : `callable` or ``[callable]``, optional
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
