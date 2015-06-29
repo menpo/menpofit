@@ -2100,7 +2100,7 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
                               'selected_groups': ['final'],
                               'subplots_enabled': True}
     fitting_result_iterations_options = \
-        {'n_iters': fitting_results[0].n_iters,
+        {'n_iters': fitting_results[0].iter_image.landmarks.n_groups,
          'image_has_gt_shape': not fitting_results[0].gt_shape is None,
          'n_points': fitting_results[0].fitted_image.landmarks['final'].lms.n_points,
          'iter_str': 'iter_',
@@ -2527,7 +2527,7 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
 
         # Update iterations result's options
         fitting_result_iterations_options = {
-            'n_iters': fitting_results[value].n_iters,
+            'n_iters': fitting_results[value].iter_image.landmarks.n_groups,
             'image_has_gt_shape': fitting_results[value].gt_shape is not None,
             'n_points':
             fitting_results[value].fitted_image.landmarks['final'].lms.n_points,

@@ -17,11 +17,9 @@ matrix:
     - env: PYTHON_VERSION=3.4
 
 install:
-- wget https://raw.githubusercontent.com/jabooth/condaci/v0.2.1/condaci.py -O condaci.py
+- wget https://raw.githubusercontent.com/menpo/condaci/v0.2.4/condaci.py -O condaci.py
 - python condaci.py setup $PYTHON_VERSION --channel $BINSTAR_USER
 - export PATH=$HOME/miniconda/bin:$PATH
-# The following should be commented out for releases and left in for dev
-- conda config --add channels $BINSTAR_USER/channel/master
 
 script:
 - python condaci.py auto ./conda --binstaruser $BINSTAR_USER --binstarkey $BINSTAR_KEY
@@ -33,4 +31,3 @@ notifications:
     on_success: :change
     on_failure: :change
   email: false
-
