@@ -326,28 +326,35 @@ class ProjectOut(CRAAMAlgorithm):
 class PSD(ProjectOut):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None):
-        return _supervised_descent(features, deltas, gamma=gamma)
+    def _perform_regression(self, features, deltas, gamma=None,
+                            dtype=np.float64):
+        regressor = _supervised_newton(features, deltas, gamma=gamma,
+                                       dtype=dtype)
+        regressor.R = self.project_out(regressor.R)
+        return regressor
 
 
 # TODO: document me!
 class PAJ(ProjectOut):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None):
-        return _average_jacobian(features, deltas, gamma=gamma)
+    def _perform_regression(self, features, deltas, gamma=None, psi=None,
+                            dtype=np.float64):
+        return _supervised_gauss_newton(features, deltas, gamma=gamma,
+                                        psi=psi, dtype=dtype)
 
 
 # TODO: document me!
-class _supervised_descent(object):
+class _supervised_newton(object):
     r"""
     """
-    def __init__(self, features, deltas, gamma=None):
-        # ridge regression
+    def __init__(self, features, deltas, gamma=None, dtype=np.float64):
+        features = features.astype(dtype)
+        deltas = deltas.astype(dtype)
         XX = features.T.dot(features)
         XT = features.T.dot(deltas)
         if gamma:
-            XX += gamma * np.eye(features.shape[1])
+            np.fill_diagonal(XX, gamma + np.diag(XX))
         # descent direction
         self.R = np.linalg.solve(XX, XT)
 
@@ -356,19 +363,23 @@ class _supervised_descent(object):
 
 
 # TODO: document me!
-class _average_jacobian(object):
+class _supervised_gauss_newton(object):
     r"""
     """
-    def __init__(self, features, deltas, gamma=None):
-        # ridge regression
+    def __init__(self, features, deltas, gamma=None, psi=None,
+                 dtype=np.float64):
+        features = features.astype(dtype)
+        deltas = deltas.astype(dtype)
         XX = deltas.T.dot(deltas)
         XT = deltas.T.dot(features)
         if gamma:
-            XX += gamma * np.eye(deltas.shape[1])
+            np.fill_diagonal(XX, gamma + np.diag(XX))
         # average Jacobian
         self.J = np.linalg.solve(XX, XT)
         # average Hessian
         self.H = self.J.dot(self.J.T)
+        if psi:
+            np.fill_diagonal(self.H, psi + np.diag(self.H))
         # descent direction
         self.R = np.linalg.solve(self.H, self.J).T
 
@@ -379,4 +390,3 @@ class _average_jacobian(object):
 # TODO: document me!
 def _compute_rmse(x1, x2):
     return np.sqrt(np.mean(np.sum((x1 - x2) ** 2, axis=1)))
-
