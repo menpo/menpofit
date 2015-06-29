@@ -106,13 +106,14 @@ class CRAAMFitter(AAMFitter):
     """
     def __init__(self, aam, cr_algorithm_cls=PAJ, n_shape=None,
                  n_appearance=None, sampling=None, n_perturbations=10,
-                 max_iters=6, **kwargs):
+                 noise_std=0.05, max_iters=6, **kwargs):
         self._model = aam
         self.algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
         sampling = checks.check_sampling(sampling, self.n_levels)
         self.n_perturbations = n_perturbations
+        self.noise_std = noise_std
         self.max_iters = checks.check_max_iters(max_iters, self.n_levels)
         self._set_up(cr_algorithm_cls, sampling, **kwargs)
 
@@ -203,7 +204,7 @@ class CRAAMFitter(AAMFitter):
                 for gt_s in level_gt_shapes:
                     perturbed_shapes = []
                     for _ in range(self.n_perturbations):
-                        p_s = self.noisy_shape_from_shape(gt_s)
+                        p_s = self.noisy_shape_from_shape(gt_s, self.noise_std)
                         perturbed_shapes.append(p_s)
                     current_shapes.append(perturbed_shapes)
 
