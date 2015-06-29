@@ -1,5 +1,4 @@
 from __future__ import division
-import abc
 import numpy as np
 from menpo.shape import PointCloud
 from menpo.transform import (
@@ -19,26 +18,6 @@ class MultiFitter(object):
         :type: `int`
         """
         return len(self.scales)
-
-    @abc.abstractproperty
-    def algorithms(self):
-        pass
-
-    # @abc.abstractproperty
-    # def reference_shape(self):
-    #     pass
-    #
-    # @abc.abstractproperty
-    # def features(self):
-    #     pass
-    #
-    # @abc.abstractproperty
-    # def scales(self):
-    #     pass
-    #
-    # @abc.abstractproperty
-    # def scale_features(self):
-    #     pass
 
     def fit(self, image, initial_shape, max_iters=50, gt_shape=None,
             crop_image=0.5, **kwargs):
@@ -174,14 +153,14 @@ class MultiFitter(object):
         for j, s in enumerate(scales):
             if j == 0:
                 # compute features at highest level
-                feature_image = self.features(image)
+                feature_image = self.features[j](image)
             elif self.scale_features:
                 # scale features at other levels
                 feature_image = images[0].rescale(s)
             else:
                 # scale image and compute features at other levels
                 scaled_image = image.rescale(s)
-                feature_image = self.features(scaled_image)
+                feature_image = self.features[j](scaled_image)
             images.append(feature_image)
         images.reverse()
 
@@ -247,20 +226,11 @@ class MultiFitter(object):
 
         return algorithm_results
 
-    @abc.abstractmethod
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
-        pass
 
-
-# TODO: correctly implement initialization from bounding box
 # TODO: document me!
 class ModelFitter(MultiFitter):
     r"""
     """
-    def __init__(self, model):
-        self._model = model
-
     @property
     def reference_shape(self):
         r"""

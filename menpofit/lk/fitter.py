@@ -1,7 +1,8 @@
 from __future__ import division
 from menpo.feature import no_op
 from menpofit.transform import DifferentiableAlignmentAffine
-from menpofit.fitter import MultiFitter, noisy_align
+from menpofit.fitter import MultiFitter, noisy_target_alignment_transform
+from menpofit import checks
 from .algorithm import IC
 from .residual import SSD, FourierSSD
 from .result import LKFitterResult
@@ -15,19 +16,25 @@ class LKFitter(MultiFitter):
                  transform_cls=DifferentiableAlignmentAffine, diagonal=None,
                  scales=(1, .5), scale_features=True, algorithm_cls=IC,
                  residual_cls=SSD, **kwargs):
-        self._features = features
+        # check parameters
+        checks.check_diagonal(diagonal)
+        scales, n_levels = checks.check_scales(scales)
+        features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
+        # set parameters
+        self.features = features
         self.transform_cls = transform_cls
         self.diagonal = diagonal
-        self._scales = list(scales)
-        self._scales.reverse()
-        self._scale_features = scale_features
+        self.scales = list(scales)
+        self.scales.reverse()
+        self.scale_features = scale_features
 
         self.templates, self.sources = self._prepare_template(
             template, group=group, label=label)
 
-        self._reference_shape = self.sources[0]
+        self.reference_shape = self.sources[0]
 
-        self._algorithms = []
+        self.algorithms = []
         for j, (t, s) in enumerate(zip(self.templates, self.sources)):
             transform = self.transform_cls(s, s)
             if ('kernel_func' in kwargs and
@@ -39,27 +46,7 @@ class LKFitter(MultiFitter):
             else:
                 residual = residual_cls()
             algorithm = algorithm_cls(t, transform, residual, **kwargs)
-            self._algorithms.append(algorithm)
-
-    @property
-    def algorithms(self):
-        return self._algorithms
-
-    @property
-    def reference_shape(self):
-        return self._reference_shape
-
-    @property
-    def features(self):
-        return self._features
-
-    @property
-    def scales(self):
-        return self._scales
-
-    @property
-    def scale_features(self):
-        return self._scale_features
+            self.algorithms.append(algorithm)
 
     def _prepare_template(self, template, group=None, label=None):
         template = template.crop_to_landmarks(group=group, label=label)
@@ -78,14 +65,14 @@ class LKFitter(MultiFitter):
         for j, s in enumerate(scales):
             if j == 0:
                 # compute features at highest level
-                feature_template = self.features(template)
+                feature_template = self.features[j](template)
             elif self.scale_features:
                 # scale features at other levels
                 feature_template = templates[0].rescale(s)
             else:
                 # scale image and compute features at other levels
                 scaled_template = template.rescale(s)
-                feature_template = self.features(scaled_template)
+                feature_template = self.features[j](scaled_template)
             templates.append(feature_template)
         templates.reverse()
 
@@ -95,8 +82,9 @@ class LKFitter(MultiFitter):
         return templates, sources
 
     def noisy_shape_from_shape(self, gt_shape, noise_std=0.04):
-        transform = noisy_align(self.transform_cls, self.reference_shape,
-                                gt_shape, noise_std=noise_std)
+        transform = noisy_target_alignment_transform(
+            self.transform_cls, self.reference_shape, gt_shape,
+            noise_std=noise_std)
         return transform.apply(self.reference_shape)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
