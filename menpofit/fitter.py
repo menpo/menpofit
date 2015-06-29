@@ -288,17 +288,17 @@ class ModelFitter(MultiFitter):
                                  'or a list containing 1 or {} of '
                                  'those'.format(self._model.n_levels))
 
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.5):
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.05):
         transform = noisy_params_alignment_similarity(
             self.reference_bounding_box, bounding_box, noise_std=noise_std)
         return transform.apply(self.reference_shape)
 
-    def noisy_shape_from_shape(self, shape, noise_std=0.5):
+    def noisy_shape_from_shape(self, shape, noise_std=0.05):
         return self.noisy_shape_from_bounding_box(
             shape.bounding_box(), noise_std=noise_std)
 
 
-def noisy_params_alignment_similarity(source, target, noise_std=0.5):
+def noisy_params_alignment_similarity(source, target, noise_std=0.05):
     r"""
     Constructs and perturbs the optimal similarity transform between source
     and target by adding white noise to its parameters.
