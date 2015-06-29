@@ -1,52 +1,5 @@
 import numpy as np
-from menpofit.base import is_pyramid_on_features
-
-
-def check_features(features, n_levels):
-    r"""
-    Checks the feature type per level.
-
-    Parameters
-    ----------
-    features : callable or list of callables
-        The features to apply to the images.
-    n_levels : int
-        The number of pyramid levels.
-
-    Returns
-    -------
-    feature_list : list
-        A list of feature function.
-    """
-    # Firstly, make sure we have a list of callables of the right length
-    if is_pyramid_on_features(features):
-        return features
-    else:
-        try:
-            all_callables = check_list_callables(features, n_levels,
-                                                 allow_single=False)
-        except ValueError:
-            raise ValueError("features must be a callable or a list of "
-                             "{} callables".format(n_levels))
-        return all_callables
-
-
-def check_list_callables(callables, n_callables, allow_single=True):
-    if not isinstance(callables, list):
-        if allow_single:
-            # expand to a list of callables for them
-            callables = [callables] * n_callables
-        else:
-            raise ValueError("Expected a list of callables "
-                             "(allow_single=False)")
-    # must have a list by now
-    for c in callables:
-        if not callable(c):
-            raise ValueError("All items must be callables")
-    if len(callables) != n_callables:
-        raise ValueError("List of callables must be {} "
-                         "long".format(n_callables))
-    return callables
+import warnings
 
 
 def check_diagonal(diagonal):
@@ -71,6 +24,47 @@ def check_scales(scales):
     else:
         raise ValueError("scales must be an int/float or a list/tuple of "
                          "int/float")
+
+
+def check_features(features, n_levels):
+    r"""
+    Checks the feature type per level.
+
+    Parameters
+    ----------
+    features : callable or list of callables
+        The features to apply to the images.
+    n_levels : int
+        The number of pyramid levels.
+
+    Returns
+    -------
+    feature_list : list
+        A list of feature function.
+    """
+    if callable(features):
+        return [features] * n_levels
+    elif len(features) == 1 and np.alltrue([callable(f) for f in features]):
+        return list(features) * n_levels
+    elif len(features) == n_levels and np.alltrue([callable(f)
+                                                   for f in features]):
+        return list(features)
+    else:
+        raise ValueError("features must be a callable or a list/tuple of "
+                         "callables with the same length as scales")
+
+
+# TODO: document me!
+def check_scale_features(scale_features, features):
+    r"""
+    """
+    if np.alltrue([f == features[0] for f in features]):
+        return scale_features
+    else:
+        warnings.warn('scale_features has been automatically set to False '
+                      'because different types of features are used at each '
+                      'level.')
+        return False
 
 
 # TODO: document me!
@@ -98,7 +92,7 @@ def check_max_components(max_components, n_levels, var_name):
     str_error = ("{} must be None or an int > 0 or a 0 <= float <= 1 or "
                  "a list of those containing 1 or {} elements").format(
         var_name, n_levels)
-    if not isinstance(max_components, list):
+    if not isinstance(max_components, (list, tuple)):
         max_components_list = [max_components] * n_levels
     elif len(max_components) == 1:
         max_components_list = [max_components[0]] * n_levels
@@ -146,27 +140,3 @@ def check_sampling(sampling, n_levels):
                          'None'.format(n_levels))
     return sampling
 
-
-# def check_n_levels(n_levels):
-#     r"""
-#     Checks the number of pyramid levels - must be int > 0.
-#     """
-#     if not isinstance(n_levels, int) or n_levels < 1:
-#         raise ValueError("n_levels must be int > 0")
-#
-#
-# def check_downscale(downscale):
-#     r"""
-#     Checks the downscale factor of the pyramid that must be >= 1.
-#     """
-#     if downscale < 1:
-#         raise ValueError("downscale must be >= 1")
-#
-#
-# def check_boundary(boundary):
-#     r"""
-#     Checks the boundary added around the reference shape that must be
-#     int >= 0.
-#     """
-#     if not isinstance(boundary, int) or boundary < 0:
-#         raise ValueError("boundary must be >= 0")

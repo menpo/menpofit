@@ -13,8 +13,6 @@ from menpofit.transform import (
     DifferentiablePiecewiseAffine, DifferentiableThinPlateSplines)
 
 
-# TODO: fix features checker
-# TODO: implement checker for conflict between features and scale_features
 # TODO: document me!
 class AAMBuilder(object):
     r"""
@@ -129,8 +127,9 @@ class AAMBuilder(object):
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, len(scales), 'max_shape_components')
+            max_shape_components, n_levels, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_levels, 'max_appearance_components')
         # set parameters
@@ -190,7 +189,7 @@ class AAMBuilder(object):
             # obtain image representation
             if j == 0:
                 # compute features at highest level
-                feature_images = compute_features(images, self.features,
+                feature_images = compute_features(images, self.features[j],
                                                   level_str=level_str,
                                                   verbose=verbose)
                 level_images = feature_images
@@ -203,7 +202,8 @@ class AAMBuilder(object):
                 # scale images and compute features at other levels
                 scaled_images = scale_images(images, s, level_str=level_str,
                                              verbose=verbose)
-                level_images = compute_features(scaled_images, self.features,
+                level_images = compute_features(scaled_images,
+                                                self.features[j],
                                                 level_str=level_str,
                                                 verbose=verbose)
 
@@ -381,8 +381,9 @@ class PatchAAMBuilder(AAMBuilder):
         scales, n_levels = checks.check_scales(scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, len(scales), 'max_shape_components')
+            max_shape_components, n_levels, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_levels, 'max_appearance_components')
         # set parameters
@@ -523,8 +524,9 @@ class LinearAAMBuilder(AAMBuilder):
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, len(scales), 'max_shape_components')
+            max_shape_components, n_levels, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_levels, 'max_appearance_components')
         # set parameters
@@ -675,8 +677,9 @@ class LinearPatchAAMBuilder(AAMBuilder):
         scales, n_levels = checks.check_scales(scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, len(scales), 'max_shape_components')
+            max_shape_components, n_levels, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_levels, 'max_appearance_components')
         # set parameters
@@ -830,8 +833,9 @@ class PartsAAMBuilder(AAMBuilder):
         scales, n_levels = checks.check_scales(scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, len(scales), 'max_shape_components')
+            max_shape_components, n_levels, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_levels, 'max_appearance_components')
         # set parameters

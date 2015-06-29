@@ -18,19 +18,9 @@ from .result import AAMFitterResult
 class AAMFitter(ModelFitter):
     r"""
     """
-    def __init__(self, aam, n_shape=None, n_appearance=None):
-        super(AAMFitter, self).__init__(aam)
-        self._algorithms = []
-        self._check_n_shape(n_shape)
-        self._check_n_appearance(n_appearance)
-
     @property
     def aam(self):
         return self._model
-
-    @property
-    def algorithms(self):
-        return self._algorithms
 
     def _check_n_appearance(self, n_appearance):
         if n_appearance is not None:
@@ -60,8 +50,10 @@ class LKAAMFitter(AAMFitter):
     """
     def __init__(self, aam,  n_shape=None, n_appearance=None,
                  lk_algorithm_cls=AIC, sampling=None, **kwargs):
-        super(LKAAMFitter, self).__init__(
-            aam, n_shape=n_shape, n_appearance=n_appearance)
+        self._model = aam
+        self.algorithms = []
+        self._check_n_shape(n_shape)
+        self._check_n_appearance(n_appearance)
         sampling = checks.check_sampling(sampling, self.n_levels)
         self._set_up(lk_algorithm_cls, sampling, **kwargs)
 
@@ -105,7 +97,7 @@ class LKAAMFitter(AAMFitter):
                                              LinearPatchAAM, PartsAAM))
 
             # append algorithms to list
-            self._algorithms.append(algorithm)
+            self.algorithms.append(algorithm)
 
 
 # TODO: document me!
@@ -115,8 +107,10 @@ class CRAAMFitter(AAMFitter):
     def __init__(self, aam, cr_algorithm_cls=PAJ, n_shape=None,
                  n_appearance=None, sampling=None, n_perturbations=10,
                  max_iters=6, **kwargs):
-        super(CRAAMFitter, self).__init__(
-            aam, n_shape=n_shape, n_appearance=n_appearance)
+        self._model = aam
+        self.algorithms = []
+        self._check_n_shape(n_shape)
+        self._check_n_appearance(n_appearance)
         sampling = checks.check_sampling(sampling, self.n_levels)
         self.n_perturbations = n_perturbations
         self.max_iters = checks.check_max_iters(max_iters, self.n_levels)
@@ -163,7 +157,7 @@ class CRAAMFitter(AAMFitter):
                                              LinearPatchAAM, PartsAAM))
 
             # append algorithms to list
-            self._algorithms.append(algorithm)
+            self.algorithms.append(algorithm)
 
     def train(self, images, group=None, label=None, verbose=False, **kwargs):
         # normalize images with respect to reference shape of aam
@@ -172,7 +166,7 @@ class CRAAMFitter(AAMFitter):
 
         if self.scale_features:
             # compute features at highest level
-            feature_images = compute_features(images, self.features,
+            feature_images = compute_features(images, self.features[0],
                                               verbose=verbose)
 
         # for each pyramid level (low --> high)
@@ -195,7 +189,8 @@ class CRAAMFitter(AAMFitter):
                 # scale images and compute features at other levels
                 scaled_images = scale_images(images, s, level_str=level_str,
                                              verbose=verbose)
-                level_images = compute_features(scaled_images, self.features,
+                level_images = compute_features(scaled_images,
+                                                self.features[j],
                                                 level_str=level_str,
                                                 verbose=verbose)
 

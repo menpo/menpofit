@@ -14,10 +14,14 @@ class LKATMFitter(ModelFitter):
     """
     def __init__(self, atm, algorithm_cls=IC, n_shape=None, sampling=None,
                  **kwargs):
-        super(LKATMFitter, self).__init__(atm)
-        self._algorithms = []
+        self._model = atm
+        self.algorithms = []
         self._check_n_shape(n_shape)
         self._set_up(algorithm_cls, sampling, **kwargs)
+
+    @property
+    def atm(self):
+        return self._model
 
     def _set_up(self, algorithm_cls, sampling, **kwargs):
         for j, (wt, sm) in enumerate(zip(self.atm.warped_templates,
@@ -58,15 +62,7 @@ class LKATMFitter(ModelFitter):
                                              LinearPatchATM, PartsATM))
 
             # append algorithms to list
-            self._algorithms.append(algorithm)
-
-    @property
-    def atm(self):
-        return self._model
-
-    @property
-    def algorithms(self):
-        return self._algorithms
+            self.algorithms.append(algorithm)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):

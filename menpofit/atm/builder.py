@@ -111,6 +111,7 @@ class ATMBuilder(object):
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
         # set parameters
@@ -180,7 +181,7 @@ class ATMBuilder(object):
             if j == 0 or self.scale_shapes:
                 if j == 0:
                     level_shapes = shapes
-                    level_reference_shape= reference_shape
+                    level_reference_shape = reference_shape
                 else:
                     scale_transform = Scale(scale_factor=s, n_dims=2)
                     level_shapes = [scale_transform.apply(s) for s in shapes]
@@ -202,7 +203,7 @@ class ATMBuilder(object):
             # obtain template representation
             if j == 0:
                 # compute features at highest level
-                feature_template = self.features(template)
+                feature_template = self.features[j](template)
                 level_template = feature_template
             elif self.scale_features:
                 # scale features at other levels
@@ -210,7 +211,7 @@ class ATMBuilder(object):
             else:
                 # scale template and compute features at other levels
                 scaled_template = template.rescale(s)
-                level_template = self.features(scaled_template)
+                level_template = self.features[j](scaled_template)
 
             # extract potentially rescaled template shape
             level_template_shape = level_template.landmarks[group][label]
@@ -349,6 +350,7 @@ class PatchATMBuilder(ATMBuilder):
         scales, n_levels = checks.check_scales(scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
         # set parameters
@@ -478,6 +480,7 @@ class LinearATMBuilder(ATMBuilder):
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
         # set parameters
@@ -613,6 +616,7 @@ class LinearPatchATMBuilder(LinearATMBuilder):
         scales, n_levels = checks.check_scales(scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
         # set parameters
@@ -742,6 +746,7 @@ class PartsATMBuilder(ATMBuilder):
         scales, n_levels = checks.check_scales(scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
         # set parameters
