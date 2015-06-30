@@ -4,7 +4,7 @@ from numpy.fft import fftn, ifftn, fft2
 import scipy.linalg
 from menpo.feature import gradient
 
-
+# TODO: Do we want residuals to support masked templates?
 class Residual(object):
     """
     An abstract base class for calculating the residual between two images
@@ -132,7 +132,8 @@ class Residual(object):
 
 
 class SSD(Residual):
-
+    r"""
+    """
     def __init__(self, kernel=None):
         self.kernel = kernel
 
@@ -188,8 +189,10 @@ class SSD(Residual):
         return sdi.T.dot(error_img)
 
 
+# TODO: Does not support masked templates at the moment
 class FourierSSD(Residual):
-
+    r"""
+    """
     def __init__(self, kernel=None):
         self.kernel = kernel
 
@@ -254,7 +257,8 @@ class FourierSSD(Residual):
 
 
 class ECC(Residual):
-
+    r"""
+    """
     def _normalise_images(self, image):
         # TODO: do we need to copy the image?
         # TODO: is this supposed to be per channel normalization?
@@ -327,7 +331,8 @@ class ECC(Residual):
 
 
 class GradientImages(Residual):
-
+    r"""
+    """
     def _regularise_gradients(self, grad):
         pixels = grad.pixels
         ab = np.sqrt(np.sum(pixels**2, axis=0))
@@ -391,7 +396,8 @@ class GradientImages(Residual):
 
 
 class GradientCorrelation(Residual):
-
+    r"""
+    """
     def steepest_descent_images(self, image, dW_dp, forward=None):
         n_dims = image.n_dims
         n_channels = image.n_channels

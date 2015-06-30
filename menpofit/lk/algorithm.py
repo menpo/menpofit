@@ -1,15 +1,12 @@
 from scipy.linalg import norm
-import abc
 import numpy as np
-from .result import LKAlgorithmResult
+from .result import LucasKanadeAlgorithmResult
 
 
 # TODO: implement Inverse Additive Algorithm?
-# TODO: implement Linear, Parts interfaces? Will they play nice with residuals?
 # TODO: implement sampling?
-# TODO: handle costs for all LKAlgorithms
 # TODO: document me!
-class LKAlgorithm(object):
+class LucasKanade(object):
     r"""
     """
     def __init__(self, template, transform, residual, eps=10**-10):
@@ -18,12 +15,10 @@ class LKAlgorithm(object):
         self.residual = residual
         self.eps = eps
 
-    @abc.abstractmethod
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None):
-        pass
 
-
-class FA(LKAlgorithm):
+# TODO: handle costs!
+# TODO: document me!
+class ForwardAdditive(LucasKanade):
     r"""
     Forward Additive Lucas-Kanade algorithm
     """
@@ -69,18 +64,21 @@ class FA(LKAlgorithm):
             # increase iteration counter
             k += 1
 
-        return LKAlgorithmResult(image, self, p_list, gt_shape=None)
+        return LucasKanadeAlgorithmResult(image, self, p_list, gt_shape=None)
 
 
-class FC(LKAlgorithm):
+# TODO: handle costs!
+# TODO: document me!
+class ForwardCompositional(LucasKanade):
     r"""
     Forward Compositional Lucas-Kanade algorithm
     """
     def __init__(self, template, transform, residual, eps=10**-10):
-        super(FC, self).__init__(template, transform, residual, eps=eps)
-        self.precompute()
+        super(ForwardCompositional, self).__init__(
+            template, transform, residual, eps=eps)
+        self._precompute()
 
-    def precompute(self):
+    def _precompute(self):
         # compute warp jacobian
         self.dW_dp = np.rollaxis(
             self.transform.d_dp(self.template.indices()), -1)
@@ -126,15 +124,18 @@ class FC(LKAlgorithm):
         return LKAlgorithmResult(image, self, p_list, gt_shape=None)
 
 
-class IC(LKAlgorithm):
+# TODO: handle costs!
+# TODO: document me!
+class InverseCompositional(LucasKanade):
     r"""
     Inverse Compositional Lucas-Kanade algorithm
     """
     def __init__(self, template, transform, residual, eps=10**-10):
-        super(IC, self).__init__(template, transform, residual, eps=eps)
-        self.precompute()
+        super(InverseCompositional, self).__init__(
+            template, transform, residual, eps=eps)
+        self._precompute()
 
-    def precompute(self):
+    def _precompute(self):
         # compute warp jacobian
         dW_dp = np.rollaxis(self.transform.d_dp(self.template.indices()), -1)
         dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +

@@ -8,9 +8,11 @@ from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 import menpofit.checks as checks
 from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
 from .algorithm.lk import (
-    LKAAMInterface, LinearLKAAMInterface, PartsLKAAMInterface, AIC)
-from .algorithm.cr import (
-    CRAAMInterface, CRLinearAAMInterface, CRPartsAAMInterface, PAJ)
+    LucasKanadeStandardInterface, LucasKanaddLinearInterface,
+    LucasKanadePartsInterface, WibergInverseCompositional)
+from .algorithm.sd import (
+    SupervisedDescentStandardInterface, SupervisedDescentLinearInterface,
+    SupervisedDescentPartsInterface, ProjectOutSupervisedNewtonDescent)
 from .result import AAMFitterResult
 
 
@@ -45,11 +47,11 @@ class AAMFitter(ModelFitter):
 
 
 # TODO: document me!
-class LKAAMFitter(AAMFitter):
+class LucasKanadeAAMFitter(AAMFitter):
     r"""
     """
-    def __init__(self, aam,  n_shape=None, n_appearance=None,
-                 lk_algorithm_cls=AIC, sampling=None, **kwargs):
+    def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
+                 n_shape=None, n_appearance=None, sampling=None, **kwargs):
         self._model = aam
         self.algorithms = []
         self._check_n_shape(n_shape)
@@ -68,7 +70,7 @@ class LKAAMFitter(AAMFitter):
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
                 algorithm = lk_algorithm_cls(
-                    LKAAMInterface, am, md_transform, sampling=s,
+                    LucasKanadeStandardInterface, am, md_transform, sampling=s,
                     **kwargs)
 
             elif (type(self.aam) is LinearAAM or
@@ -78,7 +80,7 @@ class LKAAMFitter(AAMFitter):
                     sm, self.aam.reference_shape)
                 # set up algorithm using linear aam interface
                 algorithm = lk_algorithm_cls(
-                    LinearLKAAMInterface, am, md_transform, sampling=s,
+                    LucasKanaddLinearInterface, am, md_transform, sampling=s,
                     **kwargs)
 
             elif type(self.aam) is PartsAAM:
@@ -86,7 +88,7 @@ class LKAAMFitter(AAMFitter):
                 pdm = OrthoPDM(sm)
                 # set up algorithm using parts aam interface
                 algorithm = lk_algorithm_cls(
-                    PartsLKAAMInterface, am, pdm, sampling=s,
+                    LucasKanadePartsInterface, am, pdm, sampling=s,
                     patch_shape=self.aam.patch_shape[j],
                     normalize_parts=self.aam.normalize_parts, **kwargs)
 
@@ -101,12 +103,12 @@ class LKAAMFitter(AAMFitter):
 
 
 # TODO: document me!
-class CRAAMFitter(AAMFitter):
+class SupervisedDescentAAMFitter(AAMFitter):
     r"""
     """
-    def __init__(self, aam, cr_algorithm_cls=PAJ, n_shape=None,
-                 n_appearance=None, sampling=None, n_perturbations=10,
-                 noise_std=0.05, max_iters=6, **kwargs):
+    def __init__(self, aam, cr_algorithm_cls=ProjectOutSupervisedNewtonDescent,
+                 n_shape=None,n_appearance=None, sampling=None,
+                 n_perturbations=10, noise_std=0.05, max_iters=6, **kwargs):
         self._model = aam
         self.algorithms = []
         self._check_n_shape(n_shape)
@@ -128,8 +130,8 @@ class CRAAMFitter(AAMFitter):
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
                 algorithm = cr_algorithm_cls(
-                    CRAAMInterface, am, md_transform, sampling=s,
-                    max_iters=self.max_iters[j], **kwargs)
+                    SupervisedDescentStandardInterface, am, md_transform,
+                    sampling=s, max_iters=self.max_iters[j], **kwargs)
 
             elif (type(self.aam) is LinearAAM or
                   type(self.aam) is LinearPatchAAM):
@@ -138,15 +140,15 @@ class CRAAMFitter(AAMFitter):
                     sm, self.aam.reference_shape)
                 # set up algorithm using linear aam interface
                 algorithm = cr_algorithm_cls(
-                    CRLinearAAMInterface, am, md_transform, sampling=s,
-                    max_iters=self.max_iters[j], **kwargs)
+                    SupervisedDescentLinearInterface, am, md_transform,
+                    sampling=s, max_iters=self.max_iters[j], **kwargs)
 
             elif type(self.aam) is PartsAAM:
                 # build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
                 # set up algorithm using parts aam interface
                 algorithm = cr_algorithm_cls(
-                    CRPartsAAMInterface, am, pdm,
+                    SupervisedDescentPartsInterface, am, pdm,
                     sampling=s, max_iters=self.max_iters[j],
                     patch_shape=self.aam.patch_shape[j],
                     normalize_parts=self.aam.normalize_parts, **kwargs)
@@ -160,6 +162,7 @@ class CRAAMFitter(AAMFitter):
             # append algorithms to list
             self.algorithms.append(algorithm)
 
+    # TODO: Allow training from bounding boxes
     def train(self, images, group=None, label=None, verbose=False, **kwargs):
         # normalize images with respect to reference shape of aam
         images = rescale_images_to_reference_shape(

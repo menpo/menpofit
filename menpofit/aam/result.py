@@ -1,10 +1,9 @@
 from __future__ import division
-from menpofit.result import (
-    ParametricAlgorithmResult, MultiFitterResult, SerializableIterativeResult)
+from menpofit.result import ParametricAlgorithmResult, MultiFitterResult
 
 
+# TODO: handle costs!
 # TODO: document me!
-# TODO: handle costs
 class AAMAlgorithmResult(ParametricAlgorithmResult):
     r"""
     """
@@ -15,6 +14,7 @@ class AAMAlgorithmResult(ParametricAlgorithmResult):
         self.appearance_parameters = appearance_parameters
 
 
+# TODO: handle costs!
 # TODO: document me!
 class LinearAAMAlgorithmResult(AAMAlgorithmResult):
     r"""
@@ -33,8 +33,8 @@ class LinearAAMAlgorithmResult(AAMAlgorithmResult):
         return self.initial_transform.sparse_target
 
 
+# TODO: handle costs!
 # TODO: document me!
-# TODO: handle costs
 class AAMFitterResult(MultiFitterResult):
     r"""
     """

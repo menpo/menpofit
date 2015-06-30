@@ -1,7 +1,14 @@
 from .lk import (
-    PFC, PIC,
-    SFC, SIC,
-    AFC, AIC,
-    MAFC, MAIC,
-    WFC, WIC)
-from .cr import PSD, PAJ
+    ProjectOutForwardCompositional, ProjectOutInverseCompositional,
+    SimultaneousForwardCompositional, SimultaneousInverseCompositional,
+    AlternatingForwardCompositional, AlternatingInverseCompositional,
+    ModifiedAlternatingForwardCompositional,
+    ModifiedAlternatingInverseCompositional,
+    WibergForwardCompositional, WibergInverseCompositional)
+from .sd import (
+    SumOfSquaresSupervisedNewtonDescent,
+    SumOfSquaresSupervisedGaussNewtonDescent,
+    ProjectOutSupervisedNewtonDescent,
+    ProjectOutSupervisedGaussNewtonDescent,
+    AppearanceWeightsSupervisedNewtonDescent,
+    AppearanceWeightsSupervisedDescent)
