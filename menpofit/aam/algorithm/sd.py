@@ -267,7 +267,7 @@ class SupervisedDescent(object):
 
 
 # TODO: document me!
-class SumOfSquaresSupervisedDescent(SupervisedDescent):
+class SumOfSquares(SupervisedDescent):
     r"""
     """
     def _compute_train_features(self, image):
@@ -288,7 +288,7 @@ class SumOfSquaresSupervisedDescent(SupervisedDescent):
 
 
 # TODO: document me!
-class SumOfSquaresSupervisedNewtonDescent(SumOfSquaresSupervisedDescent):
+class SumOfSquaresNewton(SumOfSquares):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None,
@@ -297,7 +297,7 @@ class SumOfSquaresSupervisedNewtonDescent(SumOfSquaresSupervisedDescent):
 
 
 # TODO: document me!
-class SumOfSquaresSupervisedGaussNewtonDescent(SumOfSquaresSupervisedDescent):
+class SumOfSquaresGaussNewton(SumOfSquares):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None, psi=None,
@@ -307,12 +307,12 @@ class SumOfSquaresSupervisedGaussNewtonDescent(SumOfSquaresSupervisedDescent):
 
 
 # TODO: document me!
-class ProjectOutSupervisedDescent(SupervisedDescent):
+class ProjectOut(SupervisedDescent):
     r"""
     """
     def _precompute(self):
         # call super method
-        super(ProjectOutSupervisedNewtonDescent)._precompute()
+        super(ProjectOut, self)._precompute()
         # grab appearance model components
         A = self.appearance_model.components
         # mask them
@@ -343,7 +343,7 @@ class ProjectOutSupervisedDescent(SupervisedDescent):
 
 
 # TODO: document me!
-class ProjectOutSupervisedNewtonDescent(ProjectOutSupervisedDescent):
+class ProjectOutNewton(ProjectOut):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None,
@@ -355,7 +355,7 @@ class ProjectOutSupervisedNewtonDescent(ProjectOutSupervisedDescent):
 
 
 # TODO: document me!
-class ProjectOutSupervisedGaussNewtonDescent(ProjectOutSupervisedDescent):
+class ProjectOutGaussNewton(ProjectOut):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None, psi=None,
@@ -365,12 +365,12 @@ class ProjectOutSupervisedGaussNewtonDescent(ProjectOutSupervisedDescent):
 
 
 # TODO: document me!
-class AppearanceWeightsSupervisedDescent(SupervisedDescent):
+class AppearanceWeights(SupervisedDescent):
     r"""
     """
     def _precompute(self):
         # call super method
-        super(ProjectOutSupervisedNewtonDescent)._precompute()
+        super(AppearanceWeights, self)._precompute()
         # grab appearance model components
         A = self.appearance_model.components
         # mask them
@@ -400,7 +400,7 @@ class AppearanceWeightsSupervisedDescent(SupervisedDescent):
 
 
 # TODO: document me!
-class AppearanceWeightsSupervisedNewtonDescent(SumOfSquaresSupervisedDescent):
+class AppearanceWeightsNewton(AppearanceWeights):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None,
@@ -409,8 +409,7 @@ class AppearanceWeightsSupervisedNewtonDescent(SumOfSquaresSupervisedDescent):
 
 
 # TODO: document me!
-class AppearanceWeightsSupervisedGaussNewtonDescent(
-        AppearanceWeightsSupervisedDescent):
+class AppearanceWeightsGaussNewton(AppearanceWeights):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None, psi=None,

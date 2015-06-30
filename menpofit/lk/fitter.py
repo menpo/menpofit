@@ -84,8 +84,8 @@ class LucasKanadeFitter(MultiFitter):
 
     def noisy_shape_from_shape(self, gt_shape, noise_std=0.04):
         transform = noisy_target_alignment_transform(
-            self.transform_cls, self.reference_shape, gt_shape,
-            noise_std=noise_std)
+            self.reference_shape, gt_shape,
+            alignment_transform_cls=self.transform_cls, noise_std=noise_std)
         return transform.apply(self.reference_shape)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,

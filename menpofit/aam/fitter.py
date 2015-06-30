@@ -12,7 +12,7 @@ from .algorithm.lk import (
     LucasKanadePartsInterface, WibergInverseCompositional)
 from .algorithm.sd import (
     SupervisedDescentStandardInterface, SupervisedDescentLinearInterface,
-    SupervisedDescentPartsInterface, ProjectOutSupervisedNewtonDescent)
+    SupervisedDescentPartsInterface, ProjectOutNewton)
 from .result import AAMFitterResult
 
 
@@ -106,7 +106,7 @@ class LucasKanadeAAMFitter(AAMFitter):
 class SupervisedDescentAAMFitter(AAMFitter):
     r"""
     """
-    def __init__(self, aam, cr_algorithm_cls=ProjectOutSupervisedNewtonDescent,
+    def __init__(self, aam, cr_algorithm_cls=ProjectOutNewton,
                  n_shape=None,n_appearance=None, sampling=None,
                  n_perturbations=10, noise_std=0.05, max_iters=6, **kwargs):
         self._model = aam

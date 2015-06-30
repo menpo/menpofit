@@ -6,9 +6,9 @@ from .lk import (
     ModifiedAlternatingInverseCompositional,
     WibergForwardCompositional, WibergInverseCompositional)
 from .sd import (
-    SumOfSquaresSupervisedNewtonDescent,
-    SumOfSquaresSupervisedGaussNewtonDescent,
-    ProjectOutSupervisedNewtonDescent,
-    ProjectOutSupervisedGaussNewtonDescent,
-    AppearanceWeightsSupervisedNewtonDescent,
-    AppearanceWeightsSupervisedDescent)
+    SumOfSquaresNewton,
+    SumOfSquaresGaussNewton,
+    ProjectOutNewton,
+    ProjectOutGaussNewton,
+    AppearanceWeightsNewton,
+    AppearanceWeightsGaussNewton)
