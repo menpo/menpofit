@@ -126,7 +126,7 @@ def check_max_iters(max_iters, n_levels):
 # TODO: document me!
 def check_sampling(sampling, n_levels):
     if (isinstance(sampling, (list, tuple)) and
-        np.alltrue([isinstance(s, (np.ndarray, np.int, None))
+        np.alltrue([isinstance(s, (np.ndarray, np.int)) or sampling is None
                     for s in sampling])):
         if len(sampling) == 1:
             return sampling * n_levels
@@ -136,7 +136,7 @@ def check_sampling(sampling, n_levels):
             raise ValueError('A sampling list can only '
                              'contain 1 element or {} '
                              'elements'.format(n_levels))
-    elif isinstance(sampling, (np.ndarray, np.int, None)):
+    elif isinstance(sampling, (np.ndarray, np.int)) or sampling is None:
         return [sampling] * n_levels
     else:
         raise ValueError('sampling can be an integer or ndarray, '
