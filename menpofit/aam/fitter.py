@@ -1,5 +1,8 @@
 from __future__ import division
-from menpo.transform import Scale
+import numpy as np
+from copy import deepcopy
+from menpo.transform import Scale, AlignmentUniformScale
+from menpo.image import BooleanImage
 from menpofit.builder import (
     rescale_images_to_reference_shape, compute_features, scale_images)
 from menpofit.fitter import ModelFitter
@@ -224,3 +227,37 @@ class SupervisedDescentAAMFitter(AAMFitter):
                         transform.apply_inplace(shape)
 
 
+# TODO: Document me!
+def holistic_sampling_from_scale(aam, scale=0.35):
+    reference = aam.appearance_models[0].mean()
+    scaled_reference = reference.rescale(scale)
+
+    t = AlignmentUniformScale(scaled_reference.landmarks['source'].lms,
+                              reference.landmarks['source'].lms)
+    new_indices = np.require(np.round(t.apply(
+        scaled_reference.mask.true_indices())), dtype=np.int)
+
+    modified_mask = deepcopy(reference.mask.pixels)
+    modified_mask[:] = False
+    modified_mask[:, new_indices[:, 0], new_indices[:, 1]] = True
+
+    true_positions = np.nonzero(
+        modified_mask[:, reference.mask.mask].ravel())[0]
+
+    return true_positions, BooleanImage(modified_mask[0])
+
+
+def holistic_sampling_from_step(aam, step=8):
+    reference = aam.appearance_models[0].mean()
+
+    n_true_pixels = reference.n_true_pixels()
+    true_positions = np.zeros(n_true_pixels, dtype=np.bool)
+    sampling = xrange(0, n_true_pixels, step)
+    true_positions[sampling] = True
+
+    modified_mask = reference.mask.copy()
+    new_indices = modified_mask.true_indices()[sampling, :]
+    modified_mask.mask[:] = False
+    modified_mask.mask[new_indices[:, 0], new_indices[:, 1]] = True
+
+    return true_positions, modified_mask

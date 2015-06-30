@@ -19,9 +19,11 @@ class LucasKanadeStandardInterface(object):
         sampling_mask = np.zeros(n_true_pixels, dtype=np.bool)
 
         if sampling is None:
-            sampling = 1
-        sampling_pattern = xrange(0, n_true_pixels, sampling)
-        sampling_mask[sampling_pattern] = 1
+            sampling = xrange(0, n_true_pixels, 1)
+        elif isinstance(sampling, np.int):
+            sampling = xrange(0, n_true_pixels, sampling)
+
+        sampling_mask[sampling] = 1
 
         self.i_mask = np.nonzero(np.tile(
             sampling_mask[None, ...], (n_channels, 1)).flatten())[0]
