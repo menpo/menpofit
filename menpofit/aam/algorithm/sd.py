@@ -6,7 +6,6 @@ from menpo.visualize import print_dynamic, progress_bar_str
 from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
-# TODO: implement more clever sampling for the standard interface?
 # TODO document me!
 class SupervisedDescentStandardInterface(object):
     r"""
