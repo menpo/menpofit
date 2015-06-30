@@ -5,7 +5,6 @@ from menpo.feature import gradient as fast_gradient, no_op
 from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
-# TODO: implement more clever sampling for the standard interface?
 # TODO document me!
 class LucasKanadeStandardInterface(object):
     r"""
