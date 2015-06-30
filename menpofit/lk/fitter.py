@@ -59,11 +59,8 @@ class LucasKanadeFitter(MultiFitter):
                 self.diagonal, group=group, label=label)
 
         # obtain image representation
-        from copy import deepcopy
-        scales = deepcopy(self.scales)
-        scales.reverse()
         templates = []
-        for j, s in enumerate(scales):
+        for j, s in enumerate(self.scales[::-1]):
             if j == 0:
                 # compute features at highest level
                 feature_template = self.features[j](template)
