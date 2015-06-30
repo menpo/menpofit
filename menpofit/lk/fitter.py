@@ -3,19 +3,20 @@ from menpo.feature import no_op
 from menpofit.transform import DifferentiableAlignmentAffine
 from menpofit.fitter import MultiFitter, noisy_target_alignment_transform
 from menpofit import checks
-from .algorithm import IC
+from .algorithm import InverseCompositional
 from .residual import SSD, FourierSSD
-from .result import LKFitterResult
+from .result import LucasKanadeFitterResult
 
 
 # TODO: document me!
-class LKFitter(MultiFitter):
+class LucasKanadeFitter(MultiFitter):
     r"""
     """
     def __init__(self, template, group=None, label=None, features=no_op,
                  transform_cls=DifferentiableAlignmentAffine, diagonal=None,
-                 scales=(1, .5), scale_features=True, algorithm_cls=IC,
-                 residual_cls=SSD, **kwargs):
+                 scales=(1, .5), scale_features=True,
+                 algorithm_cls=InverseCompositional, residual_cls=SSD,
+                 **kwargs):
         # check parameters
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
@@ -89,5 +90,5 @@ class LKFitter(MultiFitter):
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
-        return LKFitterResult(image, self, algorithm_results,
-                              affine_correction, gt_shape=gt_shape)
+        return LucasKanadeFitterResult(image, self, algorithm_results,
+                                       affine_correction, gt_shape=gt_shape)

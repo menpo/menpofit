@@ -1,5 +1,4 @@
 from __future__ import division
-import abc
 import numpy as np
 from menpo.image import Image
 from menpo.feature import no_op
@@ -7,9 +6,11 @@ from menpo.visualize import print_dynamic, progress_bar_str
 from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
-# TODO: implement more clever sampling?
-class CRAAMInterface(object):
-
+# TODO: implement more clever sampling for the standard interface?
+# TODO document me!
+class SupervisedDescentStandardInterface(object):
+    r"""
+    """
     def __init__(self, cr_aam_algorithm, sampling=None):
         self.algorithm = cr_aam_algorithm
 
@@ -60,8 +61,10 @@ class CRAAMInterface(object):
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
-class CRLinearAAMInterface(CRAAMInterface):
-
+# TODO document me!
+class SupervisedDescentLinearInterface(SupervisedDescentStandardInterface):
+    r"""
+    """
     @property
     def shape_model(self):
         return self.transform.model
@@ -73,8 +76,10 @@ class CRLinearAAMInterface(CRAAMInterface):
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
-class CRPartsAAMInterface(CRAAMInterface):
-
+# TODO document me!
+class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
+    r"""
+    """
     def __init__(self, cr_aam_algorithm, sampling=None, patch_shape=(17, 17),
                  normalize_parts=no_op):
         self.algorithm = cr_aam_algorithm
@@ -102,8 +107,9 @@ class CRPartsAAMInterface(CRAAMInterface):
 
 
 # TODO document me!
-class CRAAMAlgorithm(object):
-
+class SupervisedDescent(object):
+    r"""
+    """
     def __init__(self, aam_interface, appearance_model, transform, max_iters=3,
                  eps=10**-5, **kwargs):
         # set common state for all AAM algorithms
@@ -111,42 +117,21 @@ class CRAAMAlgorithm(object):
         self.template = appearance_model.mean()
         self.transform = transform
         self.max_iters = max_iters
+        # TODO: Make use of eps in self.train?
         self.eps = eps
         # set interface
         self.interface = aam_interface(self, **kwargs)
         # perform pre-computations
-        self.precompute()
+        self._precompute()
 
-    def precompute(self):
-        # grab number of shape and appearance parameters
-        self.n = self.transform.n_parameters
-        self.m = self.appearance_model.n_active_components
-
-        # grab appearance model components
-        self.A = self.appearance_model.components
-        # mask them
-        self.A_m = self.A.T[self.interface.i_mask, :]
-        # compute their pseudoinverse
-        self.pinv_A_m = np.linalg.pinv(self.A_m)
-
+    def _precompute(self):
         # grab appearance model mean
-        self.a_bar = self.appearance_model.mean()
+        a_bar = self.appearance_model.mean()
         # vectorize it and mask it
-        self.a_bar_m = self.a_bar.as_vector()[self.interface.i_mask]
+        self.a_bar_m = a_bar.as_vector()[self.interface.i_mask]
 
-        # compute shape model prior
-        s2 = (self.appearance_model.noise_variance() /
-              self.interface.shape_model.noise_variance())
-        L = self.interface.shape_model.eigenvalues
-        self.s2_inv_L = np.hstack((np.ones((4,)), s2 / L))
-        # compute appearance model prior
-        S = self.appearance_model.eigenvalues
-        self.s2_inv_S = s2 / S
-
-    def train(self, images, gt_shapes, current_shapes, verbose=False, **kwargs):
-        # check training data
-        self._check_training_data(images, gt_shapes, current_shapes)
-
+    def train(self, images, gt_shapes, current_shapes, verbose=False,
+              **kwargs):
         n_images = len(images)
         n_samples_image = len(current_shapes[0])
 
@@ -173,8 +158,10 @@ class CRAAMAlgorithm(object):
                                                  **kwargs)
             # add regressor to list
             self.regressors.append(regressor)
+
             # compute regression rmse
             estimated_delta_params = regressor(features)
+            # TODO: Should print a more informative error here?
             rmse = _compute_rmse(delta_params, estimated_delta_params)
             if verbose:
                 print_dynamic('- Regression RMSE is {0:.5f}.\n'.format(rmse))
@@ -197,15 +184,6 @@ class CRAAMAlgorithm(object):
             l = k + n_samples_image
             final_shapes.append(current_shapes[k:l])
         return final_shapes
-
-    @staticmethod
-    def _check_training_data(images, gt_shapes, current_shapes):
-        if len(images) != len(gt_shapes):
-            raise ValueError("The number of shapes must be equal to "
-                             "the number of images.")
-        elif len(images) != len(current_shapes):
-            raise ValueError("The number of current shapes must be "
-                             "equal or multiple to the number of images.")
 
     def _generate_params(self, gt_shapes, current_shapes):
         # initialize current and delta parameters arrays
@@ -252,21 +230,13 @@ class CRAAMAlgorithm(object):
                 # set transform
                 self.transform.from_vector_inplace(current_params[k])
                 # compute regression features
-                f = self._compute_features(i)
+                f = self._compute_train_features(i)
                 # add to features array
                 features[k] = f
                 # increment counter
                 k += 1
 
         return features
-
-    @abc.abstractmethod
-    def _compute_features(self, image):
-        pass
-
-    @abc.abstractmethod
-    def _perform_regression(self, features, deltas, gamma=None):
-        pass
 
     def run(self, image, initial_shape, gt_shape=None, **kwargs):
         # initialize transform
@@ -279,7 +249,7 @@ class CRAAMAlgorithm(object):
         # Cascaded Regression loop
         while k < self.max_iters:
             # compute regression features
-            features = self._compute_features2(image)
+            features = self._compute_test_features(image)
 
             # solve for increments on the shape parameters
             dp = self.regressors[k](features)
@@ -297,23 +267,18 @@ class CRAAMAlgorithm(object):
 
 
 # TODO: document me!
-class ProjectOut(CRAAMAlgorithm):
+class SumOfSquaresSupervisedDescent(SupervisedDescent):
     r"""
     """
-    def project_out(self, J):
-        # project-out appearance bases from a particular vector or matrix
-        return J - self.A_m.dot(self.pinv_A_m.dot(J))
-
-    def _compute_features(self, image):
+    def _compute_train_features(self, image):
         # warp image
         i = self.interface.warp(image)
         # vectorize it and mask it
         i_m = i.as_vector()[self.interface.i_mask]
         # compute masked error
-        e_m = i_m - self.a_bar_m
-        return self.project_out(e_m)
+        return i_m - self.a_bar_m
 
-    def _compute_features2(self, image):
+    def _compute_test_features(self, image):
         # warp image
         i = self.interface.warp(image)
         # vectorize it and mask it
@@ -323,7 +288,62 @@ class ProjectOut(CRAAMAlgorithm):
 
 
 # TODO: document me!
-class PSD(ProjectOut):
+class SumOfSquaresSupervisedNewtonDescent(SumOfSquaresSupervisedDescent):
+    r"""
+    """
+    def _perform_regression(self, features, deltas, gamma=None,
+                            dtype=np.float64):
+        return _supervised_newton(features, deltas, gamma=gamma, dtype=dtype)
+
+
+# TODO: document me!
+class SumOfSquaresSupervisedGaussNewtonDescent(SumOfSquaresSupervisedDescent):
+    r"""
+    """
+    def _perform_regression(self, features, deltas, gamma=None, psi=None,
+                            dtype=np.float64):
+        return _supervised_gauss_newton(features, deltas, gamma=gamma,
+                                        psi=psi, dtype=dtype)
+
+
+# TODO: document me!
+class ProjectOutSupervisedDescent(SupervisedDescent):
+    r"""
+    """
+    def _precompute(self):
+        # call super method
+        super(ProjectOutSupervisedNewtonDescent)._precompute()
+        # grab appearance model components
+        A = self.appearance_model.components
+        # mask them
+        self.A_m = A.T[self.interface.i_mask, :]
+        # compute their pseudoinverse
+        self.pinv_A_m = np.linalg.pinv(self.A_m)
+
+    def project_out(self, J):
+        # project-out appearance bases from a particular vector or matrix
+        return J - self.A_m.dot(self.pinv_A_m.dot(J))
+
+    def _compute_train_features(self, image):
+        # warp image
+        i = self.interface.warp(image)
+        # vectorize it and mask it
+        i_m = i.as_vector()[self.interface.i_mask]
+        # compute masked error
+        e_m = i_m - self.a_bar_m
+        return self.project_out(e_m)
+
+    def _compute_test_features(self, image):
+        # warp image
+        i = self.interface.warp(image)
+        # vectorize it and mask it
+        i_m = i.as_vector()[self.interface.i_mask]
+        # compute masked error
+        return i_m - self.a_bar_m
+
+
+# TODO: document me!
+class ProjectOutSupervisedNewtonDescent(ProjectOutSupervisedDescent):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None,
@@ -335,7 +355,62 @@ class PSD(ProjectOut):
 
 
 # TODO: document me!
-class PAJ(ProjectOut):
+class ProjectOutSupervisedGaussNewtonDescent(ProjectOutSupervisedDescent):
+    r"""
+    """
+    def _perform_regression(self, features, deltas, gamma=None, psi=None,
+                            dtype=np.float64):
+        return _supervised_gauss_newton(features, deltas, gamma=gamma,
+                                        psi=psi, dtype=dtype)
+
+
+# TODO: document me!
+class AppearanceWeightsSupervisedDescent(SupervisedDescent):
+    r"""
+    """
+    def _precompute(self):
+        # call super method
+        super(ProjectOutSupervisedNewtonDescent)._precompute()
+        # grab appearance model components
+        A = self.appearance_model.components
+        # mask them
+        A_m = A.T[self.interface.i_mask, :]
+        # compute their pseudoinverse
+        self.pinv_A_m = np.linalg.pinv(A_m)
+
+    def project(self, J):
+        # project a particular vector or matrix onto the appearance bases
+        return self.pinv_A_m.dot(J - self.a_bar_m)
+
+    def _compute_train_features(self, image):
+        # warp image
+        i = self.interface.warp(image)
+        # vectorize it and mask it
+        i_m = i.as_vector()[self.interface.i_mask]
+        # project it onto the appearance model
+        return self.project(i_m)
+
+    def _compute_test_features(self, image):
+        # warp image
+        i = self.interface.warp(image)
+        # vectorize it and mask it
+        i_m = i.as_vector()[self.interface.i_mask]
+        # project it onto the appearance model
+        return self.project(i_m)
+
+
+# TODO: document me!
+class AppearanceWeightsSupervisedNewtonDescent(SumOfSquaresSupervisedDescent):
+    r"""
+    """
+    def _perform_regression(self, features, deltas, gamma=None,
+                            dtype=np.float64):
+        return _supervised_newton(features, deltas, gamma=gamma, dtype=dtype)
+
+
+# TODO: document me!
+class AppearanceWeightsSupervisedGaussNewtonDescent(
+        AppearanceWeightsSupervisedDescent):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None, psi=None,
@@ -369,6 +444,7 @@ class _supervised_gauss_newton(object):
     def __init__(self, features, deltas, gamma=None, psi=None,
                  dtype=np.float64):
         features = features.astype(dtype)
+        # ridge regression
         deltas = deltas.astype(dtype)
         XX = deltas.T.dot(deltas)
         XT = deltas.T.dot(features)

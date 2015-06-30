@@ -1,12 +1,17 @@
 from .builder import (
     AAMBuilder, PatchAAMBuilder, LinearAAMBuilder,
     LinearPatchAAMBuilder, PartsAAMBuilder)
-from .fitter import LKAAMFitter, CRAAMFitter
+from .fitter import LucasKanadeAAMFitter, SupervisedDescentAAMFitter
 from .algorithm import (
-    PFC, PIC,
-    SFC, SIC,
-    AFC, AIC,
-    MAFC, MAIC,
-    WFC, WIC,
-    PSD, PAJ)
-
+    ProjectOutForwardCompositional, ProjectOutInverseCompositional,
+    SimultaneousForwardCompositional, SimultaneousInverseCompositional,
+    AlternatingForwardCompositional, AlternatingInverseCompositional,
+    ModifiedAlternatingForwardCompositional,
+    ModifiedAlternatingInverseCompositional,
+    WibergForwardCompositional, WibergInverseCompositional,
+    SumOfSquaresSupervisedNewtonDescent,
+    SumOfSquaresSupervisedGaussNewtonDescent,
+    ProjectOutSupervisedNewtonDescent,
+    ProjectOutSupervisedGaussNewtonDescent,
+    AppearanceWeightsSupervisedNewtonDescent,
+    AppearanceWeightsSupervisedDescent)

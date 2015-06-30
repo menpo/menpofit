@@ -1,15 +1,15 @@
 from __future__ import division
-import abc
 import numpy as np
 from menpo.image import Image
 from menpo.feature import gradient as fast_gradient, no_op
 from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
-# TODO: needs to use interfaces in menpofit.algorithm.py
-# TODO: implement more clever sampling?
-class LKAAMInterface(object):
-
+# TODO: implement more clever sampling for the standard interface?
+# TODO document me!
+class LucasKanadeStandardInterface(object):
+    r"""
+    """
     def __init__(self, aam_algorithm, sampling=None):
         self.algorithm = aam_algorithm
 
@@ -130,8 +130,10 @@ class LKAAMInterface(object):
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
-class LinearLKAAMInterface(LKAAMInterface):
-
+# TODO document me!
+class LucasKanaddLinearInterface(LucasKanadeStandardInterface):
+    r"""
+    """
     @property
     def shape_model(self):
         return self.transform.model
@@ -143,8 +145,10 @@ class LinearLKAAMInterface(LKAAMInterface):
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
-class PartsLKAAMInterface(LKAAMInterface):
-
+# TODO document me!
+class LucasKanadePartsInterface(LucasKanadeStandardInterface):
+    r"""
+    """
     def __init__(self, aam_algorithm, sampling=None, patch_shape=(17, 17),
                  normalize_parts=no_op):
         self.algorithm = aam_algorithm
@@ -200,10 +204,10 @@ class PartsLKAAMInterface(LKAAMInterface):
         return sdi.reshape((-1, sdi.shape[-1]))
 
 
-# TODO: handle costs for all LKAAMAlgorithms
 # TODO document me!
-class LKAAMAlgorithm(object):
-
+class LucasKanade(object):
+    r"""
+    """
     def __init__(self, aam_interface, appearance_model, transform,
                  eps=10**-5, **kwargs):
         # set common state for all AAM algorithms
@@ -214,9 +218,9 @@ class LKAAMAlgorithm(object):
         # set interface
         self.interface = aam_interface(self, **kwargs)
         # perform pre-computations
-        self.precompute()
+        self._precompute()
 
-    def precompute(self, **kwargs):
+    def _precompute(self):
         # grab number of shape and appearance parameters
         self.n = self.transform.n_parameters
         self.m = self.appearance_model.n_active_components
@@ -245,13 +249,10 @@ class LKAAMAlgorithm(object):
         S = self.appearance_model.eigenvalues
         self.s2_inv_S = s2 / S
 
-    @abc.abstractmethod
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None,
-            map_inference=False):
-        pass
 
-
-class ProjectOut(LKAAMAlgorithm):
+# TODO: handle costs!
+# TODO: Document me!
+class ProjectOut(LucasKanade):
     r"""
     Abstract Interface for Project-out AAM algorithms
     """
@@ -280,11 +281,11 @@ class ProjectOut(LKAAMAlgorithm):
             self.e_m = i_m - self.a_bar_m
 
             # solve for increments on the shape parameters
-            self.dp = self.solve(map_inference)
+            self.dp = self._solve(map_inference)
 
             # update warp
             s_k = self.transform.target.points
-            self.update_warp()
+            self._update_warp()
             p_list.append(self.transform.as_vector())
 
             # test convergence
@@ -297,20 +298,14 @@ class ProjectOut(LKAAMAlgorithm):
         return self.interface.algorithm_result(
             image, p_list, gt_shape=gt_shape)
 
-    @abc.abstractmethod
-    def solve(self, map_inference):
-        pass
 
-    @abc.abstractmethod
-    def update_warp(self):
-        pass
-
-
-class PFC(ProjectOut):
+# TODO: handle costs!
+# TODO: Document me!
+class ProjectOutForwardCompositional(ProjectOut):
     r"""
     Project-out Forward Compositional (PFC) Gauss-Newton algorithm
     """
-    def solve(self, map_inference):
+    def _solve(self, map_inference):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
         # compute masked forward Jacobian
@@ -327,13 +322,15 @@ class PFC(ProjectOut):
         else:
             return self.interface.solve_shape_ml(JQJ_m, QJ_m, self.e_m)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on forward composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
-class PIC(ProjectOut):
+# TODO: handle costs!
+# TODO: Document me!
+class ProjectOutInverseCompositional(ProjectOut):
     r"""
     Project-out Inverse Compositional (PIC) Gauss-Newton algorithm
     """
@@ -351,7 +348,7 @@ class PIC(ProjectOut):
         # compute masked Jacobian pseudo-inverse
         self.pinv_QJ_m = np.linalg.solve(self.JQJ_m, self.QJ_m.T)
 
-    def solve(self, map_inference):
+    def _solve(self, map_inference):
         # solve for increments on the shape parameters
         if map_inference:
             return self.interface.solve_shape_map(
@@ -360,13 +357,15 @@ class PIC(ProjectOut):
         else:
             return -self.pinv_QJ_m.dot(self.e_m)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on inverse composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() - self.dp)
 
 
-class Simultaneous(LKAAMAlgorithm):
+# TODO: handle costs!
+# TODO: Document me!
+class Simultaneous(LucasKanade):
     r"""
     Abstract Interface for Simultaneous AAM algorithms
     """
@@ -400,7 +399,7 @@ class Simultaneous(LKAAMAlgorithm):
 
             # solve for increments on the appearance and shape parameters
             # simultaneously
-            dc, self.dp = self.solve(map_inference)
+            dc, self.dp = self._solve(map_inference)
 
             # update appearance parameters
             self.c += dc
@@ -410,7 +409,7 @@ class Simultaneous(LKAAMAlgorithm):
 
             # update warp
             s_k = self.transform.target.points
-            self.update_warp()
+            self._update_warp()
             p_list.append(self.transform.as_vector())
 
             # test convergence
@@ -423,11 +422,7 @@ class Simultaneous(LKAAMAlgorithm):
         return self.interface.algorithm_result(
             image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
 
-    @abc.abstractmethod
-    def compute_jacobian(self):
-        pass
-
-    def solve(self, map_inference):
+    def _solve(self, map_inference):
         # compute masked Jacobian
         J_m = self.compute_jacobian()
         # assemble masked simultaneous Jacobian
@@ -443,48 +438,50 @@ class Simultaneous(LKAAMAlgorithm):
         else:
             return self.interface.solve_all_ml(H_sim_m, J_sim_m, self.e_m)
 
-    @abc.abstractmethod
-    def update_warp(self):
-        pass
 
-
-class SFC(Simultaneous):
+# TODO: handle costs!
+# TODO: Document me!
+class SimultaneousForwardCompositional(Simultaneous):
     r"""
     Simultaneous Forward Compositional (SFC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
         # return forward Jacobian
         return self.interface.steepest_descent_images(nabla_i, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on forward composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
-class SIC(Simultaneous):
+# TODO: handle costs!
+# TODO: Document me!
+class SimultaneousInverseCompositional(Simultaneous):
     r"""
     Simultaneous Inverse Compositional (SIC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
         # return inverse Jacobian
         return self.interface.steepest_descent_images(-nabla_a, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on inverse composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() - self.dp)
 
 
-class Alternating(LKAAMAlgorithm):
+# TODO: handle costs!
+# TODO: Document me!
+class Alternating(LucasKanade):
     r"""
     Abstract Interface for Alternating AAM algorithms
     """
-    def precompute(self, **kwargs):
+    def _precompute(self, **kwargs):
         # call super method
         super(Alternating, self).precompute()
         # compute MAP appearance Hessian
@@ -529,7 +526,7 @@ class Alternating(LKAAMAlgorithm):
                 dc = self.pinv_A_m.dot(e_m + Jdp)
 
             # compute masked Jacobian
-            J_m = self.compute_jacobian()
+            J_m = self._compute_jacobian()
             # compute masked Hessian
             H_m = J_m.T.dot(J_m)
             # solve for increments on the shape parameters
@@ -549,7 +546,7 @@ class Alternating(LKAAMAlgorithm):
 
             # update warp
             s_k = self.transform.target.points
-            self.update_warp()
+            self._update_warp()
             p_list.append(self.transform.as_vector())
 
             # test convergence
@@ -562,47 +559,45 @@ class Alternating(LKAAMAlgorithm):
         return self.interface.algorithm_result(
             image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
 
-    @abc.abstractmethod
-    def compute_jacobian(self):
-        pass
 
-    @abc.abstractmethod
-    def update_warp(self):
-        pass
-
-
-class AFC(Alternating):
+# TODO: handle costs!
+# TODO: Document me!
+class AlternatingForwardCompositional(Alternating):
     r"""
     Alternating Forward Compositional (AFC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
         # return forward Jacobian
         return self.interface.steepest_descent_images(nabla_i, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on forward composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
-class AIC(Alternating):
+# TODO: handle costs!
+# TODO: Document me!
+class AlternatingInverseCompositional(Alternating):
     r"""
     Alternating Inverse Compositional (AIC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
         # return inverse Jacobian
         return self.interface.steepest_descent_images(-nabla_a, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on inverse composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() - self.dp)
 
 
+# TODO: handle costs!
+# TODO: Document me!
 class ModifiedAlternating(Alternating):
     r"""
     Abstract Interface for Modified Alternating AAM algorithms
@@ -635,7 +630,7 @@ class ModifiedAlternating(Alternating):
             e_m = i_m - a_m
 
             # compute masked Jacobian
-            J_m = self.compute_jacobian()
+            J_m = self._compute_jacobian()
             # compute masked Hessian
             H_m = J_m.T.dot(J_m)
             # solve for increments on the shape parameters
@@ -647,7 +642,7 @@ class ModifiedAlternating(Alternating):
 
             # update warp
             s_k = self.transform.target.points
-            self.update_warp()
+            self._update_warp()
             p_list.append(self.transform.as_vector())
 
             # test convergence
@@ -661,23 +656,27 @@ class ModifiedAlternating(Alternating):
             image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
 
 
-class MAFC(ModifiedAlternating):
+# TODO: handle costs!
+# TODO: Document me!
+class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
     r"""
     Modified Alternating Forward Compositional (MAFC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
         # return forward Jacobian
         return self.interface.steepest_descent_images(nabla_i, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on forward composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
-class MAIC(ModifiedAlternating):
+# TODO: handle costs!
+# TODO: Document me!
+class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
     r"""
     Modified Alternating Inverse Compositional (MAIC) Gauss-Newton algorithm
     """
@@ -693,7 +692,9 @@ class MAIC(ModifiedAlternating):
             self.transform.as_vector() - self.dp)
 
 
-class Wiberg(LKAAMAlgorithm):
+# TODO: handle costs!
+# TODO: Document me!
+class Wiberg(LucasKanade):
     r"""
     Abstract Interface for Wiberg AAM algorithms
     """
@@ -735,7 +736,7 @@ class Wiberg(LKAAMAlgorithm):
             e_m = i_m - self.a_bar_m
 
             # compute masked Jacobian
-            J_m = self.compute_jacobian()
+            J_m = self._compute_jacobian()
             # project out appearance models
             QJ_m = self.project_out(J_m)
             # compute masked Hessian
@@ -750,7 +751,7 @@ class Wiberg(LKAAMAlgorithm):
 
             # update warp
             s_k = self.transform.target.points
-            self.update_warp()
+            self._update_warp()
             p_list.append(self.transform.as_vector())
 
             # test convergence
@@ -764,33 +765,37 @@ class Wiberg(LKAAMAlgorithm):
             image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
 
 
-class WFC(Wiberg):
+# TODO: handle costs!
+# TODO: Document me!
+class WibergForwardCompositional(Wiberg):
     r"""
     Wiberg Forward Compositional (WFC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
         # return forward Jacobian
         return self.interface.steepest_descent_images(nabla_i, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on forward composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
-class WIC(Wiberg):
+# TODO: handle costs!
+# TODO: Document me!
+class WibergInverseCompositional(Wiberg):
     r"""
     Wiberg Inverse Compositional (WIC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
         # return inverse Jacobian
         return self.interface.steepest_descent_images(-nabla_a, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on inverse composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() - self.dp)

@@ -2,12 +2,14 @@ from __future__ import division
 from menpofit.result import ParametricAlgorithmResult, MultiFitterResult
 
 
+# TODO: handle costs!
 # TODO: document me!
-# TODO: handle costs
 class ATMAlgorithmResult(ParametricAlgorithmResult):
     r"""
     """
 
+
+# TODO: handle costs!
 # TODO: document me!
 class LinearATMAlgorithmResult(ATMAlgorithmResult):
     r"""
@@ -26,8 +28,8 @@ class LinearATMAlgorithmResult(ATMAlgorithmResult):
         return self.initial_transform.sparse_target
 
 
+# TODO: handle costs!
 # TODO: document me!
-# TODO: handle costs
 class ATMFitterResult(MultiFitterResult):
     r"""
     """

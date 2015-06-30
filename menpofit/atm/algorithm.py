@@ -1,5 +1,4 @@
 from __future__ import division
-import abc
 import numpy as np
 from menpo.image import Image
 from menpo.feature import no_op
@@ -7,9 +6,10 @@ from menpo.feature import gradient as fast_gradient
 from .result import ATMAlgorithmResult, LinearATMAlgorithmResult
 
 
-# TODO: implement more clever sampling?
-class LKATMInterface(object):
-
+# TODO: implement more clever sampling for the standard interface?
+class LucasKanadeStandardInterface(object):
+    r"""
+    """
     def __init__(self, lk_algorithm, sampling=None):
         self.algorithm = lk_algorithm
 
@@ -103,8 +103,10 @@ class LKATMInterface(object):
             image, self.algorithm, shape_parameters, gt_shape=gt_shape)
 
 
-class LKLinearATMInterface(LKATMInterface):
-
+# TODO document me!
+class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
+    r"""
+    """
     @property
     def shape_model(self):
         return self.transform.model
@@ -114,8 +116,10 @@ class LKLinearATMInterface(LKATMInterface):
             image, self.algorithm, shape_parameters, gt_shape=gt_shape)
 
 
-class LKPartsATMInterface(LKATMInterface):
-
+# TODO document me!
+class LucasKanadePartsInterface(LucasKanadeStandardInterface):
+    r"""
+    """
     def __init__(self, lk_algorithm, patch_shape=(17, 17),
                  normalize_parts=no_op, sampling=None):
         self.algorithm = lk_algorithm
@@ -174,9 +178,8 @@ class LKPartsATMInterface(LKATMInterface):
         return sdi.reshape((-1, sdi.shape[-1]))
 
 
-# TODO: handle costs for all LKAAMAlgorithms
 # TODO document me!
-class LKATMAlgorithm(object):
+class LucasKanade(object):
 
     def __init__(self, lk_atm_interface_cls, template, transform,
                  eps=10**-5, **kwargs):
@@ -187,9 +190,9 @@ class LKATMAlgorithm(object):
         # set interface
         self.interface = lk_atm_interface_cls(self, **kwargs)
         # perform pre-computations
-        self.precompute()
+        self._precompute()
 
-    def precompute(self, **kwargs):
+    def _precompute(self, **kwargs):
         # grab number of shape and appearance parameters
         self.n = self.transform.n_parameters
 
@@ -204,13 +207,10 @@ class LKATMAlgorithm(object):
         L = self.interface.shape_model.eigenvalues
         self.s2_inv_L = np.hstack((np.ones((4,)), s2 / L))
 
-    @abc.abstractmethod
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None,
-            map_inference=False):
-        pass
 
-
-class Compositional(LKATMAlgorithm):
+# TODO: handle costs!
+# TODO document me!
+class Compositional(LucasKanade):
     r"""
     Abstract Interface for Compositional ATM algorithms
     """
@@ -235,11 +235,11 @@ class Compositional(LKATMAlgorithm):
             self.e_m = i_m - self.t_m
 
             # solve for increments on the shape parameters
-            self.dp = self.solve(map_inference)
+            self.dp = self._solve(map_inference)
 
             # update warp
             s_k = self.transform.target.points
-            self.update_warp()
+            self._update_warp()
             p_list.append(self.transform.as_vector())
 
             # test convergence
@@ -252,20 +252,14 @@ class Compositional(LKATMAlgorithm):
         return self.interface.algorithm_result(
             image, p_list, gt_shape=gt_shape)
 
-    @abc.abstractmethod
-    def solve(self, map_inference):
-        pass
 
-    @abc.abstractmethod
-    def update_warp(self):
-        pass
-
-
-class FC(Compositional):
+# TODO: handle costs!
+# TODO document me!
+class ForwardCompositional(Compositional):
     r"""
     Forward Compositional (FC) Gauss-Newton algorithm
     """
-    def solve(self, map_inference):
+    def _solve(self, map_inference):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
         # compute masked forward Jacobian
@@ -280,19 +274,21 @@ class FC(Compositional):
         else:
             return self.interface.solve_shape_ml(JJ_m, J_m, self.e_m)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on forward composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
-class IC(Compositional):
+# TODO: handle costs!
+# TODO document me!
+class InverseCompositional(Compositional):
     r"""
     Inverse Compositional (IC) Gauss-Newton algorithm
     """
-    def precompute(self):
+    def _precompute(self):
         # call super method
-        super(IC, self).precompute()
+        super(InverseCompositional, self).precompute()
         # compute appearance model mean gradient
         nabla_t = self.interface.gradient(self.template)
         # compute masked inverse Jacobian
@@ -302,7 +298,7 @@ class IC(Compositional):
         # compute masked Jacobian pseudo-inverse
         self.pinv_J_m = np.linalg.solve(self.JJ_m, self.J_m.T)
 
-    def solve(self, map_inference):
+    def _solve(self, map_inference):
         # solve for increments on the shape parameters
         if map_inference:
             return self.interface.solve_shape_map(
@@ -311,7 +307,7 @@ class IC(Compositional):
         else:
             return -self.pinv_J_m.dot(self.e_m)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on inverse composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() - self.dp)

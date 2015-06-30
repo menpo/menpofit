@@ -4,16 +4,17 @@ from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 from .base import ATM, PatchATM, LinearATM, LinearPatchATM, PartsATM
 from .algorithm import (
-    LKATMInterface, LKLinearATMInterface, LKPartsATMInterface, IC)
+    LucasKanadeStandardInterface, LucasKanadeLinearInterface,
+    LucasKanadePartsInterface, InverseCompositional)
 from .result import ATMFitterResult
 
 
 # TODO: document me!
-class LKATMFitter(ModelFitter):
+class LucasKanadeATMFitter(ModelFitter):
     r"""
     """
-    def __init__(self, atm, algorithm_cls=IC, n_shape=None, sampling=None,
-                 **kwargs):
+    def __init__(self, atm, algorithm_cls=InverseCompositional,
+                 n_shape=None, sampling=None, **kwargs):
         self._model = atm
         self.algorithms = []
         self._check_n_shape(n_shape)
@@ -33,8 +34,9 @@ class LKATMFitter(ModelFitter):
                     sm, self.atm.transform,
                     source=wt.landmarks['source'].lms)
                 # set up algorithm using standard aam interface
-                algorithm = algorithm_cls(LKATMInterface, wt, md_transform,
-                                          sampling=sampling, **kwargs)
+                algorithm = algorithm_cls(LucasKanadeStandardInterface, wt,
+                                          md_transform, sampling=sampling,
+                                          **kwargs)
 
             elif (type(self.atm) is LinearATM or
                   type(self.atm) is LinearPatchATM):
@@ -42,7 +44,7 @@ class LKATMFitter(ModelFitter):
                 md_transform = LinearOrthoMDTransform(
                     sm, self.atm.reference_shape)
                 # set up algorithm using linear aam interface
-                algorithm = algorithm_cls(LKLinearATMInterface, wt,
+                algorithm = algorithm_cls(LucasKanadeLinearInterface, wt,
                                           md_transform, sampling=sampling,
                                           **kwargs)
 
@@ -51,7 +53,7 @@ class LKATMFitter(ModelFitter):
                 pdm = OrthoPDM(sm)
                 # set up algorithm using parts aam interface
                 algorithm = algorithm_cls(
-                    LKPartsATMInterface, wt, pdm, sampling=sampling,
+                    LucasKanadePartsInterface, wt, pdm, sampling=sampling,
                     patch_shape=self.atm.patch_shape[j],
                     normalize_parts=self.atm.normalize_parts)
 
