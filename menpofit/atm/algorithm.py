@@ -288,7 +288,7 @@ class InverseCompositional(Compositional):
     """
     def _precompute(self):
         # call super method
-        super(InverseCompositional, self).precompute()
+        super(InverseCompositional, self)._precompute()
         # compute appearance model mean gradient
         nabla_t = self.interface.gradient(self.template)
         # compute masked inverse Jacobian

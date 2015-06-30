@@ -9,9 +9,6 @@ from .algorithm import (
     ModifiedAlternatingForwardCompositional,
     ModifiedAlternatingInverseCompositional,
     WibergForwardCompositional, WibergInverseCompositional,
-    SumOfSquaresSupervisedNewtonDescent,
-    SumOfSquaresSupervisedGaussNewtonDescent,
-    ProjectOutSupervisedNewtonDescent,
-    ProjectOutSupervisedGaussNewtonDescent,
-    AppearanceWeightsSupervisedNewtonDescent,
-    AppearanceWeightsSupervisedDescent)
+    SumOfSquaresNewton, SumOfSquaresGaussNewton,
+    ProjectOutNewton, ProjectOutGaussNewton,
+    AppearanceWeightsNewton, AppearanceWeightsGaussNewton)

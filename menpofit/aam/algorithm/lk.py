@@ -334,9 +334,9 @@ class ProjectOutInverseCompositional(ProjectOut):
     r"""
     Project-out Inverse Compositional (PIC) Gauss-Newton algorithm
     """
-    def precompute(self):
+    def _precompute(self):
         # call super method
-        super(PIC, self).precompute()
+        super(ProjectOutInverseCompositional, self)._precompute()
         # compute appearance model mean gradient
         nabla_a = self.interface.gradient(self.a_bar)
         # compute masked inverse Jacobian
@@ -483,7 +483,7 @@ class Alternating(LucasKanade):
     """
     def _precompute(self, **kwargs):
         # call super method
-        super(Alternating, self).precompute()
+        super(Alternating, self)._precompute()
         # compute MAP appearance Hessian
         self.AA_m_map = self.A_m.T.dot(self.A_m) + np.diag(self.s2_inv_S)
 
@@ -680,13 +680,13 @@ class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
     r"""
     Modified Alternating Inverse Compositional (MAIC) Gauss-Newton algorithm
     """
-    def compute_jacobian(self):
+    def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
         # return inverse Jacobian
         return self.interface.steepest_descent_images(-nabla_a, self.dW_dp)
 
-    def update_warp(self):
+    def _update_warp(self):
         # update warp based on inverse composition
         self.transform.from_vector_inplace(
             self.transform.as_vector() - self.dp)

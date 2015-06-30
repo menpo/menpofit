@@ -64,7 +64,8 @@ class ForwardAdditive(LucasKanade):
             # increase iteration counter
             k += 1
 
-        return LucasKanadeAlgorithmResult(image, self, p_list, gt_shape=None)
+        return LucasKanadeAlgorithmResult(image, self, p_list,
+                                          gt_shape=gt_shape)
 
 
 # TODO: handle costs!
@@ -121,7 +122,8 @@ class ForwardCompositional(LucasKanade):
             # increase iteration counter
             k += 1
 
-        return LKAlgorithmResult(image, self, p_list, gt_shape=None)
+        return LucasKanadeAlgorithmResult(image, self, p_list,
+                                          gt_shape=gt_shape)
 
 
 # TODO: handle costs!
@@ -178,4 +180,5 @@ class InverseCompositional(LucasKanade):
             # increase iteration counter
             k += 1
 
-        return LKAlgorithmResult(image, self, p_list, gt_shape=None)
+        return LucasKanadeAlgorithmResult(image, self, p_list,
+                                          gt_shape=gt_shape)
