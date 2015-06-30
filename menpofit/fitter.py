@@ -146,11 +146,8 @@ class MultiFitter(object):
                                                  group='initial_shape')
 
         # obtain image representation
-        from copy import deepcopy
-        scales = deepcopy(self.scales)
-        scales.reverse()
         images = []
-        for j, s in enumerate(scales):
+        for j, s in enumerate(self.scales[::-1]):
             if j == 0:
                 # compute features at highest level
                 feature_image = self.features[j](image)
