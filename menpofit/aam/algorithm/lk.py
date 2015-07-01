@@ -132,7 +132,7 @@ class LucasKanadeStandardInterface(object):
 
 
 # TODO document me!
-class LucasKanaddLinearInterface(LucasKanadeStandardInterface):
+class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
     r"""
     """
     @property
