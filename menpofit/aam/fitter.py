@@ -11,7 +11,7 @@ from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 import menpofit.checks as checks
 from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
 from .algorithm.lk import (
-    LucasKanadeStandardInterface, LucasKanaddLinearInterface,
+    LucasKanadeStandardInterface, LucasKanadeLinearInterface,
     LucasKanadePartsInterface, WibergInverseCompositional)
 from .algorithm.sd import (
     SupervisedDescentStandardInterface, SupervisedDescentLinearInterface,
@@ -83,7 +83,7 @@ class LucasKanadeAAMFitter(AAMFitter):
                     sm, self.aam.reference_shape)
                 # set up algorithm using linear aam interface
                 algorithm = lk_algorithm_cls(
-                    LucasKanaddLinearInterface, am, md_transform, sampling=s,
+                    LucasKanadeLinearInterface, am, md_transform, sampling=s,
                     **kwargs)
 
             elif type(self.aam) is PartsAAM:
