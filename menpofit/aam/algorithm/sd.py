@@ -266,7 +266,7 @@ class SupervisedDescent(object):
 
 
 # TODO: document me!
-class SumOfSquares(SupervisedDescent):
+class MeanTemplate(SupervisedDescent):
     r"""
     """
     def _compute_train_features(self, image):
@@ -287,7 +287,7 @@ class SumOfSquares(SupervisedDescent):
 
 
 # TODO: document me!
-class SumOfSquaresNewton(SumOfSquares):
+class MeanTemplateNewton(MeanTemplate):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None,
@@ -296,7 +296,7 @@ class SumOfSquaresNewton(SumOfSquares):
 
 
 # TODO: document me!
-class SumOfSquaresGaussNewton(SumOfSquares):
+class MeanTemplateGaussNewton(MeanTemplate):
     r"""
     """
     def _perform_regression(self, features, deltas, gamma=None, psi=None,

@@ -124,10 +124,11 @@ class LucasKanadeStandardInterface(object):
         dq = - np.linalg.solve(H, J.T.dot(e))
         return dq[:self.m], dq[self.m:]
 
-    def algorithm_result(self, image, shape_parameters,
+    def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          appearance_parameters=None, gt_shape=None):
         return AAMAlgorithmResult(
             image, self.algorithm, shape_parameters,
+            cost_functions=cost_functions,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
@@ -263,6 +264,10 @@ class ProjectOut(LucasKanade):
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
+        # define cost closure
+        def cost_closure(x, f):
+            return lambda: x.T.dot(f(x))
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -271,8 +276,28 @@ class ProjectOut(LucasKanade):
         k = 0
         eps = np.Inf
 
-        # Compositional Gauss-Newton loop
+        # Compositional Gauss-Newton loop -------------------------------------
+
+        # warp image
+        self.i = self.interface.warp(image)
+        # vectorize it and mask it
+        i_m = self.i.as_vector()[self.interface.i_mask]
+
+        # compute masked error
+        self.e_m = i_m - self.a_bar_m
+
+        # update cost_functions
+        cost_functions = [cost_closure(self.e_m, self.project_out)]
+
         while k < max_iters and eps > self.eps:
+            # solve for increments on the shape parameters
+            self.dp = self._solve(map_inference)
+
+            # update warp
+            s_k = self.transform.target.points
+            self._update_warp()
+            p_list.append(self.transform.as_vector())
+
             # warp image
             self.i = self.interface.warp(image)
             # vectorize it and mask it
@@ -281,13 +306,8 @@ class ProjectOut(LucasKanade):
             # compute masked error
             self.e_m = i_m - self.a_bar_m
 
-            # solve for increments on the shape parameters
-            self.dp = self._solve(map_inference)
-
-            # update warp
-            s_k = self.transform.target.points
-            self._update_warp()
-            p_list.append(self.transform.as_vector())
+            # update cost
+            cost_functions.append(cost_closure(self.e_m, self.project_out))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -297,7 +317,7 @@ class ProjectOut(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, gt_shape=gt_shape)
+            image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 # TODO: handle costs!
@@ -372,6 +392,10 @@ class Simultaneous(LucasKanade):
     """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
+        # define cost closure
+        def cost_closure(x):
+            return lambda: x.T.dot(x)
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -380,30 +404,33 @@ class Simultaneous(LucasKanade):
         k = 0
         eps = np.Inf
 
-        # Compositional Gauss-Newton loop
+        # Compositional Gauss-Newton loop -------------------------------------
+
+        # warp image
+        self.i = self.interface.warp(image)
+        # mask warped image
+        i_m = self.i.as_vector()[self.interface.i_mask]
+
+        # initialize appearance parameters by projecting masked image
+        # onto masked appearance model
+        self.c = self.pinv_A_m.dot(i_m - self.a_bar_m)
+        self.a = self.appearance_model.instance(self.c)
+        a_m = self.a.as_vector()[self.interface.i_mask]
+        c_list = [self.c]
+
+        # compute masked error
+        self.e_m = i_m - a_m
+
+        # update cost
+        cost_functions = [cost_closure(self.e_m)]
+
         while k < max_iters and eps > self.eps:
-            # warp image
-            self.i = self.interface.warp(image)
-            # mask warped image
-            i_m = self.i.as_vector()[self.interface.i_mask]
-
-            if k == 0:
-                # initialize appearance parameters by projecting masked image
-                # onto masked appearance model
-                self.c = self.pinv_A_m.dot(i_m - self.a_bar_m)
-                self.a = self.appearance_model.instance(self.c)
-                a_m = self.a.as_vector()[self.interface.i_mask]
-                c_list = [self.c]
-
-            # compute masked error
-            self.e_m = i_m - a_m
-
             # solve for increments on the appearance and shape parameters
             # simultaneously
             dc, self.dp = self._solve(map_inference)
 
             # update appearance parameters
-            self.c += dc
+            self.c = self.c + dc
             self.a = self.appearance_model.instance(self.c)
             a_m = self.a.as_vector()[self.interface.i_mask]
             c_list.append(self.c)
@@ -413,6 +440,17 @@ class Simultaneous(LucasKanade):
             self._update_warp()
             p_list.append(self.transform.as_vector())
 
+            # warp image
+            self.i = self.interface.warp(image)
+            # mask warped image
+            i_m = self.i.as_vector()[self.interface.i_mask]
+
+            # compute masked error
+            self.e_m = i_m - a_m
+
+            # update cost
+            cost_functions.append(cost_closure(self.e_m))
+
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
 
@@ -421,11 +459,12 @@ class Simultaneous(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
+            image, p_list, cost_functions=cost_functions,
+            appearance_parameters=c_list, gt_shape=gt_shape)
 
     def _solve(self, map_inference):
         # compute masked Jacobian
-        J_m = self.compute_jacobian()
+        J_m = self._compute_jacobian()
         # assemble masked simultaneous Jacobian
         J_sim_m = np.hstack((-self.A_m, J_m))
         # compute masked Hessian
@@ -490,6 +529,10 @@ class Alternating(LucasKanade):
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
+        # define cost closure
+        def cost_closure(x):
+            return lambda: x.T.dot(x)
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -498,27 +541,28 @@ class Alternating(LucasKanade):
         k = 0
         eps = np.Inf
 
-        # Compositional Gauss-Newton loop
+        # Compositional Gauss-Newton loop -------------------------------------
+
+        # warp image
+        self.i = self.interface.warp(image)
+        # mask warped image
+        i_m = self.i.as_vector()[self.interface.i_mask]
+
+        # initialize appearance parameters by projecting masked image
+        # onto masked appearance model
+        c = self.pinv_A_m.dot(i_m - self.a_bar_m)
+        self.a = self.appearance_model.instance(c)
+        a_m = self.a.as_vector()[self.interface.i_mask]
+        c_list = [c]
+        Jdp = 0
+
+        # compute masked error
+        e_m = i_m - a_m
+
+        # update cost
+        cost_functions = [cost_closure(e_m)]
+
         while k < max_iters and eps > self.eps:
-            # warp image
-            self.i = self.interface.warp(image)
-            # mask warped image
-            i_m = self.i.as_vector()[self.interface.i_mask]
-
-            if k == 0:
-                # initialize appearance parameters by projecting masked image
-                # onto masked appearance model
-                c = self.pinv_A_m.dot(i_m - self.a_bar_m)
-                self.a = self.appearance_model.instance(c)
-                a_m = self.a.as_vector()[self.interface.i_mask]
-                c_list = [c]
-                Jdp = 0
-            else:
-                Jdp = J_m.dot(self.dp)
-
-            # compute masked error
-            e_m = i_m - a_m
-
             # solve for increment on the appearance parameters
             if map_inference:
                 Ae_m_map = - self.s2_inv_S * c + self.A_m.dot(e_m + Jdp)
@@ -540,7 +584,7 @@ class Alternating(LucasKanade):
                                                         e_m - self.A_m.dot(dc))
 
             # update appearance parameters
-            c += dc
+            c = c + dc
             self.a = self.appearance_model.instance(c)
             a_m = self.a.as_vector()[self.interface.i_mask]
             c_list.append(c)
@@ -550,6 +594,20 @@ class Alternating(LucasKanade):
             self._update_warp()
             p_list.append(self.transform.as_vector())
 
+            # warp image
+            self.i = self.interface.warp(image)
+            # mask warped image
+            i_m = self.i.as_vector()[self.interface.i_mask]
+
+            # compute Jdp
+            Jdp = J_m.dot(self.dp)
+
+            # compute masked error
+            e_m = i_m - a_m
+
+            # update cost
+            cost_functions.append(cost_closure(e_m))
+
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
 
@@ -558,7 +616,8 @@ class Alternating(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
+            image, p_list, cost_functions=cost_functions,
+            appearance_parameters=c_list, gt_shape=gt_shape)
 
 
 # TODO: handle costs!
@@ -605,6 +664,10 @@ class ModifiedAlternating(Alternating):
     """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
+        # define cost closure
+        def cost_closure(x):
+            return lambda: x.T.dot(x)
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -615,21 +678,27 @@ class ModifiedAlternating(Alternating):
         k = 0
         eps = np.Inf
 
-        # Compositional Gauss-Newton loop
+        # Compositional Gauss-Newton loop -------------------------------------
+
+        # warp image
+        self.i = self.interface.warp(image)
+        # mask warped image
+        i_m = self.i.as_vector()[self.interface.i_mask]
+
+        # initialize appearance parameters by projecting masked image
+        # onto masked appearance model
+        c = self.pinv_A_m.dot(i_m - a_m)
+        self.a = self.appearance_model.instance(c)
+        a_m = self.a.as_vector()[self.interface.i_mask]
+        c_list.append(c)
+
+        # compute masked error
+        e_m = i_m - a_m
+
+        # update cost
+        cost_functions = [cost_closure(e_m)]
+
         while k < max_iters and eps > self.eps:
-            # warp image
-            self.i = self.interface.warp(image)
-            # mask warped image
-            i_m = self.i.as_vector()[self.interface.i_mask]
-
-            c = self.pinv_A_m.dot(i_m - a_m)
-            self.a = self.appearance_model.instance(c)
-            a_m = self.a.as_vector()[self.interface.i_mask]
-            c_list.append(c)
-
-            # compute masked error
-            e_m = i_m - a_m
-
             # compute masked Jacobian
             J_m = self._compute_jacobian()
             # compute masked Hessian
@@ -646,6 +715,23 @@ class ModifiedAlternating(Alternating):
             self._update_warp()
             p_list.append(self.transform.as_vector())
 
+            # warp image
+            self.i = self.interface.warp(image)
+            # mask warped image
+            i_m = self.i.as_vector()[self.interface.i_mask]
+
+            # update appearance parameters
+            c = self.pinv_A_m.dot(i_m - self.a_bar_m)
+            self.a = self.appearance_model.instance(c)
+            a_m = self.a.as_vector()[self.interface.i_mask]
+            c_list.append(c)
+
+            # compute masked error
+            e_m = i_m - a_m
+
+            # update cost
+            cost_functions.append(cost_closure(e_m))
+
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
 
@@ -654,7 +740,8 @@ class ModifiedAlternating(Alternating):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
+            image, p_list, cost_functions=cost_functions,
+            appearance_parameters=c_list, gt_shape=gt_shape)
 
 
 # TODO: handle costs!
@@ -705,6 +792,10 @@ class Wiberg(LucasKanade):
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
+        # define cost closure
+        def cost_closure(x, f):
+            return lambda: x.T.dot(f(x))
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -713,29 +804,27 @@ class Wiberg(LucasKanade):
         k = 0
         eps = np.Inf
 
-        # Compositional Gauss-Newton loop
+        # Compositional Gauss-Newton loop -------------------------------------
+
+        # warp image
+        self.i = self.interface.warp(image)
+        # mask warped image
+        i_m = self.i.as_vector()[self.interface.i_mask]
+
+        # initialize appearance parameters by projecting masked image
+        # onto masked appearance model
+        c = self.pinv_A_m.dot(i_m - self.a_bar_m)
+        self.a = self.appearance_model.instance(c)
+        a_m = self.a.as_vector()[self.interface.i_mask]
+        c_list = [c]
+
+        # compute masked error
+        e_m = i_m - self.a_bar_m
+
+        # update cost
+        cost_functions = [cost_closure(e_m, self.project_out)]
+
         while k < max_iters and eps > self.eps:
-            # warp image
-            self.i = self.interface.warp(image)
-            # mask warped image
-            i_m = self.i.as_vector()[self.interface.i_mask]
-
-            if k == 0:
-                # initialize appearance parameters by projecting masked image
-                # onto masked appearance model
-                c = self.pinv_A_m.dot(i_m - self.a_bar_m)
-                self.a = self.appearance_model.instance(c)
-                a_m = self.a.as_vector()[self.interface.i_mask]
-                c_list = [c]
-            else:
-                c = self.pinv_A_m.dot(i_m - a_m + J_m.dot(self.dp))
-                self.a = self.appearance_model.instance(c)
-                a_m = self.a.as_vector()[self.interface.i_mask]
-                c_list.append(c)
-
-            # compute masked error
-            e_m = i_m - self.a_bar_m
-
             # compute masked Jacobian
             J_m = self._compute_jacobian()
             # project out appearance models
@@ -755,6 +844,24 @@ class Wiberg(LucasKanade):
             self._update_warp()
             p_list.append(self.transform.as_vector())
 
+            # warp image
+            self.i = self.interface.warp(image)
+            # mask warped image
+            i_m = self.i.as_vector()[self.interface.i_mask]
+
+            # update appearance parameters
+            dc = self.pinv_A_m.dot(i_m - a_m + J_m.dot(self.dp))
+            c = c + dc
+            self.a = self.appearance_model.instance(c)
+            a_m = self.a.as_vector()[self.interface.i_mask]
+            c_list.append(c)
+
+            # compute masked error
+            e_m = i_m - self.a_bar_m
+
+            # update cost
+            cost_functions.append(cost_closure(e_m, self.project_out))
+
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
 
@@ -763,7 +870,8 @@ class Wiberg(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, appearance_parameters=c_list, gt_shape=gt_shape)
+            image, p_list, cost_functions=cost_functions,
+            appearance_parameters=c_list, gt_shape=gt_shape)
 
 
 # TODO: handle costs!

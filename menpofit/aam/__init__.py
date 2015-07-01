@@ -11,6 +11,6 @@ from .algorithm import (
     ModifiedAlternatingForwardCompositional,
     ModifiedAlternatingInverseCompositional,
     WibergForwardCompositional, WibergInverseCompositional,
-    SumOfSquaresNewton, SumOfSquaresGaussNewton,
+    MeanTemplateNewton, MeanTemplateGaussNewton,
     ProjectOutNewton, ProjectOutGaussNewton,
     AppearanceWeightsNewton, AppearanceWeightsGaussNewton)

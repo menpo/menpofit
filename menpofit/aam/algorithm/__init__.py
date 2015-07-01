@@ -6,8 +6,8 @@ from .lk import (
     ModifiedAlternatingInverseCompositional,
     WibergForwardCompositional, WibergInverseCompositional)
 from .sd import (
-    SumOfSquaresNewton,
-    SumOfSquaresGaussNewton,
+    MeanTemplateNewton,
+    MeanTemplateGaussNewton,
     ProjectOutNewton,
     ProjectOutGaussNewton,
     AppearanceWeightsNewton,
