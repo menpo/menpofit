@@ -16,7 +16,7 @@ class LinearATMAlgorithmResult(ATMAlgorithmResult):
     """
     @property
     def shapes(self):
-        return [self.fitter.transform.from_vector(p).sparse_target
+        return [self.algorithm.transform.from_vector(p).sparse_target
                 for p in self.shape_parameters]
 
     @property
