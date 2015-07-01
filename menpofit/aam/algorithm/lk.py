@@ -140,10 +140,11 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
     def shape_model(self):
         return self.transform.model
 
-    def algorithm_result(self, image, shape_parameters,
+    def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          appearance_parameters=None, gt_shape=None):
         return LinearAAMAlgorithmResult(
             image, self.algorithm, shape_parameters,
+            cost_functions=cost_functions,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 

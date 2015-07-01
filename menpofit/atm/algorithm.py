@@ -98,9 +98,11 @@ class LucasKanadeStandardInterface(object):
         # compute and return ML solution
         return -np.linalg.solve(H, J.T.dot(e))
 
-    def algorithm_result(self, image, shape_parameters, gt_shape=None):
+    def algorithm_result(self, image, shape_parameters, cost_functions=None,
+                         gt_shape=None):
         return ATMAlgorithmResult(
-            image, self.algorithm, shape_parameters, gt_shape=gt_shape)
+            image, self.algorithm, shape_parameters,
+            cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 # TODO document me!
@@ -111,9 +113,11 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
     def shape_model(self):
         return self.transform.model
 
-    def algorithm_result(self, image, shape_parameters, gt_shape=None):
+    def algorithm_result(self, image, shape_parameters, cost_functions=None,
+                         gt_shape=None):
         return LinearATMAlgorithmResult(
-            image, self.algorithm, shape_parameters, gt_shape=gt_shape)
+            image, self.algorithm, shape_parameters,
+            cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 # TODO document me!
@@ -216,6 +220,10 @@ class Compositional(LucasKanade):
     """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
+        # define cost closure
+        def cost_closure(x, f):
+            return lambda: x.T.dot(f(x))
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -224,8 +232,28 @@ class Compositional(LucasKanade):
         k = 0
         eps = np.Inf
 
-        # Compositional Gauss-Newton loop
+        # Compositional Gauss-Newton loop -------------------------------------
+
+        # warp image
+        self.i = self.interface.warp(image)
+        # vectorize it and mask it
+        i_m = self.i.as_vector()[self.interface.i_mask]
+
+        # compute masked error
+        self.e_m = i_m - self.t_m
+
+        # update cost
+        cost_functions = [cost_closure(self.e_m)]
+
         while k < max_iters and eps > self.eps:
+            # solve for increments on the shape parameters
+            self.dp = self._solve(map_inference)
+
+            # update warp
+            s_k = self.transform.target.points
+            self._update_warp()
+            p_list.append(self.transform.as_vector())
+
             # warp image
             self.i = self.interface.warp(image)
             # vectorize it and mask it
@@ -234,13 +262,8 @@ class Compositional(LucasKanade):
             # compute masked error
             self.e_m = i_m - self.t_m
 
-            # solve for increments on the shape parameters
-            self.dp = self._solve(map_inference)
-
-            # update warp
-            s_k = self.transform.target.points
-            self._update_warp()
-            p_list.append(self.transform.as_vector())
+            # update cost
+            cost_functions.append(cost_closure(self.e_m))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -250,7 +273,7 @@ class Compositional(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, gt_shape=gt_shape)
+            image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 # TODO: handle costs!
