@@ -1,3 +1,4 @@
+from __future__ import division
 import abc
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2
@@ -130,12 +131,16 @@ class Residual(object):
         """
         pass
 
+    @abc.abstractmethod
+    def cost_closure(self):
+        pass
+
 
 class SSD(Residual):
     r"""
     """
     def __init__(self, kernel=None):
-        self.kernel = kernel
+        self._kernel = kernel
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
         # compute gradient
@@ -153,10 +158,16 @@ class SSD(Residual):
         for d in a:
             sdi += d
 
-        if self.kernel is not None:
+        if self._kernel is None:
+            # reshape steepest descent images
+            # sdi:           (ch x h x w) x params
+            # filtered_sdi:  (ch x h x w) x params
+            sdi = sdi.reshape((-1, sdi.shape[-1]))
+            filtered_sdi = sdi
+        else:
             # if required, filter steepest descent images
             # fft_sdi:  ch x h x w x params
-            filtered_sdi = ifftn(self.kernel[..., None] *
+            filtered_sdi = ifftn(self._kernel[..., None] *
                                  fftn(sdi, axes=(-3, -2)),
                                  axes=(-3, -2))
             # reshape steepest descent images
@@ -164,12 +175,6 @@ class SSD(Residual):
             # filtered_sdi:  (ch x h x w) x params
             sdi = sdi.reshape((-1, sdi.shape[-1]))
             filtered_sdi = filtered_sdi.reshape(sdi.shape)
-        else:
-            # reshape steepest descent images
-            # sdi:           (ch x h x w) x params
-            # filtered_sdi:  (ch x h x w) x params
-            sdi = sdi.reshape((-1, sdi.shape[-1]))
-            filtered_sdi = sdi
 
         return filtered_sdi, sdi
 
@@ -185,8 +190,19 @@ class SSD(Residual):
         return H
 
     def steepest_descent_update(self, sdi, image, template):
-        error_img = image.as_vector() - template.as_vector()
-        return sdi.T.dot(error_img)
+        self._error_img = image.as_vector() - template.as_vector()
+        return sdi.T.dot(self._error_img)
+
+    def cost_closure(self):
+        def cost_closure(x, k):
+            if k is None:
+                return lambda: x.T.dot(x)
+            else:
+                x = x.reshape((-1,) + k.shape[-2:])
+                kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
+                           axes=(-2, -1))
+                return lambda: x.ravel().T.dot(kx.ravel())
+        return cost_closure(self._error_img, self._kernel)
 
 
 # TODO: Does not support masked templates at the moment
@@ -194,7 +210,7 @@ class FourierSSD(Residual):
     r"""
     """
     def __init__(self, kernel=None):
-        self.kernel = kernel
+        self._kernel = kernel
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
         # compute gradient
@@ -216,20 +232,20 @@ class FourierSSD(Residual):
         # fft_sdi:  ch x h x w x params
         fft_sdi = fftn(sdi, axes=(-3, -2))
 
-        if self.kernel is not None:
-            # if required, filter steepest descent images
-            filtered_fft_sdi = self.kernel[..., None] * fft_sdi
-            # reshape steepest descent images
-            # fft_sdi:           (ch x h x w) x params
-            # filtered_fft_sdi:  (ch x h x w) x params
-            fft_sdi = fft_sdi.reshape((-1, fft_sdi.shape[-1]))
-            filtered_fft_sdi = filtered_fft_sdi.reshape(fft_sdi.shape)
-        else:
+        if self._kernel is None:
             # reshape steepest descent images
             # fft_sdi:           (ch x h x w) x params
             # filtered_fft_sdi:  (ch x h x w) x params
             fft_sdi = fft_sdi.reshape((-1, fft_sdi.shape[-1]))
             filtered_fft_sdi = fft_sdi
+        else:
+            # if required, filter steepest descent images
+            filtered_fft_sdi = self._kernel[..., None] * fft_sdi
+            # reshape steepest descent images
+            # fft_sdi:           (ch x h x w) x params
+            # filtered_fft_sdi:  (ch x h x w) x params
+            fft_sdi = fft_sdi.reshape((-1, fft_sdi.shape[-1]))
+            filtered_fft_sdi = filtered_fft_sdi.reshape(fft_sdi.shape)
 
         return filtered_fft_sdi, fft_sdi
 
@@ -243,17 +259,27 @@ class FourierSSD(Residual):
     def steepest_descent_update(self, sdi, image, template):
         # compute error image
         # error_img:  ch x h x w
-        error_img = image.pixels - template.pixels
+        self._error_img = image.pixels - template.pixels
 
         # compute error image fft
         # fft_error_img:  ch x (h x w)
-        fft_error_img = fft2(error_img)
+        fft_error_img = fft2(self._error_img)
 
         # compute steepest descent update
         # fft_sdi:        params x (ch x h x w)
         # fft_error_img:           (ch x h x w)
         # fft_sdu:        params
         return sdi.conjugate().T.dot(fft_error_img.ravel())
+
+    def cost_closure(self):
+        def cost_closure(x, k):
+            if k is None:
+                return lambda: x.ravel().T.dot(x.ravel())
+            else:
+                kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
+                           axes=(-2, -1))
+                return lambda: x.ravel().T.dot(kx.ravel())
+        return cost_closure(self._error_img, self._kernel)
 
 
 class ECC(Residual):
@@ -273,7 +299,8 @@ class ECC(Residual):
         # compute gradient
         # gradient:  dims x ch x pixels
         grad = self.gradient(norm_image, forward=forward)
-        grad = grad.as_vector().reshape((image.n_dims, image.n_channels, -1))
+        grad = grad.as_vector().reshape((image.n_dims, image.n_channels) +
+                                         image.shape)
 
         # compute steepest descent images
         # gradient: dims x ch x pixels
@@ -286,32 +313,38 @@ class ECC(Residual):
 
         # reshape steepest descent images
         # sdi: (ch x pixels) x params
-        return sdi.reshape((-1, sdi.shape[-1]))
+        sdi = sdi.reshape((-1, sdi.shape[-1]))
 
-    def hessian(self, sdi):
+        return sdi, sdi
+
+    def hessian(self, sdi, sdi2=None):
         # compute hessian
-        # sdi.T:   params x (ch x pixels)
-        # sdi:              (ch x pixels) x params
+        # sdi.T:   params x (ch x h x w)
+        # sdi:              (ch x h x w) x params
         # hessian: params x               x params
-        H = sdi.T.dot(sdi)
+        if sdi2 is None:
+            H = sdi.T.dot(sdi)
+        else:
+            H = sdi.T.dot(sdi2)
         self._H_inv = scipy.linalg.inv(H)
         return H
 
     def steepest_descent_update(self, sdi, image, template):
-        normalised_IWxp = self._normalise_images(image).as_vector()
-        normalised_template = self._normalise_images(template).as_vector()
+        self._normalised_IWxp = self._normalise_images(image).as_vector()
+        self._normalised_template = self._normalise_images(
+            template).as_vector()
 
-        Gt = sdi.T.dot(normalised_template)
-        Gw = sdi.T.dot(normalised_IWxp)
+        Gt = sdi.T.dot(self._normalised_template)
+        Gw = sdi.T.dot(self._normalised_IWxp)
 
         # Calculate the numerator
-        IWxp_norm = scipy.linalg.norm(normalised_IWxp)
+        IWxp_norm = scipy.linalg.norm(self._normalised_IWxp)
         num1 = IWxp_norm ** 2
         num2 = np.dot(Gw.T, np.dot(self._H_inv, Gw))
         num = num1 - num2
 
         # Calculate the denominator
-        den1 = np.dot(normalised_template, normalised_IWxp)
+        den1 = np.dot(self._normalised_template, self._normalised_IWxp)
         den2 = np.dot(Gt.T, np.dot(self._H_inv, Gw))
         den = den1 - den2
 
@@ -325,9 +358,14 @@ class ECC(Residual):
             l2 = - den / den3
             l = np.maximum(l1, l2)
 
-        self._error_img = l * normalised_IWxp - normalised_template
+        self._error_img = l * self._normalised_IWxp - self._normalised_template
 
         return sdi.T.dot(self._error_img)
+
+    def cost_closure(self):
+        def cost_closure(x, y):
+            return lambda: x.T.dot(y)
+        return cost_closure(self._normalised_IWxp, self._normalised_template)
 
 
 class GradientImages(Residual):
@@ -353,7 +391,7 @@ class GradientImages(Residual):
         # second_grad:  dims x dims x ch x pixels
         second_grad = self.gradient(self._template_grad)
         second_grad = second_grad.masked_pixels().flatten().reshape(
-            (n_dims, n_dims,  n_channels, -1))
+            (n_dims, n_dims,  n_channels) + image.shape)
 
         # Fix crossed derivatives: dydx = dxdy
         second_grad[1, 0, ...] = second_grad[0, 1, ...]
@@ -368,15 +406,21 @@ class GradientImages(Residual):
             sdi += d
 
         # reshape steepest descent images
-        # sdi: (dims x ch x h x w) x params
-        return sdi.reshape((-1, sdi.shape[-1]))
+        # sdi: (ch x pixels) x params
+        sdi = sdi.reshape((-1, sdi.shape[-1]))
 
-    def hessian(self, sdi):
+        return sdi, sdi
+
+    def hessian(self, sdi, sdi2=None):
         # compute hessian
-        # sdi.T:   params x (dims x ch x pixels)
-        # sdi:              (dims x ch x pixels) x params
-        # hessian: params x                     x params
-        return sdi.T.dot(sdi)
+        # sdi.T:   params x (ch x h x w)
+        # sdi:              (ch x h x w) x params
+        # hessian: params x               x params
+        if sdi2 is None:
+            H = sdi.T.dot(sdi)
+        else:
+            H = sdi.T.dot(sdi2)
+        return H
 
     def steepest_descent_update(self, sdi, image, template):
         # compute image regularized gradient
@@ -393,6 +437,11 @@ class GradientImages(Residual):
         # error_img:           (dims x ch x pixels)
         # sdu:        params
         return sdi.T.dot(self._error_img)
+
+    def cost_closure(self):
+        def cost_closure(x):
+            return lambda: x.T.dot(x)
+        return cost_closure(self._error_img)
 
 
 class GradientCorrelation(Residual):
@@ -502,5 +551,10 @@ class GradientCorrelation(Residual):
         # compute step size
         qp = np.sum(self._cos_phi * IWxp_cos_phi +
                     self._sin_phi * IWxp_sin_phi)
-        l = self._N / qp
-        return l * sdu
+        self._l = self._N / qp
+        return self._l * sdu
+
+    def cost_closure(self):
+        def cost_closure(x):
+            return lambda: 1/x
+        return cost_closure(self._l)
