@@ -2,7 +2,6 @@ from __future__ import division
 from menpofit.result import ParametricAlgorithmResult, MultiFitterResult
 
 
-# TODO: handle costs!
 # TODO: document me!
 class LucasKanadeAlgorithmResult(ParametricAlgorithmResult):
     def __init__(self, image, algorithm, shape_parameters,
@@ -31,7 +30,6 @@ class LucasKanadeAlgorithmResult(ParametricAlgorithmResult):
         return self._costs
 
 
-# TODO: handle costs!
 # TODO: document me!
 class LucasKanadeFitterResult(MultiFitterResult):
     r"""

@@ -212,7 +212,6 @@ class LucasKanade(object):
         self.s2_inv_L = np.hstack((np.ones((4,)), s2 / L))
 
 
-# TODO: handle costs!
 # TODO document me!
 class Compositional(LucasKanade):
     r"""
@@ -276,7 +275,6 @@ class Compositional(LucasKanade):
             image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
 
 
-# TODO: handle costs!
 # TODO document me!
 class ForwardCompositional(Compositional):
     r"""
@@ -303,7 +301,6 @@ class ForwardCompositional(Compositional):
             self.transform.as_vector() + self.dp)
 
 
-# TODO: handle costs!
 # TODO document me!
 class InverseCompositional(Compositional):
     r"""
