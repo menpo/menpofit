@@ -11,7 +11,7 @@ from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 import menpofit.checks as checks
 from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
 from .algorithm.lk import (
-    LucasKanadeStandardInterface, LucasKanaddLinearInterface,
+    LucasKanadeStandardInterface, LucasKanadeLinearInterface,
     LucasKanadePartsInterface, WibergInverseCompositional)
 from .algorithm.sd import (
     SupervisedDescentStandardInterface, SupervisedDescentLinearInterface,
@@ -83,7 +83,7 @@ class LucasKanadeAAMFitter(AAMFitter):
                     sm, self.aam.reference_shape)
                 # set up algorithm using linear aam interface
                 algorithm = lk_algorithm_cls(
-                    LucasKanaddLinearInterface, am, md_transform, sampling=s,
+                    LucasKanadeLinearInterface, am, md_transform, sampling=s,
                     **kwargs)
 
             elif type(self.aam) is PartsAAM:
@@ -109,8 +109,8 @@ class LucasKanadeAAMFitter(AAMFitter):
 class SupervisedDescentAAMFitter(AAMFitter):
     r"""
     """
-    def __init__(self, aam, cr_algorithm_cls=ProjectOutNewton,
-                 n_shape=None,n_appearance=None, sampling=None,
+    def __init__(self, aam, sd_algorithm_cls=ProjectOutNewton,
+                 n_shape=None, n_appearance=None, sampling=None,
                  n_perturbations=10, noise_std=0.05, max_iters=6, **kwargs):
         self._model = aam
         self.algorithms = []
@@ -120,9 +120,9 @@ class SupervisedDescentAAMFitter(AAMFitter):
         self.n_perturbations = n_perturbations
         self.noise_std = noise_std
         self.max_iters = checks.check_max_iters(max_iters, self.n_levels)
-        self._set_up(cr_algorithm_cls, sampling, **kwargs)
+        self._set_up(sd_algorithm_cls, sampling, **kwargs)
 
-    def _set_up(self, cr_algorithm_cls, sampling, **kwargs):
+    def _set_up(self, sd_algorithm_cls, sampling, **kwargs):
         for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
                                             self.aam.shape_models, sampling)):
 
@@ -132,7 +132,7 @@ class SupervisedDescentAAMFitter(AAMFitter):
                     sm, self.aam.transform,
                     source=am.mean().landmarks['source'].lms)
                 # set up algorithm using standard aam interface
-                algorithm = cr_algorithm_cls(
+                algorithm = sd_algorithm_cls(
                     SupervisedDescentStandardInterface, am, md_transform,
                     sampling=s, max_iters=self.max_iters[j], **kwargs)
 
@@ -142,7 +142,7 @@ class SupervisedDescentAAMFitter(AAMFitter):
                 md_transform = LinearOrthoMDTransform(
                     sm, self.aam.reference_shape)
                 # set up algorithm using linear aam interface
-                algorithm = cr_algorithm_cls(
+                algorithm = sd_algorithm_cls(
                     SupervisedDescentLinearInterface, am, md_transform,
                     sampling=s, max_iters=self.max_iters[j], **kwargs)
 
@@ -150,7 +150,7 @@ class SupervisedDescentAAMFitter(AAMFitter):
                 # build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
                 # set up algorithm using parts aam interface
-                algorithm = cr_algorithm_cls(
+                algorithm = sd_algorithm_cls(
                     SupervisedDescentPartsInterface, am, pdm,
                     sampling=s, max_iters=self.max_iters[j],
                     patch_shape=self.aam.patch_shape[j],
