@@ -2,7 +2,6 @@ from __future__ import division
 from menpofit.result import ParametricAlgorithmResult, MultiFitterResult
 
 
-# TODO: handle costs!
 # TODO: document me!
 class AAMAlgorithmResult(ParametricAlgorithmResult):
     r"""
@@ -53,7 +52,6 @@ class AAMAlgorithmResult(ParametricAlgorithmResult):
                              '{}'.format(self.algorithm.__class__))
 
 
-# TODO: handle costs!
 # TODO: document me!
 class LinearAAMAlgorithmResult(AAMAlgorithmResult):
     r"""
@@ -72,7 +70,6 @@ class LinearAAMAlgorithmResult(AAMAlgorithmResult):
         return self.initial_transform.sparse_target
 
 
-# TODO: handle costs!
 # TODO: document me!
 class AAMFitterResult(MultiFitterResult):
     r"""
