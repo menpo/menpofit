@@ -27,6 +27,8 @@ class ForwardAdditive(LucasKanade):
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
 
+        cost_functions = []
+
         # initialize iteration counter and epsilon
         k = 0
         eps = np.Inf
@@ -58,6 +60,9 @@ class ForwardAdditive(LucasKanade):
             self.transform.from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
 
+            # update cost
+            cost_functions.append(self.residual.cost_closure())
+
             # test convergence
             eps = np.abs(norm(dp))
 
@@ -65,6 +70,7 @@ class ForwardAdditive(LucasKanade):
             k += 1
 
         return LucasKanadeAlgorithmResult(image, self, p_list,
+                                          cost_functions=cost_functions,
                                           gt_shape=gt_shape)
 
 
@@ -88,6 +94,8 @@ class ForwardCompositional(LucasKanade):
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+
+        cost_functions = []
 
         # initialize iteration counter and epsilon
         k = 0
@@ -116,6 +124,9 @@ class ForwardCompositional(LucasKanade):
             self.transform.compose_after_from_vector_inplace(dp)
             p_list.append(self.transform.as_vector())
 
+            # update cost
+            cost_functions.append(self.residual.cost_closure())
+
             # test convergence
             eps = np.abs(norm(dp))
 
@@ -123,6 +134,7 @@ class ForwardCompositional(LucasKanade):
             k += 1
 
         return LucasKanadeAlgorithmResult(image, self, p_list,
+                                          cost_functions=cost_functions,
                                           gt_shape=gt_shape)
 
 
@@ -153,6 +165,8 @@ class InverseCompositional(LucasKanade):
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
 
+        cost_functions = []
+
         # initialize iteration counter and epsilon
         k = 0
         eps = np.Inf
@@ -174,6 +188,9 @@ class InverseCompositional(LucasKanade):
             self.transform.compose_after_from_vector_inplace(inv_dp)
             p_list.append(self.transform.as_vector())
 
+            # update cost
+            cost_functions.append(self.residual.cost_closure())
+
             # test convergence
             eps = np.abs(norm(dp))
 
@@ -181,4 +198,5 @@ class InverseCompositional(LucasKanade):
             k += 1
 
         return LucasKanadeAlgorithmResult(image, self, p_list,
+                                          cost_functions=cost_functions,
                                           gt_shape=gt_shape)
