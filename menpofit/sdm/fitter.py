@@ -3,7 +3,7 @@ from functools import partial
 from menpo.transform import Scale, AlignmentSimilarity
 from menpo.feature import no_op
 from menpofit.builder import normalization_wrt_reference_shape, scale_images
-from menpofit.fitter import MultiFitter, noisy_align
+from menpofit.fitter import MultiFitter, noisy_target_alignment_transform
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
 from .algorithm import SN
@@ -174,8 +174,9 @@ class CRFitter(MultiFitter):
 
     def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.04,
                                       rotation=False):
-        transform = noisy_align(AlignmentSimilarity,
+        transform = noisy_target_alignment_transform(
                                 self.reference_bounding_box, bounding_box,
+                                alignment_transform_cls=AlignmentSimilarity,
                                 noise_std=noise_std, rotation=rotation)
         return transform.apply(self.reference_shape)
 
