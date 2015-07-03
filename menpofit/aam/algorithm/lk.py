@@ -253,7 +253,6 @@ class LucasKanade(object):
         self.s2_inv_S = s2 / S
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class ProjectOut(LucasKanade):
     r"""
@@ -321,7 +320,6 @@ class ProjectOut(LucasKanade):
             image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class ProjectOutForwardCompositional(ProjectOut):
     r"""
@@ -350,7 +348,6 @@ class ProjectOutForwardCompositional(ProjectOut):
             self.transform.as_vector() + self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class ProjectOutInverseCompositional(ProjectOut):
     r"""
@@ -385,7 +382,6 @@ class ProjectOutInverseCompositional(ProjectOut):
             self.transform.as_vector() - self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class Simultaneous(LucasKanade):
     r"""
@@ -480,7 +476,6 @@ class Simultaneous(LucasKanade):
             return self.interface.solve_all_ml(H_sim_m, J_sim_m, self.e_m)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class SimultaneousForwardCompositional(Simultaneous):
     r"""
@@ -498,7 +493,6 @@ class SimultaneousForwardCompositional(Simultaneous):
             self.transform.as_vector() + self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class SimultaneousInverseCompositional(Simultaneous):
     r"""
@@ -516,7 +510,6 @@ class SimultaneousInverseCompositional(Simultaneous):
             self.transform.as_vector() - self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class Alternating(LucasKanade):
     r"""
@@ -621,7 +614,6 @@ class Alternating(LucasKanade):
             appearance_parameters=c_list, gt_shape=gt_shape)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class AlternatingForwardCompositional(Alternating):
     r"""
@@ -639,7 +631,6 @@ class AlternatingForwardCompositional(Alternating):
             self.transform.as_vector() + self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class AlternatingInverseCompositional(Alternating):
     r"""
@@ -657,7 +648,6 @@ class AlternatingInverseCompositional(Alternating):
             self.transform.as_vector() - self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class ModifiedAlternating(Alternating):
     r"""
@@ -745,7 +735,6 @@ class ModifiedAlternating(Alternating):
             appearance_parameters=c_list, gt_shape=gt_shape)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
     r"""
@@ -763,7 +752,6 @@ class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
             self.transform.as_vector() + self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
     r"""
@@ -781,7 +769,6 @@ class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
             self.transform.as_vector() - self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class Wiberg(LucasKanade):
     r"""
@@ -875,7 +862,6 @@ class Wiberg(LucasKanade):
             appearance_parameters=c_list, gt_shape=gt_shape)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class WibergForwardCompositional(Wiberg):
     r"""
@@ -893,7 +879,6 @@ class WibergForwardCompositional(Wiberg):
             self.transform.as_vector() + self.dp)
 
 
-# TODO: handle costs!
 # TODO: Document me!
 class WibergInverseCompositional(Wiberg):
     r"""

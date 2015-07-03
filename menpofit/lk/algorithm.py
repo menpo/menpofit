@@ -16,7 +16,6 @@ class LucasKanade(object):
         self.eps = eps
 
 
-# TODO: handle costs!
 # TODO: document me!
 class ForwardAdditive(LucasKanade):
     r"""
@@ -74,7 +73,6 @@ class ForwardAdditive(LucasKanade):
                                           gt_shape=gt_shape)
 
 
-# TODO: handle costs!
 # TODO: document me!
 class ForwardCompositional(LucasKanade):
     r"""
@@ -138,7 +136,6 @@ class ForwardCompositional(LucasKanade):
                                           gt_shape=gt_shape)
 
 
-# TODO: handle costs!
 # TODO: document me!
 class InverseCompositional(LucasKanade):
     r"""
