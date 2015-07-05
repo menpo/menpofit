@@ -1,7 +1,7 @@
 from __future__ import division
 from menpo.transform import AlignmentSimilarity, Similarity
 import numpy as np
-from menpo.visualize import progress_bar_str, print_dynamic
+from menpo.visualize import progress_bar_str, print_dynamic, print_progress
 
 
 def name_of_callable(c):
@@ -51,13 +51,11 @@ def create_pyramid(images, n_levels, downscale, features, verbose=False):
 
     """
     will_take_a_while = is_pyramid_on_features(features)
+    if will_take_a_while and verbose:
+        images = print_progress(images, show_bar=False, show_count=False,
+                                prefix='- Computing top-level feature space')
     pyramids = []
-    for i, img in enumerate(images):
-        if will_take_a_while and verbose:
-            print_dynamic(
-                'Computing top level feature space - {}'.format(
-                    progress_bar_str((i + 1.) / len(images),
-                                     show_bar=False)))
+    for img in images:
         pyramids.append(pyramid_of_feature_images(n_levels, downscale,
                                                   features, img))
     return pyramids
