@@ -10,7 +10,7 @@ setup(name='menpofit',
       author='The Menpo Development Team',
       author_email='james.booth08@imperial.ac.uk',
       packages=find_packages(),
-      install_requires=['menpo>=0.5,<0.6',
+      install_requires=['menpo>=0.5.1,<0.6',
                         'scikit-learn>=0.16,<0.17'],
       tests_require=['nose', 'mock']
       )
