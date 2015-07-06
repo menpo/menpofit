@@ -6,7 +6,7 @@ from menpo.image import MaskedImage
 from menpo.transform import Translation
 from menpo.feature import igo
 from menpo.model import PCAModel
-from menpo.visualize import print_dynamic, progress_bar_str
+from menpo.visualize import print_dynamic, print_progress
 
 from menpofit import checks
 from menpofit.base import create_pyramid
@@ -211,10 +211,10 @@ class AAMBuilder(DeformableModelBuilder):
         # build the model at each pyramid level
         if verbose:
             if self.n_levels > 1:
-                print_dynamic('- Building model for each of the {} pyramid '
-                              'levels\n'.format(self.n_levels))
+                print('- Building model for each of the {} '
+                      'pyramid levels'.format(self.n_levels))
             else:
-                print_dynamic('- Building model\n')
+                print('- Building model')
 
         shape_models = []
         appearance_models = []
@@ -231,13 +231,16 @@ class AAMBuilder(DeformableModelBuilder):
 
             # get feature images of current level
             feature_images = []
-            for c, g in enumerate(generators):
-                if verbose:
-                    print_dynamic(
-                        '{}Computing feature space/rescaling - {}'.format(
-                        level_str,
-                        progress_bar_str((c + 1.) / len(generators),
-                                         show_bar=False)))
+
+            if verbose:
+                generators_with_print = print_progress(
+                    generators, show_bar=False, show_eta=False,
+                    end_with_newline=False,
+                    prefix='{}Computing feature space/rescaling'.format(level_str))
+            else:
+                generators_with_print = generators
+
+            for g in generators_with_print:
                 feature_images.append(next(g))
 
             # extract potentially rescaled shapes
@@ -273,14 +276,17 @@ class AAMBuilder(DeformableModelBuilder):
                 reference_frame.landmarks['source'].lms,
                 reference_frame.landmarks['source'].lms)
 
+            if verbose:
+                feature_images_with_print = print_progress(
+                    feature_images, show_bar=False, show_eta=False,
+                    end_with_newline=False,
+                    prefix='{}Warping images'.format(level_str))
+            else:
+                feature_images_with_print = feature_images
+
             # warp images to reference frame
             warped_images = []
-            for c, i in enumerate(feature_images):
-                if verbose:
-                    print_dynamic('{}Warping images - {}'.format(
-                        level_str,
-                        progress_bar_str(float(c + 1) / len(feature_images),
-                                         show_bar=False)))
+            for i in feature_images_with_print:
                 # Setting the target can be significantly faster for transforms
                 # such as CachedPiecewiseAffine
                 s_to_t_transform.set_target(i.landmarks[group][label])
@@ -304,7 +310,7 @@ class AAMBuilder(DeformableModelBuilder):
             appearance_models.append(appearance_model)
 
             if verbose:
-                print_dynamic('{}Done\n'.format(level_str))
+                print('{}Done'.format(level_str).ljust(80))
 
         # reverse the list of shape and appearance models so that they are
         # ordered from lower to higher resolution
@@ -604,9 +610,7 @@ def build_reference_frame(landmarks, boundary=3, group='source',
         reference_frame.landmarks[group] = TriMesh(
             reference_frame.landmarks['source'].lms.points, trilist=trilist)
 
-    # TODO: revise kwarg trilist in method constrain_mask_to_landmarks,
-    # perhaps the trilist should be directly obtained from the group landmarks
-    reference_frame.constrain_mask_to_landmarks(group=group, trilist=trilist)
+    reference_frame.constrain_mask_to_landmarks(group=group)
 
     return reference_frame
 
