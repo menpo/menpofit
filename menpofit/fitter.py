@@ -366,6 +366,18 @@ def noisy_target_alignment_transform(source, target,
     return alignment_transform_cls(source, noisy_target, **kwargs)
 
 
+def noisy_shape_from_bounding_box(shape, bounding_box, noise_std=0.05):
+    transform = noisy_params_alignment_similarity(
+        shape.bounding_box(), bounding_box, noise_std=noise_std)
+    return transform.apply(shape)
+
+
+def noisy_shape_from_shape(reference_shape, shape, noise_std=0.05):
+    transform = noisy_params_alignment_similarity(
+        reference_shape, shape, noise_std=noise_std)
+    return transform.apply(reference_shape)
+
+
 def align_shape_with_bounding_box(shape, bounding_box,
                                   alignment_transform_cls=AlignmentSimilarity,
                                   **kwargs):
