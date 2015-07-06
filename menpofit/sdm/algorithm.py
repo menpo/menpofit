@@ -149,7 +149,7 @@ class GaussNewton(SupervisedDescentAlgorithm):
         self.patch_shape = patch_shape
         self.iterations = iterations
         self.eps = eps
-        self._perform_regression = _incremental_indirect_least_squares
+        self._regressor_cls = _incremental_indirect_least_squares
 
 
 # TODO: document me!
@@ -330,6 +330,7 @@ def compute_features_info(image, shape, features_callable,
 
     return (features_patch_shape, features_patch_length,
             features_shape, features_length)
+
 
 # def initialize_sampling(self, image, group=None, label=None):
 #         if self._sampling is None:
