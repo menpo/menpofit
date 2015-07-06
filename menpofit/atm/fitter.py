@@ -16,7 +16,6 @@ class LucasKanadeATMFitter(ModelFitter):
     def __init__(self, atm, algorithm_cls=InverseCompositional,
                  n_shape=None, sampling=None, **kwargs):
         self._model = atm
-        self.algorithms = []
         self._check_n_shape(n_shape)
         self._set_up(algorithm_cls, sampling, **kwargs)
 
@@ -25,6 +24,7 @@ class LucasKanadeATMFitter(ModelFitter):
         return self._model
 
     def _set_up(self, algorithm_cls, sampling, **kwargs):
+        self.algorithms = []
         for j, (wt, sm) in enumerate(zip(self.atm.warped_templates,
                                          self.atm.shape_models)):
 

@@ -56,13 +56,13 @@ class LucasKanadeAAMFitter(AAMFitter):
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
                  n_shape=None, n_appearance=None, sampling=None, **kwargs):
         self._model = aam
-        self.algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
         sampling = checks.check_sampling(sampling, self.n_levels)
         self._set_up(lk_algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, lk_algorithm_cls, sampling, **kwargs):
+        self.algorithms = []
         for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
                                             self.aam.shape_models, sampling)):
 
@@ -113,7 +113,6 @@ class SupervisedDescentAAMFitter(AAMFitter):
                  n_shape=None, n_appearance=None, sampling=None,
                  n_perturbations=10, noise_std=0.05, max_iters=6, **kwargs):
         self._model = aam
-        self.algorithms = []
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
         sampling = checks.check_sampling(sampling, self.n_levels)
@@ -123,6 +122,7 @@ class SupervisedDescentAAMFitter(AAMFitter):
         self._set_up(sd_algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, sd_algorithm_cls, sampling, **kwargs):
+        self.algorithms = []
         for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
                                             self.aam.shape_models, sampling)):
 
