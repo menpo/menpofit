@@ -1,2 +1,2 @@
-from .algorithm import SN, SGN
-from .fitter import CRFitter, SDMFitter
+from .algorithm import Newton, GaussNewton
+from .fitter import SupervisedDescentFitter

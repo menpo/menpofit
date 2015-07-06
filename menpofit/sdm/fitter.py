@@ -1,49 +1,48 @@
 from __future__ import division
-from functools import partial
+import numpy as np
 from menpo.transform import Scale, AlignmentSimilarity
 from menpo.feature import no_op
-from menpofit.builder import normalization_wrt_reference_shape, scale_images
-from menpofit.fitter import MultiFitter, noisy_target_alignment_transform
+from menpofit.builder import (
+    normalization_wrt_reference_shape, rescale_images_to_reference_shape,
+    scale_images)
+from menpofit.fitter import MultiFitter, noisy_params_alignment_similarity
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
-from .algorithm import SN
+from .algorithm import Newton
 
 
 # TODO: document me!
-class CRFitter(MultiFitter):
+class SupervisedDescentFitter(MultiFitter):
     r"""
     """
-    def __init__(self, cr_algorithm_cls=SN, features=no_op,
+    def __init__(self, sd_algorithm_cls=Newton, features=no_op,
                  patch_shape=(17, 17), diagonal=None, scales=(1, 0.5),
-                 iterations=6, n_perturbations=10, **kwargs):
+                 iterations=6, n_perturbations=10, noise_std=0.05, **kwargs):
         # check parameters
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
         features = checks.check_features(features, n_levels)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         # set parameters
-        self._algorithms = []
         self.diagonal = diagonal
         self.scales = list(scales)[::-1]
         self.n_perturbations = n_perturbations
+        self.noise_std = noise_std
         self.iterations = checks.check_max_iters(iterations, n_levels)
         # set up algorithms
-        self._set_up(cr_algorithm_cls, features, patch_shape, **kwargs)
-
-    @property
-    def algorithms(self):
-        return self._algorithms
+        self._set_up(sd_algorithm_cls, features, patch_shape, **kwargs)
 
     @property
     def reference_bounding_box(self):
         return self.reference_shape.bounding_box()
 
-    def _set_up(self, cr_algorithm_cls, features, patch_shape, **kwargs):
+    def _set_up(self, sd_algorithm_cls, features, patch_shape, **kwargs):
+        self.algorithms = []
         for j in range(self.n_levels):
-            algorithm = cr_algorithm_cls(
+            algorithm = sd_algorithm_cls(
                 features=features[j], patch_shape=patch_shape[j],
                 iterations=self.iterations[j], **kwargs)
-            self._algorithms.append(algorithm)
+            self.algorithms.append(algorithm)
 
     def train(self, images, group=None, label=None, verbose=False, **kwargs):
         # normalize images and compute reference shape
@@ -71,7 +70,8 @@ class CRFitter(MultiFitter):
                 for gt_s in level_gt_shapes:
                     perturbed_shapes = []
                     for _ in range(self.n_perturbations):
-                        p_s = self.noisy_shape_from_shape(gt_s)
+                        p_s = self.noisy_shape_from_shape(
+                            gt_s, noise_std=self.noise_std)
                         perturbed_shapes.append(p_s)
                     current_shapes.append(perturbed_shapes)
 
@@ -86,6 +86,68 @@ class CRFitter(MultiFitter):
                 for image_shapes in current_shapes:
                     for shape in image_shapes:
                         transform.apply_inplace(shape)
+
+    def increment(self, images, group=None, label=None, verbose=False,
+                  **kwargs):
+        # normalize images with respect to reference shape of aam
+        images = rescale_images_to_reference_shape(
+            images, group, label, self.reference_shape, verbose=verbose)
+
+        # for each pyramid level (low --> high)
+        for j in range(self.n_levels):
+            if verbose:
+                if len(self.scales) > 1:
+                    level_str = '  - Level {}: '.format(j)
+                else:
+                    level_str = '  - '
+
+            # scale images and compute features at other levels
+            level_images = scale_images(images, self.scales[j],
+                                        level_str=level_str, verbose=verbose)
+
+            # extract ground truth shapes for current level
+            level_gt_shapes = [i.landmarks[group][label] for i in level_images]
+
+            if j == 0:
+                # generate perturbed shapes
+                current_shapes = []
+                for gt_s in level_gt_shapes:
+                    perturbed_shapes = []
+                    for _ in range(self.n_perturbations):
+                        p_s = self.noisy_shape_from_shape(
+                            gt_s, noise_std=self.noise_std)
+                        perturbed_shapes.append(p_s)
+                    current_shapes.append(perturbed_shapes)
+
+            # train cascaded regression algorithm
+            current_shapes = self.algorithms[j].increment(
+                level_images, level_gt_shapes, current_shapes,
+                verbose=verbose, **kwargs)
+
+            # scale current shapes to next level resolution
+            if self.scales[j] != (1 or self.scales[-1]):
+                transform = Scale(self.scales[j+1]/self.scales[j], n_dims=2)
+                for image_shapes in current_shapes:
+                    for shape in image_shapes:
+                        transform.apply_inplace(shape)
+
+    def train_incrementally(self, images, group=None, label=None,
+                            batch_size=100, verbose=False, **kwargs):
+        n_batches = np.int(np.ceil(len(images) / batch_size))
+
+        # train first batch
+        print 'Training batch 1.'
+        self.train(images[:batch_size], group=group, label=label,
+                   verbose=verbose, **kwargs)
+
+        # train all other batches
+        start = batch_size
+        for j in range(1, n_batches):
+            print 'Training batch {}.'.format(j+1)
+            end = start + batch_size
+            self.increment(images[start:end], group=group, label=label,
+                           verbose=verbose, **kwargs)
+            start = end
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
                        crop_image=0.5):
@@ -137,8 +199,7 @@ class CRFitter(MultiFitter):
 
         # if specified, crop the image
         if crop_image:
-            image = image.copy()
-            image.crop_to_landmarks_proportion_inplace(crop_image,
+            image = image.crop_to_landmarks_proportion(crop_image,
                                                        group='initial_shape')
 
         # rescale image wrt the scale factor between reference_shape and
@@ -172,17 +233,14 @@ class CRFitter(MultiFitter):
         return MultiFitterResult(image, self, algorithm_results,
                                  affine_correction, gt_shape=gt_shape)
 
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.04,
-                                      rotation=False):
-        transform = noisy_target_alignment_transform(
-                                self.reference_bounding_box, bounding_box,
-                                alignment_transform_cls=AlignmentSimilarity,
-                                noise_std=noise_std, rotation=rotation)
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.05):
+        transform = noisy_params_alignment_similarity(
+            self.reference_bounding_box, bounding_box, noise_std=noise_std)
         return transform.apply(self.reference_shape)
 
-    def noisy_shape_from_shape(self, shape, noise_std=0.04, rotation=False):
+    def noisy_shape_from_shape(self, shape, noise_std=0.05):
         return self.noisy_shape_from_bounding_box(
-            shape.bounding_box(), noise_std=noise_std, rotation=rotation)
+            shape.bounding_box(), noise_std=noise_std)
 
     # TODO: fix me!
     def __str__(self):
@@ -255,10 +313,6 @@ class CRFitter(MultiFitter):
         #     out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n".format(
         #         out, feat_str[0], n_channels[0], ch_str[0])
         # return out
-
-
-# TODO: document me!
-SDMFitter = partial(CRFitter, cr_algorithm_cls=SN)
 
 
 # class CRFitter(MultiFitter):

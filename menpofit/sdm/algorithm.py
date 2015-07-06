@@ -5,8 +5,9 @@ from menpo.visualize import print_dynamic
 from menpofit.result import NonParametricAlgorithmResult
 
 
-# TODO document me!
-class CRAlgorithm(object):
+# TODO: compute more meaningful error
+# TODO: document me!
+class SupervisedDescentAlgorithm(object):
     r"""
     """
     def train(self, images, gt_shapes, current_shapes, verbose=False,
@@ -31,13 +32,14 @@ class CRAlgorithm(object):
 
             # perform regression
             if verbose:
-                print_dynamic('- Performing regression...')
-            regressor = self._perform_regression(features, delta_x, **kwargs)
+                print_dynamic('- Performing regression.')
+            r = self._regressor_cls(**kwargs)
+            r.train(features, delta_x)
             # add regressor to list
-            self.regressors.append(regressor)
+            self.regressors.append(r)
 
             # estimate delta_points
-            estimated_delta_x = regressor(features)
+            estimated_delta_x = r.predict(features)
             if verbose:
                 error = _compute_rmse(delta_x, estimated_delta_x)
                 print_dynamic('- Training Error is {0:.4f}.\n'.format(error))
@@ -59,6 +61,44 @@ class CRAlgorithm(object):
         # rearrange current shapes into their original list of list form
         return current_shapes
 
+    def increment(self, images, gt_shapes, current_shapes, verbose=False,
+                  **kwarg):
+        # obtain delta_x and gt_x
+        delta_x, gt_x = obtain_delta_x(gt_shapes, current_shapes)
+
+        # Cascaded Regression loop
+        for r in self.regressors:
+            # generate regression data
+            features = obtain_patch_features(
+                images, current_shapes, self.patch_shape, self.features,
+                features_patch_length=self._features_patch_length)
+
+            # update regression
+            if verbose:
+                print_dynamic('- Updating regression')
+            r.increment(features, delta_x)
+
+            # estimate delta_points
+            estimated_delta_x = r.predict(features)
+            if verbose:
+                error = _compute_rmse(delta_x, estimated_delta_x)
+                print_dynamic('- Training Error is {0:.4f}.\n'.format(error))
+
+            j = 0
+            for shapes in current_shapes:
+                for s in shapes:
+                    # update current x
+                    current_x = s.as_vector() + estimated_delta_x[j]
+                    # update current shape inplace
+                    s.from_vector_inplace(current_x)
+                    # update delta_x
+                    delta_x[j] = gt_x[j] - current_x
+                    # increase index
+                    j += 1
+
+        # rearrange current shapes into their original list of list form
+        return current_shapes
+
     def run(self, image, initial_shape, gt_shape=None, **kwargs):
         # set current shape and initialize list of shapes
         current_shape = initial_shape
@@ -72,7 +112,7 @@ class CRAlgorithm(object):
                 features_patch_length=self._features_patch_length)
 
             # solve for increments on the shape vector
-            dx = r(features)
+            dx = r.predict(features)
 
             # update current shape
             current_shape = current_shape.from_vector(
@@ -85,100 +125,80 @@ class CRAlgorithm(object):
 
 
 # TODO: document me!
-class SN(CRAlgorithm):
+class Newton(SupervisedDescentAlgorithm):
     r"""
-    Supervised Newton.
-
-    This class implements the Supervised Descent Method technique, proposed
-    by Xiong and De la Torre in [XiongD13].
-
-    References
-    ----------
-    .. [XiongD13] Supervised Descent Method and its Applications to
-       Face Alignment
-       Xuehan Xiong and Fernando De la Torre Fernando
-       IEEE International Conference on Computer Vision and Pattern Recognition
-       May, 2013
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
-                 eps=10 ** -5):
+                 eps=10**-5):
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
         self.iterations = iterations
         self.eps = eps
-        # wire regression callable
-        self._perform_regression = _supervised_newton
+        self._regressor_cls = _incremental_least_squares
 
 
 # TODO: document me!
-class SGN(CRAlgorithm):
+class GaussNewton(SupervisedDescentAlgorithm):
     r"""
-    Supervised Gauss-Newton
-
-    This class implements a variation of the Supervised Descent Method
-    [XiongD13] by some of the ideas incorporating ideas...
-
-    References
-    ----------
-    .. [XiongD13] Supervised Descent Method and its Applications to
-       Face Alignment
-       Xuehan Xiong and Fernando De la Torre Fernando
-       IEEE International Conference on Computer Vision and Pattern Recognition
-       May, 2013
-    .. [Tzimiropoulos15] Supervised Descent Method and its Applications to
-       Face Alignment
-       Xuehan Xiong and Fernando De la Torre Fernando
-       IEEE International Conference on Computer Vision and Pattern Recognition
-       May, 2013
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
-                 eps=10 ** -5):
+                 eps=10**-5):
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
         self.iterations = iterations
         self.eps = eps
-        # wire regression callable
-        self._perform_regression = _supervised_gauss_newton
+        self._perform_regression = _incremental_indirect_least_squares
 
 
 # TODO: document me!
-class _supervised_newton(object):
+class _incremental_least_squares(object):
     r"""
     """
-    def __init__(self, features, deltas, gamma=None):
-        # ridge regression
-        XX = features.T.dot(features)
-        XT = features.T.dot(deltas)
-        if gamma:
-            np.fill_diagonal(XX, gamma + np.diag(XX))
-        # descent direction
-        self.R = np.linalg.solve(XX, XT)
+    def __init__(self, l=0):
+        self.l = l
 
-    def __call__(self, features):
-        return np.dot(features, self.R)
+    def train(self, X, Y):
+        # regularized least squares
+        XX = X.T.dot(X)
+        np.fill_diagonal(XX, self.l + np.diag(XX))
+        self.V = np.linalg.inv(XX)
+        self.W = self.V.dot(X.T.dot(Y))
+
+    def increment(self, X, Y):
+        # incremental regularized least squares
+        U = X.dot(self.V).dot(X.T)
+        np.fill_diagonal(U, 1 + np.diag(U))
+        U = np.linalg.inv(U)
+        Q = self.V.dot(X.T).dot(U).dot(X)
+        self.V = self.V - Q.dot(self.V)
+        self.W = self.W - Q.dot(self.W) + self.V.dot(X.T.dot(Y))
+
+    def predict(self, x):
+        return np.dot(x, self.W)
 
 
 # TODO: document me!
-class _supervised_gauss_newton(object):
+class _incremental_indirect_least_squares(object):
     r"""
     """
-    def __init__(self, features, deltas, gamma=None):
-        # ridge regression
-        XX = deltas.T.dot(deltas)
-        XT = deltas.T.dot(features)
-        if gamma:
-            np.fill_diagonal(XX, gamma + np.diag(XX))
-        # average Jacobian
-        self.J = np.linalg.solve(XX, XT)
-        # average Hessian
-        self.H = self.J.dot(self.J.T)
-        # descent direction
-        self.R = np.linalg.solve(self.H, self.J).T
+    def __init__(self, l=0, d=0):
+        self._ils = _incremental_least_squares(l)
+        self.d = d
 
-    def __call__(self, features):
-        return np.dot(features, self.R)
+    def train(self, X, Y):
+        # regularized least squares exchanging the roles of X and Y
+        self._ils.train(Y, X)
+        J = self._ils.W
+        # solve the original problem by computing the pseudo-inverse of the
+        # previous solution
+        H = J.T.dot(J)
+        np.fill_diagonal(H, self.d + np.diag(H))
+        self.W = np.linalg.solve(H, J.T)
+
+    def predict(self, x):
+        return np.dot(x, self.W)
 
 
 # TODO: document me!
