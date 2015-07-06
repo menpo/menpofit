@@ -558,8 +558,8 @@ class MultiFitterResult(IterativeResult):
     @property
     def initial_shape(self):
         initial_shape = self.algorithm_results[0].initial_shape
-        Scale(self.scales[-1]/self.scales[0],
-              initial_shape.n_dims).apply_inplace(initial_shape)
+        initial_shape = Scale(self.scales[-1]/self.scales[0],
+                              initial_shape.n_dims).apply(initial_shape)
         return self._affine_correction.apply(initial_shape)
 
 
@@ -595,11 +595,11 @@ def _rescale_shapes_to_reference(algorithm_results, scales, affine_correction):
     r"""
     """
     shapes = []
-    for j, (alg, s) in enumerate(zip(algorithm_results, scales)):
-        transform = Scale(scales[-1]/s, alg.final_shape.n_dims)
-        for t in alg.shapes:
-            t = transform.apply(t)
-            shapes.append(affine_correction.apply(t))
+    for j, (alg, scale) in enumerate(zip(algorithm_results, scales)):
+        transform = Scale(scales[-1]/scale, alg.final_shape.n_dims)
+        for shape in alg.shapes:
+            shape = transform.apply(shape)
+            shapes.append(affine_correction.apply(shape))
     return shapes
 
 
