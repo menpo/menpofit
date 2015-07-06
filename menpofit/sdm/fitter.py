@@ -1,11 +1,14 @@
 from __future__ import division
 import numpy as np
-from menpo.transform import Scale, AlignmentSimilarity
+import warnings
+from menpo.transform import Scale
 from menpo.feature import no_op
 from menpofit.builder import (
     normalization_wrt_reference_shape, rescale_images_to_reference_shape,
     scale_images)
-from menpofit.fitter import MultiFitter, noisy_params_alignment_similarity
+from menpofit.fitter import (
+    MultiFitter, noisy_shape_from_shape, noisy_shape_from_bounding_box,
+    align_shape_with_bounding_box)
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
 from .algorithm import Newton
@@ -17,7 +20,10 @@ class SupervisedDescentFitter(MultiFitter):
     """
     def __init__(self, sd_algorithm_cls=Newton, features=no_op,
                  patch_shape=(17, 17), diagonal=None, scales=(1, 0.5),
-                 iterations=6, n_perturbations=10, noise_std=0.05, **kwargs):
+                 iterations=6, n_perturbations=30,
+                 perturb_from_shape=noisy_shape_from_shape,
+                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
+                 **kwargs):
         # check parameters
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
@@ -27,14 +33,11 @@ class SupervisedDescentFitter(MultiFitter):
         self.diagonal = diagonal
         self.scales = list(scales)[::-1]
         self.n_perturbations = n_perturbations
-        self.noise_std = noise_std
         self.iterations = checks.check_max_iters(iterations, n_levels)
+        self._perturb_from_shape = perturb_from_shape
+        self._perturb_from_bounding_box = perturb_from_bounding_box
         # set up algorithms
         self._set_up(sd_algorithm_cls, features, patch_shape, **kwargs)
-
-    @property
-    def reference_bounding_box(self):
-        return self.reference_shape.bounding_box()
 
     def _set_up(self, sd_algorithm_cls, features, patch_shape, **kwargs):
         self.algorithms = []
@@ -44,10 +47,41 @@ class SupervisedDescentFitter(MultiFitter):
                 iterations=self.iterations[j], **kwargs)
             self.algorithms.append(algorithm)
 
-    def train(self, images, group=None, label=None, verbose=False, **kwargs):
+    def perturb_from_shape(self, shape, **kwargs):
+        return self._perturb_from_shape(self.reference_shape, shape, **kwargs)
+
+    def perturb_from_bounding_box(self, bounding_box, **kwargs):
+        return self._perturb_from_bounding_box(self.reference_shape,
+                                               bounding_box, **kwargs)
+
+    def train(self, images, group=None, label=None,
+              perturbation_group=None, verbose=False, **kwargs):
         # normalize images and compute reference shape
         self.reference_shape, images = normalization_wrt_reference_shape(
             images, group, label, self.diagonal, verbose=verbose)
+
+        # handle perturbations
+        if perturbation_group is None:
+            perturbation_group = 'perturbed_'
+            # generate perturbations by perturbing ground truth shapes
+            for i in images:
+                gt_s = i.landmarks[group][label]
+                for j in range(self.n_perturbations):
+                    p_s = self.perturb_from_shape(gt_s)
+                    p_group = perturbation_group + '{}'.format(j)
+                    i.landmarks[p_group] = p_s
+        else:
+            # reset number of perturbations
+            n_perturbations = 0
+            for k in images[0].landmarks.keys():
+                if perturbation_group in k:
+                    n_perturbations += 1
+            if n_perturbations != self.n_perturbations:
+                warnings.warn('The original value of n_perturbation {} '
+                              'will be reset to {} in order to agree with '
+                              'the provided initialization_group.'.
+                              format(self.n_perturbations, n_perturbations))
+                self.n_perturbations = n_perturbations
 
         # for each pyramid level (low --> high)
         for j in range(self.n_levels):
@@ -65,17 +99,21 @@ class SupervisedDescentFitter(MultiFitter):
             level_gt_shapes = [i.landmarks[group][label] for i in level_images]
 
             if j == 0:
-                # generate perturbed shapes
+                # extract perturbations at the very bottom level
                 current_shapes = []
-                for gt_s in level_gt_shapes:
-                    perturbed_shapes = []
-                    for _ in range(self.n_perturbations):
-                        p_s = self.noisy_shape_from_shape(
-                            gt_s, noise_std=self.noise_std)
-                        perturbed_shapes.append(p_s)
-                    current_shapes.append(perturbed_shapes)
+                for i in level_images:
+                    c_shapes = []
+                    for k in range(self.n_perturbations):
+                        p_group = perturbation_group + '{}'.format(k)
+                        c_s = i.landmarks[p_group].lms
+                        if c_s.n_points != level_gt_shapes[0].n_points:
+                            # assume c_s is bounding box
+                            c_s = align_shape_with_bounding_box(
+                                self.reference_shape, c_s)
+                        c_shapes.append(c_s)
+                    current_shapes.append(c_shapes)
 
-            # train cascaded regression algorithm
+            # train supervised descent algorithm
             current_shapes = self.algorithms[j].train(
                 level_images, level_gt_shapes, current_shapes,
                 verbose=verbose, **kwargs)
@@ -87,11 +125,35 @@ class SupervisedDescentFitter(MultiFitter):
                     for shape in image_shapes:
                         transform.apply_inplace(shape)
 
-    def increment(self, images, group=None, label=None, verbose=False,
+    def increment(self, images, group=None, label=None,
+                  perturbation_group=None, verbose=False,
                   **kwargs):
         # normalize images with respect to reference shape of aam
         images = rescale_images_to_reference_shape(
             images, group, label, self.reference_shape, verbose=verbose)
+
+        # handle perturbations
+        if perturbation_group is None:
+            perturbation_group = 'perturbed_'
+            # generate perturbations by perturbing ground truth shapes
+            for i in images:
+                gt_s = i.landmarks[group][label]
+                for j in range(self.n_perturbations):
+                    p_s = self.perturb_from_shape(gt_s)
+                    p_group = perturbation_group + '{}'.format(j)
+                    i.landmarks[p_group] = p_s
+        else:
+            # reset number of perturbations
+            n_perturbations = 0
+            for k in images[0].landmarks.keys():
+                if perturbation_group in k:
+                    n_perturbations += 1
+            if n_perturbations != self.n_perturbations:
+                warnings.warn('The original value of n_perturbation {} '
+                              'will be reset to {} in order to agree with '
+                              'the provided initialization_group.'.
+                              format(self.n_perturbations, n_perturbations))
+                self.n_perturbations = n_perturbations
 
         # for each pyramid level (low --> high)
         for j in range(self.n_levels):
@@ -109,15 +171,19 @@ class SupervisedDescentFitter(MultiFitter):
             level_gt_shapes = [i.landmarks[group][label] for i in level_images]
 
             if j == 0:
-                # generate perturbed shapes
+                # extract perturbations at the very bottom level
                 current_shapes = []
-                for gt_s in level_gt_shapes:
-                    perturbed_shapes = []
-                    for _ in range(self.n_perturbations):
-                        p_s = self.noisy_shape_from_shape(
-                            gt_s, noise_std=self.noise_std)
-                        perturbed_shapes.append(p_s)
-                    current_shapes.append(perturbed_shapes)
+                for i in level_images:
+                    c_shapes = []
+                    for k in range(self.n_perturbations):
+                        p_group = perturbation_group + '{}'.format(k)
+                        c_s = i.landmarks[p_group].lms
+                        if c_s.n_points != level_gt_shapes[0].n_points:
+                            # assume c_s is bounding box
+                            c_s = align_shape_with_bounding_box(
+                                self.reference_shape, c_s)
+                        c_shapes.append(c_s)
+                    current_shapes.append(c_shapes)
 
             # train cascaded regression algorithm
             current_shapes = self.algorithms[j].increment(
@@ -133,6 +199,7 @@ class SupervisedDescentFitter(MultiFitter):
 
     def train_incrementally(self, images, group=None, label=None,
                             batch_size=100, verbose=False, **kwargs):
+        # number of batches
         n_batches = np.int(np.ceil(len(images) / batch_size))
 
         # train first batch
@@ -232,15 +299,6 @@ class SupervisedDescentFitter(MultiFitter):
                        gt_shape=None):
         return MultiFitterResult(image, self, algorithm_results,
                                  affine_correction, gt_shape=gt_shape)
-
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.05):
-        transform = noisy_params_alignment_similarity(
-            self.reference_bounding_box, bounding_box, noise_std=noise_std)
-        return transform.apply(self.reference_shape)
-
-    def noisy_shape_from_shape(self, shape, noise_std=0.05):
-        return self.noisy_shape_from_bounding_box(
-            shape.bounding_box(), noise_std=noise_std)
 
     # TODO: fix me!
     def __str__(self):
