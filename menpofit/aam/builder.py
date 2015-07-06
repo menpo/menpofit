@@ -1,4 +1,5 @@
 from __future__ import division
+import numpy as np
 from copy import deepcopy
 from menpo.model import PCAModel
 from menpo.shape import mean_pointcloud
@@ -8,7 +9,8 @@ from menpofit import checks
 from menpofit.builder import (
     normalization_wrt_reference_shape, compute_features, scale_images,
     warp_images, extract_patches, build_shape_model, align_shapes,
-    build_reference_frame, build_patch_reference_frame, densify_shapes)
+    build_reference_frame, build_patch_reference_frame, densify_shapes,
+    rescale_images_to_reference_shape)
 from menpofit.transform import (
     DifferentiablePiecewiseAffine, DifferentiableThinPlateSplines)
 
@@ -250,6 +252,111 @@ class AAMBuilder(object):
         self.scales.reverse()
 
         aam = self._build_aam(shape_models, appearance_models, reference_shape)
+
+        return aam
+
+    def increment(self, aam, images, group=None, label=None,
+                  forgetting_factor=1.0, verbose=False):
+        # normalize images with respect to reference shape of aam
+        images = rescale_images_to_reference_shape(
+            images, group, label, aam.reference_shape, verbose=verbose)
+
+        # increment models at each scale
+        if verbose:
+            print_dynamic('- Incrementing models\n')
+
+        # for each pyramid level (high --> low)
+        for j, s in enumerate(self.scales[::-1]):
+            if verbose:
+                if len(self.scales) > 1:
+                    level_str = '  - Level {}: '.format(j)
+                else:
+                    level_str = '  - '
+
+            # obtain image representation
+            if j == 0:
+                # compute features at highest level
+                feature_images = compute_features(images, self.features[j],
+                                                  level_str=level_str,
+                                                  verbose=verbose)
+                level_images = feature_images
+            elif self.scale_features:
+                # scale features at other levels
+                level_images = scale_images(feature_images, s,
+                                            level_str=level_str,
+                                            verbose=verbose)
+            else:
+                # scale images and compute features at other levels
+                scaled_images = scale_images(images, s, level_str=level_str,
+                                             verbose=verbose)
+                level_images = compute_features(scaled_images,
+                                                self.features[j],
+                                                level_str=level_str,
+                                                verbose=verbose)
+
+            # extract potentially rescaled shapes
+            level_shapes = [i.landmarks[group][label]
+                            for i in level_images]
+
+            # obtain shape representation
+            if j == 0 or self.scale_shapes:
+                if verbose:
+                    print_dynamic('{}Incrementing shape model'.format(
+                        level_str))
+                # compute aligned shapes
+                aligned_shapes = align_shapes(level_shapes)
+                # increment shape model
+                aam.shape_models[j].increment(
+                    aligned_shapes, forgetting_factor=forgetting_factor)
+                if self.max_shape_components is not None:
+                    aam.shape_models[j].trim_components(
+                        self.max_appearance_components[j])
+            else:
+                # copy previous shape model
+                aam.shape_models[j] = deepcopy(aam.shape_models[j-1])
+
+            mean_shape = aam.appearance_models[j].mean().landmarks[
+                'source'].lms
+
+            # obtain warped images
+            warped_images = self._warp_images(level_images, level_shapes,
+                                              mean_shape, j,
+                                              level_str, verbose)
+
+            # obtain appearance representation
+            if verbose:
+                print_dynamic('{}Incrementing appearance model'.format(
+                    level_str))
+            # increment appearance model
+            aam.appearance_models[j].increment(warped_images)
+            # trim appearance model if required
+            if self.max_appearance_components is not None:
+                aam.appearance_models[j].trim_components(
+                    self.max_appearance_components[j])
+
+            if verbose:
+                print_dynamic('{}Done\n'.format(level_str))
+
+    def build_incrementally(self, images, group=None, label=None,
+                            forgetting_factor=1.0, batch_size=100,
+                            verbose=False):
+        # number of batches
+        n_batches = np.int(np.ceil(len(images) / batch_size))
+
+        # train first batch
+        print 'Training batch 1.'
+        aam = self.build(images[:batch_size], group=group, label=label,
+                         verbose=verbose)
+
+        # train all other batches
+        start = batch_size
+        for j in range(1, n_batches):
+            print 'Training batch {}.'.format(j+1)
+            end = start + batch_size
+            self.increment(aam, images[start:end], group=group, label=label,
+                           forgetting_factor=forgetting_factor,
+                           verbose=verbose)
+            start = end
 
         return aam
 
