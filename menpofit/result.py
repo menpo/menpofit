@@ -559,7 +559,7 @@ class MultiFitterResult(IterativeResult):
     def initial_shape(self):
         initial_shape = self.algorithm_results[0].initial_shape
         initial_shape = Scale(self.scales[-1]/self.scales[0],
-                              initial_shape.n_dims).apply_inplace(initial_shape)
+                              initial_shape.n_dims).apply(initial_shape)
         return self._affine_correction.apply(initial_shape)
 
 
