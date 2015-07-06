@@ -133,6 +133,7 @@ class SupervisedDescentFitter(MultiFitter):
 
     def train_incrementally(self, images, group=None, label=None,
                             batch_size=100, verbose=False, **kwargs):
+        # number of batches
         n_batches = np.int(np.ceil(len(images) / batch_size))
 
         # train first batch
