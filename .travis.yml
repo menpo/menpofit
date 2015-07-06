@@ -1,9 +1,4 @@
-os:
-- linux
-- osx
-
-git:
-  depth: 200
+sudo: false
 
 env:
   global:
