@@ -54,32 +54,42 @@ class SupervisedDescentFitter(MultiFitter):
         return self._perturb_from_bounding_box(self.reference_shape,
                                                bounding_box, **kwargs)
 
-    def train(self, images, group=None, label=None,
-              perturbation_group=None, verbose=False, **kwargs):
+    def train(self, images, group=None, label=None, bounding_box_group=None,
+              verbose=False, **kwargs):
         # normalize images and compute reference shape
         self.reference_shape, images = normalization_wrt_reference_shape(
             images, group, label, self.diagonal, verbose=verbose)
 
         # handle perturbations
-        if perturbation_group is None:
-            perturbation_group = 'perturbed_'
+        if bounding_box_group is None:
+            bounding_box_group = 'bb_'
             # generate perturbations by perturbing ground truth shapes
             for i in images:
                 gt_s = i.landmarks[group][label]
                 for j in range(self.n_perturbations):
                     p_s = self.perturb_from_shape(gt_s)
-                    p_group = perturbation_group + '{}'.format(j)
+                    p_group = bounding_box_group + '{}'.format(j)
                     i.landmarks[p_group] = p_s
         else:
             # reset number of perturbations
             n_perturbations = 0
             for k in images[0].landmarks.keys():
-                if perturbation_group in k:
+                if bounding_box_group in k:
                     n_perturbations += 1
-            if n_perturbations != self.n_perturbations:
+            if n_perturbations == 1:
+                for i in images:
+                    bb = i.landmarks[bounding_box_group].lms
+                    p_s = align_shape_with_bounding_box(
+                        self.reference_shape, bb)
+                    i.landmarks[bounding_box_group + '0'] = p_s
+                    for j in range(1, self.n_perturbations):
+                        p_s = self.perturb_from_bounding_box(bb)
+                        p_group = bounding_box_group + '{}'.format(j)
+                        i.landmarks[p_group] = p_s
+            elif n_perturbations != self.n_perturbations:
                 warnings.warn('The original value of n_perturbation {} '
                               'will be reset to {} in order to agree with '
-                              'the provided initialization_group.'.
+                              'the provided bounding_box_group.'.
                               format(self.n_perturbations, n_perturbations))
                 self.n_perturbations = n_perturbations
 
@@ -104,7 +114,7 @@ class SupervisedDescentFitter(MultiFitter):
                 for i in level_images:
                     c_shapes = []
                     for k in range(self.n_perturbations):
-                        p_group = perturbation_group + '{}'.format(k)
+                        p_group = bounding_box_group + '{}'.format(k)
                         c_s = i.landmarks[p_group].lms
                         if c_s.n_points != level_gt_shapes[0].n_points:
                             # assume c_s is bounding box
@@ -126,32 +136,42 @@ class SupervisedDescentFitter(MultiFitter):
                         transform.apply_inplace(shape)
 
     def increment(self, images, group=None, label=None,
-                  perturbation_group=None, verbose=False,
+                  bounding_box_group=None, verbose=False,
                   **kwargs):
         # normalize images with respect to reference shape of aam
         images = rescale_images_to_reference_shape(
             images, group, label, self.reference_shape, verbose=verbose)
 
         # handle perturbations
-        if perturbation_group is None:
-            perturbation_group = 'perturbed_'
+        if bounding_box_group is None:
+            bounding_box_group = 'bb_'
             # generate perturbations by perturbing ground truth shapes
             for i in images:
                 gt_s = i.landmarks[group][label]
                 for j in range(self.n_perturbations):
                     p_s = self.perturb_from_shape(gt_s)
-                    p_group = perturbation_group + '{}'.format(j)
+                    p_group = bounding_box_group + '{}'.format(j)
                     i.landmarks[p_group] = p_s
         else:
             # reset number of perturbations
             n_perturbations = 0
             for k in images[0].landmarks.keys():
-                if perturbation_group in k:
+                if bounding_box_group in k:
                     n_perturbations += 1
-            if n_perturbations != self.n_perturbations:
+            if n_perturbations == 1:
+                for i in images:
+                    bb = i.landmarks[bounding_box_group].lms
+                    p_s = align_shape_with_bounding_box(
+                        self.reference_shape, bb)
+                    i.landmarks[bounding_box_group + '0'] = p_s
+                    for j in range(1, self.n_perturbations):
+                        p_s = self.perturb_from_bounding_box(bb)
+                        p_group = bounding_box_group + '{}'.format(j)
+                        i.landmarks[p_group] = p_s
+            elif n_perturbations != self.n_perturbations:
                 warnings.warn('The original value of n_perturbation {} '
                               'will be reset to {} in order to agree with '
-                              'the provided initialization_group.'.
+                              'the provided bounding_box_group.'.
                               format(self.n_perturbations, n_perturbations))
                 self.n_perturbations = n_perturbations
 
@@ -176,7 +196,7 @@ class SupervisedDescentFitter(MultiFitter):
                 for i in level_images:
                     c_shapes = []
                     for k in range(self.n_perturbations):
-                        p_group = perturbation_group + '{}'.format(k)
+                        p_group = bounding_box_group + '{}'.format(k)
                         c_s = i.landmarks[p_group].lms
                         if c_s.n_points != level_gt_shapes[0].n_points:
                             # assume c_s is bounding box
