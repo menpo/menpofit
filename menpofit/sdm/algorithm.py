@@ -158,31 +158,30 @@ class Newton(SupervisedDescentAlgorithm):
     r"""
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
-                 eps=10**-5,
-                 compute_error=compute_normalise_point_to_point_error):
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5):
         self._regressor_cls = incremental_least_squares
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
         self.iterations = iterations
-        self.eps = eps
         self._compute_error = compute_error
-
+        self.eps = eps
 
 # TODO: document me!
 class GaussNewton(SupervisedDescentAlgorithm):
     r"""
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
-                 eps=10**-5,
-                 compute_error=compute_normalise_point_to_point_error):
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5):
         self._regressor_cls = incremental_indirect_least_squares
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
         self.iterations = iterations
-        self.eps = eps
         self._compute_error = compute_error
+        self.eps = eps
 
 
 # TODO: docment me!
