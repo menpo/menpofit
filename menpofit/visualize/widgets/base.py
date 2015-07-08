@@ -2448,11 +2448,20 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
 
         # Create output str
         if fitting_results[im].gt_shape is not None:
+            from menpofit.result import (
+                compute_root_mean_square_error, compute_point_to_point_error,
+                compute_normalise_point_to_point_error)
+            if value is 'me_norm':
+                func = compute_normalise_point_to_point_error
+            elif value is 'me':
+                func = compute_point_to_point_error
+            elif value is 'rmse':
+                func = compute_root_mean_square_error
             text_per_line = [
                 "> Initial error: {:.4f}".format(
-                    fitting_results[im].initial_error(error_type=value)),
+                    fitting_results[im].initial_error(compute_error=func)),
                 "> Final error: {:.4f}".format(
-                    fitting_results[im].final_error(error_type=value)),
+                    fitting_results[im].final_error(compute_error=func)),
                 "> {} iterations".format(fitting_results[im].n_iters)]
         else:
             text_per_line = [
@@ -2511,10 +2520,20 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # Get error type
         error_type = error_type_wid.value
 
+        from menpofit.result import (
+                compute_root_mean_square_error, compute_point_to_point_error,
+                compute_normalise_point_to_point_error)
+        if error_type is 'me_norm':
+            func = compute_normalise_point_to_point_error
+        elif error_type is 'me':
+            func = compute_point_to_point_error
+        elif error_type is 'rmse':
+            func = compute_root_mean_square_error
+
         # Create errors list
-        fit_errors = [f.final_error(error_type=error_type)
+        fit_errors = [f.final_error(compute_error=func)
                       for f in fitting_results]
-        initial_errors = [f.initial_error(error_type=error_type)
+        initial_errors = [f.initial_error(compute_error=func)
                           for f in fitting_results]
         errors = [fit_errors, initial_errors]
 

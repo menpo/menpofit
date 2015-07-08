@@ -2,6 +2,7 @@ from __future__ import division
 import abc
 import numpy as np
 from menpo.transform import Scale
+from menpo.shape import PointCloud
 from menpo.image import Image
 
 
@@ -48,44 +49,48 @@ class Result(object):
             image.landmarks['ground'] = self.gt_shape
         return image
 
-    def final_error(self, error_type='me_norm'):
+    def final_error(self, compute_error=None):
         r"""
         Returns the final fitting error.
 
         Parameters
         -----------
-        error_type : `str` ``{'me_norm', 'me', 'rmse'}``, optional
-            Specifies the way in which the error between the fitted and
-            ground truth shapes is to be computed.
+        compute_error: `callable`, optional
+            Callable that computes the error between the fitted and
+            ground truth shapes.
 
         Returns
         -------
         final_error : `float`
             The final error at the end of the fitting procedure.
         """
+        if compute_error is None:
+            compute_error = compute_normalise_point_to_point_error
         if self.gt_shape is not None:
-            return compute_error(self.final_shape, self.gt_shape, error_type)
+            return compute_error(self.final_shape, self.gt_shape)
         else:
             raise ValueError('Ground truth has not been set, final error '
                              'cannot be computed')
 
-    def initial_error(self, error_type='me_norm'):
+    def initial_error(self, compute_error=None):
         r"""
         Returns the initial fitting error.
 
         Parameters
         -----------
-        error_type : `str` ``{'me_norm', 'me', 'rmse'}``, optional
-            Specifies the way in which the error between the fitted and
-            ground truth shapes is to be computed.
+        compute_error: `callable`, optional
+            Callable that computes the error between the fitted and
+            ground truth shapes.
 
         Returns
         -------
         initial_error : `float`
             The initial error at the start of the fitting procedure.
         """
+        if compute_error is None:
+            compute_error = compute_normalise_point_to_point_error
         if self.gt_shape is not None:
-            return compute_error(self.initial_shape, self.gt_shape, error_type)
+            return compute_error(self.initial_shape, self.gt_shape)
         else:
             raise ValueError('Ground truth has not been set, final error '
                              'cannot be computed')
@@ -141,23 +146,25 @@ class IterativeResult(Result):
             image.landmarks['iter_'+str(j)] = s
         return image
 
-    def errors(self, error_type='me_norm'):
+    def errors(self, compute_error=None):
         r"""
         Returns a list containing the error at each fitting iteration.
 
         Parameters
         -----------
-        error_type : `str` ``{'me_norm', 'me', 'rmse'}``, optional
-            Specifies the way in which the error between the fitted and
-            ground truth shapes is to be computed.
+        compute_error: `callable`, optional
+            Callable that computes the error between the fitted and
+            ground truth shapes.
 
         Returns
         -------
         errors : `list` of `float`
             The errors at each iteration of the fitting process.
         """
+        if compute_error is None:
+            compute_error = compute_normalise_point_to_point_error
         if self.gt_shape is not None:
-            return [compute_error(t, self.gt_shape, error_type)
+            return [compute_error(t, self.gt_shape)
                     for t in self.shapes]
         else:
             raise ValueError('Ground truth has not been set, errors cannot '
@@ -558,8 +565,8 @@ class MultiFitterResult(IterativeResult):
     @property
     def initial_shape(self):
         initial_shape = self.algorithm_results[0].initial_shape
-        Scale(self.scales[-1]/self.scales[0],
-              initial_shape.n_dims).apply_inplace(initial_shape)
+        initial_shape = Scale(self.scales[-1]/self.scales[0],
+                              initial_shape.n_dims).apply(initial_shape)
         return self._affine_correction.apply(initial_shape)
 
 
@@ -595,57 +602,66 @@ def _rescale_shapes_to_reference(algorithm_results, scales, affine_correction):
     r"""
     """
     shapes = []
-    for j, (alg, s) in enumerate(zip(algorithm_results, scales)):
-        transform = Scale(scales[-1]/s, alg.final_shape.n_dims)
-        for t in alg.shapes:
-            t = transform.apply(t)
-            shapes.append(affine_correction.apply(t))
+    for j, (alg, scale) in enumerate(zip(algorithm_results, scales)):
+        transform = Scale(scales[-1]/scale, alg.final_shape.n_dims)
+        for shape in alg.shapes:
+            shape = transform.apply(shape)
+            shapes.append(affine_correction.apply(shape))
     return shapes
 
 
 # TODO: Document me!
-def compute_error(target, ground_truth, error_type='me_norm'):
-    r"""
-    """
-    gt_points = ground_truth.points
-    target_points = target.points
-
-    if error_type == 'me_norm':
-        return _compute_norm_p2p_error(target_points, gt_points)
-    elif error_type == 'me':
-        return _compute_me(target_points, gt_points)
-    elif error_type == 'rmse':
-        return _compute_rmse(target_points, gt_points)
-    else:
-        raise ValueError("Unknown error_type string selected. Valid options "
-                         "are: me_norm, me, rmse'")
+def pointcloud_to_points(func):
+    def func_wrapper(*args, **kwargs):
+        args = list(args)
+        for index, arg in enumerate(args):
+            if isinstance(arg, PointCloud):
+                args[index] = arg.points
+        for key in kwargs:
+            if isinstance(kwargs[key], PointCloud):
+                kwargs[key] = kwargs[key].points
+        return func(*args, **kwargs)
+    return func_wrapper
 
 
 # TODO: Document me!
-# TODO: rename to more descriptive name
-def _compute_me(target, ground_truth):
+@pointcloud_to_points
+def compute_root_mean_square_error(shape, gt_shape):
     r"""
     """
-    return np.mean(np.sqrt(np.sum((target - ground_truth) ** 2, axis=-1)))
+    return np.sqrt(np.mean((shape.flatten() - gt_shape.flatten()) ** 2))
 
 
 # TODO: Document me!
-# TODO: rename to more descriptive name
-def _compute_rmse(target, ground_truth):
+@pointcloud_to_points
+def compute_point_to_point_error(shape, gt_shape):
     r"""
     """
-    return np.sqrt(np.mean((target.flatten() - ground_truth.flatten()) ** 2))
+    return np.mean(np.sqrt(np.sum((shape - gt_shape) ** 2, axis=-1)))
 
 
 # TODO: Document me!
-def _compute_norm_p2p_error(target, source, ground_truth=None):
+@pointcloud_to_points
+def compute_normalise_root_mean_square_error(shape, gt_shape, norm_shape=None):
     r"""
     """
-    if ground_truth is None:
-        ground_truth = source
-    normalizer = np.mean(np.max(ground_truth, axis=0) -
-                         np.min(ground_truth, axis=0))
-    return _compute_me(target, source) / normalizer
+    if norm_shape is None:
+        norm_shape = gt_shape
+    normalizer = np.mean(np.max(norm_shape, axis=0) -
+                         np.min(norm_shape, axis=0))
+    return compute_root_mean_square_error(shape, gt_shape) / normalizer
+
+
+# TODO: Document me!
+@pointcloud_to_points
+def compute_normalise_point_to_point_error(shape, gt_shape, norm_shape=None):
+    r"""
+    """
+    if norm_shape is None:
+        norm_shape = gt_shape
+    normalizer = np.mean(np.max(norm_shape, axis=0) -
+                         np.min(norm_shape, axis=0))
+    return compute_point_to_point_error(shape, gt_shape) / normalizer
 
 
 # TODO: Document me!

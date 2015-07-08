@@ -2,16 +2,21 @@ from __future__ import division
 import numpy as np
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
-from menpofit.result import NonParametricAlgorithmResult
+from menpofit.result import (
+    NonParametricAlgorithmResult, compute_normalise_point_to_point_error)
+from menpofit.math import (
+    incremental_least_squares, incremental_indirect_least_squares)
 
 
-# TODO: compute more meaningful error
 # TODO: document me!
 class SupervisedDescentAlgorithm(object):
     r"""
     """
     def train(self, images, gt_shapes, current_shapes, verbose=False,
               **kwargs):
+
+        n_perturbations = len(current_shapes[0])
+        template_shape = gt_shapes[0]
         self._features_patch_length = compute_features_info(
             images[0], gt_shapes[0], self.features,
             patch_shape=self.patch_shape)[1]
@@ -41,8 +46,18 @@ class SupervisedDescentAlgorithm(object):
             # estimate delta_points
             estimated_delta_x = r.predict(features)
             if verbose:
-                error = _compute_rmse(delta_x, estimated_delta_x)
-                print_dynamic('- Training Error is {0:.4f}.\n'.format(error))
+                errors = []
+                for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
+                    s1 = template_shape.from_vector(dx)
+                    s2 = template_shape.from_vector(edx)
+                    gt_s = gt_shapes[np.floor_divide(j, n_perturbations)]
+                    errors.append(self._compute_error(s1, s2, gt_s))
+                mean = np.mean(errors)
+                std = np.std(errors)
+                median = np.median(errors)
+                print_dynamic('- Training error -> mean: {0:.4f}, '
+                              'std: {1:.4f}, median: {2:.4f}.\n'.
+                              format(mean, std, median))
 
             j = 0
             for shapes in current_shapes:
@@ -63,6 +78,10 @@ class SupervisedDescentAlgorithm(object):
 
     def increment(self, images, gt_shapes, current_shapes, verbose=False,
                   **kwarg):
+
+        n_perturbations = len(current_shapes[0])
+        template_shape = gt_shapes[0]
+
         # obtain delta_x and gt_x
         delta_x, gt_x = obtain_delta_x(gt_shapes, current_shapes)
 
@@ -81,8 +100,18 @@ class SupervisedDescentAlgorithm(object):
             # estimate delta_points
             estimated_delta_x = r.predict(features)
             if verbose:
-                error = _compute_rmse(delta_x, estimated_delta_x)
-                print_dynamic('- Training Error is {0:.4f}.\n'.format(error))
+                errors = []
+                for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
+                    s1 = template_shape.from_vector(dx)
+                    s2 = template_shape.from_vector(edx)
+                    gt_s = gt_shapes[np.floor_divide(j, n_perturbations)]
+                    errors.append(self._compute_error(s1, s2, gt_s))
+                mean = np.mean(errors)
+                std = np.std(errors)
+                median = np.median(errors)
+                print_dynamic('- Training error -> mean: {0:.4f}, '
+                              'std: {1:.4f}, median: {2:.4f}.\n'.
+                              format(mean, std, median))
 
             j = 0
             for shapes in current_shapes:
@@ -129,81 +158,30 @@ class Newton(SupervisedDescentAlgorithm):
     r"""
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5):
+        self._regressor_cls = incremental_least_squares
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
         self.iterations = iterations
+        self._compute_error = compute_error
         self.eps = eps
-        self._regressor_cls = _incremental_least_squares
-
 
 # TODO: document me!
 class GaussNewton(SupervisedDescentAlgorithm):
     r"""
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5):
+        self._regressor_cls = incremental_indirect_least_squares
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
         self.iterations = iterations
+        self._compute_error = compute_error
         self.eps = eps
-        self._perform_regression = _incremental_indirect_least_squares
-
-
-# TODO: document me!
-class _incremental_least_squares(object):
-    r"""
-    """
-    def __init__(self, l=0):
-        self.l = l
-
-    def train(self, X, Y):
-        # regularized least squares
-        XX = X.T.dot(X)
-        np.fill_diagonal(XX, self.l + np.diag(XX))
-        self.V = np.linalg.inv(XX)
-        self.W = self.V.dot(X.T.dot(Y))
-
-    def increment(self, X, Y):
-        # incremental regularized least squares
-        U = X.dot(self.V).dot(X.T)
-        np.fill_diagonal(U, 1 + np.diag(U))
-        U = np.linalg.inv(U)
-        Q = self.V.dot(X.T).dot(U).dot(X)
-        self.V = self.V - Q.dot(self.V)
-        self.W = self.W - Q.dot(self.W) + self.V.dot(X.T.dot(Y))
-
-    def predict(self, x):
-        return np.dot(x, self.W)
-
-
-# TODO: document me!
-class _incremental_indirect_least_squares(object):
-    r"""
-    """
-    def __init__(self, l=0, d=0):
-        self._ils = _incremental_least_squares(l)
-        self.d = d
-
-    def train(self, X, Y):
-        # regularized least squares exchanging the roles of X and Y
-        self._ils.train(Y, X)
-        J = self._ils.W
-        # solve the original problem by computing the pseudo-inverse of the
-        # previous solution
-        H = J.T.dot(J)
-        np.fill_diagonal(H, self.d + np.diag(H))
-        self.W = np.linalg.solve(H, J.T)
-
-    def predict(self, x):
-        return np.dot(x, self.W)
-
-
-# TODO: document me!
-def _compute_rmse(x1, x2):
-    return np.sqrt(np.mean(np.sum((x1 - x2) ** 2, axis=1)))
 
 
 # TODO: docment me!
@@ -330,6 +308,7 @@ def compute_features_info(image, shape, features_callable,
 
     return (features_patch_shape, features_patch_length,
             features_shape, features_length)
+
 
 # def initialize_sampling(self, image, group=None, label=None):
 #         if self._sampling is None:
