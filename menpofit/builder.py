@@ -150,7 +150,7 @@ def scale_images(images, scale, level_str='', verbose=None):
         for c, i in enumerate(images):
             if verbose:
                 print_dynamic(
-                    '{}Scaling features: {}'.format(
+                    '{}Scaling images: {}'.format(
                         level_str, progress_bar_str((c + 1.) / len(images),
                                                     show_bar=False)))
             scaled_images.append(i.rescale(scale))
