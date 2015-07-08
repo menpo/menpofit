@@ -1,5 +1,8 @@
 import urllib2
-import cStringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import os
 import scipy.io as sio
 import glob
@@ -34,7 +37,7 @@ def download_ibug_bounding_boxes(path=None, verbose=False):
         print('Acquiring bounding box information from iBUG website...')
     try:
         remotezip = urllib2.urlopen(bboxes_url)
-        zipinmemory = cStringIO.StringIO(remotezip.read())
+        zipinmemory = StringIO(remotezip.read())
         ziplocal = zipfile.ZipFile(zipinmemory)
     except Exception as e:
         print('Unable to grab bounding boxes (are you online?)')
