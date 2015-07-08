@@ -295,7 +295,8 @@ class ModelFitter(MultiFitter):
             shape.bounding_box(), noise_std=noise_std)
 
 
-def noisy_params_alignment_similarity(source, target, noise_std=0.05):
+def noisy_params_alignment_similarity(source, target, noise_std=0.05,
+                                      rotation=True):
     r"""
     Constructs and perturbs the optimal similarity transform between source
     and target by adding white noise to its parameters.
@@ -322,7 +323,7 @@ def noisy_params_alignment_similarity(source, target, noise_std=0.05):
     elif len(noise_std) == 1:
         noise_std *= 3
 
-    transform = AlignmentSimilarity(source, target, rotation=True)
+    transform = AlignmentSimilarity(source, target, rotation=rotation)
     parameters = transform.as_vector()
 
     scale = noise_std[0] * parameters[0]
@@ -366,15 +367,18 @@ def noisy_target_alignment_transform(source, target,
     return alignment_transform_cls(source, noisy_target, **kwargs)
 
 
-def noisy_shape_from_bounding_box(shape, bounding_box, noise_std=0.05):
+def noisy_shape_from_bounding_box(shape, bounding_box, noise_std=0.05,
+                                  rotation=True):
     transform = noisy_params_alignment_similarity(
-        shape.bounding_box(), bounding_box, noise_std=noise_std)
+        shape.bounding_box(), bounding_box, noise_std=noise_std,
+        rotation=rotation)
     return transform.apply(shape)
 
 
-def noisy_shape_from_shape(reference_shape, shape, noise_std=0.05):
+def noisy_shape_from_shape(reference_shape, shape, noise_std=0.05,
+                           rotation=True):
     transform = noisy_params_alignment_similarity(
-        reference_shape, shape, noise_std=noise_std)
+        reference_shape, shape, noise_std=noise_std, rotation=rotation)
     return transform.apply(reference_shape)
 
 
