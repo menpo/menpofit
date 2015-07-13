@@ -4,8 +4,7 @@ from menpo.feature import no_op
 from menpo.visualize import print_dynamic
 from menpofit.result import (
     NonParametricAlgorithmResult, compute_normalise_point_to_point_error)
-from menpofit.math import (
-    incremental_least_squares, incremental_indirect_least_squares)
+from menpofit.math import IRLRegression, IIRLRegression
 
 
 # TODO: document me!
@@ -160,13 +159,14 @@ class Newton(SupervisedDescentAlgorithm):
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5):
-        self._regressor_cls = incremental_least_squares
+        self._regressor_cls = IRLRegression
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
         self.iterations = iterations
         self._compute_error = compute_error
         self.eps = eps
+
 
 # TODO: document me!
 class GaussNewton(SupervisedDescentAlgorithm):
@@ -175,7 +175,7 @@ class GaussNewton(SupervisedDescentAlgorithm):
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5):
-        self._regressor_cls = incremental_indirect_least_squares
+        self._regressor_cls = IIRLRegression
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
