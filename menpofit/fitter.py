@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+from copy import deepcopy
 from menpo.shape import PointCloud
 from menpo.transform import (
     Scale, Similarity, AlignmentAffine, AlignmentSimilarity)
@@ -296,7 +297,7 @@ class ModelFitter(MultiFitter):
 
 
 def noisy_params_alignment_similarity(source, target, noise_std=0.05,
-                                      rotation=True):
+                                      rotation=False):
     r"""
     Constructs and perturbs the optimal similarity transform between source
     and target by adding white noise to its parameters.
@@ -324,7 +325,7 @@ def noisy_params_alignment_similarity(source, target, noise_std=0.05,
         noise_std *= 3
 
     transform = AlignmentSimilarity(source, target, rotation=rotation)
-    parameters = transform.as_vector()
+    parameters = deepcopy(transform.as_vector())
 
     scale = noise_std[0] * parameters[0]
     rotation = noise_std[1] * parameters[1]
@@ -368,7 +369,7 @@ def noisy_target_alignment_transform(source, target,
 
 
 def noisy_shape_from_bounding_box(shape, bounding_box, noise_std=0.05,
-                                  rotation=True):
+                                  rotation=False):
     transform = noisy_params_alignment_similarity(
         shape.bounding_box(), bounding_box, noise_std=noise_std,
         rotation=rotation)
@@ -376,7 +377,7 @@ def noisy_shape_from_bounding_box(shape, bounding_box, noise_std=0.05,
 
 
 def noisy_shape_from_shape(reference_shape, shape, noise_std=0.05,
-                           rotation=True):
+                           rotation=False):
     transform = noisy_params_alignment_similarity(
         reference_shape, shape, noise_std=noise_std, rotation=rotation)
     return transform.apply(reference_shape)
@@ -405,4 +406,3 @@ def align_shape_with_bounding_box(shape, bounding_box,
     shape_bb = shape.bounding_box()
     transform = alignment_transform_cls(shape_bb, bounding_box, **kwargs)
     return transform.apply(shape)
-
