@@ -40,6 +40,8 @@ class ForwardAdditive(LucasKanade):
             # compute warp jacobian
             dW_dp = np.rollaxis(
                 self.transform.d_dp(self.template.indices()), -1)
+            dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +
+                                  dW_dp.shape[-1:])
 
             # compute steepest descent images
             filtered_J, J = self.residual.steepest_descent_images(
@@ -53,7 +55,7 @@ class ForwardAdditive(LucasKanade):
                 filtered_J, IWxp, self.template)
 
             # compute gradient descent parameter updates
-            dp = np.real(np.linalg.solve(H, sd_dp))
+            dp = -np.real(np.linalg.solve(H, sd_dp))
 
             # Update warp weights
             self.transform.from_vector_inplace(self.transform.as_vector() + dp)
@@ -85,8 +87,10 @@ class ForwardCompositional(LucasKanade):
 
     def _precompute(self):
         # compute warp jacobian
-        self.dW_dp = np.rollaxis(
+        dW_dp = np.rollaxis(
             self.transform.d_dp(self.template.indices()), -1)
+        self.dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +
+                                   dW_dp.shape[-1:])
 
     def run(self, image, initial_shape, max_iters=20, gt_shape=None):
         # initialize transform
@@ -116,7 +120,7 @@ class ForwardCompositional(LucasKanade):
                 filtered_J, IWxp, self.template)
 
             # compute gradient descent parameter updates
-            dp = np.real(np.linalg.solve(H, sd_dp))
+            dp = -np.real(np.linalg.solve(H, sd_dp))
 
             # Update warp weights
             self.transform.compose_after_from_vector_inplace(dp)
