@@ -147,7 +147,7 @@ class SSD(Residual):
         # grad:  dims x ch x h x w
         nabla = self.gradient(image, forward=forward)
         nabla = nabla.as_vector().reshape((image.n_dims, image.n_channels) +
-                                          image.shape)
+                                          nabla.shape)
 
         # compute steepest descent images
         # gradient: dims x ch x h x w
@@ -217,7 +217,7 @@ class FourierSSD(Residual):
         # grad:  dims x ch x h x w
         nabla = self.gradient(image, forward=forward)
         nabla = nabla.as_vector().reshape((image.n_dims, image.n_channels) +
-                                          image.shape)
+                                          nabla.shape)
 
         # compute steepest descent images
         # gradient: dims x ch x h x w
@@ -300,7 +300,7 @@ class ECC(Residual):
         # gradient:  dims x ch x pixels
         grad = self.gradient(norm_image, forward=forward)
         grad = grad.as_vector().reshape((image.n_dims, image.n_channels) +
-                                         image.shape)
+                                         grad.shape)
 
         # compute steepest descent images
         # gradient: dims x ch x pixels
@@ -391,7 +391,7 @@ class GradientImages(Residual):
         # second_grad:  dims x dims x ch x pixels
         second_grad = self.gradient(self._template_grad)
         second_grad = second_grad.masked_pixels().flatten().reshape(
-            (n_dims, n_dims,  n_channels) + image.shape)
+            (n_dims, n_dims,  n_channels) + second_grad.shape)
 
         # Fix crossed derivatives: dydx = dxdy
         second_grad[1, 0, ...] = second_grad[0, 1, ...]
@@ -454,7 +454,7 @@ class GradientCorrelation(Residual):
         # compute gradient
         # grad:  dims x ch x pixels
         grad = self.gradient(image, forward=forward)
-        grad2 = grad.as_vector().reshape((n_dims, n_channels) + image.shape)
+        grad2 = grad.as_vector().reshape((n_dims, n_channels) + grad.shape)
 
         # compute IGOs (remember axis 0 is y, axis 1 is x)
         # grad:    dims x ch x pixels
@@ -479,7 +479,7 @@ class GradientCorrelation(Residual):
         # second_grad:  dims x dims x ch x pixels
         second_grad = self.gradient(grad)
         second_grad = second_grad.masked_pixels().flatten().reshape(
-            (n_dims, n_dims,  n_channels) + image.shape)
+            (n_dims, n_dims,  n_channels) + second_grad.shape)
 
         # Fix crossed derivatives: dydx = dxdy
         second_grad[1, 0, ...] = second_grad[0, 1, ...]
