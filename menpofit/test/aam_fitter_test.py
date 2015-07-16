@@ -1,4 +1,7 @@
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 from mock import patch
 from nose.plugins.attrib import attr
@@ -349,7 +352,7 @@ def test_aam():
                      for j in range(aam.n_levels)], (884, 3652, 14892))
 
 
-@raises(ValueError)
+@raises(TypeError, ValueError)
 def test_n_shape_exception():
     fitter = LucasKanadeAAMFitter(aam, n_shape=[3, 6, 'a'])
 

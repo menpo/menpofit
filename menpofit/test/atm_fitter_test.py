@@ -1,4 +1,7 @@
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 from mock import patch
 from nose.plugins.attrib import attr
@@ -356,7 +359,7 @@ def test_atm1():
                      for j in range(atm1.n_levels)], (46, 85, 164))
 
 
-@raises(ValueError)
+@raises(TypeError, ValueError)
 def test_n_shape_exception():
     fitter = LucasKanadeATMFitter(atm1, n_shape=[3, 6, 'a'])
 
