@@ -11,7 +11,9 @@ from menpofit.fittingresult import (NonParametricFittingResult,
                                     ParametricFittingResult)
 from .base import (NonParametricRegressor, SemiParametricRegressor,
                    ParametricRegressor)
-from .parametricfeatures import extract_parametric_features, weights
+from .parametricfeatures import extract_parametric_features, weights, \
+    nonparametric_regression_features, parametric_regression_features, \
+    semiparametric_classifier_regression_features
 from .regressors import mlr
 
 
@@ -102,6 +104,22 @@ class RegressorTrainer(object):
         pass
 
     @abc.abstractmethod
+    def get_features_function(self):
+        r"""
+        Abstract method to return the function that computes the features for
+        the regression.
+
+        Parameters
+        ----------
+        image : :map:`MaskedImage`
+            The current image.
+
+        shape : :map:`PointCloud`
+            The current shape.
+        """
+        pass
+
+    @abc.abstractmethod
     def delta_ps(self, gt_shape, perturbed_shape):
         r"""
         Abstract method to generate the delta_ps for the regression.
@@ -178,7 +196,7 @@ class RegressorTrainer(object):
                                        axis=1)))
         if verbose:
             print_dynamic('- Regression RMSE is {0:.5f}.\n'.format(error))
-        return self._build_regressor(regressor, self.features)
+        return self._build_regressor(regressor, self.get_features_function())
 
     def perturb_shapes(self, gt_shape):
         r"""
@@ -293,6 +311,11 @@ class NonParametricRegressorTrainer(RegressorTrainer):
         return NonParametricFittingResult(image, self, parameters=[shapes],
                                           gt_shape=gt_shape)
 
+    def get_features_function(self):
+        return nonparametric_regression_features(self.patch_shape,
+                                              self._feature_patch_length,
+                                              self.regression_features)
+
     def features(self, image, shape):
         r"""
         Method that extracts the features for the regression, which in this
@@ -306,15 +329,7 @@ class NonParametricRegressorTrainer(RegressorTrainer):
         shape : :map:`PointCloud`
             The current shape.
         """
-        # extract patches
-        patches = image.extract_patches(shape, patch_size=self.patch_shape)
-
-        features = np.zeros((shape.n_points, self._feature_patch_length))
-        for j, patch in enumerate(patches):
-            # compute features
-            features[j, ...] = self.regression_features(patch).as_vector()
-
-        return np.hstack((features.ravel(), 1))
+        return self.get_features_function()(image, shape)
 
     def delta_ps(self, gt_shape, perturbed_shape):
         r"""
@@ -520,6 +535,11 @@ class ParametricRegressorTrainer(RegressorTrainer):
         return ParametricFittingResult(image, self, parameters=[shapes],
                                        gt_shape=gt_shape)
 
+    def get_features_function(self):
+        return parametric_regression_features(self.transform, self.template,
+                                              self.appearance_model,
+                                              self.regression_features)
+
     def features(self, image, shape):
         r"""
         Method that extracts the features for the regression, which in this
@@ -533,13 +553,7 @@ class ParametricRegressorTrainer(RegressorTrainer):
         shape : :map:`PointCloud`
             The current shape.
         """
-        self.transform.set_target(shape)
-        # TODO should the template be a mask or a shape? warp_to_shape here
-        warped_image = image.warp_to_mask(self.template.mask, self.transform,
-                                          warp_landmarks=False)
-        features = extract_parametric_features(
-            self.appearance_model, warped_image, self.regression_features)
-        return np.hstack((features, 1))
+        return self.get_features_function()(image, shape)
 
     def delta_ps(self, gt_shape, perturbed_shape):
         r"""
@@ -615,6 +629,10 @@ class SemiParametricClassifierBasedRegressorTrainer(
         # set up sampling grid
         self.sampling_grid = build_sampling_grid(self.patch_shape)
 
+    def get_features_function(self):
+        return semiparametric_classifier_regression_features(self.patch_shape,
+                                                             self.classifiers)
+
     def features(self, image, shape):
         r"""
         Method that extracts the features for the regression, which in this
@@ -628,7 +646,4 @@ class SemiParametricClassifierBasedRegressorTrainer(
         shape : :map:`PointCloud`
             The current shape.
         """
-        patches = image.extract_patches(shape, patch_size=self.patch_shape)
-        features = [clf(patch.as_vector(keep_channels=True))
-                    for (clf, patch) in zip(self.classifiers, patches)]
-        return np.hstack((np.asarray(features).ravel(), 1))
+        return self.get_features_function()(image, shape)

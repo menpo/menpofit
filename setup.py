@@ -12,5 +12,5 @@ setup(name='menpofit',
       packages=find_packages(),
       install_requires=['menpo>=0.5.1,<0.6',
                         'scikit-learn>=0.16,<0.17'],
-      tests_require=['nose', 'mock']
+      tests_require=['nose', 'mock==1.0.1']
       )

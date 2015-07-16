@@ -16,7 +16,7 @@ test:
   requires:
   - coverage
   - nose
-  - mock
+  - mock 1.0.1
 
   imports:
   - menpofit
