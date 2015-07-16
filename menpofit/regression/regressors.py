@@ -13,9 +13,10 @@ class mlr(object):
     T: numpy.array
         The shapes differential that denote the dependent variable.
     """
-    def __init__(self, X, T):
+    def __init__(self, X, T, lmda=0):
         XX = np.dot(X.T, X)
-        XX = (XX + XX.T) / 2
+        if lmda > 0:
+            np.fill_diagonal(XX, lmda + np.diag(XX))
         XT = np.dot(X.T, T)
         self.R = np.linalg.solve(XX, XT)
 
