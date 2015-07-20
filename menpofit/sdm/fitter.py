@@ -1,14 +1,16 @@
 from __future__ import division
+from functools import partial
 import numpy as np
 import warnings
 from menpo.transform import Scale
 from menpo.feature import no_op
+from menpo.visualize import print_progress
 from menpofit.builder import (
     normalization_wrt_reference_shape, rescale_images_to_reference_shape,
     scale_images)
 from menpofit.fitter import (
     MultiFitter, noisy_shape_from_shape, noisy_shape_from_bounding_box,
-    align_shape_with_bounding_box)
+    align_shape_with_bounding_box, noisy_params_alignment_similarity)
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
 from .algorithm import Newton
@@ -68,36 +70,52 @@ class SupervisedDescentFitter(MultiFitter):
 
         # No bounding box is given, so we will use the ground truth box
         if bounding_box_group is None:
-            bounding_box_group = 'bb_'
-            # generate perturbations by perturbing ground truth shapes
+            bounding_box_group = '__gt_bb_'
             for i in images:
                 gt_s = i.landmarks[group][label]
-                for j in range(self.n_perturbations):
-                    p_s = self.perturb_from_shape(gt_s)
-                    p_group = bounding_box_group + '{}'.format(j)
-                    i.landmarks[p_group] = p_s
-        else:
-            # reset number of perturbations
-            n_perturbations = 0
-            for k in images[0].landmarks.keys():
-                if bounding_box_group in k:
-                    n_perturbations += 1
-            if n_perturbations == 1:
-                for i in images:
-                    bb = i.landmarks[bounding_box_group].lms
-                    p_s = align_shape_with_bounding_box(
-                        self.reference_shape, bb)
-                    i.landmarks[bounding_box_group + '0'] = p_s
-                    for j in range(1, self.n_perturbations):
-                        p_s = self.perturb_from_bounding_box(bb)
-                        p_group = bounding_box_group + '{}'.format(j)
-                        i.landmarks[p_group] = p_s
-            elif n_perturbations != self.n_perturbations:
-                warnings.warn('The original value of n_perturbation {} '
-                              'will be reset to {} in order to agree with '
-                              'the provided bounding_box_group.'.
-                              format(self.n_perturbations, n_perturbations))
-                self.n_perturbations = n_perturbations
+                perturb_bbox_group = bounding_box_group + '0'
+                i.landmarks[perturb_bbox_group] = gt_s.bounding_box()
+
+        # Find all bounding boxes on the images with the given bounding box key
+        all_bb_keys = list(first_image.landmarks.keys_matching(
+            '*{}*'.format(bounding_box_group)))
+        n_perturbations = len(all_bb_keys)
+
+        # If there is only one example bounding box, then we will generate
+        # more perturbations based on the bounding box.
+        if n_perturbations == 1:
+            if verbose:
+                msg = '- Generating {} new initial bounding boxes ' \
+                      'per image'.format(self.n_perturbations)
+                wrap = partial(print_progress, prefix=msg)
+            else:
+                wrap = lambda x: x
+
+            for i in wrap(images):
+                # We assume that the first bounding box is a valid perturbation
+                # thus create n_perturbations - 1 new bounding boxes
+                for j in range(1, self.n_perturbations):
+                    # TODO: This should use the new logic that @jalabort
+                    # has come up with. Also, would it be good if this was
+                    # customizable? As in, the ability to pass some kind of
+                    # probability distribution to draw from?
+                    gt_s = i.landmarks[group][label].bounding_box()
+                    bb = i.landmarks[all_bb_keys[0]].lms
+                    # TODO: Noisy align given bb to gt_s - is this correct?
+                    p_s = noisy_params_alignment_similarity(bb, gt_s).apply(bb)
+                    perturb_bbox_group = bounding_box_group + '_{}'.format(j)
+                    i.landmarks[perturb_bbox_group] = p_s
+        elif n_perturbations != self.n_perturbations:
+            warnings.warn('The original value of n_perturbation {} '
+                          'will be reset to {} in order to agree with '
+                          'the provided bounding_box_group.'.
+                          format(self.n_perturbations, n_perturbations))
+            self.n_perturbations = n_perturbations
+
+        # Re-grab all the bounding box keys for iterating over when calculating
+        # perturbations
+        all_bb_keys = list(first_image.landmarks.keys_matching(
+            '*{}*'.format(bounding_box_group)))
 
         # for each pyramid level (low --> high)
         for j in range(self.n_levels):
@@ -106,37 +124,44 @@ class SupervisedDescentFitter(MultiFitter):
                     level_str = '  - Level {}: '.format(j)
                 else:
                     level_str = '  - '
+            else:
+                level_str = None
 
-            # scale images and compute features at other levels
+            # Scale images and compute features at other levels
             level_images = scale_images(images, self.scales[j],
                                         level_str=level_str, verbose=verbose)
 
-            # extract ground truth shapes for current level
+            # Extract scaled ground truth shapes for current level
             level_gt_shapes = [i.landmarks[group][label] for i in level_images]
 
             if j == 0:
-                # extract perturbations at the very bottom level
+                if verbose:
+                    msg = '{}Generating {} perturbations per image'.format(
+                        level_str, self.n_perturbations)
+                    wrap = partial(print_progress, prefix=msg,
+                                   end_with_newline=False)
+                else:
+                    wrap = lambda x: x
+
+                # Extract perturbations at the very bottom level
                 current_shapes = []
-                for i in level_images:
+                for i in wrap(level_images):
                     c_shapes = []
-                    for k in range(self.n_perturbations):
-                        p_group = bounding_box_group + '{}'.format(k)
-                        c_s = i.landmarks[p_group].lms
-                        if c_s.n_points != level_gt_shapes[0].n_points:
-                            # assume c_s is bounding box
-                            c_s = align_shape_with_bounding_box(
-                                self.reference_shape, c_s)
+                    for perturb_bbox_group in all_bb_keys:
+                        bbox = i.landmarks[perturb_bbox_group].lms
+                        c_s = align_shape_with_bounding_box(
+                            self.reference_shape, bbox)
                         c_shapes.append(c_s)
                     current_shapes.append(c_shapes)
 
             # train supervised descent algorithm
             current_shapes = self.algorithms[j].train(
                 level_images, level_gt_shapes, current_shapes,
-                verbose=verbose, **kwargs)
+                level_str=level_str, verbose=verbose, **kwargs)
 
-            # scale current shapes to next level resolution
+            # Scale current shapes to next level resolution
             if self.scales[j] != (1 or self.scales[-1]):
-                transform = Scale(self.scales[j+1]/self.scales[j], n_dims=2)
+                transform = Scale(self.scales[j + 1] / self.scales[j], n_dims=2)
                 for image_shapes in current_shapes:
                     for shape in image_shapes:
                         transform.apply_inplace(shape)
