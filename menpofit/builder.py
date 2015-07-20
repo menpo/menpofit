@@ -1,11 +1,12 @@
 from __future__ import division
+from functools import partial
 import numpy as np
 from menpo.shape import mean_pointcloud, PointCloud, TriMesh
 from menpo.image import Image, MaskedImage
 from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
 from menpo.model.pca import PCAModel
-from menpo.visualize import print_dynamic, progress_bar_str
+from menpo.visualize import print_dynamic, print_progress
 
 
 def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
@@ -51,18 +52,15 @@ def rescale_images_to_reference_shape(images, group, label, reference_shape,
                                       verbose=False):
     r"""
     """
-    # normalize the scaling of all images wrt the reference_shape size
-    normalized_images = []
-    for c, i in enumerate(images):
-        if verbose:
-            print_dynamic('- Normalizing images size: {}'.format(
-                progress_bar_str((c + 1.) / len(images),
-                                 show_bar=False)))
-        normalized_images.append(i.rescale_to_reference_shape(
-            reference_shape, group=group, label=label))
-
     if verbose:
-        print_dynamic('- Normalizing images size: Done\n')
+        wrap = partial(print_progress, prefix='- Normalizing images size')
+    else:
+        wrap = lambda x: x
+
+    # Normalize the scaling of all images wrt the reference_shape size
+    normalized_images = [i.rescale_to_reference_shape(reference_shape,
+                                                      group=group, label=label)
+                         for i in wrap(images)]
     return normalized_images
 
 
@@ -119,42 +117,37 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
     shapes = [i.landmarks[group][label] for i in images]
 
     # compute the reference shape and fix its diagonal length
-    reference_shape = compute_reference_shape(shapes, diagonal,
-                                              verbose=verbose)
+    reference_shape = compute_reference_shape(shapes, diagonal, verbose=verbose)
 
     # normalize the scaling of all images wrt the reference_shape size
     normalized_images = rescale_images_to_reference_shape(
-        images, group, label, reference_shape, verbose=False)
+        images, group, label, reference_shape, verbose=verbose)
     return reference_shape, normalized_images
 
 
 # TODO: document me!
-def compute_features(images, features, level_str='', verbose=None):
-    feature_images = []
-    for c, i in enumerate(images):
-        if verbose:
-            print_dynamic(
-                '{}Computing feature space: {}'.format(
-                    level_str, progress_bar_str((c + 1.) / len(images),
-                                                show_bar=False)))
-        i = features(i)
-        feature_images.append(i)
+def compute_features(images, features, level_str='', verbose=False):
+    if verbose:
+        wrap = partial(print_progress,
+                       prefix='{}Computing feature space'.format(level_str),
+                       end_with_newline=not level_str)
+    else:
+        wrap = lambda x: x
 
-    return feature_images
+    return [features(i) for i in wrap(images)]
 
 
 # TODO: document me!
-def scale_images(images, scale, level_str='', verbose=None):
-    if scale != 1:
-        scaled_images = []
-        for c, i in enumerate(images):
-            if verbose:
-                print_dynamic(
-                    '{}Scaling images: {}'.format(
-                        level_str, progress_bar_str((c + 1.) / len(images),
-                                                    show_bar=False)))
-            scaled_images.append(i.rescale(scale))
-        return scaled_images
+def scale_images(images, scale, level_str='', verbose=False):
+    if verbose:
+        wrap = partial(print_progress,
+                       prefix='{}Scaling images'.format(level_str),
+                       end_with_newline=not level_str)
+    else:
+        wrap = lambda x: x
+
+    if not np.allclose(scale, 1):
+        return [i.rescale(scale) for i in wrap(images)]
     else:
         return images
 
@@ -182,14 +175,16 @@ def warp_images(images, shapes, reference_frame, transform, level_str='',
 
 # TODO: document me!
 def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
-                    level_str='', verbose=None):
+                    level_str='', verbose=False):
+    if verbose:
+        wrap = partial(print_progress,
+                       prefix='{}Warping images'.format(level_str),
+                       end_with_newline=not level_str)
+    else:
+        wrap = lambda x: x
+
     parts_images = []
-    for c, (i, s) in enumerate(zip(images, shapes)):
-        if verbose:
-            print_dynamic('{}Warping images - {}'.format(
-                level_str,
-                progress_bar_str(float(c + 1) / len(images),
-                                 show_bar=False)))
+    for i, s in wrap(zip(images, shapes)):
         parts = i.extract_patches(s, patch_size=patch_shape,
                                   as_single_array=True)
         parts = normalize_function(parts)
