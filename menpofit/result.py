@@ -1,5 +1,6 @@
 from __future__ import division
 import abc
+from functools import wraps
 import numpy as np
 from menpo.transform import Scale
 from menpo.shape import PointCloud
@@ -611,8 +612,10 @@ def _rescale_shapes_to_reference(algorithm_results, scales, affine_correction):
 
 
 # TODO: Document me!
-def pointcloud_to_points(func):
-    def func_wrapper(*args, **kwargs):
+def pointcloud_to_points(wrapped):
+
+    @wraps(wrapped)
+    def wrapper(*args, **kwargs):
         args = list(args)
         for index, arg in enumerate(args):
             if isinstance(arg, PointCloud):
@@ -620,8 +623,8 @@ def pointcloud_to_points(func):
         for key in kwargs:
             if isinstance(kwargs[key], PointCloud):
                 kwargs[key] = kwargs[key].points
-        return func(*args, **kwargs)
-    return func_wrapper
+        return wrapped(*args, **kwargs)
+    return wrapper
 
 
 # TODO: Document me!
