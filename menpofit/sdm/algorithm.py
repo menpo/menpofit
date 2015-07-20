@@ -1,7 +1,8 @@
 from __future__ import division
+from functools import partial
 import numpy as np
 from menpo.feature import no_op
-from menpo.visualize import print_dynamic
+from menpo.visualize import print_dynamic, print_progress
 from menpofit.result import (
     NonParametricAlgorithmResult, compute_normalise_point_to_point_error)
 from menpofit.math import IRLRegression, IIRLRegression
@@ -11,8 +12,8 @@ from menpofit.math import IRLRegression, IIRLRegression
 class SupervisedDescentAlgorithm(object):
     r"""
     """
-    def train(self, images, gt_shapes, current_shapes, verbose=False,
-              **kwargs):
+    def train(self, images, gt_shapes, current_shapes, level_str='',
+              verbose=False, **kwargs):
 
         n_perturbations = len(current_shapes[0])
         template_shape = gt_shapes[0]
@@ -24,27 +25,32 @@ class SupervisedDescentAlgorithm(object):
         delta_x, gt_x = obtain_delta_x(gt_shapes, current_shapes)
 
         # initialize iteration counter and list of regressors
-        k = 0
         self.regressors = []
 
         # Cascaded Regression loop
-        while k < self.iterations:
+        for k in range(self.iterations):
             # generate regression data
             features = obtain_patch_features(
                 images, current_shapes, self.patch_shape, self.features,
-                features_patch_length=self._features_patch_length)
+                features_patch_length=self._features_patch_length,
+                level_str='{}(Iteration {}) - '.format(level_str, k),
+                verbose=verbose)
 
-            # perform regression
+            # Perform regression
             if verbose:
-                print_dynamic('- Performing regression.')
+                print_dynamic('{}(Iteration {}) - Performing regression'.format(
+                              level_str, k))
             r = self._regressor_cls(**kwargs)
             r.train(features, delta_x)
             # add regressor to list
             self.regressors.append(r)
 
-            # estimate delta_points
+            # Estimate delta_points
             estimated_delta_x = r.predict(features)
+
             if verbose:
+                print_dynamic('{}(Iteration {}) - Calculating errors'.format(
+                    level_str, k))
                 errors = []
                 for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
                     s1 = template_shape.from_vector(dx)
@@ -54,9 +60,9 @@ class SupervisedDescentAlgorithm(object):
                 mean = np.mean(errors)
                 std = np.std(errors)
                 median = np.median(errors)
-                print_dynamic('- Training error -> mean: {0:.4f}, '
-                              'std: {1:.4f}, median: {2:.4f}.\n'.
-                              format(mean, std, median))
+                print_dynamic('{}(Iteration {}) - Training error -> '
+                              'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
+                              format(level_str, k, mean, std, median))
 
             j = 0
             for shapes in current_shapes:
@@ -69,10 +75,7 @@ class SupervisedDescentAlgorithm(object):
                     delta_x[j] = gt_x[j] - current_x
                     # increase index
                     j += 1
-            # increase iteration counter
-            k += 1
 
-        # rearrange current shapes into their original list of list form
         return current_shapes
 
     def increment(self, images, gt_shapes, current_shapes, verbose=False,
@@ -198,7 +201,7 @@ def compute_patch_features(image, shape, patch_shape, features_callable,
             patch_features[j] = features_callable(p[0]).ravel()
     else:
         patch_features = []
-        for j, p in enumerate(patches):
+        for p in patches:
             patch_features.append(features_callable(p[0]).ravel())
         patch_features = np.asarray(patch_features)
 
@@ -219,7 +222,7 @@ def generate_patch_features(image, shapes, patch_shape, features_callable,
                 features_patch_length=features_patch_length)
     else:
         patch_features = []
-        for j, s in enumerate(shapes):
+        for s in shapes:
             patch_features.append(compute_patch_features(
                 image, s, patch_shape, features_callable,
                 features_patch_length=features_patch_length))
@@ -230,24 +233,31 @@ def generate_patch_features(image, shapes, patch_shape, features_callable,
 
 # TODO: docment me!
 def obtain_patch_features(images, shapes, patch_shape, features_callable,
-                          features_patch_length=None):
+                          features_patch_length=None, level_str='',
+                          verbose=False):
     """r
     """
+    if verbose:
+        wrap = partial(print_progress,
+                       prefix='{}Extracting patches'.format(level_str),
+                       end_with_newline=not level_str)
+    else:
+        wrap = lambda x: x
+
     n_images = len(images)
     n_shapes = len(shapes[0])
     n_points = shapes[0][0].n_points
 
     if features_patch_length:
-
         patch_features = np.empty((n_images, (n_shapes * n_points *
                                               features_patch_length)))
-        for j, i in enumerate(images):
+        for j, i in enumerate(wrap(images)):
             patch_features[j] = generate_patch_features(
                 i, shapes[j], patch_shape, features_callable,
                 features_patch_length=features_patch_length)
     else:
         patch_features = []
-        for j, i in images:
+        for j, i in enumerate(wrap(images)):
             patch_features.append(generate_patch_features(
                 i, shapes[j], patch_shape, features_callable,
                 features_patch_length=features_patch_length))
