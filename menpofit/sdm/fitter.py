@@ -56,11 +56,17 @@ class SupervisedDescentFitter(MultiFitter):
 
     def train(self, images, group=None, label=None, bounding_box_group=None,
               verbose=False, **kwargs):
-        # normalize images and compute reference shape
+        # Normalize images and compute reference shape
         self.reference_shape, images = normalization_wrt_reference_shape(
             images, group, label, self.diagonal, verbose=verbose)
 
-        # handle perturbations
+        # In the case where group is None, we need to get the only key so that
+        # we can add landmarks below and not get a complaint about using None
+        first_image = images[0]
+        if group is None:
+            group = first_image.landmarks.group_labels[0]
+
+        # No bounding box is given, so we will use the ground truth box
         if bounding_box_group is None:
             bounding_box_group = 'bb_'
             # generate perturbations by perturbing ground truth shapes
