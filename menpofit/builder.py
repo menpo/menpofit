@@ -152,21 +152,25 @@ def scale_images(images, scale, level_str='', verbose=False):
         return images
 
 
-# TODO: Can be done more efficiently for PWA defining a dummy transform
 # TODO: document me!
 def warp_images(images, shapes, reference_frame, transform, level_str='',
                 verbose=None):
+    if verbose:
+        wrap = partial(print_progress,
+                       prefix='{}Warping images'.format(level_str),
+                       end_with_newline=not level_str)
+    else:
+        wrap = lambda x: x
+
     warped_images = []
-    for c, (i, s) in enumerate(zip(images, shapes)):
-        if verbose:
-            print_dynamic('{}Warping images - {}'.format(
-                level_str,
-                progress_bar_str(float(c + 1) / len(images),
-                                 show_bar=False)))
-        # compute transforms
-        t = transform(reference_frame.landmarks['source'].lms, s)
+    # Build a dummy transform, use set_target for efficiency
+    warp_transform = transform(reference_frame.landmarks['source'].lms,
+                               reference_frame.landmarks['source'].lms)
+    for i, s in wrap(zip(images, shapes)):
+        # Update Transform Target
+        warp_transform.set_target(s)
         # warp images
-        warped_i = i.warp_to_mask(reference_frame.mask, t)
+        warped_i = i.warp_to_mask(reference_frame.mask, warp_transform)
         # attach reference frame landmarks to images
         warped_i.landmarks['source'] = reference_frame.landmarks['source']
         warped_images.append(warped_i)
