@@ -328,29 +328,24 @@ def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
         The noisy Similarity Transform between source and target.
     """
     if isinstance(noise_percentage, float):
-        noise_percentage= [noise_percentage] * 3
+        noise_percentage = [noise_percentage] * 3
     elif len(noise_percentage) == 1:
         noise_percentage *= 3
 
     similarity = AlignmentSimilarity(source, target, rotation=rotation)
 
-    if noise_type is 'normal':
-        #
+    if noise_type is 'gaussian':
         s = noise_percentage[0] * (0.5 / 3) * np.asscalar(np.random.randn(1))
-        #
         r = noise_percentage[1] * (180 / 3) * np.asscalar(np.random.randn(1))
-        #
         t = noise_percentage[2] * (target.range() / 3) * np.random.randn(2)
 
         s = scale_about_centre(target, 1 + s)
         r = rotate_ccw_about_centre(target, r)
         t = Translation(t, source.n_dims)
+
     elif noise_type is 'uniform':
-        #
         s = noise_percentage[0] * 0.5 * (2 * np.asscalar(np.random.randn(1)) - 1)
-        #
         r = noise_percentage[1] * 180 * (2 * np.asscalar(np.random.rand(1)) - 1)
-        #
         t = noise_percentage[2] * target.range() * (2 * np.random.rand(2) - 1)
 
         s = scale_about_centre(target, 1. + s)
