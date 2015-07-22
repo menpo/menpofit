@@ -32,6 +32,11 @@ class SupervisedDescentFitter(MultiFitter):
         features = checks.check_features(features, n_levels)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         # set parameters
+        self.algorithms = []
+        self.reference_shape = None
+        self._sd_algorithm_cls = sd_algorithm_cls
+        self._features = features
+        self._patch_shape = patch_shape
         self.diagonal = diagonal
         self.scales = list(scales)[::-1]
         self.n_perturbations = n_perturbations
@@ -39,15 +44,16 @@ class SupervisedDescentFitter(MultiFitter):
         self._perturb_from_shape = perturb_from_shape
         self._perturb_from_bounding_box = perturb_from_bounding_box
         # set up algorithms
-        self._set_up(sd_algorithm_cls, features, patch_shape, **kwargs)
+        self._reset_algorithms(**kwargs)
 
-    def _set_up(self, sd_algorithm_cls, features, patch_shape, **kwargs):
-        self.algorithms = []
+    def _reset_algorithms(self, **kwargs):
+        if len(self.algorithms) > 0:
+            for j in range(len(self.algorithms) - 1, -1, -1):
+                del self.algorithms[j]
         for j in range(self.n_levels):
-            algorithm = sd_algorithm_cls(
-                features=features[j], patch_shape=patch_shape[j],
-                iterations=self.iterations[j], **kwargs)
-            self.algorithms.append(algorithm)
+            self.algorithms.append(self._sd_algorithm_cls(
+                features=self._features[j], patch_shape=self._patch_shape[j],
+                iterations=self.iterations[j], **kwargs))
 
     def perturb_from_shape(self, shape, **kwargs):
         return self._perturb_from_shape(self.reference_shape, shape, **kwargs)
@@ -58,6 +64,9 @@ class SupervisedDescentFitter(MultiFitter):
 
     def train(self, images, group=None, label=None, bounding_box_group=None,
               verbose=False, **kwargs):
+        # Reset the algorithm classes
+        self._reset_algorithms()
+
         # Normalize images and compute reference shape
         self.reference_shape, images = normalization_wrt_reference_shape(
             images, group, label, self.diagonal, verbose=verbose)
@@ -102,7 +111,8 @@ class SupervisedDescentFitter(MultiFitter):
                     gt_s = i.landmarks[group][label].bounding_box()
                     bb = i.landmarks[all_bb_keys[0]].lms
                     # TODO: Noisy align given bb to gt_s - is this correct?
-                    p_s = noisy_params_alignment_similarity(bb, gt_s).apply(bb)
+                    p_s = noisy_params_alignment_similarity(
+                        bb, gt_s, noise_std=0.03).apply(bb)
                     perturb_bbox_group = bounding_box_group + '_{}'.format(j)
                     i.landmarks[perturb_bbox_group] = p_s
         elif n_perturbations != self.n_perturbations:
@@ -442,13 +452,13 @@ class SupervisedDescentFitter(MultiFitter):
 #         self.n_perturbations = n_perturbations
 #         self.iterations = checks.check_iterations(iterations, n_levels)
 #         # set up algorithms
-#         self._set_up(cr_algorithm_cls, features, sampling, **kwargs)
+#         self._reset_algorithms(cr_algorithm_cls, features, sampling, **kwargs)
 #
 #     @property
 #     def algorithms(self):
 #         return self._algorithms
 #
-#     def _set_up(self, cr_algorithm_cls, features, sampling, **kwargs):
+#     def _reset_algorithms(self, cr_algorithm_cls, features, sampling, **kwargs):
 #         for j, s in range(self.n_levels):
 #             algorithm = cr_algorithm_cls(
 #                 features=features[j], sampling=sampling[j],
