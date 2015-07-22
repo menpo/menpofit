@@ -63,9 +63,13 @@ class SupervisedDescentFitter(MultiFitter):
                                                bounding_box, **kwargs)
 
     def train(self, images, group=None, label=None, bounding_box_group=None,
-              verbose=False, **kwargs):
-        # Reset the algorithm classes
-        self._reset_algorithms()
+              verbose=False, increment=False, **kwargs):
+        if not increment:
+            # Reset the algorithm classes
+            self._reset_algorithms()
+        else:
+            if len(self.algorithms) == 0:
+                raise ValueError('Must train before training incrementally.')
 
         # Normalize images and compute reference shape
         self.reference_shape, images = normalization_wrt_reference_shape(
@@ -161,9 +165,14 @@ class SupervisedDescentFitter(MultiFitter):
                     current_shapes.append(c_shapes)
 
             # train supervised descent algorithm
-            current_shapes = self.algorithms[j].train(
-                level_images, level_gt_shapes, current_shapes,
-                level_str=level_str, verbose=verbose, **kwargs)
+            if increment:
+                current_shapes = self.algorithms[j].increment(
+                    level_images, level_gt_shapes, current_shapes,
+                    verbose=verbose, **kwargs)
+            else:
+                current_shapes = self.algorithms[j].train(
+                    level_images, level_gt_shapes, current_shapes,
+                    level_str=level_str, verbose=verbose, **kwargs)
 
             # Scale current shapes to next level resolution
             if self.scales[j] != (1 or self.scales[-1]):
@@ -175,84 +184,10 @@ class SupervisedDescentFitter(MultiFitter):
     def increment(self, images, group=None, label=None,
                   bounding_box_group=None, verbose=False,
                   **kwargs):
-        # normalize images with respect to reference shape of aam
-        images = rescale_images_to_reference_shape(
-            images, group, label, self.reference_shape, verbose=verbose)
-
-        # handle perturbations
-        if bounding_box_group is None:
-            bounding_box_group = 'bb_'
-            # generate perturbations by perturbing ground truth shapes
-            for i in images:
-                gt_s = i.landmarks[group][label]
-                for j in range(self.n_perturbations):
-                    p_s = self.perturb_from_shape(gt_s)
-                    p_group = bounding_box_group + '{}'.format(j)
-                    i.landmarks[p_group] = p_s
-        else:
-            # reset number of perturbations
-            n_perturbations = 0
-            for k in images[0].landmarks.keys():
-                if bounding_box_group in k:
-                    n_perturbations += 1
-            if n_perturbations == 1:
-                for i in images:
-                    bb = i.landmarks[bounding_box_group].lms
-                    p_s = align_shape_with_bounding_box(
-                        self.reference_shape, bb)
-                    i.landmarks[bounding_box_group + '0'] = p_s
-                    for j in range(1, self.n_perturbations):
-                        p_s = self.perturb_from_bounding_box(bb)
-                        p_group = bounding_box_group + '{}'.format(j)
-                        i.landmarks[p_group] = p_s
-            elif n_perturbations != self.n_perturbations:
-                warnings.warn('The original value of n_perturbation {} '
-                              'will be reset to {} in order to agree with '
-                              'the provided bounding_box_group.'.
-                              format(self.n_perturbations, n_perturbations))
-                self.n_perturbations = n_perturbations
-
-        # for each pyramid level (low --> high)
-        for j in range(self.n_levels):
-            if verbose:
-                if len(self.scales) > 1:
-                    level_str = '  - Level {}: '.format(j)
-                else:
-                    level_str = '  - '
-
-            # scale images and compute features at other levels
-            level_images = scale_images(images, self.scales[j],
-                                        level_str=level_str, verbose=verbose)
-
-            # extract ground truth shapes for current level
-            level_gt_shapes = [i.landmarks[group][label] for i in level_images]
-
-            if j == 0:
-                # extract perturbations at the very bottom level
-                current_shapes = []
-                for i in level_images:
-                    c_shapes = []
-                    for k in range(self.n_perturbations):
-                        p_group = bounding_box_group + '{}'.format(k)
-                        c_s = i.landmarks[p_group].lms
-                        if c_s.n_points != level_gt_shapes[0].n_points:
-                            # assume c_s is bounding box
-                            c_s = align_shape_with_bounding_box(
-                                self.reference_shape, c_s)
-                        c_shapes.append(c_s)
-                    current_shapes.append(c_shapes)
-
-            # train cascaded regression algorithm
-            current_shapes = self.algorithms[j].increment(
-                level_images, level_gt_shapes, current_shapes,
-                verbose=verbose, **kwargs)
-
-            # scale current shapes to next level resolution
-            if self.scales[j] != (1 or self.scales[-1]):
-                transform = Scale(self.scales[j+1]/self.scales[j], n_dims=2)
-                for image_shapes in current_shapes:
-                    for shape in image_shapes:
-                        transform.apply_inplace(shape)
+        return self.train(images, group=group, label=label,
+                          bounding_box_group=bounding_box_group,
+                          verbose=verbose,
+                          increment=True, **kwargs)
 
     def train_incrementally(self, images, group=None, label=None,
                             batch_size=100, verbose=False, **kwargs):
@@ -260,14 +195,14 @@ class SupervisedDescentFitter(MultiFitter):
         n_batches = np.int(np.ceil(len(images) / batch_size))
 
         # train first batch
-        print 'Training batch 1.'
+        print('Training batch 1.')
         self.train(images[:batch_size], group=group, label=label,
                    verbose=verbose, **kwargs)
 
         # train all other batches
         start = batch_size
         for j in range(1, n_batches):
-            print 'Training batch {}.'.format(j+1)
+            print('Training batch {}.'.format(j+1))
             end = start + batch_size
             self.increment(images[start:end], group=group, label=label,
                            verbose=verbose, **kwargs)
