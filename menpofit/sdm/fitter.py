@@ -10,7 +10,7 @@ from menpofit.builder import (
     scale_images)
 from menpofit.fitter import (
     MultiFitter, noisy_shape_from_shape, noisy_shape_from_bounding_box,
-    align_shape_with_bounding_box, noisy_params_alignment_similarity)
+    align_shape_with_bounding_box)
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
 from .algorithm import Newton
@@ -104,15 +104,11 @@ class SupervisedDescentFitter(MultiFitter):
                 # We assume that the first bounding box is a valid perturbation
                 # thus create n_perturbations - 1 new bounding boxes
                 for j in range(1, self.n_perturbations):
-                    # TODO: This should use the new logic that @jalabort
-                    # has come up with. Also, would it be good if this was
-                    # customizable? As in, the ability to pass some kind of
-                    # probability distribution to draw from?
                     gt_s = i.landmarks[group][label].bounding_box()
                     bb = i.landmarks[all_bb_keys[0]].lms
-                    # TODO: Noisy align given bb to gt_s - is this correct?
-                    p_s = noisy_params_alignment_similarity(
-                        bb, gt_s, noise_std=0.03).apply(bb)
+
+                    # This is customizable by passing in the correct method
+                    p_s = self._perturb_from_bounding_box(gt_s, bb)
                     perturb_bbox_group = bounding_box_group + '_{}'.format(j)
                     i.landmarks[perturb_bbox_group] = p_s
         elif n_perturbations != self.n_perturbations:
