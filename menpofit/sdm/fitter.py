@@ -5,9 +5,8 @@ import warnings
 from menpo.transform import Scale
 from menpo.feature import no_op
 from menpo.visualize import print_progress
-from menpofit.builder import (
-    normalization_wrt_reference_shape, rescale_images_to_reference_shape,
-    scale_images)
+from menpofit.builder import (normalization_wrt_reference_shape, scale_images,
+                              rescale_images_to_reference_shape)
 from menpofit.fitter import (
     MultiFitter, noisy_shape_from_shape, noisy_shape_from_bounding_box,
     align_shape_with_bounding_box)
@@ -64,22 +63,25 @@ class SupervisedDescentFitter(MultiFitter):
 
     def train(self, images, group=None, label=None, bounding_box_group=None,
               verbose=False, increment=False, **kwargs):
-        if not increment:
-            # Reset the algorithm classes
-            self._reset_algorithms()
-        else:
-            if len(self.algorithms) == 0:
-                raise ValueError('Must train before training incrementally.')
-
-        # Normalize images and compute reference shape
-        self.reference_shape, images = normalization_wrt_reference_shape(
-            images, group, label, self.diagonal, verbose=verbose)
-
         # In the case where group is None, we need to get the only key so that
         # we can add landmarks below and not get a complaint about using None
         first_image = images[0]
         if group is None:
             group = first_image.landmarks.group_labels[0]
+
+        if not increment:
+            # Reset the algorithm classes
+            self._reset_algorithms()
+            # Normalize images and compute reference shape
+            self.reference_shape, images = normalization_wrt_reference_shape(
+                images, group, label, self.diagonal, verbose=verbose)
+        else:
+            if len(self.algorithms) == 0:
+                raise ValueError('Must train before training incrementally.')
+            # We are incrementing, so rescale to existing reference shape
+            images = rescale_images_to_reference_shape(images, group, label,
+                                                       self.reference_shape,
+                                                       verbose=verbose)
 
         # No bounding box is given, so we will use the ground truth box
         if bounding_box_group is None:
@@ -195,14 +197,16 @@ class SupervisedDescentFitter(MultiFitter):
         n_batches = np.int(np.ceil(len(images) / batch_size))
 
         # train first batch
-        print('Training batch 1.')
+        if verbose:
+            print('Training batch 1.')
         self.train(images[:batch_size], group=group, label=label,
                    verbose=verbose, **kwargs)
 
         # train all other batches
         start = batch_size
         for j in range(1, n_batches):
-            print('Training batch {}.'.format(j+1))
+            if verbose:
+                print('Training batch {}.'.format(j + 1))
             end = start + batch_size
             self.increment(images[start:end], group=group, label=label,
                            verbose=verbose, **kwargs)
