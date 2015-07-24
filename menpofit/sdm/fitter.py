@@ -18,21 +18,21 @@ from .algorithm import Newton
 class SupervisedDescentFitter(MultiFitter):
     r"""
     """
-    def __init__(self, sd_algorithm_cls=Newton, features=no_op,
-                 patch_shape=(17, 17), diagonal=None, scales=(1, 0.5),
-                 iterations=6, n_perturbations=30,
-                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
-                 **kwargs):
+    def __init__(self, sd_algorithm_cls=Newton, holistic_feature=no_op,
+                 patch_features=no_op, patch_shape=(17, 17), diagonal=None,
+                 scales=(1, 0.5), iterations=6, n_perturbations=30,
+                 perturb_from_bounding_box=noisy_shape_from_bounding_box):
         # check parameters
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
-        features = checks.check_features(features, n_levels)
+        patch_features = checks.check_features(patch_features, n_levels)
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         # set parameters
         self.algorithms = []
         self.reference_shape = None
         self._sd_algorithm_cls = sd_algorithm_cls
-        self._features = features
+        self._holistic_feature = holistic_feature
+        self._patch_features = patch_features
         self._patch_shape = patch_shape
         self.diagonal = diagonal
         self.scales = list(scales)[::-1]
@@ -40,16 +40,17 @@ class SupervisedDescentFitter(MultiFitter):
         self.iterations = checks.check_max_iters(iterations, n_levels)
         self._perturb_from_bounding_box = perturb_from_bounding_box
         # set up algorithms
-        self._reset_algorithms(**kwargs)
+        self._reset_algorithms()
 
-    def _reset_algorithms(self, **kwargs):
+    def _reset_algorithms(self):
         if len(self.algorithms) > 0:
             for j in range(len(self.algorithms) - 1, -1, -1):
                 del self.algorithms[j]
         for j in range(self.n_levels):
             self.algorithms.append(self._sd_algorithm_cls(
-                features=self._holistic_features[j], patch_shape=self._patch_shape[j],
-                iterations=self.iterations[j], **kwargs))
+                features=self._patch_features[j],
+                patch_shape=self._patch_shape[j],
+                iterations=self.iterations[j]))
 
     def perturb_from_bounding_box(self, bounding_box):
         return self._perturb_from_bounding_box(self.reference_shape,
@@ -119,6 +120,12 @@ class SupervisedDescentFitter(MultiFitter):
         # perturbations
         all_bb_keys = list(first_image.landmarks.keys_matching(
             '*{}*'.format(bounding_box_group)))
+
+        # Before scaling, we compute the holistic feature on the whole image
+        msg = '- Computing holistic features ({})'.format(
+            name_of_callable(self._holistic_feature))
+        wrap = partial(print_progress, prefix=msg, verbose=verbose)
+        images = [self._holistic_feature(im) for im in wrap(images)]
 
         # for each pyramid level (low --> high)
         for j in range(self.n_levels):
@@ -235,22 +242,25 @@ class SupervisedDescentFitter(MultiFitter):
         gt_shapes : `list` of :map:`PointCloud`
             The ground truth shape for each one of the previous images.
         """
-        # attach landmarks to the image
+        # Attach landmarks to the image
         image.landmarks['initial_shape'] = initial_shape
         if gt_shape:
             image.landmarks['gt_shape'] = gt_shape
 
-        # if specified, crop the image
+        # If specified, crop the image
         if crop_image:
             image = image.crop_to_landmarks_proportion(crop_image,
                                                        group='initial_shape')
 
-        # rescale image wrt the scale factor between reference_shape and
+        # Rescale image w.r.t the scale factor between reference_shape and
         # initial_shape
         image = image.rescale_to_reference_shape(self.reference_shape,
                                                  group='initial_shape')
 
-        # obtain image representation
+        # Compute the holistic feature on the normalized image
+        image = self._holistic_feature(image)
+
+        # Obtain image representation
         images = []
         for s in self.scales:
             if s != 1:
@@ -260,10 +270,10 @@ class SupervisedDescentFitter(MultiFitter):
                 scaled_image = image
             images.append(scaled_image)
 
-        # get initial shapes per level
+        # Get initial shapes per level
         initial_shapes = [i.landmarks['initial_shape'].lms for i in images]
 
-        # get ground truth shapes per level
+        # Get ground truth shapes per level
         if gt_shape:
             gt_shapes = [i.landmarks['gt_shape'].lms for i in images]
         else:
@@ -347,154 +357,3 @@ class SupervisedDescentFitter(MultiFitter):
         #     out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n".format(
         #         out, feat_str[0], n_channels[0], ch_str[0])
         # return out
-
-
-# class CRFitter(MultiFitter):
-#     r"""
-#     """
-#     def __init__(self, cr_algorithm_cls=SN, features=no_op, diagonal=None,
-#                  scales=(1, 0.5), sampling=None, n_perturbations=10,
-#                  iterations=6, **kwargs):
-#         # check parameters
-#         checks.check_diagonal(diagonal)
-#         scales, n_levels = checks.check_scales(scales)
-#         features = checks.check_features(features, n_levels)
-#         sampling = checks.check_sampling(sampling, n_levels)
-#         # set parameters
-#         self._algorithms = []
-#         self.diagonal = diagonal
-#         self.scales = list(scales)
-#         self.n_perturbations = n_perturbations
-#         self.iterations = checks.check_iterations(iterations, n_levels)
-#         # set up algorithms
-#         self._reset_algorithms(cr_algorithm_cls, features, sampling, **kwargs)
-#
-#     @property
-#     def algorithms(self):
-#         return self._algorithms
-#
-#     def _reset_algorithms(self, cr_algorithm_cls, features, sampling, **kwargs):
-#         for j, s in range(self.n_levels):
-#             algorithm = cr_algorithm_cls(
-#                 features=features[j], sampling=sampling[j],
-#                 max_iters=self.iterations[j], **kwargs)
-#             self._algorithms.append(algorithm)
-#
-#     def train(self, images, group=None, label=None, verbose=False, **kwargs):
-#         # normalize images and compute reference shape
-#         reference_shape, images = normalization_wrt_reference_shape(
-#             images, group, label, self.diagonal, verbose=verbose)
-#
-#         # for each pyramid level (low --> high)
-#         for j in range(self.n_levels):
-#             if verbose:
-#                 if len(self.scales) > 1:
-#                     level_str = '  - Level {}: '.format(j)
-#                 else:
-#                     level_str = '  - '
-#
-#             # scale images and compute features at other levels
-#             level_images = scale_images(images, self.scales[j],
-#                                         level_str=level_str, verbose=verbose)
-#
-#             # extract ground truth shapes for current level
-#             level_gt_shapes = [i.landmarks[group][label] for i in level_images]
-#
-#             if j == 0:
-#                 # generate perturbed shapes
-#                 current_shapes = []
-#                 for gt_s in level_gt_shapes:
-#                     perturbed_shapes = []
-#                     for _ in range(self.n_perturbations):
-#                         p_s = self.noisy_shape_from_shape(gt_s)
-#                         perturbed_shapes.append(p_s)
-#                     current_shapes.append(perturbed_shapes)
-#
-#             # train cascaded regression algorithm
-#             current_shapes = self.algorithms[j].train(
-#                 level_images, level_gt_shapes, current_shapes,
-#                 verbose=verbose, **kwargs)
-#
-#             # scale current shapes to next level resolution
-#             if self.scales[j] != self.scales[-1]:
-#                 transform = Scale(self.scales[j+1]/self.scales[j], n_dims=2)
-#                 for image_shapes in current_shapes:
-#                     for shape in image_shapes:
-#                         transform.apply_inplace(shape)
-#
-#     def _fitter_result(self, image, algorithm_results, affine_correction,
-#                        gt_shape=None):
-#         return MultiFitterResult(image, algorithm_results, affine_correction,
-#                                  gt_shape=gt_shape)
-#
-#     # TODO: fix me!
-#     def __str__(self):
-#         pass
-#         # out = "Supervised Descent Method\n" \
-#         #       " - Non-Parametric '{}' Regressor\n" \
-#         #       " - {} training images.\n".format(
-#         #     name_of_callable(self._fitters[0].regressor),
-#         #     self._n_training_images)
-#         # # small strings about number of channels, channels string and downscale
-#         # down_str = []
-#         # for j in range(self.n_levels):
-#         #     if j == self.n_levels - 1:
-#         #         down_str.append('(no downscale)')
-#         #     else:
-#         #         down_str.append('(downscale by {})'.format(
-#         #             self.downscale**(self.n_levels - j - 1)))
-#         # temp_img = Image(image_data=np.random.rand(40, 40))
-#         # if self.pyramid_on_features:
-#         #     temp = self.features(temp_img)
-#         #     n_channels = [temp.n_channels] * self.n_levels
-#         # else:
-#         #     n_channels = []
-#         #     for j in range(self.n_levels):
-#         #         temp = self.features[j](temp_img)
-#         #         n_channels.append(temp.n_channels)
-#         # # string about features and channels
-#         # if self.pyramid_on_features:
-#         #     feat_str = "- Feature is {} with ".format(
-#         #         name_of_callable(self.features))
-#         #     if n_channels[0] == 1:
-#         #         ch_str = ["channel"]
-#         #     else:
-#         #         ch_str = ["channels"]
-#         # else:
-#         #     feat_str = []
-#         #     ch_str = []
-#         #     for j in range(self.n_levels):
-#         #         if isinstance(self.features[j], str):
-#         #             feat_str.append("- Feature is {} with ".format(
-#         #                 self.features[j]))
-#         #         elif self.features[j] is None:
-#         #             feat_str.append("- No features extracted. ")
-#         #         else:
-#         #             feat_str.append("- Feature is {} with ".format(
-#         #                 self.features[j].__name__))
-#         #         if n_channels[j] == 1:
-#         #             ch_str.append("channel")
-#         #         else:
-#         #             ch_str.append("channels")
-#         # if self.n_levels > 1:
-#         #     out = "{} - Gaussian pyramid with {} levels and downscale " \
-#         #           "factor of {}.\n".format(out, self.n_levels,
-#         #                                    self.downscale)
-#         #     if self.pyramid_on_features:
-#         #         out = "{}   - Pyramid was applied on feature space.\n   " \
-#         #               "{}{} {} per image.\n".format(out, feat_str,
-#         #                                             n_channels[0], ch_str[0])
-#         #     else:
-#         #         out = "{}   - Features were extracted at each pyramid " \
-#         #               "level.\n".format(out)
-#         #         for i in range(self.n_levels - 1, -1, -1):
-#         #             out = "{}   - Level {} {}: \n     {}{} {} per " \
-#         #                   "image.\n".format(
-#         #                 out, self.n_levels - i, down_str[i], feat_str[i],
-#         #                 n_channels[i], ch_str[i])
-#         # else:
-#         #     if self.pyramid_on_features:
-#         #         feat_str = [feat_str]
-#         #     out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n".format(
-#         #         out, feat_str[0], n_channels[0], ch_str[0])
-#         # return out
