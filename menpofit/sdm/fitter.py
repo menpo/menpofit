@@ -3,8 +3,8 @@ from functools import partial
 import warnings
 from menpo.transform import Scale
 from menpo.feature import no_op
-from menpo.visualize import print_progress
-from menpofit.base import batch
+from menpofit.visualize import print_progress
+from menpofit.base import batch, name_of_callable
 from menpofit.builder import (normalization_wrt_reference_shape, scale_images,
                               rescale_images_to_reference_shape)
 from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
@@ -93,12 +93,9 @@ class SupervisedDescentFitter(MultiFitter):
         # If there is only one example bounding box, then we will generate
         # more perturbations based on the bounding box.
         if n_perturbations == 1:
-            if verbose:
-                msg = '- Generating {} new initial bounding boxes ' \
-                      'per image'.format(self.n_perturbations)
-                wrap = partial(print_progress, prefix=msg)
-            else:
-                wrap = lambda x: x
+            msg = '- Generating {} new initial bounding boxes ' \
+                  'per image'.format(self.n_perturbations)
+            wrap = partial(print_progress, prefix=msg, verbose=verbose)
 
             for i in wrap(images):
                 # We assume that the first bounding box is a valid perturbation
@@ -141,13 +138,10 @@ class SupervisedDescentFitter(MultiFitter):
             level_gt_shapes = [i.landmarks[group][label] for i in level_images]
 
             if j == 0:
-                if verbose:
-                    msg = '{}Generating {} perturbations per image'.format(
-                        level_str, self.n_perturbations)
-                    wrap = partial(print_progress, prefix=msg,
-                                   end_with_newline=False)
-                else:
-                    wrap = lambda x: x
+                msg = '{}Generating {} perturbations per image'.format(
+                    level_str, self.n_perturbations)
+                wrap = partial(print_progress, prefix=msg,
+                               end_with_newline=False, verbose=verbose)
 
                 # Extract perturbations at the very bottom level
                 current_shapes = []
