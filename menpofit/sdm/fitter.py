@@ -291,8 +291,8 @@ class SupervisedDescentFitter(MultiFitter):
         if self.diagonal is not None:
             diagonal = self.diagonal
         else:
-            diagonal = np.sqrt(np.sum(np.asarray(self.reference_shape.bounds())
-                                      ** 2))
+            y, x = self.reference_shape.range()
+            diagonal = np.sqrt(x ** 2 + y ** 2)
         is_custom_perturb_func = (self._perturb_from_bounding_box !=
                                   noisy_shape_from_bounding_box)
         regressor_cls = self.algorithms[0]._regressor_cls
@@ -317,11 +317,11 @@ class SupervisedDescentFitter(MultiFitter):
  - Images scaled to diagonal: {diagonal:.2f}
  - Custom perturbation scheme used: {is_custom_perturb_func}""".format(
             reg_alg=name_of_callable(self._sd_algorithm_cls),
-                   reg_cls=name_of_callable(regressor_cls),
-                   n_levels=len(self.scales),
-                   levels=self.scales,
-                   level_info=level_info,
-                   n_perturbations=self.n_perturbations,
-                   diagonal=diagonal,
-                   is_custom_perturb_func=is_custom_perturb_func)
+            reg_cls=name_of_callable(regressor_cls),
+            n_levels=len(self.scales),
+            levels=self.scales,
+            level_info=level_info,
+            n_perturbations=self.n_perturbations,
+            diagonal=diagonal,
+            is_custom_perturb_func=is_custom_perturb_func)
         return cls_str
