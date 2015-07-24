@@ -2,7 +2,8 @@ from __future__ import division
 from functools import partial
 import numpy as np
 from menpo.feature import no_op
-from menpo.visualize import print_dynamic, print_progress
+from menpo.visualize import print_dynamic
+from menpofit.visualize import print_progress
 from menpofit.result import (
     NonParametricAlgorithmResult, compute_normalise_point_to_point_error)
 from menpofit.math import IRLRegression, IIRLRegression
@@ -237,12 +238,9 @@ def obtain_patch_features(images, shapes, patch_shape, features_callable,
                           verbose=False):
     """r
     """
-    if verbose:
-        wrap = partial(print_progress,
-                       prefix='{}Extracting patches'.format(level_str),
-                       end_with_newline=not level_str)
-    else:
-        wrap = lambda x: x
+    wrap = partial(print_progress,
+                   prefix='{}Extracting patches'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
 
     n_images = len(images)
     n_shapes = len(shapes[0])
