@@ -1,4 +1,5 @@
 from __future__ import division
+from functools import partial
 import itertools
 import numpy as np
 from menpo.visualize import progress_bar_str, print_dynamic, print_progress
@@ -6,7 +7,10 @@ from menpo.visualize import progress_bar_str, print_dynamic, print_progress
 
 def name_of_callable(c):
     try:
-        return c.__name__  # function
+        if isinstance(c, partial):  # partial
+            return c.func.__name__
+        else:
+            return c.__name__  # function
     except AttributeError:
         return c.__class__.__name__  # callable class
 
