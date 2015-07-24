@@ -1,5 +1,5 @@
 from __future__ import division
-from menpo.transform import AlignmentSimilarity, Similarity
+import itertools
 import numpy as np
 from menpo.visualize import progress_bar_str, print_dynamic, print_progress
 
@@ -9,6 +9,15 @@ def name_of_callable(c):
         return c.__name__  # function
     except AttributeError:
         return c.__class__.__name__  # callable class
+
+
+def batch(iterable, n):
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, n))
+        if not chunk:
+                return
+        yield chunk
 
 
 def is_pyramid_on_features(features):
