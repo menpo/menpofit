@@ -1,15 +1,14 @@
 from __future__ import division
 from functools import partial
-import numpy as np
 import warnings
 from menpo.transform import Scale
 from menpo.feature import no_op
 from menpo.visualize import print_progress
+from menpofit.base import batch
 from menpofit.builder import (normalization_wrt_reference_shape, scale_images,
                               rescale_images_to_reference_shape)
-from menpofit.fitter import (
-    MultiFitter, noisy_shape_from_shape, noisy_shape_from_bounding_box,
-    align_shape_with_bounding_box)
+from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
+                             align_shape_with_bounding_box)
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
 from .algorithm import Newton
@@ -109,7 +108,7 @@ class SupervisedDescentFitter(MultiFitter):
                     bb = i.landmarks[all_bb_keys[0]].lms
 
                     # This is customizable by passing in the correct method
-                    p_s = self.perturb_from_bounding_box(gt_s, bb)
+                    p_s = self._perturb_from_bounding_box(gt_s, bb)
                     perturb_bbox_group = bounding_box_group + '_{}'.format(j)
                     i.landmarks[perturb_bbox_group] = p_s
         elif n_perturbations != self.n_perturbations:
@@ -134,7 +133,7 @@ class SupervisedDescentFitter(MultiFitter):
             else:
                 level_str = None
 
-            # Scale images and compute features at other levels
+            # Scale images
             level_images = scale_images(images, self.scales[j],
                                         level_str=level_str, verbose=verbose)
 
@@ -188,24 +187,21 @@ class SupervisedDescentFitter(MultiFitter):
 
     def train_incrementally(self, images, group=None, label=None,
                             batch_size=100, verbose=False, **kwargs):
-        # number of batches
-        n_batches = np.int(np.ceil(len(images) / batch_size))
+        # Create a generator of fixed sized batches. Will still work even
+        # on an infinite list.
+        image_batches = batch(images, batch_size)
 
-        # train first batch
-        if verbose:
-            print('Training batch 1.')
-        self.train(images[:batch_size], group=group, label=label,
-                   verbose=verbose, **kwargs)
-
-        # train all other batches
-        start = batch_size
-        for j in range(1, n_batches):
+        # Train all batches
+        for k, image_batch in enumerate(image_batches):
+            n_images = len(image_batch)
             if verbose:
-                print('Training batch {}.'.format(j + 1))
-            end = start + batch_size
-            self.increment(images[start:end], group=group, label=label,
+                print('Training batch {} of {} images.'.format(k, n_images))
+            if k == 0:
+                self.train(image_batch, group=group, label=label,
                            verbose=verbose, **kwargs)
-            start = end
+            else:
+                self.increment(image_batch, group=group, label=label,
+                               verbose=verbose, **kwargs)
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
                        crop_image=0.5):
