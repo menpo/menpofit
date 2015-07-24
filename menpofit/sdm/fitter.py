@@ -22,7 +22,6 @@ class SupervisedDescentFitter(MultiFitter):
     def __init__(self, sd_algorithm_cls=Newton, features=no_op,
                  patch_shape=(17, 17), diagonal=None, scales=(1, 0.5),
                  iterations=6, n_perturbations=30,
-                 perturb_from_shape=noisy_shape_from_shape,
                  perturb_from_bounding_box=noisy_shape_from_bounding_box,
                  **kwargs):
         # check parameters
@@ -40,7 +39,6 @@ class SupervisedDescentFitter(MultiFitter):
         self.scales = list(scales)[::-1]
         self.n_perturbations = n_perturbations
         self.iterations = checks.check_max_iters(iterations, n_levels)
-        self._perturb_from_shape = perturb_from_shape
         self._perturb_from_bounding_box = perturb_from_bounding_box
         # set up algorithms
         self._reset_algorithms(**kwargs)
@@ -51,15 +49,12 @@ class SupervisedDescentFitter(MultiFitter):
                 del self.algorithms[j]
         for j in range(self.n_levels):
             self.algorithms.append(self._sd_algorithm_cls(
-                features=self._features[j], patch_shape=self._patch_shape[j],
+                features=self._holistic_features[j], patch_shape=self._patch_shape[j],
                 iterations=self.iterations[j], **kwargs))
 
-    def perturb_from_shape(self, shape, **kwargs):
-        return self._perturb_from_shape(self.reference_shape, shape, **kwargs)
-
-    def perturb_from_bounding_box(self, bounding_box, **kwargs):
+    def perturb_from_bounding_box(self, bounding_box):
         return self._perturb_from_bounding_box(self.reference_shape,
-                                               bounding_box, **kwargs)
+                                               bounding_box)
 
     def train(self, images, group=None, label=None, bounding_box_group=None,
               verbose=False, increment=False, **kwargs):
@@ -114,7 +109,7 @@ class SupervisedDescentFitter(MultiFitter):
                     bb = i.landmarks[all_bb_keys[0]].lms
 
                     # This is customizable by passing in the correct method
-                    p_s = self._perturb_from_bounding_box(gt_s, bb)
+                    p_s = self.perturb_from_bounding_box(gt_s, bb)
                     perturb_bbox_group = bounding_box_group + '_{}'.format(j)
                     i.landmarks[perturb_bbox_group] = p_s
         elif n_perturbations != self.n_perturbations:
@@ -227,13 +222,10 @@ class SupervisedDescentFitter(MultiFitter):
         ----------
         image : :map:`Image` or subclass
             The image to be fitted.
-
         initial_shape : :map:`PointCloud`
             The initial shape from which the fitting will start.
-
-        gt_shape : class : :map:`PointCloud`, optional
+        gt_shape : :map:`PointCloud`, optional
             The original ground truth shape associated to the image.
-
         crop_image: `None` or float`, optional
             If `float`, it specifies the proportion of the border wrt the
             initial shape to which the image will be internally cropped around
@@ -248,10 +240,8 @@ class SupervisedDescentFitter(MultiFitter):
         -------
         images : `list` of :map:`Image` or subclass
             The list of images that will be fitted by the fitters.
-
         initial_shapes : `list` of :map:`PointCloud`
             The initial shape for each one of the previous images.
-
         gt_shapes : `list` of :map:`PointCloud`
             The ground truth shape for each one of the previous images.
         """
