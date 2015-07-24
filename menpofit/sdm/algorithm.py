@@ -162,8 +162,8 @@ class Newton(SupervisedDescentAlgorithm):
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
-                 eps=10**-5):
-        self._regressor_cls = IRLRegression
+                 eps=10**-5, alpha=0, bias=True):
+        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
@@ -178,8 +178,9 @@ class GaussNewton(SupervisedDescentAlgorithm):
     """
     def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
-                 eps=10**-5):
-        self._regressor_cls = IIRLRegression
+                 eps=10**-5, alpha=0, bias=True, alpha2=0):
+        self._regressor_cls = partial(IIRLRegression, alpha=alpha, bias=bias,
+                                      alpha2=alpha2)
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
