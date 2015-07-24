@@ -6,9 +6,11 @@ class IRLRegression(object):
     r"""
     Incremental Regularized Linear Regression
     """
-    def __init__(self, l=0, bias=True):
-        self.l = l
+    def __init__(self, alpha=0, bias=True):
+        self.alpha = alpha
         self.bias = bias
+        self.V = None
+        self.W = None
 
     def train(self, X, Y):
         if self.bias:
@@ -17,7 +19,7 @@ class IRLRegression(object):
 
         # regularized linear regression
         XX = X.T.dot(X)
-        np.fill_diagonal(XX, self.l + np.diag(XX))
+        np.fill_diagonal(XX, self.alpha + np.diag(XX))
         self.V = np.linalg.inv(XX)
         self.W = self.V.dot(X.T.dot(Y))
 
@@ -48,9 +50,9 @@ class IIRLRegression(IRLRegression):
     r"""
     Indirect Incremental Regularized Linear Regression
     """
-    def __init__(self, l=0, bias=True, d=0):
-        super(IIRLRegression, self).__init__(l=l, bias=bias)
-        self.d = d
+    def __init__(self, alpha=0, bias=True, alpha2=0):
+        super(IIRLRegression, self).__init__(alpha=alpha, bias=bias)
+        self.alpha2 = alpha2
 
     def train(self, X, Y):
         # regularized linear regression exchanging the roles of X and Y
@@ -59,7 +61,7 @@ class IIRLRegression(IRLRegression):
         # solve the original problem by computing the pseudo-inverse of the
         # previous solution
         H = J.T.dot(J)
-        np.fill_diagonal(H, self.d + np.diag(H))
+        np.fill_diagonal(H, self.alpha2 + np.diag(H))
         self.W = np.linalg.solve(H, J.T)
 
     def increment(self, X, Y):
@@ -69,5 +71,5 @@ class IIRLRegression(IRLRegression):
         # solve the original problem by computing the pseudo-inverse of the
         # previous solution
         H = J.T.dot(J)
-        np.fill_diagonal(H, self.d + np.diag(H))
+        np.fill_diagonal(H, self.alpha2 + np.diag(H))
         self.W = np.linalg.solve(H, J.T)
