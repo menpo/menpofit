@@ -1,4 +1,5 @@
 from __future__ import division
+import numpy as np
 from functools import partial
 import warnings
 from menpo.transform import Scale
@@ -286,74 +287,41 @@ class SupervisedDescentFitter(MultiFitter):
         return MultiFitterResult(image, self, algorithm_results,
                                  affine_correction, gt_shape=gt_shape)
 
-    # TODO: fix me!
     def __str__(self):
-        pass
-        # out = "Supervised Descent Method\n" \
-        #       " - Non-Parametric '{}' Regressor\n" \
-        #       " - {} training images.\n".format(
-        #     name_of_callable(self._fitters[0].regressor),
-        #     self._n_training_images)
-        # # small strings about number of channels, channels string and downscale
-        # down_str = []
-        # for j in range(self.n_levels):
-        #     if j == self.n_levels - 1:
-        #         down_str.append('(no downscale)')
-        #     else:
-        #         down_str.append('(downscale by {})'.format(
-        #             self.downscale**(self.n_levels - j - 1)))
-        # temp_img = Image(image_data=np.random.rand(40, 40))
-        # if self.pyramid_on_features:
-        #     temp = self.features(temp_img)
-        #     n_channels = [temp.n_channels] * self.n_levels
-        # else:
-        #     n_channels = []
-        #     for j in range(self.n_levels):
-        #         temp = self.features[j](temp_img)
-        #         n_channels.append(temp.n_channels)
-        # # string about features and channels
-        # if self.pyramid_on_features:
-        #     feat_str = "- Feature is {} with ".format(
-        #         name_of_callable(self.features))
-        #     if n_channels[0] == 1:
-        #         ch_str = ["channel"]
-        #     else:
-        #         ch_str = ["channels"]
-        # else:
-        #     feat_str = []
-        #     ch_str = []
-        #     for j in range(self.n_levels):
-        #         if isinstance(self.features[j], str):
-        #             feat_str.append("- Feature is {} with ".format(
-        #                 self.features[j]))
-        #         elif self.features[j] is None:
-        #             feat_str.append("- No features extracted. ")
-        #         else:
-        #             feat_str.append("- Feature is {} with ".format(
-        #                 self.features[j].__name__))
-        #         if n_channels[j] == 1:
-        #             ch_str.append("channel")
-        #         else:
-        #             ch_str.append("channels")
-        # if self.n_levels > 1:
-        #     out = "{} - Gaussian pyramid with {} levels and downscale " \
-        #           "factor of {}.\n".format(out, self.n_levels,
-        #                                    self.downscale)
-        #     if self.pyramid_on_features:
-        #         out = "{}   - Pyramid was applied on feature space.\n   " \
-        #               "{}{} {} per image.\n".format(out, feat_str,
-        #                                             n_channels[0], ch_str[0])
-        #     else:
-        #         out = "{}   - Features were extracted at each pyramid " \
-        #               "level.\n".format(out)
-        #         for i in range(self.n_levels - 1, -1, -1):
-        #             out = "{}   - Level {} {}: \n     {}{} {} per " \
-        #                   "image.\n".format(
-        #                 out, self.n_levels - i, down_str[i], feat_str[i],
-        #                 n_channels[i], ch_str[i])
-        # else:
-        #     if self.pyramid_on_features:
-        #         feat_str = [feat_str]
-        #     out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n".format(
-        #         out, feat_str[0], n_channels[0], ch_str[0])
-        # return out
+        if self.diagonal is not None:
+            diagonal = self.diagonal
+        else:
+            diagonal = np.sqrt(np.sum(np.asarray(self.reference_shape.bounds())
+                                      ** 2))
+        is_custom_perturb_func = (self._perturb_from_bounding_box !=
+                                  noisy_shape_from_bounding_box)
+        regressor_cls = self.algorithms[0]._regressor_cls
+
+        # Compute level info strings
+        level_info = []
+        lvl_str_tmplt = r"""  - Level {} (Scale {})
+   - {} iterations
+   - Patch shape: {}"""
+        for k, s in enumerate(self.scales):
+            level_info.append(lvl_str_tmplt.format(k, s,
+                                                   self.iterations[k],
+                                                   self._patch_shape[k]))
+        level_info = '\n'.join(level_info)
+
+        cls_str = r"""Supervised Descent Method
+ - Regression performed using the {reg_alg} algorithm
+   - Regression class: {reg_cls}
+ - Levels: {levels}
+{level_info}
+ - Perturbations generated per shape: {n_perturbations}
+ - Images scaled to diagonal: {diagonal:.2f}
+ - Custom perturbation scheme used: {is_custom_perturb_func}""".format(
+            reg_alg=name_of_callable(self._sd_algorithm_cls),
+                   reg_cls=name_of_callable(regressor_cls),
+                   n_levels=len(self.scales),
+                   levels=self.scales,
+                   level_info=level_info,
+                   n_perturbations=self.n_perturbations,
+                   diagonal=diagonal,
+                   is_custom_perturb_func=is_custom_perturb_func)
+        return cls_str
