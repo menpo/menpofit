@@ -518,7 +518,7 @@ class SemiParametricFittingResult(FittingResult):
     """
 
     def __init__(self, image, fitter, parameters=None, gt_shape=None):
-        FittingResult.__init__(self, image, gt_shape=gt_shape)
+        super(SemiParametricFittingResult, self).__init__(image, gt_shape=gt_shape)
         self.fitter = fitter
         self.parameters = parameters
 
@@ -595,8 +595,11 @@ class ParametricFittingResult(SemiParametricFittingResult):
     """
     def __init__(self, image, fitter, parameters=None, weights=None,
                  gt_shape=None):
-        SemiParametricFittingResult.__init__(self, image, fitter, parameters,
-                                             gt_shape=gt_shape)
+
+        super(ParametricFittingResult, self).__init__(
+            image=image, fitter=fitter, parameters=parameters, gt_shape=gt_shape
+        )
+
         self.weights = weights
 
     @property
@@ -668,7 +671,7 @@ class SerializableFittingResult(FittingResult):
         The ground truth shape associated to the image.
     """
     def __init__(self, image, parameters, shapes, gt_shape):
-        FittingResult.__init__(self, image, gt_shape=gt_shape)
+        super(SerializableFittingResult, self).__init__(image, gt_shape=gt_shape)
 
         self.parameters = parameters
         self._shapes = shapes
@@ -913,7 +916,7 @@ class SerializableMultilevelFittingResult(FittingResult):
     """
     def __init__(self, image, fitting_results, gt_shape, n_levels,
                  downscale, n_iters, affine_correction):
-        FittingResult.__init__(self, image, gt_shape=gt_shape)
+        super(SerializableMultilevelFittingResult, self).__init__(image, gt_shape=gt_shape)
         self.fitting_results = fitting_results
         self.n_levels = n_levels
         self._n_iters = n_iters

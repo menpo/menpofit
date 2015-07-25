@@ -118,6 +118,10 @@ class AAMBuilder(DeformableModelBuilder):
         of the reference frame (has potential effects on the gradient
         computation).
 
+    appearance_model_cls: :map:`PCAModel`, optional
+        The technique to use to construct an appearance model. Defaults to use
+        `PCAModel` class to do so.
+
     Returns
     -------
     aam : :map:`AAMBuilder`
@@ -146,7 +150,7 @@ class AAMBuilder(DeformableModelBuilder):
     def __init__(self, features=igo, transform=DifferentiablePiecewiseAffine,
                  trilist=None, normalization_diagonal=None, n_levels=3,
                  downscale=2, scaled_shape_models=True,
-                 max_shape_components=None, max_appearance_components=None,
+                 max_shape_components=None, max_appearance_components=None, appearance_model_cls=PCAModel,
                  boundary=3):
         # check parameters
         checks.check_n_levels(n_levels)
@@ -169,6 +173,7 @@ class AAMBuilder(DeformableModelBuilder):
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
         self.boundary = boundary
+        self.appearance_model_cls = appearance_model_cls
 
     def build(self, images, group=None, label=None, verbose=False):
         r"""
@@ -300,7 +305,7 @@ class AAMBuilder(DeformableModelBuilder):
             # build appearance model
             if verbose:
                 print_dynamic('{}Building appearance model'.format(level_str))
-            appearance_model = PCAModel(warped_images)
+            appearance_model = self.appearance_model_cls(warped_images)
             # trim appearance model if required
             if self.max_appearance_components[rj] is not None:
                 appearance_model.trim_components(
@@ -492,7 +497,7 @@ class PatchBasedAAMBuilder(AAMBuilder):
     def __init__(self, features=igo, patch_shape=(16, 16),
                  normalization_diagonal=None, n_levels=3, downscale=2,
                  scaled_shape_models=True, max_shape_components=None,
-                 max_appearance_components=None, boundary=3):
+                 max_appearance_components=None, boundary=3, appearance_model_cls=PCAModel):
         # check parameters
         checks.check_n_levels(n_levels)
         checks.check_downscale(downscale)
@@ -514,6 +519,7 @@ class PatchBasedAAMBuilder(AAMBuilder):
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
         self.boundary = boundary
+        self.appearance_model_cls = appearance_model_cls
 
         # patch-based AAMs can only work with TPS transform
         self.transform = DifferentiableThinPlateSplines
