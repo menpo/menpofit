@@ -8,7 +8,9 @@ from menpo.visualize import progress_bar_str, print_dynamic, print_progress
 def name_of_callable(c):
     try:
         if isinstance(c, partial):  # partial
-            return c.func.__name__
+            # Recursively call as partial may be wrapping either a callable
+            # or a function (or another partial for some reason!)
+            return name_of_callable(c)
         else:
             return c.__name__  # function
     except AttributeError:
