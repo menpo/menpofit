@@ -1,4 +1,5 @@
 from __future__ import division
+from itertools import chain
 import numpy as np
 from functools import partial
 import warnings
@@ -19,10 +20,12 @@ from .algorithm import Newton
 class SupervisedDescentFitter(MultiFitter):
     r"""
     """
-    def __init__(self, sd_algorithm_cls=Newton, holistic_feature=no_op,
+    def __init__(self, images, group=None, bounding_box_group=None,
+                 sd_algorithm_cls=Newton, holistic_feature=no_op,
                  patch_features=no_op, patch_shape=(17, 17), diagonal=None,
                  scales=(1, 0.5), iterations=6, n_perturbations=30,
-                 perturb_from_bounding_box=noisy_shape_from_bounding_box):
+                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
+                 batch_size=None, verbose=False):
         # check parameters
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
@@ -41,12 +44,13 @@ class SupervisedDescentFitter(MultiFitter):
         self.iterations = checks.check_max_iters(iterations, n_levels)
         self._perturb_from_bounding_box = perturb_from_bounding_box
         # set up algorithms
-        self._reset_algorithms()
+        self._setup_algorithms()
 
-    def _reset_algorithms(self):
-        if len(self.algorithms) > 0:
-            for j in range(len(self.algorithms) - 1, -1, -1):
-                del self.algorithms[j]
+        # Now, train the model!
+        self._train(images, group=group, bounding_box_group=bounding_box_group,
+                    verbose=verbose, increment=False, batch_size=batch_size)
+
+    def _setup_algorithms(self):
         for j in range(self.n_levels):
             self.algorithms.append(self._sd_algorithm_cls(
                 features=self._patch_features[j],
@@ -57,153 +61,157 @@ class SupervisedDescentFitter(MultiFitter):
         return self._perturb_from_bounding_box(self.reference_shape,
                                                bounding_box)
 
-    def train(self, images, group=None, label=None, bounding_box_group=None,
-              verbose=False, increment=False, **kwargs):
+    def _train(self, images, group=None, bounding_box_group=None,
+               verbose=False, increment=False, batch_size=None):
+
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
+        if batch_size is not None:
+            # Create a generator of fixed sized batches. Will still work even
+            # on an infinite list.
+            image_batches = batch(images, batch_size)
+            first_batch = next(image_batches)
+        else:
+            image_batches = []
+            first_batch = list(images)
+
         # In the case where group is None, we need to get the only key so that
-        # we can add landmarks below and not get a complaint about using None
-        first_image = images[0]
+        # we can attach landmarks below and not get a complaint about using None
+        first_image = first_batch[0]
         if group is None:
             group = first_image.landmarks.group_labels[0]
 
-        if not increment:
-            # Reset the algorithm classes
-            self._reset_algorithms()
-            # Normalize images and compute reference shape
-            self.reference_shape, images = normalization_wrt_reference_shape(
-                images, group, label, self.diagonal, verbose=verbose)
-        else:
-            if len(self.algorithms) == 0:
-                raise ValueError('Must train before training incrementally.')
-            # We are incrementing, so rescale to existing reference shape
-            images = rescale_images_to_reference_shape(images, group, label,
-                                                       self.reference_shape,
-                                                       verbose=verbose)
+        for k, image_batch in enumerate(chain([first_batch], image_batches)):
+            # After the first batch, we are incrementing the model
+            if k > 0:
+                increment = True
 
-        # No bounding box is given, so we will use the ground truth box
-        if bounding_box_group is None:
-            bounding_box_group = '__gt_bb_'
-            for i in images:
-                gt_s = i.landmarks[group][label]
-                perturb_bbox_group = bounding_box_group + '0'
-                i.landmarks[perturb_bbox_group] = gt_s.bounding_box()
+            if verbose:
+                print('Computing batch {}'.format(k))
 
-        # Find all bounding boxes on the images with the given bounding box key
-        all_bb_keys = list(first_image.landmarks.keys_matching(
-            '*{}*'.format(bounding_box_group)))
-        n_perturbations = len(all_bb_keys)
+            if not increment:
+                # Normalize images and compute reference shape
+                self.reference_shape, image_batch = normalization_wrt_reference_shape(
+                    image_batch, group, self.diagonal, verbose=verbose)
+            else:
+                # We are incrementing, so rescale to existing reference shape
+                image_batch = rescale_images_to_reference_shape(
+                    image_batch, group, self.reference_shape,
+                    verbose=verbose)
 
-        # If there is only one example bounding box, then we will generate
-        # more perturbations based on the bounding box.
-        if n_perturbations == 1:
-            msg = '- Generating {} new initial bounding boxes ' \
-                  'per image'.format(self.n_perturbations)
+            # No bounding box is given, so we will use the ground truth box
+            if bounding_box_group is None:
+                bounding_box_group = '__gt_bb_'
+                for i in image_batch:
+                    gt_s = i.landmarks[group].lms
+                    perturb_bbox_group = bounding_box_group + '0'
+                    i.landmarks[perturb_bbox_group] = gt_s.bounding_box()
+
+            # Find all bounding boxes on the images with the given bounding
+            # box key
+            all_bb_keys = list(first_image.landmarks.keys_matching(
+                '*{}*'.format(bounding_box_group)))
+            n_perturbations = len(all_bb_keys)
+
+            # If there is only one example bounding box, then we will generate
+            # more perturbations based on the bounding box.
+            if n_perturbations == 1:
+                msg = '- Generating {} new initial bounding boxes ' \
+                      'per image'.format(self.n_perturbations)
+                wrap = partial(print_progress, prefix=msg, verbose=verbose)
+
+                for i in wrap(image_batch):
+                    # We assume that the first bounding box is a valid
+                    # perturbation thus create n_perturbations - 1 new bounding
+                    # boxes
+                    for j in range(1, self.n_perturbations):
+                        gt_s = i.landmarks[group].lms.bounding_box()
+                        bb = i.landmarks[all_bb_keys[0]].lms
+
+                        # This is customizable by passing in the correct method
+                        p_s = self._perturb_from_bounding_box(gt_s, bb)
+                        perturb_bbox_group = '{}_{}'.format(bounding_box_group,
+                                                            j)
+                        i.landmarks[perturb_bbox_group] = p_s
+            elif n_perturbations != self.n_perturbations:
+                warnings.warn('The original value of n_perturbation {} '
+                              'will be reset to {} in order to agree with '
+                              'the provided bounding_box_group.'.
+                              format(self.n_perturbations, n_perturbations))
+                self.n_perturbations = n_perturbations
+
+            # Re-grab all the bounding box keys for iterating over when
+            # calculating perturbations
+            all_bb_keys = list(first_image.landmarks.keys_matching(
+                '*{}*'.format(bounding_box_group)))
+
+            # Before scaling, we compute the holistic feature on the whole image
+            msg = '- Computing holistic features ({})'.format(
+                name_of_callable(self._holistic_feature))
             wrap = partial(print_progress, prefix=msg, verbose=verbose)
+            image_batch = [self._holistic_feature(im)
+                           for im in wrap(image_batch)]
 
-            for i in wrap(images):
-                # We assume that the first bounding box is a valid perturbation
-                # thus create n_perturbations - 1 new bounding boxes
-                for j in range(1, self.n_perturbations):
-                    gt_s = i.landmarks[group][label].bounding_box()
-                    bb = i.landmarks[all_bb_keys[0]].lms
-
-                    # This is customizable by passing in the correct method
-                    p_s = self._perturb_from_bounding_box(gt_s, bb)
-                    perturb_bbox_group = bounding_box_group + '_{}'.format(j)
-                    i.landmarks[perturb_bbox_group] = p_s
-        elif n_perturbations != self.n_perturbations:
-            warnings.warn('The original value of n_perturbation {} '
-                          'will be reset to {} in order to agree with '
-                          'the provided bounding_box_group.'.
-                          format(self.n_perturbations, n_perturbations))
-            self.n_perturbations = n_perturbations
-
-        # Re-grab all the bounding box keys for iterating over when calculating
-        # perturbations
-        all_bb_keys = list(first_image.landmarks.keys_matching(
-            '*{}*'.format(bounding_box_group)))
-
-        # Before scaling, we compute the holistic feature on the whole image
-        msg = '- Computing holistic features ({})'.format(
-            name_of_callable(self._holistic_feature))
-        wrap = partial(print_progress, prefix=msg, verbose=verbose)
-        images = [self._holistic_feature(im) for im in wrap(images)]
-
-        # for each pyramid level (low --> high)
-        for j in range(self.n_levels):
-            if verbose:
-                if len(self.scales) > 1:
-                    level_str = '  - Level {}: '.format(j)
+            # for each pyramid level (low --> high)
+            current_shapes = []
+            for j in range(self.n_levels):
+                if verbose:
+                    if len(self.scales) > 1:
+                        level_str = '  - Level {}: '.format(j)
+                    else:
+                        level_str = '  - '
                 else:
-                    level_str = '  - '
-            else:
-                level_str = None
+                    level_str = None
 
-            # Scale images
-            level_images = scale_images(images, self.scales[j],
-                                        level_str=level_str, verbose=verbose)
+                # Scale images
+                level_images = scale_images(image_batch, self.scales[j],
+                                            level_str=level_str,
+                                            verbose=verbose)
 
-            # Extract scaled ground truth shapes for current level
-            level_gt_shapes = [i.landmarks[group][label] for i in level_images]
+                # Extract scaled ground truth shapes for current level
+                level_gt_shapes = [i.landmarks[group].lms
+                                   for i in level_images]
 
-            if j == 0:
-                msg = '{}Generating {} perturbations per image'.format(
-                    level_str, self.n_perturbations)
-                wrap = partial(print_progress, prefix=msg,
-                               end_with_newline=False, verbose=verbose)
+                if j == 0:
+                    msg = '{}Generating {} perturbations per image'.format(
+                        level_str, self.n_perturbations)
+                    wrap = partial(print_progress, prefix=msg,
+                                   end_with_newline=False, verbose=verbose)
 
-                # Extract perturbations at the very bottom level
-                current_shapes = []
-                for i in wrap(level_images):
-                    c_shapes = []
-                    for perturb_bbox_group in all_bb_keys:
-                        bbox = i.landmarks[perturb_bbox_group].lms
-                        c_s = align_shape_with_bounding_box(
-                            self.reference_shape, bbox)
-                        c_shapes.append(c_s)
-                    current_shapes.append(c_shapes)
+                    # Extract perturbations at the very bottom level
+                    for i in wrap(level_images):
+                        c_shapes = []
+                        for perturb_bbox_group in all_bb_keys:
+                            bbox = i.landmarks[perturb_bbox_group].lms
+                            c_s = align_shape_with_bounding_box(
+                                self.reference_shape, bbox)
+                            c_shapes.append(c_s)
+                        current_shapes.append(c_shapes)
 
-            # train supervised descent algorithm
-            if increment:
-                current_shapes = self.algorithms[j].increment(
-                    level_images, level_gt_shapes, current_shapes,
-                    verbose=verbose, **kwargs)
-            else:
-                current_shapes = self.algorithms[j].train(
-                    level_images, level_gt_shapes, current_shapes,
-                    level_str=level_str, verbose=verbose, **kwargs)
+                # train supervised descent algorithm
+                if increment:
+                    current_shapes = self.algorithms[j].increment(
+                        level_images, level_gt_shapes, current_shapes,
+                        verbose=verbose)
+                else:
+                    current_shapes = self.algorithms[j].train(
+                        level_images, level_gt_shapes, current_shapes,
+                        level_str=level_str, verbose=verbose)
 
-            # Scale current shapes to next level resolution
-            if self.scales[j] != (1 or self.scales[-1]):
-                transform = Scale(self.scales[j + 1] / self.scales[j], n_dims=2)
-                for image_shapes in current_shapes:
-                    for shape in image_shapes:
-                        transform.apply_inplace(shape)
+                # Scale current shapes to next level resolution
+                if self.scales[j] != (1 or self.scales[-1]):
+                    transform = Scale(self.scales[j + 1] / self.scales[j],
+                                      n_dims=2)
+                    for image_shapes in current_shapes:
+                        for shape in image_shapes:
+                            transform.apply_inplace(shape)
 
-    def increment(self, images, group=None, label=None,
-                  bounding_box_group=None, verbose=False,
-                  **kwargs):
-        return self.train(images, group=group, label=label,
-                          bounding_box_group=bounding_box_group,
-                          verbose=verbose,
-                          increment=True, **kwargs)
-
-    def train_incrementally(self, images, group=None, label=None,
-                            batch_size=100, verbose=False, **kwargs):
-        # Create a generator of fixed sized batches. Will still work even
-        # on an infinite list.
-        image_batches = batch(images, batch_size)
-
-        # Train all batches
-        for k, image_batch in enumerate(image_batches):
-            n_images = len(image_batch)
-            if verbose:
-                print('Training batch {} of {} images.'.format(k, n_images))
-            if k == 0:
-                self.train(image_batch, group=group, label=label,
-                           verbose=verbose, **kwargs)
-            else:
-                self.increment(image_batch, group=group, label=label,
-                               verbose=verbose, **kwargs)
+    def increment(self, images, group=None, bounding_box_group=None,
+                  verbose=False):
+        return self._train(images, group=group,
+                           bounding_box_group=bounding_box_group,
+                           verbose=verbose,
+                           increment=True)
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
                        crop_image=0.5):
