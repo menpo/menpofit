@@ -207,11 +207,11 @@ class SupervisedDescentFitter(MultiFitter):
                             transform.apply_inplace(shape)
 
     def increment(self, images, group=None, bounding_box_group=None,
-                  verbose=False):
+                  verbose=False, batch_size=None):
         return self._train(images, group=group,
                            bounding_box_group=bounding_box_group,
                            verbose=verbose,
-                           increment=True)
+                           increment=True, batch_size=batch_size)
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
                        crop_image=0.5):
