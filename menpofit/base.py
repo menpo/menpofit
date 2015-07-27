@@ -22,7 +22,7 @@ def batch(iterable, n):
     while True:
         chunk = tuple(itertools.islice(it, n))
         if not chunk:
-                return
+            return
         yield chunk
 
 
