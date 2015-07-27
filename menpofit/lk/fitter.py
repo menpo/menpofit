@@ -12,7 +12,7 @@ from .result import LucasKanadeFitterResult
 class LucasKanadeFitter(MultiFitter):
     r"""
     """
-    def __init__(self, template, group=None, label=None, features=no_op,
+    def __init__(self, template, group=None, features=no_op,
                  transform_cls=DifferentiableAlignmentAffine, diagonal=None,
                  scales=(1, .5), scale_features=True,
                  algorithm_cls=InverseCompositional, residual_cls=SSD,
@@ -31,7 +31,7 @@ class LucasKanadeFitter(MultiFitter):
         self.scale_features = scale_features
 
         self.templates, self.sources = self._prepare_template(
-            template, group=group, label=label)
+            template, group=group)
 
         self.reference_shape = self.sources[0]
 
@@ -49,14 +49,14 @@ class LucasKanadeFitter(MultiFitter):
             algorithm = algorithm_cls(t, transform, residual, **kwargs)
             self.algorithms.append(algorithm)
 
-    def _prepare_template(self, template, group=None, label=None):
-        template = template.crop_to_landmarks(group=group, label=label)
+    def _prepare_template(self, template, group=None):
+        template = template.crop_to_landmarks(group=group)
         template = template.as_masked()
 
         # rescale template to diagonal range
         if self.diagonal:
             template = template.rescale_landmarks_to_diagonal_range(
-                self.diagonal, group=group, label=label)
+                self.diagonal, group=group)
 
         # obtain image representation
         templates = []
@@ -75,7 +75,7 @@ class LucasKanadeFitter(MultiFitter):
         templates.reverse()
 
         # get sources per level
-        sources = [i.landmarks[group][label] for i in templates]
+        sources = [i.landmarks[group].lms for i in templates]
 
         return templates, sources
 

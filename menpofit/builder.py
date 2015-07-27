@@ -6,7 +6,8 @@ from menpo.image import Image, MaskedImage
 from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
 from menpo.model.pca import PCAModel
-from menpo.visualize import print_dynamic, print_progress
+from menpo.visualize import print_dynamic
+from menpofit.visualize import print_progress
 
 
 def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
@@ -48,24 +49,21 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
 
 
 # TODO: document me!
-def rescale_images_to_reference_shape(images, group, label, reference_shape,
+def rescale_images_to_reference_shape(images, group, reference_shape,
                                       verbose=False):
     r"""
     """
-    if verbose:
-        wrap = partial(print_progress, prefix='- Normalizing images size')
-    else:
-        wrap = lambda x: x
+    wrap = partial(print_progress, prefix='- Normalizing images size',
+                   verbose=verbose)
 
     # Normalize the scaling of all images wrt the reference_shape size
     normalized_images = [i.rescale_to_reference_shape(reference_shape,
-                                                      group=group, label=label)
+                                                      group=group)
                          for i in wrap(images)]
     return normalized_images
 
 
-def normalization_wrt_reference_shape(images, group, label, diagonal,
-                                      verbose=False):
+def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
     r"""
     Function that normalizes the images sizes with respect to the reference
     shape (mean shape) scaling. This step is essential before building a
@@ -82,15 +80,9 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
     ----------
     images : list of :class:`menpo.image.MaskedImage`
         The set of landmarked images to normalize.
-
     group : `str`
         The key of the landmark set that should be used. If None,
         and if there is only one set of landmarks, this set will be used.
-
-    label : `str`
-        The label of of the landmark manager that you wish to use. If no
-        label is passed, the convex hull of all landmarks is used.
-
     diagonal: `int`
         If int, it ensures that the mean shape is scaled so that the
         diagonal of the bounding box containing it matches the
@@ -101,7 +93,6 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
         landmarks, this kwarg also specifies the diagonal length of the
         reference frame (provided that features computation does not change
         the image size).
-
     verbose : `bool`, Optional
         Flag that controls information and progress printing.
 
@@ -114,37 +105,31 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
         A list with the normalized images.
     """
     # get shapes
-    shapes = [i.landmarks[group][label] for i in images]
+    shapes = [i.landmarks[group].lms for i in images]
 
     # compute the reference shape and fix its diagonal length
     reference_shape = compute_reference_shape(shapes, diagonal, verbose=verbose)
 
     # normalize the scaling of all images wrt the reference_shape size
     normalized_images = rescale_images_to_reference_shape(
-        images, group, label, reference_shape, verbose=verbose)
+        images, group, reference_shape, verbose=verbose)
     return reference_shape, normalized_images
 
 
 # TODO: document me!
 def compute_features(images, features, level_str='', verbose=False):
-    if verbose:
-        wrap = partial(print_progress,
-                       prefix='{}Computing feature space'.format(level_str),
-                       end_with_newline=not level_str)
-    else:
-        wrap = lambda x: x
+    wrap = partial(print_progress,
+                   prefix='{}Computing feature space'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
 
     return [features(i) for i in wrap(images)]
 
 
 # TODO: document me!
 def scale_images(images, scale, level_str='', verbose=False):
-    if verbose:
-        wrap = partial(print_progress,
-                       prefix='{}Scaling images'.format(level_str),
-                       end_with_newline=not level_str)
-    else:
-        wrap = lambda x: x
+    wrap = partial(print_progress,
+                   prefix='{}Scaling images'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
 
     if not np.allclose(scale, 1):
         return [i.rescale(scale) for i in wrap(images)]
@@ -155,12 +140,9 @@ def scale_images(images, scale, level_str='', verbose=False):
 # TODO: document me!
 def warp_images(images, shapes, reference_frame, transform, level_str='',
                 verbose=None):
-    if verbose:
-        wrap = partial(print_progress,
-                       prefix='{}Warping images'.format(level_str),
-                       end_with_newline=not level_str)
-    else:
-        wrap = lambda x: x
+    wrap = partial(print_progress,
+                   prefix='{}Warping images'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
 
     warped_images = []
     # Build a dummy transform, use set_target for efficiency
@@ -180,12 +162,9 @@ def warp_images(images, shapes, reference_frame, transform, level_str='',
 # TODO: document me!
 def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
                     level_str='', verbose=False):
-    if verbose:
-        wrap = partial(print_progress,
-                       prefix='{}Warping images'.format(level_str),
-                       end_with_newline=not level_str)
-    else:
-        wrap = lambda x: x
+    wrap = partial(print_progress,
+                   prefix='{}Warping images'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
 
     parts_images = []
     for i, s in wrap(zip(images, shapes)):

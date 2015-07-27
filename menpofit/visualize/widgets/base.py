@@ -213,7 +213,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
                 axes_font_weight=tmp3['axes_font_weight'],
                 axes_x_limits=tmp3['axes_x_limits'],
                 axes_y_limits=tmp3['axes_y_limits'],
-                figure_size=new_figure_size, label=None)
+                figure_size=new_figure_size)
 
             # Invert y axis if needed
             if mean_wid.value and axes_mode_wid.value == 1:
@@ -247,7 +247,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
                 axes_font_weight=tmp3['axes_font_weight'],
                 axes_x_limits=tmp3['axes_x_limits'],
                 axes_y_limits=tmp3['axes_y_limits'],
-                figure_size=new_figure_size, label=None)
+                figure_size=new_figure_size)
 
             # Render vectors
             ax = plt.gca()
