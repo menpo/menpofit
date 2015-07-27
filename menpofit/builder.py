@@ -49,7 +49,7 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
 
 
 # TODO: document me!
-def rescale_images_to_reference_shape(images, group, label, reference_shape,
+def rescale_images_to_reference_shape(images, group, reference_shape,
                                       verbose=False):
     r"""
     """
@@ -58,13 +58,12 @@ def rescale_images_to_reference_shape(images, group, label, reference_shape,
 
     # Normalize the scaling of all images wrt the reference_shape size
     normalized_images = [i.rescale_to_reference_shape(reference_shape,
-                                                      group=group, label=label)
+                                                      group=group)
                          for i in wrap(images)]
     return normalized_images
 
 
-def normalization_wrt_reference_shape(images, group, label, diagonal,
-                                      verbose=False):
+def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
     r"""
     Function that normalizes the images sizes with respect to the reference
     shape (mean shape) scaling. This step is essential before building a
@@ -81,15 +80,9 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
     ----------
     images : list of :class:`menpo.image.MaskedImage`
         The set of landmarked images to normalize.
-
     group : `str`
         The key of the landmark set that should be used. If None,
         and if there is only one set of landmarks, this set will be used.
-
-    label : `str`
-        The label of of the landmark manager that you wish to use. If no
-        label is passed, the convex hull of all landmarks is used.
-
     diagonal: `int`
         If int, it ensures that the mean shape is scaled so that the
         diagonal of the bounding box containing it matches the
@@ -100,7 +93,6 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
         landmarks, this kwarg also specifies the diagonal length of the
         reference frame (provided that features computation does not change
         the image size).
-
     verbose : `bool`, Optional
         Flag that controls information and progress printing.
 
@@ -113,14 +105,14 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
         A list with the normalized images.
     """
     # get shapes
-    shapes = [i.landmarks[group][label] for i in images]
+    shapes = [i.landmarks[group].lms for i in images]
 
     # compute the reference shape and fix its diagonal length
     reference_shape = compute_reference_shape(shapes, diagonal, verbose=verbose)
 
     # normalize the scaling of all images wrt the reference_shape size
     normalized_images = rescale_images_to_reference_shape(
-        images, group, label, reference_shape, verbose=verbose)
+        images, group, reference_shape, verbose=verbose)
     return reference_shape, normalized_images
 
 
