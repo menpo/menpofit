@@ -145,7 +145,7 @@ class AAMBuilder(object):
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
 
-    def build(self, images, group=None, label=None, verbose=False):
+    def build(self, images, group=None, verbose=False):
         r"""
         Builds an Active Appearance Model from a list of landmarked images.
 
@@ -153,15 +153,9 @@ class AAMBuilder(object):
         ----------
         images : list of :map:`MaskedImage`
             The set of landmarked images from which to build the AAM.
-
         group : `string`, optional
             The key of the landmark set that should be used. If ``None``,
             and if there is only one set of landmarks, this set will be used.
-
-        label : `string`, optional
-            The label of of the landmark manager that you wish to use. If no
-            label is passed, the convex hull of all landmarks is used.
-
         verbose : `boolean`, optional
             Flag that controls information and progress printing.
 
@@ -173,7 +167,7 @@ class AAMBuilder(object):
         """
         # normalize images and compute reference shape
         reference_shape, images = normalization_wrt_reference_shape(
-            images, group, label, self.diagonal, verbose=verbose)
+            images, group, self.diagonal, verbose=verbose)
 
         # build models at each scale
         if verbose:
@@ -210,7 +204,7 @@ class AAMBuilder(object):
                                                 verbose=verbose)
 
             # extract potentially rescaled shapes
-            level_shapes = [i.landmarks[group][label]
+            level_shapes = [i.landmarks[group].lms
                             for i in level_images]
 
             # obtain shape representation
@@ -255,11 +249,11 @@ class AAMBuilder(object):
 
         return aam
 
-    def increment(self, aam, images, group=None, label=None,
+    def increment(self, aam, images, group=None,
                   forgetting_factor=1.0, verbose=False):
         # normalize images with respect to reference shape of aam
         images = rescale_images_to_reference_shape(
-            images, group, label, aam.reference_shape, verbose=verbose)
+            images, group, aam.reference_shape, verbose=verbose)
 
         # increment models at each scale
         if verbose:
@@ -295,7 +289,7 @@ class AAMBuilder(object):
                                                 verbose=verbose)
 
             # extract potentially rescaled shapes
-            level_shapes = [i.landmarks[group][label]
+            level_shapes = [i.landmarks[group].lms
                             for i in level_images]
 
             # obtain shape representation
@@ -337,7 +331,7 @@ class AAMBuilder(object):
             if verbose:
                 print_dynamic('{}Done\n'.format(level_str))
 
-    def build_incrementally(self, images, group=None, label=None,
+    def build_incrementally(self, images, group=None,
                             forgetting_factor=1.0, batch_size=100,
                             verbose=False):
         # number of batches
@@ -345,15 +339,14 @@ class AAMBuilder(object):
 
         # train first batch
         print 'Training batch 1.'
-        aam = self.build(images[:batch_size], group=group, label=label,
-                         verbose=verbose)
+        aam = self.build(images[:batch_size], group=group, verbose=verbose)
 
         # train all other batches
         start = batch_size
         for j in range(1, n_batches):
             print 'Training batch {}.'.format(j+1)
             end = start + batch_size
-            self.increment(aam, images[start:end], group=group, label=label,
+            self.increment(aam, images[start:end], group=group,
                            forgetting_factor=forgetting_factor,
                            verbose=verbose)
             start = end

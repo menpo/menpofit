@@ -166,10 +166,10 @@ class SupervisedDescentAAMFitter(AAMFitter):
             self.algorithms.append(algorithm)
 
     # TODO: Allow training from bounding boxes
-    def train(self, images, group=None, label=None, verbose=False, **kwargs):
+    def train(self, images, group=None, verbose=False, **kwargs):
         # normalize images with respect to reference shape of aam
         images = rescale_images_to_reference_shape(
-            images, group, label, self.reference_shape, verbose=verbose)
+            images, group, self.reference_shape, verbose=verbose)
 
         if self.scale_features:
             # compute features at highest level
@@ -202,7 +202,7 @@ class SupervisedDescentAAMFitter(AAMFitter):
                                                 verbose=verbose)
 
             # extract ground truth shapes for current level
-            level_gt_shapes = [i.landmarks[group][label] for i in level_images]
+            level_gt_shapes = [i.landmarks[group].lms for i in level_images]
 
             if j == 0:
                 # generate perturbed shapes
