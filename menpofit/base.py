@@ -10,7 +10,7 @@ def name_of_callable(c):
         if isinstance(c, partial):  # partial
             # Recursively call as partial may be wrapping either a callable
             # or a function (or another partial for some reason!)
-            return name_of_callable(c)
+            return name_of_callable(c.func)
         else:
             return c.__name__  # function
     except AttributeError:
