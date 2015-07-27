@@ -77,9 +77,8 @@ class SupervisedDescentFitter(MultiFitter):
 
         # In the case where group is None, we need to get the only key so that
         # we can attach landmarks below and not get a complaint about using None
-        first_image = first_batch[0]
         if group is None:
-            group = first_image.landmarks.group_labels[0]
+            group = first_batch[0].landmarks.group_labels[0]
 
         for k, image_batch in enumerate(chain([first_batch], image_batches)):
             # After the first batch, we are incrementing the model
@@ -109,7 +108,7 @@ class SupervisedDescentFitter(MultiFitter):
 
             # Find all bounding boxes on the images with the given bounding
             # box key
-            all_bb_keys = list(first_image.landmarks.keys_matching(
+            all_bb_keys = list(image_batch[0].landmarks.keys_matching(
                 '*{}*'.format(bounding_box_group)))
             n_perturbations = len(all_bb_keys)
 
@@ -142,7 +141,7 @@ class SupervisedDescentFitter(MultiFitter):
 
             # Re-grab all the bounding box keys for iterating over when
             # calculating perturbations
-            all_bb_keys = list(first_image.landmarks.keys_matching(
+            all_bb_keys = list(image_batch[0].landmarks.keys_matching(
                 '*{}*'.format(bounding_box_group)))
 
             # Before scaling, we compute the holistic feature on the whole image
@@ -333,3 +332,6 @@ class SupervisedDescentFitter(MultiFitter):
             diagonal=diagonal,
             is_custom_perturb_func=is_custom_perturb_func)
         return cls_str
+
+
+SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=Newton)
