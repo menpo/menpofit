@@ -23,7 +23,7 @@ class SupervisedDescentFitter(MultiFitter):
     def __init__(self, images, group=None, bounding_box_group=None,
                  sd_algorithm_cls=Newton, holistic_feature=no_op,
                  patch_features=no_op, patch_shape=(17, 17), diagonal=None,
-                 scales=(1, 0.5), iterations=6, n_perturbations=30,
+                 scales=(0.5, 1.0), iterations=6, n_perturbations=30,
                  perturb_from_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         # check parameters
@@ -39,7 +39,7 @@ class SupervisedDescentFitter(MultiFitter):
         self._patch_features = patch_features
         self._patch_shape = patch_shape
         self.diagonal = diagonal
-        self.scales = list(scales)[::-1]
+        self.scales = scales
         self.n_perturbations = n_perturbations
         self.iterations = checks.check_max_iters(iterations, n_levels)
         self._perturb_from_bounding_box = perturb_from_bounding_box
@@ -70,24 +70,23 @@ class SupervisedDescentFitter(MultiFitter):
             # Create a generator of fixed sized batches. Will still work even
             # on an infinite list.
             image_batches = batch(images, batch_size)
-            first_batch = next(image_batches)
         else:
-            image_batches = []
-            first_batch = list(images)
+            image_batches = [list(images)]
 
-        # In the case where group is None, we need to get the only key so that
-        # we can attach landmarks below and not get a complaint about using None
-        first_image = first_batch[0]
-        if group is None:
-            group = first_image.landmarks.group_labels[0]
-
-        for k, image_batch in enumerate(chain([first_batch], image_batches)):
+        for k, image_batch in enumerate(image_batches):
             # After the first batch, we are incrementing the model
             if k > 0:
                 increment = True
 
             if verbose:
                 print('Computing batch {}'.format(k))
+
+            # In the case where group is None, we need to get the only key so
+            # that we can attach landmarks below and not get a complaint about
+            # using None
+            first_image = image_batch[0]
+            if group is None:
+                group = first_image.landmarks.group_labels[0]
 
             if not increment:
                 # Normalize images and compute reference shape
@@ -333,3 +332,6 @@ class SupervisedDescentFitter(MultiFitter):
             diagonal=diagonal,
             is_custom_perturb_func=is_custom_perturb_func)
         return cls_str
+
+
+SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=Newton)

@@ -201,7 +201,7 @@ def features_per_shape(image, shapes, patch_shape, features_callable):
                                          features_callable)
                       for s in shapes]
 
-    return np.asarray(patch_features).ravel()
+    return np.asarray(patch_features)
 
 
 # TODO: docment me!
@@ -216,7 +216,8 @@ def features_per_image(images, shapes, patch_shape, features_callable,
     patch_features = [features_per_shape(i, shapes[j], patch_shape,
                                          features_callable)
                       for j, i in enumerate(wrap(images))]
-    return np.asarray(patch_features)
+    patch_features = np.asarray(patch_features)
+    return patch_features.reshape((-1, patch_features.shape[-1]))
 
 
 def compute_delta_x(gt_shape, current_shapes):
