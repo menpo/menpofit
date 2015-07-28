@@ -1,6 +1,4 @@
-from .builder import (
-    AAMBuilder, PatchAAMBuilder, LinearAAMBuilder,
-    LinearPatchAAMBuilder, PartsAAMBuilder)
+from .base import AAM
 from .fitter import (
     LucasKanadeAAMFitter, SupervisedDescentAAMFitter,
     holistic_sampling_from_scale, holistic_sampling_from_step)

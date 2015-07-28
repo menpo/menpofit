@@ -35,15 +35,12 @@ class AAMBuilder(object):
         Note that from our experience, this approach of extracting features
         once and then creating a pyramid on top tends to lead to better
         performing AAMs.
-
     transform : :map:`PureAlignmentTransform`, optional
         The :map:`PureAlignmentTransform` that will be
         used to warp the images.
-
     trilist : ``(t, 3)`` `ndarray`, optional
         Triangle list that will be used to build the reference frame. If
         ``None``, defaults to performing Delaunay triangulation on the points.
-
     diagonal : `int` >= ``20``, optional
         During building an AAM, all images are rescaled to ensure that the
         scale of their landmarks matches the scale of the mean shape.
@@ -57,13 +54,9 @@ class AAMBuilder(object):
         landmarks, this kwarg also specifies the diagonal length of the
         reference frame (provided that features computation does not change
         the image size).
-
     scales : `int` or float` or list of those, optional
-
     scale_shapes : `boolean`, optional
-
     scale_features : `boolean`, optional
-
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
         If list of length ``n_levels``, then a number of shape components is
         defined per level. The first element of the list specifies the number
@@ -80,7 +73,6 @@ class AAMBuilder(object):
 
             If ``None``, all the available components are kept
             (100% of variance).
-
     max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
         If list of length ``n_levels``, then a number of appearance components
         is defined per level. The first element of the list specifies the number
@@ -125,248 +117,7 @@ class AAMBuilder(object):
                  trilist=None, diagonal=None, scales=(1, 0.5),
                  scale_shapes=False, scale_features=True,
                  max_shape_components=None, max_appearance_components=None):
-        # check parameters
-        checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        features = checks.check_features(features, n_levels)
-        scale_features = checks.check_scale_features(scale_features, features)
-        max_shape_components = checks.check_max_components(
-            max_shape_components, n_levels, 'max_shape_components')
-        max_appearance_components = checks.check_max_components(
-            max_appearance_components, n_levels, 'max_appearance_components')
-        # set parameters
-        self.features = features
-        self.transform = transform
-        self.trilist = trilist
-        self.diagonal = diagonal
-        self.scales = list(scales)
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-        self.max_shape_components = max_shape_components
-        self.max_appearance_components = max_appearance_components
-
-    def build(self, images, group=None, verbose=False):
-        r"""
-        Builds an Active Appearance Model from a list of landmarked images.
-
-        Parameters
-        ----------
-        images : list of :map:`MaskedImage`
-            The set of landmarked images from which to build the AAM.
-        group : `string`, optional
-            The key of the landmark set that should be used. If ``None``,
-            and if there is only one set of landmarks, this set will be used.
-        verbose : `boolean`, optional
-            Flag that controls information and progress printing.
-
-        Returns
-        -------
-        aam : :map:`AAM`
-            The AAM object. Shape and appearance models are stored from
-            lowest to highest level
-        """
-        # normalize images and compute reference shape
-        reference_shape, images = normalization_wrt_reference_shape(
-            images, group, self.diagonal, verbose=verbose)
-
-        # build models at each scale
-        if verbose:
-            print_dynamic('- Building models\n')
-        shape_models = []
-        appearance_models = []
-        # for each pyramid level (high --> low)
-        for j, s in enumerate(self.scales):
-            if verbose:
-                if len(self.scales) > 1:
-                    level_str = '  - Level {}: '.format(j)
-                else:
-                    level_str = '  - '
-
-            # obtain image representation
-            if j == 0:
-                # compute features at highest level
-                feature_images = compute_features(images, self.features[j],
-                                                  level_str=level_str,
-                                                  verbose=verbose)
-                level_images = feature_images
-            elif self.scale_features:
-                # scale features at other levels
-                level_images = scale_images(feature_images, s,
-                                            level_str=level_str,
-                                            verbose=verbose)
-            else:
-                # scale images and compute features at other levels
-                scaled_images = scale_images(images, s, level_str=level_str,
-                                             verbose=verbose)
-                level_images = compute_features(scaled_images,
-                                                self.features[j],
-                                                level_str=level_str,
-                                                verbose=verbose)
-
-            # extract potentially rescaled shapes
-            level_shapes = [i.landmarks[group].lms
-                            for i in level_images]
-
-            # obtain shape representation
-            if j == 0 or self.scale_shapes:
-                # obtain shape model
-                if verbose:
-                    print_dynamic('{}Building shape model'.format(level_str))
-                shape_model = self._build_shape_model(
-                    level_shapes, self.max_shape_components[j], j)
-                # add shape model to the list
-                shape_models.append(shape_model)
-            else:
-                # copy precious shape model and add it to the list
-                shape_models.append(deepcopy(shape_model))
-
-            # obtain warped images
-            warped_images = self._warp_images(level_images, level_shapes,
-                                              shape_model.mean(), j,
-                                              level_str, verbose)
-
-            # obtain appearance model
-            if verbose:
-                print_dynamic('{}Building appearance model'.format(level_str))
-            appearance_model = PCAModel(warped_images)
-            # trim appearance model if required
-            if self.max_appearance_components is not None:
-                appearance_model.trim_components(
-                    self.max_appearance_components[j])
-            # add appearance model to the list
-            appearance_models.append(appearance_model)
-
-            if verbose:
-                print_dynamic('{}Done\n'.format(level_str))
-
-        # reverse the list of shape and appearance models so that they are
-        # ordered from lower to higher resolution
-        shape_models.reverse()
-        appearance_models.reverse()
-        self.scales.reverse()
-
-        aam = self._build_aam(shape_models, appearance_models, reference_shape)
-
-        return aam
-
-    def increment(self, aam, images, group=None,
-                  forgetting_factor=1.0, verbose=False):
-        # normalize images with respect to reference shape of aam
-        images = rescale_images_to_reference_shape(
-            images, group, aam.reference_shape, verbose=verbose)
-
-        # increment models at each scale
-        if verbose:
-            print_dynamic('- Incrementing models\n')
-
-        # for each pyramid level (high --> low)
-        for j, s in enumerate(self.scales[::-1]):
-            if verbose:
-                if len(self.scales) > 1:
-                    level_str = '  - Level {}: '.format(j)
-                else:
-                    level_str = '  - '
-
-            # obtain image representation
-            if j == 0:
-                # compute features at highest level
-                feature_images = compute_features(images, self.features[j],
-                                                  level_str=level_str,
-                                                  verbose=verbose)
-                level_images = feature_images
-            elif self.scale_features:
-                # scale features at other levels
-                level_images = scale_images(feature_images, s,
-                                            level_str=level_str,
-                                            verbose=verbose)
-            else:
-                # scale images and compute features at other levels
-                scaled_images = scale_images(images, s, level_str=level_str,
-                                             verbose=verbose)
-                level_images = compute_features(scaled_images,
-                                                self.features[j],
-                                                level_str=level_str,
-                                                verbose=verbose)
-
-            # extract potentially rescaled shapes
-            level_shapes = [i.landmarks[group].lms
-                            for i in level_images]
-
-            # obtain shape representation
-            if j == 0 or self.scale_shapes:
-                if verbose:
-                    print_dynamic('{}Incrementing shape model'.format(
-                        level_str))
-                # compute aligned shapes
-                aligned_shapes = align_shapes(level_shapes)
-                # increment shape model
-                aam.shape_models[j].increment(
-                    aligned_shapes, forgetting_factor=forgetting_factor)
-                if self.max_shape_components is not None:
-                    aam.shape_models[j].trim_components(
-                        self.max_appearance_components[j])
-            else:
-                # copy previous shape model
-                aam.shape_models[j] = deepcopy(aam.shape_models[j-1])
-
-            mean_shape = aam.appearance_models[j].mean().landmarks[
-                'source'].lms
-
-            # obtain warped images
-            warped_images = self._warp_images(level_images, level_shapes,
-                                              mean_shape, j,
-                                              level_str, verbose)
-
-            # obtain appearance representation
-            if verbose:
-                print_dynamic('{}Incrementing appearance model'.format(
-                    level_str))
-            # increment appearance model
-            aam.appearance_models[j].increment(warped_images)
-            # trim appearance model if required
-            if self.max_appearance_components is not None:
-                aam.appearance_models[j].trim_components(
-                    self.max_appearance_components[j])
-
-            if verbose:
-                print_dynamic('{}Done\n'.format(level_str))
-
-    def build_incrementally(self, images, group=None,
-                            forgetting_factor=1.0, batch_size=100,
-                            verbose=False):
-        # number of batches
-        n_batches = np.int(np.ceil(len(images) / batch_size))
-
-        # train first batch
-        print 'Training batch 1.'
-        aam = self.build(images[:batch_size], group=group, verbose=verbose)
-
-        # train all other batches
-        start = batch_size
-        for j in range(1, n_batches):
-            print 'Training batch {}.'.format(j+1)
-            end = start + batch_size
-            self.increment(aam, images[start:end], group=group,
-                           forgetting_factor=forgetting_factor,
-                           verbose=verbose)
-            start = end
-
-        return aam
-
-    @classmethod
-    def _build_shape_model(cls, shapes, max_components, level):
-        return build_shape_model(shapes, max_components=max_components)
-
-    def _warp_images(self, images, shapes, reference_shape, level, level_str,
-                     verbose):
-        reference_frame = build_reference_frame(reference_shape)
-        return warp_images(images, shapes, reference_frame, self.transform,
-                           level_str=level_str, verbose=verbose)
-
-    def _build_aam(self, shape_models, appearance_models, reference_shape):
-        return AAM(shape_models, appearance_models, reference_shape,
-                   self.transform, self.features, self.scales,
-                   self.scale_shapes, self.scale_features)
+        pass
 
 
 # TODO: document me!

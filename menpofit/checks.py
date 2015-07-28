@@ -1,5 +1,7 @@
 import numpy as np
 import warnings
+from menpo.shape import TriMesh
+from menpo.transform import PiecewiseAffine
 
 
 def check_diagonal(diagonal):
@@ -9,6 +11,17 @@ def check_diagonal(diagonal):
     """
     if diagonal is not None and diagonal < 20:
         raise ValueError("diagonal must be >= 20")
+
+
+def check_trilist(image, transform, group=None):
+    trilist = image.landmarks[group].lms
+
+    if not isinstance(trilist, TriMesh) and isinstance(transform,
+                                                       PiecewiseAffine):
+        warnings.warn('The given images do not have an explicit triangulation '
+                      'applied. A Delaunay Triangulation will be computed '
+                      'and used for warping. This may be suboptimal and cause '
+                      'warping artifacts.')
 
 
 # TODO: document me!
