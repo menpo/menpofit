@@ -1,5 +1,4 @@
 from __future__ import division
-from itertools import chain
 import numpy as np
 from functools import partial
 import warnings

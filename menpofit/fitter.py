@@ -30,20 +30,16 @@ class MultiFitter(object):
         -----------
         image: :map:`Image` or subclass
             The image to be fitted.
-
         initial_shape: :map:`PointCloud`
             The initial shape estimate from which the fitting procedure
             will start.
-
         max_iters: `int` or `list` of `int`, optional
             The maximum number of iterations.
             If `int`, specifies the overall maximum number of iterations.
             If `list` of `int`, specifies the maximum number of iterations per
             level.
-
         gt_shape: :map:`PointCloud`
             The ground truth shape associated to the image.
-
         crop_image: `None` or float`, optional
             If `float`, it specifies the proportion of the border wrt the
             initial shape to which the image will be internally cropped around
@@ -53,7 +49,6 @@ class MultiFitter(object):
             This will limit the fitting algorithm search region but is
             likely to speed up its running time, specially when the
             modeled object occupies a small portion of the image.
-
         **kwargs:
             Additional keyword arguments that can be passed to specific
             implementations of ``_fit`` method.
@@ -103,13 +98,10 @@ class MultiFitter(object):
         ----------
         image : :map:`Image` or subclass
             The image to be fitted.
-
         initial_shape : :map:`PointCloud`
             The initial shape from which the fitting will start.
-
         gt_shape : class : :map:`PointCloud`, optional
             The original ground truth shape associated to the image.
-
         crop_image: `None` or float`, optional
             If `float`, it specifies the proportion of the border wrt the
             initial shape to which the image will be internally cropped around
@@ -219,7 +211,7 @@ class MultiFitter(object):
 
             shape = algorithm_result.final_shape
             if s != self.scales[-1]:
-                shape = Scale(self.scales[j+1]/s,
+                shape = Scale(self.scales[j + 1] / s,
                               n_dims=shape.n_dims).apply(shape)
 
         return algorithm_results
