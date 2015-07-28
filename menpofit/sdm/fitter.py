@@ -23,7 +23,7 @@ class SupervisedDescentFitter(MultiFitter):
     def __init__(self, images, group=None, bounding_box_group=None,
                  sd_algorithm_cls=Newton, holistic_feature=no_op,
                  patch_features=no_op, patch_shape=(17, 17), diagonal=None,
-                 scales=(1, 0.5), iterations=6, n_perturbations=30,
+                 scales=(0.5, 1.0), iterations=6, n_perturbations=30,
                  perturb_from_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         # check parameters
@@ -39,7 +39,7 @@ class SupervisedDescentFitter(MultiFitter):
         self._patch_features = patch_features
         self._patch_shape = patch_shape
         self.diagonal = diagonal
-        self.scales = list(scales)[::-1]
+        self.scales = scales
         self.n_perturbations = n_perturbations
         self.iterations = checks.check_max_iters(iterations, n_levels)
         self._perturb_from_bounding_box = perturb_from_bounding_box
