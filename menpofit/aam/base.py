@@ -1,10 +1,20 @@
 from __future__ import division
+from copy import deepcopy
 import numpy as np
 from menpo.shape import TriMesh
-from menpofit.transform import DifferentiableThinPlateSplines
-from menpofit.base import name_of_callable
+from menpo.feature import no_op
+from menpo.visualize import print_dynamic
+from menpo.model import PCAModel
+from menpo.transform import Scale
+from menpofit import checks
+from menpofit.transform import DifferentiableThinPlateSplines, \
+    DifferentiablePiecewiseAffine
+from menpofit.base import name_of_callable, batch
 from menpofit.builder import (
-    build_reference_frame, build_patch_reference_frame)
+    build_reference_frame, build_patch_reference_frame,
+    normalization_wrt_reference_shape, compute_features, scale_images,
+    build_shape_model, warp_images, align_shapes,
+    rescale_images_to_reference_shape)
 
 
 # TODO: document me!
@@ -42,16 +52,192 @@ class AAM(object):
     scale_shapes : `boolean`
     scale_features : `boolean`
     """
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 transform, features, scales, scale_shapes, scale_features):
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = transform
+    def __init__(self, images, group=None, verbose=False,
+                 features=no_op, transform=DifferentiablePiecewiseAffine,
+                 diagonal=None, scales=(0.5, 1.0), scale_features=True,
+                 max_shape_components=None, forgetting_factor=1.0,
+                 max_appearance_components=None, batch_size=None):
+        # check parameters
+        checks.check_diagonal(diagonal)
+        scales, n_levels = checks.check_scales(scales)
+        features = checks.check_features(features, n_levels)
+        scale_features = checks.check_scale_features(scale_features, features)
+        max_shape_components = checks.check_max_components(
+            max_shape_components, n_levels, 'max_shape_components')
+        max_appearance_components = checks.check_max_components(
+            max_appearance_components, n_levels, 'max_appearance_components')
+        # set parameters
         self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
+        self.transform = transform
         self.scale_features = scale_features
+        self.diagonal = diagonal
+        self.scales = scales
+        self.forgetting_factor = forgetting_factor
+        self.max_shape_components = max_shape_components
+        self.max_appearance_components = max_appearance_components
+        self.reference_shape = None
+        self.shape_models = []
+        self.appearance_models = []
+
+        # Train AAM
+        self._train(images, group=group, verbose=verbose, increment=False,
+                    batch_size=batch_size)
+
+    def _train(self, images, group=None, verbose=False, increment=False,
+               batch_size=None):
+        r"""
+        Builds an Active Appearance Model from a list of landmarked images.
+
+        Parameters
+        ----------
+        images : list of :map:`MaskedImage`
+            The set of landmarked images from which to build the AAM.
+        group : `string`, optional
+            The key of the landmark set that should be used. If ``None``,
+            and if there is only one set of landmarks, this set will be used.
+        verbose : `boolean`, optional
+            Flag that controls information and progress printing.
+
+        Returns
+        -------
+        aam : :map:`AAM`
+            The AAM object. Shape and appearance models are stored from
+            lowest to highest level
+        """
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
+        if batch_size is not None:
+            # Create a generator of fixed sized batches. Will still work even
+            # on an infinite list.
+            image_batches = batch(images, batch_size)
+        else:
+            image_batches = [list(images)]
+
+        for k, image_batch in enumerate(image_batches):
+            # After the first batch, we are incrementing the model
+            if k > 0:
+                increment = True
+
+            if verbose:
+                print('Computing batch {}'.format(k))
+
+            if not increment:
+                checks.check_trilist(image_batch[0], self.transform,
+                                     group=group)
+                # Normalize images and compute reference shape
+                self.reference_shape, image_batch = normalization_wrt_reference_shape(
+                    image_batch, group, self.diagonal, verbose=verbose)
+            else:
+                # We are incrementing, so rescale to existing reference shape
+                image_batch = rescale_images_to_reference_shape(
+                    image_batch, group, self.reference_shape,
+                    verbose=verbose)
+
+            # build models at each scale
+            if verbose:
+                print_dynamic('- Building models\n')
+
+            feature_images = []
+            # for each pyramid level (low --> high)
+            for j in range(self.n_levels):
+                if verbose:
+                    if len(self.scales) > 1:
+                        level_str = '  - Level {}: '.format(j)
+                    else:
+                        level_str = '  - '
+                else:
+                    level_str = None
+
+                # obtain image representation
+                if self.scale_features:
+                    if j == 0:
+                        # Compute features at highest level
+                        feature_images = compute_features(image_batch,
+                                                          self.features[0],
+                                                          level_str=level_str,
+                                                          verbose=verbose)
+                    # Scale features at other levels
+                    level_images = scale_images(feature_images,
+                                                self.scales[j],
+                                                level_str=level_str,
+                                                verbose=verbose)
+                else:
+                    # scale images and compute features at other levels
+                    scaled_images = scale_images(image_batch, self.scales[j],
+                                                 level_str=level_str,
+                                                 verbose=verbose)
+                    level_images = compute_features(scaled_images,
+                                                    self.features[j],
+                                                    level_str=level_str,
+                                                    verbose=verbose)
+
+                # Extract potentially rescaled shapes
+                level_shapes = [i.landmarks[group].lms for i in level_images]
+
+                # Build the shape model
+                if not increment:
+                    if j == 0:
+                        if verbose:
+                            print_dynamic('{}Building shape model'.format(level_str))
+                        shape_model = self._build_shape_model(
+                            level_shapes, self.max_shape_components[j], j)
+                        # Store shape model
+                        self.shape_models.append(shape_model)
+                    else:
+                        # Copy shape model
+                        self.shape_models.append(deepcopy(shape_model))
+                else:
+                    # Compute aligned shapes
+                    aligned_shapes = align_shapes(level_shapes)
+                    # Increment shape model
+                    self.shape_models[j].increment(
+                        aligned_shapes,
+                        forgetting_factor=self.forgetting_factor)
+                    if self.max_shape_components is not None:
+                        self.shape_models[j].trim_components(
+                            self.max_appearance_components[j])
+
+                # Obtain warped images - we use a scaled version of the
+                # reference shape, computed here. This is because the mean
+                # moves when we are incrementing, and we need a consistent
+                # reference frame.
+                scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
+                    self.reference_shape)
+                warped_images = self._warp_images(level_images, level_shapes,
+                                                  scaled_reference_shape,
+                                                  j, level_str, verbose)
+
+                # obtain appearance model
+                if verbose:
+                    print_dynamic('{}Building appearance model'.format(level_str))
+
+                if not increment:
+                    appearance_model = PCAModel(warped_images)
+                    # trim appearance model if required
+                    if self.max_appearance_components is not None:
+                        appearance_model.trim_components(
+                            self.max_appearance_components[j])
+                    # add appearance model to the list
+                    self.appearance_models.append(appearance_model)
+                else:
+                    # increment appearance model
+                    self.appearance_models[j].increment(warped_images)
+                    # trim appearance model if required
+                    if self.max_appearance_components is not None:
+                        self.appearance_models[j].trim_components(
+                            self.max_appearance_components[j])
+
+                if verbose:
+                    print_dynamic('{}Done\n'.format(level_str))
+
+    def _build_shape_model(self, shapes, max_components, level):
+        return build_shape_model(shapes, max_components=max_components)
+
+    def _warp_images(self, images, shapes, reference_shape, level, level_str,
+                     verbose):
+        reference_frame = build_reference_frame(reference_shape)
+        return warp_images(images, shapes, reference_frame, self.transform,
+                           level_str=level_str, verbose=verbose)
 
     @property
     def n_levels(self):

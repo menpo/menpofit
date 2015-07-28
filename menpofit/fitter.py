@@ -149,19 +149,18 @@ class MultiFitter(object):
 
         # obtain image representation
         images = []
-        for j, s in enumerate(self.scales[::-1]):
-            if j == 0:
-                # compute features at highest level
-                feature_image = self.features[j](image)
-            elif self.scale_features:
+        for j in range(self.n_levels):
+            if self.scale_features:
+                if j == 0:
+                    # compute features at highest level
+                    feature_image = self.features[j](image)
                 # scale features at other levels
-                feature_image = images[0].rescale(s)
+                feature_image = feature_image.rescale(self.scales[j])
             else:
                 # scale image and compute features at other levels
-                scaled_image = image.rescale(s)
+                scaled_image = image.rescale(self.scales[j])
                 feature_image = self.features[j](scaled_image)
             images.append(feature_image)
-        images.reverse()
 
         # get initial shapes per level
         initial_shapes = [i.landmarks['initial_shape'].lms for i in images]
