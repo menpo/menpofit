@@ -16,18 +16,14 @@ class AAM(object):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     transform : :map:`PureAlignmentTransform`
         The transform used to warp the images from which the AAM was
         constructed.
-
     features : `callable` or ``[callable]``,
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
@@ -43,11 +39,8 @@ class AAM(object):
         performing AAMs.
 
     scales : `int` or float` or list of those, optional
-
     scale_shapes : `boolean`
-
     scale_features : `boolean`
-
     """
     def __init__(self, shape_models, appearance_models, reference_shape,
                  transform, features, scales, scale_shapes, scale_features):
@@ -90,12 +83,10 @@ class AAM(object):
             Weights of the shape model that will be used to create
             a novel shape instance. If ``None``, the mean shape
             ``(shape_weights = [0, 0, ..., 0])`` is used.
-
         appearance_weights : ``(n_weights,)`` `ndarray` or `float` list
             Weights of the appearance model that will be used to create
             a novel appearance instance. If ``None``, the mean appearance
             ``(appearance_weights = [0, 0, ..., 0])`` is used.
-
         level : `int`, optional
             The pyramidal level to be used.
 
@@ -380,17 +371,13 @@ class PatchAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
-
     features : `callable` or ``[callable]``
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
@@ -406,14 +393,16 @@ class PatchAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-
     scale_shapes : `boolean`
-
     scale_features : `boolean`
-
     """
+
     def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, scales, scale_shapes, scale_features):
+                 patch_shape, features, scales, scale_shapes, scale_features,
+                 transform):
+        super(PatchAAM, self).__init__(shape_models, appearance_models,
+                                       reference_shape, transform, features,
+                                       scales, scale_shapes, scale_features)
         self.shape_models = shape_models
         self.appearance_models = appearance_models
         self.transform = DifferentiableThinPlateSplines
@@ -469,18 +458,14 @@ class LinearAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     transform : :map:`PureAlignmentTransform`
         The transform used to warp the images from which the AAM was
         constructed.
-
     features : `callable` or ``[callable]``, optional
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
@@ -496,15 +481,16 @@ class LinearAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-
     scale_shapes : `boolean`
-
     scale_features : `boolean`
-
     """
+
     def __init__(self, shape_models, appearance_models, reference_shape,
                  transform, features, scales, scale_shapes, scale_features,
                  n_landmarks):
+        super(LinearAAM, self).__init__(shape_models, appearance_models,
+                                        reference_shape, transform, features,
+                                        scales, scale_shapes, scale_features)
         self.shape_models = shape_models
         self.appearance_models = appearance_models
         self.transform = transform
@@ -545,17 +531,13 @@ class LinearPatchAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
-
     features : `callable` or ``[callable]``
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
@@ -571,17 +553,18 @@ class LinearPatchAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-
     scale_shapes : `boolean`
-
     scale_features : `boolean`
-
     n_landmarks: `int`
-
     """
+
     def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, scales, scale_shapes,
-                 scale_features, n_landmarks):
+                 patch_shape, features, scales, scale_shapes, scale_features,
+                 n_landmarks, transform):
+        super(LinearPatchAAM, self).__init__(shape_models, appearance_models,
+                                             reference_shape, transform,
+                                             features, scales, scale_shapes,
+                                             scale_features)
         self.shape_models = shape_models
         self.appearance_models = appearance_models
         self.transform = DifferentiableThinPlateSplines
@@ -623,17 +606,13 @@ class PartsAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
-
     features : `callable` or ``[callable]``
         If list of length ``n_levels``, feature extraction is performed at
         each level after downscaling of the image.
@@ -649,17 +628,17 @@ class PartsAAM(AAM):
         performing AAMs.
 
     normalize_parts: `callable`
-
     scales : `int` or float` or list of those
-
     scale_shapes : `boolean`
-
     scale_features : `boolean`
-
     """
+
     def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, normalize_parts, scales,
-                 scale_shapes, scale_features):
+                 patch_shape, features, normalize_parts, scales, scale_shapes,
+                 scale_features, transform):
+        super(PartsAAM, self).__init__(shape_models, appearance_models,
+                                       reference_shape, transform, features,
+                                       scales, scale_shapes, scale_features)
         self.shape_models = shape_models
         self.appearance_models = appearance_models
         self.patch_shape = patch_shape
