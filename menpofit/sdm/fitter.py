@@ -70,23 +70,23 @@ class SupervisedDescentFitter(MultiFitter):
             # Create a generator of fixed sized batches. Will still work even
             # on an infinite list.
             image_batches = batch(images, batch_size)
-            first_batch = next(image_batches)
         else:
-            image_batches = []
-            first_batch = list(images)
+            image_batches = [list(images)]
 
-        # In the case where group is None, we need to get the only key so that
-        # we can attach landmarks below and not get a complaint about using None
-        if group is None:
-            group = first_batch[0].landmarks.group_labels[0]
-
-        for k, image_batch in enumerate(chain([first_batch], image_batches)):
+        for k, image_batch in enumerate(image_batches):
             # After the first batch, we are incrementing the model
             if k > 0:
                 increment = True
 
             if verbose:
                 print('Computing batch {}'.format(k))
+
+            # In the case where group is None, we need to get the only key so
+            # that we can attach landmarks below and not get a complaint about
+            # using None
+            first_image = image_batch[0]
+            if group is None:
+                group = first_image.landmarks.group_labels[0]
 
             if not increment:
                 # Normalize images and compute reference shape
@@ -108,7 +108,7 @@ class SupervisedDescentFitter(MultiFitter):
 
             # Find all bounding boxes on the images with the given bounding
             # box key
-            all_bb_keys = list(image_batch[0].landmarks.keys_matching(
+            all_bb_keys = list(first_image.landmarks.keys_matching(
                 '*{}*'.format(bounding_box_group)))
             n_perturbations = len(all_bb_keys)
 
@@ -141,7 +141,7 @@ class SupervisedDescentFitter(MultiFitter):
 
             # Re-grab all the bounding box keys for iterating over when
             # calculating perturbations
-            all_bb_keys = list(image_batch[0].landmarks.keys_matching(
+            all_bb_keys = list(first_image.landmarks.keys_matching(
                 '*{}*'.format(bounding_box_group)))
 
             # Before scaling, we compute the holistic feature on the whole image
