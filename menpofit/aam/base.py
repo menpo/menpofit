@@ -1,11 +1,11 @@
 from __future__ import division
 from copy import deepcopy
 import numpy as np
-from menpo.shape import TriMesh
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
 from menpo.model import PCAModel
 from menpo.transform import Scale
+from menpo.shape import mean_pointcloud
 from menpofit import checks
 from menpofit.transform import DifferentiableThinPlateSplines, \
     DifferentiablePiecewiseAffine
@@ -14,7 +14,7 @@ from menpofit.builder import (
     build_reference_frame, build_patch_reference_frame,
     normalization_wrt_reference_shape, compute_features, scale_images,
     build_shape_model, warp_images, align_shapes,
-    rescale_images_to_reference_shape)
+    rescale_images_to_reference_shape, densify_shapes, extract_patches)
 
 
 # TODO: document me!
@@ -118,8 +118,8 @@ class AAM(object):
     def __init__(self, images, group=None, verbose=False,
                  features=no_op, transform=DifferentiablePiecewiseAffine,
                  diagonal=None, scales=(0.5, 1.0), scale_features=True,
-                 max_shape_components=None, forgetting_factor=1.0,
-                 max_appearance_components=None, batch_size=None):
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
         # check parameters
         checks.check_diagonal(diagonal)
         scales, n_levels = checks.check_scales(scales)
@@ -135,7 +135,6 @@ class AAM(object):
         self.scale_features = scale_features
         self.diagonal = diagonal
         self.scales = scales
-        self.forgetting_factor = forgetting_factor
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
         self.reference_shape = None
@@ -147,6 +146,7 @@ class AAM(object):
                     batch_size=batch_size)
 
     def _train(self, images, group=None, verbose=False, increment=False,
+               shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
                batch_size=None):
         r"""
         Builds an Active Appearance Model from a list of landmarked images.
@@ -255,7 +255,7 @@ class AAM(object):
                     # Increment shape model
                     self.shape_models[j].increment(
                         aligned_shapes,
-                        forgetting_factor=self.forgetting_factor)
+                        forgetting_factor=shape_forgetting_factor)
                     if self.max_shape_components is not None:
                         self.shape_models[j].trim_components(
                             self.max_appearance_components[j])
@@ -284,7 +284,9 @@ class AAM(object):
                     self.appearance_models.append(appearance_model)
                 else:
                     # increment appearance model
-                    self.appearance_models[j].increment(warped_images)
+                    self.appearance_models[j].increment(
+                        warped_images,
+                        forgetting_factor=appearance_forgetting_factor)
                     # trim appearance model if required
                     if self.max_appearance_components is not None:
                         self.appearance_models[j].trim_components(
@@ -292,6 +294,18 @@ class AAM(object):
 
                 if verbose:
                     print_dynamic('{}Done\n'.format(level_str))
+
+    def increment(self, images, group=None, verbose=False,
+                  shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
+                  batch_size=None):
+        # Literally just to fit under 80 characters, but maintain the sensible
+        # parameter name
+        aff = appearance_forgetting_factor
+        return self._train(images, group=group,
+                           verbose=verbose,
+                           shape_forgetting_factor=shape_forgetting_factor,
+                           appearance_forgetting_factor=aff,
+                           increment=True, batch_size=batch_size)
 
     def _build_shape_model(self, shapes, max_components, level):
         return build_shape_model(shapes, max_components=max_components)
@@ -640,21 +654,26 @@ class PatchAAM(AAM):
     scale_features : `boolean`
     """
 
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, scales, scale_shapes, scale_features,
-                 transform):
-        super(PatchAAM, self).__init__(shape_models, appearance_models,
-                                       reference_shape, transform, features,
-                                       scales, scale_shapes, scale_features)
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = DifferentiableThinPlateSplines
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 scale_features=True, max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
         self.patch_shape = patch_shape
-        self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
+
+        super(PatchAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
+            scales=scales, scale_features=scale_features,
+            max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    def _warp_images(self, images, shapes, reference_shape, level, level_str,
+                     verbose):
+        reference_frame = build_patch_reference_frame(
+            reference_shape, patch_shape=self.patch_shape[level])
+        return warp_images(images, shapes, reference_frame, self.transform,
+                           level_str=level_str, verbose=verbose)
 
     @property
     def _str_title(self):
@@ -728,21 +747,36 @@ class LinearAAM(AAM):
     scale_features : `boolean`
     """
 
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 transform, features, scales, scale_shapes, scale_features,
-                 n_landmarks):
-        super(LinearAAM, self).__init__(shape_models, appearance_models,
-                                        reference_shape, transform, features,
-                                        scales, scale_shapes, scale_features)
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = transform
-        self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-        self.n_landmarks = n_landmarks
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 transform=DifferentiableThinPlateSplines, diagonal=None,
+                 scales=(0.5, 1.0), scale_features=True,
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
+
+        super(LinearAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=transform, diagonal=diagonal,
+            scales=scales, scale_features=scale_features,
+            max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    def _build_shape_model(self, shapes, max_components, level):
+        mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
+        self.n_landmarks = mean_aligned_shape.n_points
+        self.reference_frame = build_reference_frame(mean_aligned_shape)
+        dense_shapes = densify_shapes(shapes, self.reference_frame,
+                                      self.transform)
+        # build dense shape model
+        shape_model = build_shape_model(
+            dense_shapes, max_components=max_components)
+        return shape_model
+
+    def _warp_images(self, images, shapes, reference_shape, level, level_str,
+                     verbose):
+        return warp_images(images, shapes, self.reference_frame,
+                           self.transform, level_str=level_str,
+                           verbose=verbose)
 
     # TODO: implement me!
     def _instance(self, level, shape_instance, appearance_instance):
@@ -801,23 +835,37 @@ class LinearPatchAAM(AAM):
     n_landmarks: `int`
     """
 
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, scales, scale_shapes, scale_features,
-                 n_landmarks, transform):
-        super(LinearPatchAAM, self).__init__(shape_models, appearance_models,
-                                             reference_shape, transform,
-                                             features, scales, scale_shapes,
-                                             scale_features)
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = DifferentiableThinPlateSplines
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 scale_features=True, max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
         self.patch_shape = patch_shape
-        self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-        self.n_landmarks = n_landmarks
+
+        super(LinearPatchAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
+            scales=scales, scale_features=scale_features,
+            max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    def _build_shape_model(self, shapes, max_components, level):
+        mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
+        self.n_landmarks = mean_aligned_shape.n_points
+        self.reference_frame = build_patch_reference_frame(
+            mean_aligned_shape, patch_shape=self.patch_shape[level])
+        dense_shapes = densify_shapes(shapes, self.reference_frame,
+                                      self.transform)
+        # build dense shape model
+        shape_model = build_shape_model(dense_shapes,
+                                        max_components=max_components)
+        return shape_model
+
+    def _warp_images(self, images, shapes, reference_shape, level, level_str,
+                     verbose):
+        return warp_images(images, shapes, self.reference_frame,
+                           self.transform, level_str=level_str,
+                           verbose=verbose)
 
     # TODO: implement me!
     def _instance(self, level, shape_instance, appearance_instance):
@@ -841,6 +889,7 @@ class LinearPatchAAM(AAM):
 
 
 # TODO: document me!
+# TODO: implement offsets support?
 class PartsAAM(AAM):
     r"""
     Parts based Active Appearance Model class.
@@ -876,21 +925,27 @@ class PartsAAM(AAM):
     scale_features : `boolean`
     """
 
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, normalize_parts, scales, scale_shapes,
-                 scale_features, transform):
-        super(PartsAAM, self).__init__(shape_models, appearance_models,
-                                       reference_shape, transform, features,
-                                       scales, scale_shapes, scale_features)
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 normalize_parts=no_op, diagonal=None, scales=(0.5, 1.0),
+                 patch_shape=(17, 17), scale_features=True,
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
         self.patch_shape = patch_shape
-        self.features = features
         self.normalize_parts = normalize_parts
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
+
+        super(PartsAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
+            scales=scales, scale_features=scale_features,
+            max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    def _warp_images(self, images, shapes, reference_shape, level, level_str,
+                     verbose):
+        return extract_patches(images, shapes, self.patch_shape[level],
+                               normalize_function=self.normalize_parts,
+                               level_str=level_str, verbose=verbose)
 
     # TODO: implement me!
     def _instance(self, level, shape_instance, appearance_instance):
