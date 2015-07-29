@@ -346,4 +346,24 @@ class SupervisedDescentFitter(MultiFitter):
         return cls_str
 
 
+# Aliases for common combinations of supervised descent fitting
 SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=Newton)
+
+class RegularizedSDM(SupervisedDescentFitter):
+
+    def __init__(self, images, group=None, bounding_box_group=None,
+                 alpha=1.0, reference_shape=None,
+                 holistic_feature=no_op, patch_features=no_op,
+                 patch_shape=(17, 17), diagonal=None, scales=(0.5, 1.0),
+                 n_iterations=6, n_perturbations=30,
+                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
+                 batch_size=None, verbose=False):
+        super(RegularizedSDM, self).__init__(
+            images, group=group,  bounding_box_group=bounding_box_group,
+            reference_shape=reference_shape,
+            sd_algorithm_cls=partial(Newton, alpha=alpha),
+            holistic_feature=holistic_feature, patch_features=patch_features,
+            patch_shape=patch_shape, diagonal=diagonal, scales=scales,
+            n_iterations=n_iterations, n_perturbations=n_perturbations,
+            perturb_from_bounding_box=perturb_from_bounding_box,
+            batch_size=batch_size, verbose=verbose)
