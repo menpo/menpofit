@@ -238,10 +238,11 @@ class AAM(object):
                 level_shapes = [i.landmarks[group].lms for i in level_images]
 
                 # Build the shape model
+                if verbose:
+                    print_dynamic('{}Building shape model'.format(level_str))
+
                 if not increment:
                     if j == 0:
-                        if verbose:
-                            print_dynamic('{}Building shape model'.format(level_str))
                         shape_model = self._build_shape_model(
                             level_shapes, self.max_shape_components[j], j)
                         # Store shape model
@@ -250,15 +251,10 @@ class AAM(object):
                         # Copy shape model
                         self.shape_models.append(deepcopy(shape_model))
                 else:
-                    # Compute aligned shapes
-                    aligned_shapes = align_shapes(level_shapes)
-                    # Increment shape model
-                    self.shape_models[j].increment(
-                        aligned_shapes,
-                        forgetting_factor=shape_forgetting_factor)
-                    if self.max_shape_components is not None:
-                        self.shape_models[j].trim_components(
-                            self.max_appearance_components[j])
+                    self._increment_shape_model(
+                        level_shapes,  self.shape_models[j],
+                        forgetting_factor=shape_forgetting_factor,
+                        max_components=self.max_shape_components[j])
 
                 # Obtain warped images - we use a scaled version of the
                 # reference shape, computed here. This is because the mean
@@ -309,6 +305,16 @@ class AAM(object):
 
     def _build_shape_model(self, shapes, max_components, level):
         return build_shape_model(shapes, max_components=max_components)
+
+    def _increment_shape_model(self, shapes, shape_model, forgetting_factor=1.0,
+                               max_components=None):
+        # Compute aligned shapes
+        aligned_shapes = align_shapes(shapes)
+        # Increment shape model
+        shape_model.increment(aligned_shapes,
+                              forgetting_factor=forgetting_factor)
+        if max_components is not None:
+            shape_model.trim_components(max_components)
 
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
@@ -772,6 +778,17 @@ class LinearAAM(AAM):
             dense_shapes, max_components=max_components)
         return shape_model
 
+    def _increment_shape_model(self, shapes, shape_model, forgetting_factor=1.0,
+                               max_components=None):
+        aligned_shapes = align_shapes(shapes)
+        dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
+                                      self.transform)
+        # Increment shape model
+        shape_model.increment(dense_shapes,
+                              forgetting_factor=forgetting_factor)
+        if max_components is not None:
+            shape_model.trim_components(max_components)
+
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
         return warp_images(images, shapes, self.reference_frame,
@@ -860,6 +877,17 @@ class LinearPatchAAM(AAM):
         shape_model = build_shape_model(dense_shapes,
                                         max_components=max_components)
         return shape_model
+
+    def _increment_shape_model(self, shapes, shape_model, forgetting_factor=1.0,
+                               max_components=None):
+        aligned_shapes = align_shapes(shapes)
+        dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
+                                      self.transform)
+        # Increment shape model
+        shape_model.increment(dense_shapes,
+                              forgetting_factor=forgetting_factor)
+        if max_components is not None:
+            shape_model.trim_components(max_components)
 
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
