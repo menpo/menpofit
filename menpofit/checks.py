@@ -47,7 +47,7 @@ def check_features(features, n_levels):
     ----------
     features : callable or list of callables
         The features to apply to the images.
-    n_levels : int
+    n_scales : int
         The number of pyramid levels.
 
     Returns
@@ -103,7 +103,7 @@ def check_max_components(max_components, n_levels, var_name):
     r"""
     Checks the maximum number of components per level either of the shape
     or the appearance model. It must be None or int or float or a list of
-    those containing 1 or {n_levels} elements.
+    those containing 1 or {n_scales} elements.
     """
     str_error = ("{} must be None or an int > 0 or a 0 <= float <= 1 or "
                  "a list of those containing 1 or {} elements").format(

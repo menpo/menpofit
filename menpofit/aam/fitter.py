@@ -32,16 +32,16 @@ class AAMFitter(ModelFitter):
             if type(n_appearance) is int or type(n_appearance) is float:
                 for am in self.aam.appearance_models:
                     am.n_active_components = n_appearance
-            elif len(n_appearance) == 1 and self.aam.n_levels > 1:
+            elif len(n_appearance) == 1 and self.aam.n_scales > 1:
                 for am in self.aam.appearance_models:
                     am.n_active_components = n_appearance[0]
-            elif len(n_appearance) == self.aam.n_levels:
+            elif len(n_appearance) == self.aam.n_scales:
                 for am, n in zip(self.aam.appearance_models, n_appearance):
                     am.n_active_components = n
             else:
                 raise ValueError('n_appearance can be an integer or a float '
                                  'or None or a list containing 1 or {} of '
-                                 'those'.format(self.aam.n_levels))
+                                 'those'.format(self.aam.n_scales))
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
@@ -58,7 +58,7 @@ class LucasKanadeAAMFitter(AAMFitter):
         self._model = aam
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
-        sampling = checks.check_sampling(sampling, self.n_levels)
+        sampling = checks.check_sampling(sampling, self.n_scales)
         self._set_up(lk_algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, lk_algorithm_cls, sampling, **kwargs):
@@ -115,10 +115,10 @@ class SupervisedDescentAAMFitter(AAMFitter):
         self._model = aam
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
-        sampling = checks.check_sampling(sampling, self.n_levels)
+        sampling = checks.check_sampling(sampling, self.n_scales)
         self.n_perturbations = n_perturbations
         self.noise_std = noise_std
-        self.max_iters = checks.check_max_iters(max_iters, self.n_levels)
+        self.max_iters = checks.check_max_iters(max_iters, self.n_scales)
         self._set_up(sd_algorithm_cls, sampling, **kwargs)
 
     def _set_up(self, sd_algorithm_cls, sampling, **kwargs):

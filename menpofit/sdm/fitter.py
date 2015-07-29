@@ -51,7 +51,7 @@ class SupervisedDescentFitter(MultiFitter):
                     verbose=verbose, increment=False, batch_size=batch_size)
 
     def _setup_algorithms(self):
-        for j in range(self.n_levels):
+        for j in range(self.n_scales):
             self.algorithms.append(self._sd_algorithm_cls(
                 features=self._patch_features[j],
                 patch_shape=self._patch_shape[j],
@@ -165,7 +165,7 @@ class SupervisedDescentFitter(MultiFitter):
 
             # for each pyramid level (low --> high)
             current_shapes = []
-            for j in range(self.n_levels):
+            for j in range(self.n_scales):
                 if verbose:
                     if len(self.scales) > 1:
                         level_str = '  - Level {}: '.format(j)

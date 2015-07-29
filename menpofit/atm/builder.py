@@ -22,7 +22,7 @@ class ATMBuilder(object):
     Parameters
     ----------
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -64,7 +64,7 @@ class ATMBuilder(object):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -258,7 +258,7 @@ class PatchATMBuilder(ATMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -292,7 +292,7 @@ class PatchATMBuilder(ATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -383,7 +383,7 @@ class LinearATMBuilder(ATMBuilder):
     Parameters
     ----------
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -425,7 +425,7 @@ class LinearATMBuilder(ATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -524,7 +524,7 @@ class LinearPatchATMBuilder(LinearATMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -558,7 +558,7 @@ class LinearPatchATMBuilder(LinearATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -651,7 +651,7 @@ class PartsATMBuilder(ATMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -687,7 +687,7 @@ class PartsATMBuilder(ATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 

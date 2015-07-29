@@ -13,7 +13,7 @@ class MultiFitter(object):
     r"""
     """
     @property
-    def n_levels(self):
+    def n_scales(self):
         r"""
         The number of pyramidal levels used during alignment.
 
@@ -141,7 +141,7 @@ class MultiFitter(object):
 
         # obtain image representation
         images = []
-        for j in range(self.n_levels):
+        for j in range(self.n_scales):
             if self.scale_features:
                 if j == 0:
                     # compute features at highest level
@@ -196,7 +196,7 @@ class MultiFitter(object):
             The fitting object containing the state of the whole fitting
             procedure.
         """
-        max_iters = checks.check_max_iters(max_iters, self.n_levels)
+        max_iters = checks.check_max_iters(max_iters, self.n_scales)
         shape = initial_shape
         gt_shape = None
         algorithm_results = []
@@ -267,16 +267,16 @@ class ModelFitter(MultiFitter):
             if type(n_shape) is int or type(n_shape) is float:
                 for sm in self._model.shape_models:
                     sm.n_active_components = n_shape
-            elif len(n_shape) == 1 and self._model.n_levels > 1:
+            elif len(n_shape) == 1 and self._model.n_scales > 1:
                 for sm in self._model.shape_models:
                     sm.n_active_components = n_shape[0]
-            elif len(n_shape) == self._model.n_levels:
+            elif len(n_shape) == self._model.n_scales:
                 for sm, n in zip(self._model.shape_models, n_shape):
                     sm.n_active_components = n
             else:
                 raise ValueError('n_shape can be an integer or a float or None'
                                  'or a list containing 1 or {} of '
-                                 'those'.format(self._model.n_levels))
+                                 'those'.format(self._model.n_scales))
 
     def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.05):
         transform = noisy_alignment_similarity_transform(
