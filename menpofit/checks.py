@@ -73,11 +73,14 @@ def check_scale_features(scale_features, features):
     """
     if np.alltrue([f == features[0] for f in features]):
         return scale_features
-    else:
+    elif scale_features:
+        # Only raise warning if True was passed.
         warnings.warn('scale_features has been automatically set to False '
                       'because different types of features are used at each '
                       'level.')
         return False
+    else:
+        return scale_features
 
 
 # TODO: document me!
