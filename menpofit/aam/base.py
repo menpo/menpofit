@@ -1,5 +1,6 @@
 from __future__ import division
 from copy import deepcopy
+import warnings
 import numpy as np
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
@@ -7,14 +8,14 @@ from menpo.model import PCAModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 from menpofit import checks
-from menpofit.transform import DifferentiableThinPlateSplines, \
-    DifferentiablePiecewiseAffine
+from menpofit.transform import (DifferentiableThinPlateSplines,
+                                DifferentiablePiecewiseAffine)
 from menpofit.base import name_of_callable, batch
 from menpofit.builder import (
     build_reference_frame, build_patch_reference_frame,
-    normalization_wrt_reference_shape, compute_features, scale_images,
-    build_shape_model, warp_images, align_shapes,
-    rescale_images_to_reference_shape, densify_shapes, extract_patches)
+    compute_features, scale_images, build_shape_model, warp_images,
+    align_shapes, rescale_images_to_reference_shape, densify_shapes,
+    extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
 
 # TODO: document me!
@@ -115,7 +116,7 @@ class AAM(object):
         ``0`` <= `float` <= ``1`` or a list of those containing 1 or
         ``len(scales)`` elements
     """
-    def __init__(self, images, group=None, verbose=False,
+    def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  features=no_op, transform=DifferentiablePiecewiseAffine,
                  diagonal=None, scales=(0.5, 1.0), scale_features=True,
                  max_shape_components=None, max_appearance_components=None,
@@ -137,7 +138,7 @@ class AAM(object):
         self.scales = scales
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
-        self.reference_shape = None
+        self.reference_shape = reference_shape
         self.shape_models = []
         self.appearance_models = []
 
@@ -184,17 +185,25 @@ class AAM(object):
             if verbose:
                 print('Computing batch {}'.format(k))
 
-            if not increment:
+            if self.reference_shape is None:
+                # If no reference shape was given, use the mean of the first
+                # batch
+                if batch_size is not None:
+                    warnings.warn('No reference shape was provided. The mean '
+                                  'of the first batch will be the reference '
+                                  'shape. If the batch mean is not '
+                                  'representative of the true mean, this may '
+                                  'cause issues.', MenpoFitBuilderWarning)
                 checks.check_trilist(image_batch[0], self.transform,
                                      group=group)
-                # Normalize images and compute reference shape
-                self.reference_shape, image_batch = normalization_wrt_reference_shape(
-                    image_batch, group, self.diagonal, verbose=verbose)
-            else:
-                # We are incrementing, so rescale to existing reference shape
-                image_batch = rescale_images_to_reference_shape(
-                    image_batch, group, self.reference_shape,
-                    verbose=verbose)
+                self.reference_shape = compute_reference_shape(
+                    [i.landmarks[group].lms for i in image_batch],
+                    self.diagonal, verbose=verbose)
+
+            # Rescale to existing reference shape
+            image_batch = rescale_images_to_reference_shape(
+                image_batch, group, self.reference_shape,
+                verbose=verbose)
 
             # build models at each scale
             if verbose:
