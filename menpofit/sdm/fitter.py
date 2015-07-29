@@ -6,8 +6,8 @@ from menpo.transform import Scale
 from menpo.feature import no_op
 from menpofit.visualize import print_progress
 from menpofit.base import batch, name_of_callable
-from menpofit.builder import (normalization_wrt_reference_shape, scale_images,
-                              rescale_images_to_reference_shape)
+from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
+                              compute_reference_shape, MenpoFitBuilderWarning)
 from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
                              align_shape_with_bounding_box)
 from menpofit.result import MultiFitterResult
@@ -20,9 +20,10 @@ class SupervisedDescentFitter(MultiFitter):
     r"""
     """
     def __init__(self, images, group=None, bounding_box_group=None,
-                 sd_algorithm_cls=Newton, holistic_feature=no_op,
-                 patch_features=no_op, patch_shape=(17, 17), diagonal=None,
-                 scales=(0.5, 1.0), iterations=6, n_perturbations=30,
+                 reference_shape=None, sd_algorithm_cls=Newton,
+                 holistic_feature=no_op, patch_features=no_op, patch_shape=(17,
+                 17), diagonal=None, scales=(0.5, 1.0), n_iterations=6,
+                 n_perturbations=30,
                  perturb_from_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         # check parameters
@@ -32,7 +33,7 @@ class SupervisedDescentFitter(MultiFitter):
         patch_shape = checks.check_patch_shape(patch_shape, n_levels)
         # set parameters
         self.algorithms = []
-        self.reference_shape = None
+        self.reference_shape = reference_shape
         self._sd_algorithm_cls = sd_algorithm_cls
         self._holistic_feature = holistic_feature
         self._patch_features = patch_features
@@ -40,7 +41,7 @@ class SupervisedDescentFitter(MultiFitter):
         self.diagonal = diagonal
         self.scales = scales
         self.n_perturbations = n_perturbations
-        self.iterations = checks.check_max_iters(iterations, n_levels)
+        self.n_iterations = checks.check_max_iters(n_iterations, n_levels)
         self._perturb_from_bounding_box = perturb_from_bounding_box
         # set up algorithms
         self._setup_algorithms()
@@ -54,7 +55,7 @@ class SupervisedDescentFitter(MultiFitter):
             self.algorithms.append(self._sd_algorithm_cls(
                 features=self._patch_features[j],
                 patch_shape=self._patch_shape[j],
-                iterations=self.iterations[j]))
+                n_iterations=self.n_iterations[j]))
 
     def perturb_from_bounding_box(self, bounding_box):
         return self._perturb_from_bounding_box(self.reference_shape,
@@ -78,37 +79,49 @@ class SupervisedDescentFitter(MultiFitter):
                 increment = True
 
             if verbose:
-                print('Computing batch {}'.format(k))
+                print('Computing batch {} - ({})'.format(k, len(image_batch)))
 
             # In the case where group is None, we need to get the only key so
             # that we can attach landmarks below and not get a complaint about
             # using None
-            first_image = image_batch[0]
             if group is None:
-                group = first_image.landmarks.group_labels[0]
+                group = image_batch[0].landmarks.group_labels[0]
 
-            if not increment:
-                # Normalize images and compute reference shape
-                self.reference_shape, image_batch = normalization_wrt_reference_shape(
-                    image_batch, group, self.diagonal, verbose=verbose)
-            else:
-                # We are incrementing, so rescale to existing reference shape
-                image_batch = rescale_images_to_reference_shape(
-                    image_batch, group, self.reference_shape,
-                    verbose=verbose)
+            if self.reference_shape is None:
+                # If no reference shape was given, use the mean of the first
+                # batch
+                if batch_size is not None:
+                    warnings.warn('No reference shape was provided. The mean '
+                                  'of the first batch will be the reference '
+                                  'shape. If the batch mean is not '
+                                  'representative of the true mean, this may '
+                                  'cause issues.', MenpoFitBuilderWarning)
+                self.reference_shape = compute_reference_shape(
+                    [i.landmarks[group].lms for i in image_batch],
+                    self.diagonal, verbose=verbose)
+
+            # Rescale to existing reference shape
+            image_batch = rescale_images_to_reference_shape(
+                image_batch, group, self.reference_shape,
+                verbose=verbose)
 
             # No bounding box is given, so we will use the ground truth box
             if bounding_box_group is None:
-                bounding_box_group = '__gt_bb_'
+                # It's important to use bb_group for batching, so that we
+                # generate ground truth bounding boxes for each batch, every
+                # time
+                bb_group = '__gt_bb_'
                 for i in image_batch:
                     gt_s = i.landmarks[group].lms
-                    perturb_bbox_group = bounding_box_group + '0'
+                    perturb_bbox_group = bb_group + '0'
                     i.landmarks[perturb_bbox_group] = gt_s.bounding_box()
+            else:
+                bb_group = bounding_box_group
 
             # Find all bounding boxes on the images with the given bounding
             # box key
-            all_bb_keys = list(first_image.landmarks.keys_matching(
-                '*{}*'.format(bounding_box_group)))
+            all_bb_keys = list(image_batch[0].landmarks.keys_matching(
+                '*{}*'.format(bb_group)))
             n_perturbations = len(all_bb_keys)
 
             # If there is only one example bounding box, then we will generate
@@ -128,20 +141,20 @@ class SupervisedDescentFitter(MultiFitter):
 
                         # This is customizable by passing in the correct method
                         p_s = self._perturb_from_bounding_box(gt_s, bb)
-                        perturb_bbox_group = '{}_{}'.format(bounding_box_group,
-                                                            j)
+                        perturb_bbox_group = '{}_{}'.format(bb_group, j)
                         i.landmarks[perturb_bbox_group] = p_s
             elif n_perturbations != self.n_perturbations:
                 warnings.warn('The original value of n_perturbation {} '
                               'will be reset to {} in order to agree with '
                               'the provided bounding_box_group.'.
-                              format(self.n_perturbations, n_perturbations))
+                              format(self.n_perturbations, n_perturbations),
+                              MenpoFitBuilderWarning)
                 self.n_perturbations = n_perturbations
 
             # Re-grab all the bounding box keys for iterating over when
             # calculating perturbations
-            all_bb_keys = list(first_image.landmarks.keys_matching(
-                '*{}*'.format(bounding_box_group)))
+            all_bb_keys = list(image_batch[0].landmarks.keys_matching(
+                '*{}*'.format(bb_group)))
 
             # Before scaling, we compute the holistic feature on the whole image
             msg = '- Computing holistic features ({})'.format(
@@ -187,12 +200,12 @@ class SupervisedDescentFitter(MultiFitter):
                         current_shapes.append(c_shapes)
 
                 # train supervised descent algorithm
-                if increment:
-                    current_shapes = self.algorithms[j].increment(
-                        level_images, level_gt_shapes, current_shapes,
-                        verbose=verbose)
-                else:
+                if not increment:
                     current_shapes = self.algorithms[j].train(
+                        level_images, level_gt_shapes, current_shapes,
+                        level_str=level_str, verbose=verbose)
+                else:
+                    current_shapes = self.algorithms[j].increment(
                         level_images, level_gt_shapes, current_shapes,
                         level_str=level_str, verbose=verbose)
 
@@ -310,7 +323,7 @@ class SupervisedDescentFitter(MultiFitter):
    - Patch shape: {}"""
         for k, s in enumerate(self.scales):
             level_info.append(lvl_str_tmplt.format(k, s,
-                                                   self.iterations[k],
+                                                   self.n_iterations[k],
                                                    self._patch_shape[k]))
         level_info = '\n'.join(level_info)
 

@@ -310,3 +310,10 @@ def build_shape_model(shapes, max_components=None):
         shape_model.trim_components(max_components)
 
     return shape_model
+
+
+class MenpoFitBuilderWarning(Warning):
+    r"""
+    A warning that some part of building the model may cause issues.
+    """
+    pass
