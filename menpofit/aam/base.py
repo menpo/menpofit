@@ -664,7 +664,7 @@ class PatchAAM(AAM):
                  diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
                  scale_features=True, max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
-        self.patch_shape = patch_shape
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(PatchAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
@@ -856,7 +856,7 @@ class LinearPatchAAM(AAM):
                  diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
                  scale_features=True, max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
-        self.patch_shape = patch_shape
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(LinearPatchAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
@@ -958,7 +958,7 @@ class PartsAAM(AAM):
                  patch_shape=(17, 17), scale_features=True,
                  max_shape_components=None, max_appearance_components=None,
                  batch_size=None):
-        self.patch_shape = patch_shape
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.normalize_parts = normalize_parts
 
         super(PartsAAM, self).__init__(
