@@ -26,7 +26,7 @@ class AAM(object):
     Parameters
     ----------
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -61,7 +61,7 @@ class AAM(object):
     scale_shapes : `boolean`, optional
     scale_features : `boolean`, optional
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -77,7 +77,7 @@ class AAM(object):
             If ``None``, all the available components are kept
             (100% of variance).
     max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of appearance components
+        If list of length ``n_scales``, then a number of appearance components
         is defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -651,7 +651,7 @@ class PatchAAM(AAM):
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
     features : `callable` or ``[callable]``
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -744,7 +744,7 @@ class LinearAAM(AAM):
         The transform used to warp the images from which the AAM was
         constructed.
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -842,7 +842,7 @@ class LinearPatchAAM(AAM):
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
     features : `callable` or ``[callable]``
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -943,7 +943,7 @@ class PartsAAM(AAM):
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
     features : `callable` or ``[callable]``
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.

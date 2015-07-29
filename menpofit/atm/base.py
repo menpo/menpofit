@@ -28,7 +28,7 @@ class ATM(object):
         constructed.
 
     features : `callable` or ``[callable]``,
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -333,7 +333,7 @@ class PatchATM(ATM):
         The shape of the patches used to build the Patch Based AAM.
 
     features : `callable` or ``[callable]``
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -414,7 +414,7 @@ class LinearATM(ATM):
         constructed.
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -483,7 +483,7 @@ class LinearPatchATM(ATM):
         The shape of the patches used to build the Patch Based AAM.
 
     features : `callable` or ``[callable]``
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -555,7 +555,7 @@ class PartsATM(ATM):
         The shape of the patches used to build the Patch Based AAM.
 
     features : `callable` or ``[callable]``
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.

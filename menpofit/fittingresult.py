@@ -719,7 +719,7 @@ class MultilevelFittingResult(FittingResult):
 
         :type: `int`
         """
-        return self.fitter.n_levels
+        return self.fitter.n_scales
 
     @property
     def downscale(self):
@@ -904,7 +904,7 @@ class SerializableMultilevelFittingResult(FittingResult):
         The list of fitted shapes per iteration of the fitting procedure.
     gt_shape : :map:`PointCloud`
         The ground truth shape associated to the image.
-    n_levels : `int`
+    n_scales : `int`
         Number of levels within the multilevel fitter.
     downscale : `int`
         Scale of downscaling applied to the image.
