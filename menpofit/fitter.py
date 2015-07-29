@@ -107,59 +107,59 @@ class MultiFitter(object):
             initial shape to which the image will be internally cropped around
             the initial shape range.
             If `None`, no cropping is performed.
-
             This will limit the fitting algorithm search region but is
             likely to speed up its running time, specially when the
             modeled object occupies a small portion of the image.
-
         Returns
         -------
         images : `list` of :map:`Image` or subclass
             The list of images that will be fitted by the fitters.
-
         initial_shapes : `list` of :map:`PointCloud`
             The initial shape for each one of the previous images.
-
         gt_shapes : `list` of :map:`PointCloud`
             The ground truth shape for each one of the previous images.
         """
-
-        # attach landmarks to the image
-        image.landmarks['initial_shape'] = initial_shape
+        # Attach landmarks to the image
+        image.landmarks['__initial_shape'] = initial_shape
         if gt_shape:
-            image.landmarks['gt_shape'] = gt_shape
+            image.landmarks['__gt_shape'] = gt_shape
 
-        # if specified, crop the image
         if crop_image:
+            # If specified, crop the image
             image = image.crop_to_landmarks_proportion(crop_image,
-                                                       group='initial_shape')
+                                                       group='__initial_shape')
 
-        # rescale image wrt the scale factor between reference_shape and
+        # Rescale image wrt the scale factor between reference_shape and
         # initial_shape
         image = image.rescale_to_reference_shape(self.reference_shape,
-                                                 group='initial_shape')
+                                                 group='__initial_shape')
 
-        # obtain image representation
+        # Compute image representation
         images = []
-        for j in range(self.n_scales):
-            if self.scale_features:
-                if j == 0:
-                    # compute features at highest level
-                    feature_image = self.features[j](image)
-                # scale features at other levels
-                feature_image = feature_image.rescale(self.scales[j])
+        for i in range(self.n_scales):
+            # Handle features
+            if i == 0 or self.features[i] is not self.features[i - 1]:
+                # Compute features only if this is the first pass through
+                # the loop or the features at this scale are different from
+                # the features at the previous scale
+                feature_image = self.features[i](image)
+
+            # Handle scales
+            if self.scales[i] != 1:
+                # Scale feature images only if scale is different than 1
+                scaled_image = feature_image.rescale(self.scales[i])
             else:
-                # scale image and compute features at other levels
-                scaled_image = image.rescale(self.scales[j])
-                feature_image = self.features[j](scaled_image)
-            images.append(feature_image)
+                scaled_image = feature_image
 
-        # get initial shapes per level
-        initial_shapes = [i.landmarks['initial_shape'].lms for i in images]
+            # Add scaled image to list
+            images.append(scaled_image)
 
-        # get ground truth shapes per level
+        # Get initial shapes per level
+        initial_shapes = [i.landmarks['__initial_shape'].lms for i in images]
+
+        # Get ground truth shapes per level
         if gt_shape:
-            gt_shapes = [i.landmarks['gt_shape'].lms for i in images]
+            gt_shapes = [i.landmarks['__gt_shape'].lms for i in images]
         else:
             gt_shapes = None
 
