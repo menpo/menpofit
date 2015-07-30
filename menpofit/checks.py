@@ -68,22 +68,6 @@ def check_features(features, n_levels):
 
 
 # TODO: document me!
-def check_scale_features(scale_features, features):
-    r"""
-    """
-    if np.alltrue([f == features[0] for f in features]):
-        return scale_features
-    elif scale_features:
-        # Only raise warning if True was passed.
-        warnings.warn('scale_features has been automatically set to False '
-                      'because different types of features are used at each '
-                      'level.')
-        return False
-    else:
-        return scale_features
-
-
-# TODO: document me!
 def check_patch_shape(patch_shape, n_levels):
     if len(patch_shape) == 2 and isinstance(patch_shape[0], int):
         return [patch_shape] * n_levels

@@ -254,20 +254,6 @@ class ModelFitter(MultiFitter):
     def scales(self):
         return self._model.scales
 
-    @property
-    def scale_features(self):
-        r"""
-        Flag that defined the nature of Gaussian pyramid used to build the
-        AAM.
-        If ``True``, the feature space is computed once at the highest scale
-        and the Gaussian pyramid is applied to the feature images.
-        If ``False``, the Gaussian pyramid is applied to the original images
-        and features are extracted at each level.
-
-        :type: `boolean`
-        """
-        return self._model.scale_features
-
     def _check_n_shape(self, n_shape):
         if n_shape is not None:
             if type(n_shape) is int or type(n_shape) is float:
