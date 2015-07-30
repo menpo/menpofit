@@ -897,7 +897,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         # Compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters
         appearance_weights = appearance_model_parameters_wid.parameters
-        instance = aam.instance(level=level, shape_weights=shape_weights,
+        instance = aam.instance(scale_index=level, shape_weights=shape_weights,
                                 appearance_weights=appearance_weights)
 
         # Update info
@@ -1317,7 +1317,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
 
         # Compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters
-        instance = atm.instance(level=level, shape_weights=shape_weights)
+        instance = atm.instance(scale_index=level, shape_weights=shape_weights)
 
         # Update info
         update_info(atm, instance, level,

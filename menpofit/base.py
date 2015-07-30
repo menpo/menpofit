@@ -46,7 +46,7 @@ def create_pyramid(images, n_levels, downscale, features, verbose=False):
     images: list of :map:`Image`
         The set of landmarked images from which to build the AAM.
 
-    n_levels: int
+    n_scales: int
         The number of multi-resolution pyramidal levels to be used.
 
     downscale: float

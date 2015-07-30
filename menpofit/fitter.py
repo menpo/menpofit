@@ -63,11 +63,6 @@ class MultiFitter(object):
         images, initial_shapes, gt_shapes = self._prepare_image(
             image, initial_shape, gt_shape=gt_shape, crop_image=crop_image)
 
-        # detach added landmarks from image
-        del image.landmarks['initial_shape']
-        if gt_shape:
-            del image.landmarks['gt_shape']
-
         # work out the affine transform between the initial shape of the
         # highest pyramidal level and the initial shape of the original image
         affine_correction = AlignmentAffine(initial_shapes[-1], initial_shape)
@@ -192,28 +187,39 @@ class MultiFitter(object):
 
         Returns
         -------
-        algorithm_results: :class:`menpo.fg2015.fittingresult.FittingResult` list
+        algorithm_results: :class:`FittingResult` list
             The fitting object containing the state of the whole fitting
             procedure.
         """
+        # Perform check
         max_iters = checks.check_max_iters(max_iters, self.n_scales)
+
+        # Set initial and ground truth shapes
         shape = initial_shape
         gt_shape = None
-        algorithm_results = []
-        for j, (i, alg, it, s) in enumerate(zip(images, self.algorithms,
-                                                max_iters, self.scales)):
-            if gt_shapes:
-                gt_shape = gt_shapes[j]
 
-            algorithm_result = alg.run(i, shape, gt_shape=gt_shape,
-                                       max_iters=it, **kwargs)
+        # Initialize list of algorithm results
+        algorithm_results = []
+        for i in range(self.n_scales):
+            # Handle ground truth shape
+            if gt_shapes is not None:
+                gt_shape = gt_shapes[i]
+
+            # Run algorithm
+            algorithm_result = self.algorithms[i].run(images[i], shape,
+                                                      gt_shape=gt_shape,
+                                                      max_iters=max_iters[i],
+                                                      **kwargs)
+            # Add algorithm result to the list
             algorithm_results.append(algorithm_result)
 
+            # Prepare this scale's final shape for the next scale
             shape = algorithm_result.final_shape
-            if s != self.scales[-1]:
-                shape = Scale(self.scales[j + 1] / s,
+            if self.scales[i] != self.scales[-1]:
+                shape = Scale(self.scales[i + 1] / self.scales[i],
                               n_dims=shape.n_dims).apply(shape)
 
+        # Return list of algorithm results
         return algorithm_results
 
 
