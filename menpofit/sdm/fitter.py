@@ -179,7 +179,7 @@ class SupervisedDescentFitter(MultiFitter):
                                                       level_str=scale_prefix,
                                                       verbose=verbose)
                 # handle scales
-                if self.scales[k] != 1:
+                if self.scales[j] != 1:
                     # Scale feature images only if scale is different than 1
                     scaled_images = scale_images(feature_images, self.scales[j],
                                                  level_str=scale_prefix,
@@ -216,8 +216,9 @@ class SupervisedDescentFitter(MultiFitter):
                         scaled_images, scaled_shapes, current_shapes,
                         level_str=scale_prefix, verbose=verbose)
 
-                # Scale current shapes to next resolution
-                if self.scales[j] != (1 or self.scales[-1]):
+                # Scale current shapes to next resolution, don't bother
+                # scaling final level
+                if j != (self.n_scales - 1):
                     transform = Scale(self.scales[j + 1] / self.scales[j],
                                       n_dims=2)
                     for image_shapes in current_shapes:
