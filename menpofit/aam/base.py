@@ -225,7 +225,7 @@ class AAM(object):
                                                       level_str=scale_prefix,
                                                       verbose=verbose)
                 # handle scales
-                if self.scales[k] != 1:
+                if self.scales[j] != 1:
                     # Scale feature images only if scale is different than 1
                     scaled_images = scale_images(feature_images, self.scales[j],
                                                  level_str=scale_prefix,
