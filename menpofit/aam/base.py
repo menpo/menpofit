@@ -58,8 +58,6 @@ class AAM(object):
         reference frame (provided that features computation does not change
         the image size).
     scales : `int` or float` or list of those, optional
-    scale_shapes : `boolean`, optional
-    scale_features : `boolean`, optional
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
         If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
@@ -118,14 +116,12 @@ class AAM(object):
     """
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  features=no_op, transform=DifferentiablePiecewiseAffine,
-                 diagonal=None, scales=(0.5, 1.0), scale_features=True,
-                 max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+                 diagonal=None, scales=(0.5, 1.0),  max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
         # check parameters
         checks.check_diagonal(diagonal)
         scales, n_scales = checks.check_scales(scales)
         features = checks.check_features(features, n_scales)
-        scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
@@ -133,7 +129,6 @@ class AAM(object):
         # set parameters
         self.features = features
         self.transform = transform
-        self.scale_features = scale_features
         self.diagonal = diagonal
         self.scales = scales
         self.max_shape_components = max_shape_components
@@ -564,20 +559,18 @@ class PatchAAM(AAM):
 
     scales : `int` or float` or list of those
     scale_shapes : `boolean`
-    scale_features : `boolean`
     """
 
     def __init__(self, images, group=None, verbose=False, features=no_op,
                  diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 scale_features=True, max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(PatchAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales, scale_features=scale_features,
-            max_shape_components=max_shape_components,
+            scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
 
@@ -656,20 +649,16 @@ class LinearAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-    scale_shapes : `boolean`
-    scale_features : `boolean`
     """
 
     def __init__(self, images, group=None, verbose=False, features=no_op,
                  transform=DifferentiableThinPlateSplines, diagonal=None,
-                 scales=(0.5, 1.0), scale_features=True,
-                 max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+                 scales=(0.5, 1.0), max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
 
         super(LinearAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
-            transform=transform, diagonal=diagonal,
-            scales=scales, scale_features=scale_features,
+            transform=transform, diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
@@ -754,22 +743,18 @@ class LinearPatchAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-    scale_shapes : `boolean`
-    scale_features : `boolean`
-    n_landmarks: `int`
     """
 
     def __init__(self, images, group=None, verbose=False, features=no_op,
                  diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 scale_features=True, max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(LinearPatchAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales, scale_features=scale_features,
-            max_shape_components=max_shape_components,
+            scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
 
@@ -856,23 +841,19 @@ class PartsAAM(AAM):
 
     normalize_parts: `callable`
     scales : `int` or float` or list of those
-    scale_shapes : `boolean`
-    scale_features : `boolean`
     """
 
     def __init__(self, images, group=None, verbose=False, features=no_op,
                  normalize_parts=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), scale_features=True,
-                 max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+                 patch_shape=(17, 17), max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.normalize_parts = normalize_parts
 
         super(PartsAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales, scale_features=scale_features,
-            max_shape_components=max_shape_components,
+            scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
 
