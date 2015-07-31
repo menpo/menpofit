@@ -1,3 +1,5 @@
 from .base import CLM
-from .builder import CLMBuilder
 from .fitter import GradientDescentCLMFitter
+from .algorithm import RegularisedLandmarkMeanShift
+from .expert import (
+    CorrelationFilterExpertEnsemble, IncrementalCorrelationFilterThinWrapper)
