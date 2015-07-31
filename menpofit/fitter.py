@@ -255,29 +255,18 @@ class ModelFitter(MultiFitter):
         return self._model.scales
 
     def _check_n_shape(self, n_shape):
-        if n_shape is not None:
-            if type(n_shape) is int or type(n_shape) is float:
-                for sm in self._model.shape_models:
-                    sm.n_active_components = n_shape
-            elif len(n_shape) == 1 and self._model.n_scales > 1:
-                for sm in self._model.shape_models:
-                    sm.n_active_components = n_shape[0]
-            elif len(n_shape) == self._model.n_scales:
-                for sm, n in zip(self._model.shape_models, n_shape):
-                    sm.n_active_components = n
-            else:
-                raise ValueError('n_shape can be an integer or a float or None'
-                                 'or a list containing 1 or {} of '
-                                 'those'.format(self._model.n_scales))
+        checks.set_models_components(self._model.shape_models, n_shape)
 
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.05):
+    def noisy_shape_from_bounding_box(self, bounding_box,
+                                      noise_percentage=0.05):
         transform = noisy_alignment_similarity_transform(
-            self.reference_bounding_box, bounding_box, noise_std=noise_std)
+            self.reference_bounding_box, bounding_box,
+            noise_percentage=noise_percentage)
         return transform.apply(self.reference_shape)
 
-    def noisy_shape_from_shape(self, shape, noise_std=0.05):
+    def noisy_shape_from_shape(self, shape, noise_percentage=0.05):
         return self.noisy_shape_from_bounding_box(
-            shape.bounding_box(), noise_std=noise_std)
+            shape.bounding_box(), noise_percentage=noise_percentage)
 
 
 def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
