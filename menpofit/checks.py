@@ -145,3 +145,19 @@ def check_sampling(sampling, n_levels):
                          'None'.format(n_levels))
 
 
+def set_models_components(models, n_components):
+    if n_components is not None:
+        n_scales = len(models)
+        if type(n_components) is int or type(n_components) is float:
+            for am in models:
+                am.n_active_components = n_components
+        elif len(n_components) == 1 and n_scales > 1:
+            for am in models:
+                am.n_active_components = n_components[0]
+        elif len(n_components) == n_scales:
+            for am, n in zip(models, n_components):
+                am.n_active_components = n
+        else:
+            raise ValueError('n_components can be an integer or a float '
+                             'or None or a list containing 1 or {} of '
+                             'those'.format(n_scales))
