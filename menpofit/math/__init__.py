@@ -1,1 +1,1 @@
-from regression import IRLRegression, IIRLRegression
+from .regression import IRLRegression, IIRLRegression
