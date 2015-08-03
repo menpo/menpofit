@@ -1590,7 +1590,7 @@ def plot_ced(errors, legend_entries=None, error_range=None,
         as part of a parent widget. If ``False``, the widget object is not
         returned, it is just visualized.
     """
-    from menpofit.fittingresult import plot_cumulative_error_distribution
+    from menpofit.result import plot_cumulative_error_distribution
     print('Initializing...')
 
     # Make sure that errors is a list even with one list member

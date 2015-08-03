@@ -45,4 +45,5 @@ class GradientDescentCLMFitter(CLMFitter):
 class SupervisedDescentCLMFitter(CLMFitter):
     r"""
     """
-    raise NotImplementedError
+    def __init__(self):
+        raise NotImplementedError
