@@ -508,13 +508,13 @@ class MultiFitterResult(IterativeResult):
         self._gt_shape = gt_shape
 
     @property
-    def n_levels(self):
+    def n_scales(self):
         r"""
         The number of levels of the fitter object.
 
         :type: `int`
         """
-        return self.fitter.n_levels
+        return self.fitter.n_scales
 
     @property
     def scales(self):

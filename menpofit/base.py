@@ -46,7 +46,7 @@ def create_pyramid(images, n_levels, downscale, features, verbose=False):
     images: list of :map:`Image`
         The set of landmarked images from which to build the AAM.
 
-    n_levels: int
+    n_scales: int
         The number of multi-resolution pyramidal levels to be used.
 
     downscale: float
@@ -113,13 +113,13 @@ class DeformableModel(object):
         return is_pyramid_on_features(self.features)
 
 
-
-def build_sampling_grid(patch_shape):
+def build_grid(shape):
     r"""
     """
-    patch_shape = np.array(patch_shape)
-    patch_half_shape = np.require(np.floor(patch_shape / 2), dtype=int)
-    start = -patch_half_shape
-    end = patch_half_shape + 1
+    shape = np.asarray(shape)
+    half_shape = np.floor(shape / 2)
+    half_shape = np.require(half_shape, dtype=int)
+    start = -half_shape
+    end = half_shape + shape % 2
     sampling_grid = np.mgrid[start[0]:end[0], start[1]:end[1]]
-    return sampling_grid.swapaxes(0, 2).swapaxes(0, 1)
+    return np.rollaxis(sampling_grid, 0, 3)

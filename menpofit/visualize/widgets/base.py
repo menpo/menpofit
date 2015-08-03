@@ -31,7 +31,7 @@ def _check_n_parameters(n_params, n_levels, max_n_params):
     r"""
     Checks the maximum number of components per level either of the shape
     or the appearance model. It must be ``None`` or `int` or `float` or a `list`
-    of those containing ``1`` or ``n_levels`` elements.
+    of those containing ``1`` or ``n_scales`` elements.
     """
     str_error = ("n_params must be None or 1 <= int <= max_n_params or "
                  "a list of those containing 1 or {} elements").format(n_levels)
@@ -128,7 +128,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
     max_n_params = [sp.n_active_components for sp in shape_model]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_parameters = _check_n_parameters(n_parameters, n_levels, max_n_params)
 
     # Initial options dictionaries
@@ -487,7 +487,7 @@ def visualize_appearance_model(appearance_model, n_parameters=5,
     max_n_params = [ap.n_active_components for ap in appearance_model]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_parameters = _check_n_parameters(n_parameters, n_levels, max_n_params)
 
     # Find initial groups and labels that will be passed to the landmark options
@@ -790,7 +790,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     print('Initializing...')
 
     # Get the number of levels
-    n_levels = aam.n_levels
+    n_levels = aam.n_scales
 
     # Define the styling options
     if style == 'coloured':
@@ -829,7 +829,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     max_n_appearance = [ap.n_active_components for ap in aam.appearance_models]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_shape_parameters = _check_n_parameters(n_shape_parameters, n_levels,
                                              max_n_shape)
     n_appearance_parameters = _check_n_parameters(n_appearance_parameters,
@@ -972,7 +972,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         if n_levels == 1:
             tmp_shape_models = ''
             tmp_pyramid = ''
-        else:  # n_levels > 1
+        else:  # n_scales > 1
             # shape models info
             if aam.scaled_shape_models:
                 tmp_shape_models = "Each level has a scaled shape model " \
@@ -993,7 +993,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
             "> Warp using {} transform".format(aam.transform.__name__),
             "> {}".format(tmp_pyramid),
             "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, aam.n_levels, aam.downscale),
+                level + 1, aam.n_scales, aam.downscale),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -1216,7 +1216,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
     print('Initializing...')
 
     # Get the number of levels
-    n_levels = atm.n_levels
+    n_levels = atm.n_scales
 
     # Define the styling options
     if style == 'coloured':
@@ -1252,7 +1252,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
     max_n_shape = [sp.n_active_components for sp in atm.shape_models]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_shape_parameters = _check_n_parameters(n_shape_parameters, n_levels,
                                              max_n_shape)
 
@@ -1388,7 +1388,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         if n_levels == 1:
             tmp_shape_models = ''
             tmp_pyramid = ''
-        else:  # n_levels > 1
+        else:  # n_scales > 1
             # shape models info
             if atm.scaled_shape_models:
                 tmp_shape_models = "Each level has a scaled shape model " \
@@ -1409,7 +1409,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
             "> Warp using {} transform".format(atm.transform.__name__),
             "> {}".format(tmp_pyramid),
             "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, atm.n_levels, atm.downscale),
+                level + 1, atm.n_scales, atm.downscale),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -1590,7 +1590,7 @@ def plot_ced(errors, legend_entries=None, error_range=None,
         as part of a parent widget. If ``False``, the widget object is not
         returned, it is just visualized.
     """
-    from menpofit.fittingresult import plot_cumulative_error_distribution
+    from menpofit.result import plot_cumulative_error_distribution
     print('Initializing...')
 
     # Make sure that errors is a list even with one list member
@@ -2466,9 +2466,9 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         else:
             text_per_line = [
                 "> {} iterations".format(fitting_results[im].n_iters)]
-        if hasattr(fitting_results[im], 'n_levels'):  # Multilevel result
+        if hasattr(fitting_results[im], 'n_scales'):  # Multilevel result
             text_per_line.append("> {} levels with downscale of {:.1f}".format(
-                fitting_results[im].n_levels, fitting_results[im].downscale))
+                fitting_results[im].n_scales, fitting_results[im].downscale))
         info_wid.set_widget_state(n_lines=len(text_per_line),
                                   text_per_line=text_per_line)
 
