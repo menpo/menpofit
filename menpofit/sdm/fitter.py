@@ -28,9 +28,9 @@ class SupervisedDescentFitter(MultiFitter):
                  batch_size=None, verbose=False):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        patch_features = checks.check_features(patch_features, n_levels)
-        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
+        scales = checks.check_scales(scales)
+        patch_features = checks.check_features(patch_features, len(scales))
+        patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         # set parameters
         self.algorithms = []
         self.reference_shape = None
@@ -41,7 +41,7 @@ class SupervisedDescentFitter(MultiFitter):
         self.diagonal = diagonal
         self.scales = scales
         self.n_perturbations = n_perturbations
-        self.iterations = checks.check_max_iters(iterations, n_levels)
+        self.iterations = checks.check_max_iters(iterations, len(scales))
         self._perturb_from_bounding_box = perturb_from_bounding_box
         # set up algorithms
         self._setup_algorithms()
@@ -51,7 +51,7 @@ class SupervisedDescentFitter(MultiFitter):
                     verbose=verbose, increment=False, batch_size=batch_size)
 
     def _setup_algorithms(self):
-        for j in range(self.n_levels):
+        for j in range(self.n_scales):
             self.algorithms.append(self._sd_algorithm_cls(
                 features=self._patch_features[j],
                 patch_shape=self._patch_shape[j],
@@ -153,7 +153,7 @@ class SupervisedDescentFitter(MultiFitter):
 
             # for each pyramid level (low --> high)
             current_shapes = []
-            for j in range(self.n_levels):
+            for j in range(self.n_scales):
                 if verbose:
                     if len(self.scales) > 1:
                         level_str = '  - Level {}: '.format(j)
@@ -164,7 +164,7 @@ class SupervisedDescentFitter(MultiFitter):
 
                 # Scale images
                 level_images = scale_images(image_batch, self.scales[j],
-                                            level_str=level_str,
+                                            prefix=level_str,
                                             verbose=verbose)
 
                 # Extract scaled ground truth shapes for current level
@@ -325,7 +325,7 @@ class SupervisedDescentFitter(MultiFitter):
  - Custom perturbation scheme used: {is_custom_perturb_func}""".format(
             reg_alg=name_of_callable(self._sd_algorithm_cls),
             reg_cls=name_of_callable(regressor_cls),
-            n_levels=len(self.scales),
+            n_scales=len(self.scales),
             levels=self.scales,
             level_info=level_info,
             n_perturbations=self.n_perturbations,
