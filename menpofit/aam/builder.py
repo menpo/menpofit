@@ -23,7 +23,7 @@ class AAMBuilder(object):
     Parameters
     ----------
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -65,7 +65,7 @@ class AAMBuilder(object):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -82,7 +82,7 @@ class AAMBuilder(object):
             (100% of variance).
 
     max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of appearance components
+        If list of length ``n_scales``, then a number of appearance components
         is defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -127,13 +127,13 @@ class AAMBuilder(object):
                  max_shape_components=None, max_appearance_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, n_levels, 'max_shape_components')
+            max_shape_components, len(scales), 'max_shape_components')
         max_appearance_components = checks.check_max_components(
-            max_appearance_components, n_levels, 'max_appearance_components')
+            max_appearance_components, len(scales), 'max_appearance_components')
         # set parameters
         self.features = features
         self.transform = transform
@@ -186,21 +186,21 @@ class AAMBuilder(object):
             if j == 0:
                 # compute features at highest level
                 feature_images = compute_features(images, self.features[j],
-                                                  level_str=level_str,
+                                                  prefix=level_str,
                                                   verbose=verbose)
                 level_images = feature_images
             elif self.scale_features:
                 # scale features at other levels
                 level_images = scale_images(feature_images, s,
-                                            level_str=level_str,
+                                            prefix=level_str,
                                             verbose=verbose)
             else:
                 # scale images and compute features at other levels
-                scaled_images = scale_images(images, s, level_str=level_str,
+                scaled_images = scale_images(images, s, prefix=level_str,
                                              verbose=verbose)
                 level_images = compute_features(scaled_images,
                                                 self.features[j],
-                                                level_str=level_str,
+                                                prefix=level_str,
                                                 verbose=verbose)
 
             # extract potentially rescaled shapes
@@ -271,21 +271,21 @@ class AAMBuilder(object):
             if j == 0:
                 # compute features at highest level
                 feature_images = compute_features(images, self.features[j],
-                                                  level_str=level_str,
+                                                  prefix=level_str,
                                                   verbose=verbose)
                 level_images = feature_images
             elif self.scale_features:
                 # scale features at other levels
                 level_images = scale_images(feature_images, s,
-                                            level_str=level_str,
+                                            prefix=level_str,
                                             verbose=verbose)
             else:
                 # scale images and compute features at other levels
-                scaled_images = scale_images(images, s, level_str=level_str,
+                scaled_images = scale_images(images, s, prefix=level_str,
                                              verbose=verbose)
                 level_images = compute_features(scaled_images,
                                                 self.features[j],
-                                                level_str=level_str,
+                                                prefix=level_str,
                                                 verbose=verbose)
 
             # extract potentially rescaled shapes
@@ -361,7 +361,7 @@ class AAMBuilder(object):
                      verbose):
         reference_frame = build_reference_frame(reference_shape)
         return warp_images(images, shapes, reference_frame, self.transform,
-                           level_str=level_str, verbose=verbose)
+                           prefix=level_str, verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
         return AAM(shape_models, appearance_models, reference_shape,
@@ -379,7 +379,7 @@ class PatchAAMBuilder(AAMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -413,7 +413,7 @@ class PatchAAMBuilder(AAMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -430,7 +430,7 @@ class PatchAAMBuilder(AAMBuilder):
             (100% of variance).
 
     max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of appearance components
+        If list of length ``n_scales``, then a number of appearance components
         is defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -478,14 +478,15 @@ class PatchAAMBuilder(AAMBuilder):
                  max_appearance_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, n_levels, 'max_shape_components')
+            max_shape_components, len(scales), 'max_shape_components')
         max_appearance_components = checks.check_max_components(
-            max_appearance_components, n_levels, 'max_appearance_components')
+            max_appearance_components, len(scales),
+            'max_appearance_components')
         # set parameters
         self.patch_shape = patch_shape
         self.features = features
@@ -502,7 +503,7 @@ class PatchAAMBuilder(AAMBuilder):
         reference_frame = build_patch_reference_frame(
             reference_shape, patch_shape=self.patch_shape[level])
         return warp_images(images, shapes, reference_frame, self.transform,
-                           level_str=level_str, verbose=verbose)
+                           prefix=level_str, verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
         return PatchAAM(shape_models, appearance_models, reference_shape,
@@ -518,7 +519,7 @@ class LinearAAMBuilder(AAMBuilder):
     Parameters
     ----------
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -560,7 +561,7 @@ class LinearAAMBuilder(AAMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -577,7 +578,7 @@ class LinearAAMBuilder(AAMBuilder):
             (100% of variance).
 
     max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of appearance components
+        If list of length ``n_scales``, then a number of appearance components
         is defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -622,13 +623,13 @@ class LinearAAMBuilder(AAMBuilder):
                  max_shape_components=None, max_appearance_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, n_levels, 'max_shape_components')
+            max_shape_components, len(scales), 'max_shape_components')
         max_appearance_components = checks.check_max_components(
-            max_appearance_components, n_levels, 'max_appearance_components')
+            max_appearance_components, len(scales), 'max_appearance_components')
         # set parameters
         self.features = features
         self.transform = transform
@@ -654,7 +655,7 @@ class LinearAAMBuilder(AAMBuilder):
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
         return warp_images(images, shapes, self.reference_frame,
-                           self.transform, level_str=level_str,
+                           self.transform, prefix=level_str,
                            verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
@@ -675,7 +676,7 @@ class LinearPatchAAMBuilder(AAMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -709,7 +710,7 @@ class LinearPatchAAMBuilder(AAMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -726,7 +727,7 @@ class LinearPatchAAMBuilder(AAMBuilder):
             (100% of variance).
 
     max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of appearance components
+        If list of length ``n_scales``, then a number of appearance components
         is defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -774,14 +775,15 @@ class LinearPatchAAMBuilder(AAMBuilder):
                  max_appearance_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, n_levels, 'max_shape_components')
+            max_shape_components, len(scales), 'max_shape_components')
         max_appearance_components = checks.check_max_components(
-            max_appearance_components, n_levels, 'max_appearance_components')
+            max_appearance_components, len(scales),
+            'max_appearance_components')
         # set parameters
         self.patch_shape = patch_shape
         self.features = features
@@ -808,7 +810,7 @@ class LinearPatchAAMBuilder(AAMBuilder):
     def _warp_images(self, images, shapes, reference_shape, level, level_str,
                      verbose):
         return warp_images(images, shapes, self.reference_frame,
-                           self.transform, level_str=level_str,
+                           self.transform, prefix=level_str,
                            verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
@@ -829,7 +831,7 @@ class PartsAAMBuilder(AAMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -865,7 +867,7 @@ class PartsAAMBuilder(AAMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -882,7 +884,7 @@ class PartsAAMBuilder(AAMBuilder):
             (100% of variance).
 
     max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of appearance components
+        If list of length ``n_scales``, then a number of appearance components
         is defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -930,14 +932,14 @@ class PartsAAMBuilder(AAMBuilder):
                  max_shape_components=None, max_appearance_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
-            max_shape_components, n_levels, 'max_shape_components')
+            max_shape_components, len(scales), 'max_shape_components')
         max_appearance_components = checks.check_max_components(
-            max_appearance_components, n_levels, 'max_appearance_components')
+            max_appearance_components, len(scales), 'max_appearance_components')
         # set parameters
         self.patch_shape = patch_shape
         self.features = features
@@ -953,7 +955,7 @@ class PartsAAMBuilder(AAMBuilder):
                      verbose):
         return extract_patches(images, shapes, self.patch_shape[level],
                                normalize_function=self.normalize_parts,
-                               level_str=level_str, verbose=verbose)
+                               prefix=level_str, verbose=verbose)
 
     def _build_aam(self, shape_models, appearance_models, reference_shape):
         return PartsAAM(shape_models, appearance_models, reference_shape,
