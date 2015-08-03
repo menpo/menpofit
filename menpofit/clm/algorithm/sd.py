@@ -5,4 +5,5 @@
 class SupervisedDescentCLMAlgorithm(object):
     r"""
     """
-    raise NotImplementedError
+    def __init__(self):
+        raise NotImplementedError

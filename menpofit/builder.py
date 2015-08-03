@@ -54,11 +54,10 @@ def rescale_images_to_reference_shape(images, group, reference_shape,
     r"""
     """
     wrap = partial(print_progress, prefix='- Normalizing images size',
-                   verbose=verbose)
+                   end_with_newline=False, verbose=verbose)
 
     # Normalize the scaling of all images wrt the reference_shape size
-    normalized_images = [i.rescale_to_reference_shape(reference_shape,
-                                                      group=group)
+    normalized_images = [i.rescale_to_pointcloud(reference_shape, group=group)
                          for i in wrap(images)]
     return normalized_images
 
@@ -117,19 +116,19 @@ def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
 
 
 # TODO: document me!
-def compute_features(images, features, level_str='', verbose=False):
+def compute_features(images, features, prefix='', verbose=False):
     wrap = partial(print_progress,
-                   prefix='{}Computing feature space'.format(level_str),
-                   end_with_newline=not level_str, verbose=verbose)
+                   prefix='{}Computing feature space'.format(prefix),
+                   end_with_newline=not prefix, verbose=verbose)
 
     return [features(i) for i in wrap(images)]
 
 
 # TODO: document me!
-def scale_images(images, scale, level_str='', verbose=False):
+def scale_images(images, scale, prefix='', verbose=False):
     wrap = partial(print_progress,
-                   prefix='{}Scaling images'.format(level_str),
-                   end_with_newline=not level_str, verbose=verbose)
+                   prefix='{}Scaling images'.format(prefix),
+                   end_with_newline=not prefix, verbose=verbose)
 
     if not np.allclose(scale, 1):
         return [i.rescale(scale) for i in wrap(images)]
@@ -138,11 +137,11 @@ def scale_images(images, scale, level_str='', verbose=False):
 
 
 # TODO: document me!
-def warp_images(images, shapes, reference_frame, transform, level_str='',
+def warp_images(images, shapes, reference_frame, transform, prefix='',
                 verbose=None):
     wrap = partial(print_progress,
-                   prefix='{}Warping images'.format(level_str),
-                   end_with_newline=not level_str, verbose=verbose)
+                   prefix='{}Warping images'.format(prefix),
+                   end_with_newline=not prefix, verbose=verbose)
 
     warped_images = []
     # Build a dummy transform, use set_target for efficiency
@@ -161,10 +160,10 @@ def warp_images(images, shapes, reference_frame, transform, level_str='',
 
 # TODO: document me!
 def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
-                    level_str='', verbose=False):
+                    prefix='', verbose=False):
     wrap = partial(print_progress,
-                   prefix='{}Warping images'.format(level_str),
-                   end_with_newline=not level_str, verbose=verbose)
+                   prefix='{}Warping images'.format(prefix),
+                   end_with_newline=not prefix, verbose=verbose)
 
     parts_images = []
     for i, s in wrap(zip(images, shapes)):
@@ -173,6 +172,7 @@ def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
         parts = normalize_function(parts)
         parts_images.append(Image(parts))
     return parts_images
+
 
 def build_reference_frame(landmarks, boundary=3, group='source',
                           trilist=None):
@@ -292,7 +292,8 @@ def align_shapes(shapes):
     return [s.aligned_source() for s in gpa.transforms]
 
 
-def build_shape_model(shapes, max_components=None):
+# TODO: rethink OrthoPDM, should this function be its constructor?
+def build_shape_model(shapes, max_components=None, prefix='', verbose=False):
     r"""
     Builds a shape model given a set of shapes.
 
@@ -311,6 +312,8 @@ def build_shape_model(shapes, max_components=None):
     shape_model: :class:`menpo.model.pca`
         The PCA shape model.
     """
+    if verbose:
+        print_dynamic('{}Building shape model'.format(prefix))
     # compute aligned shapes
     aligned_shapes = align_shapes(shapes)
     # build shape model
@@ -318,5 +321,19 @@ def build_shape_model(shapes, max_components=None):
     if max_components is not None:
         # trim shape model if required
         shape_model.trim_components(max_components)
+    return shape_model
 
+
+def increment_shape_model(shape_model, shapes, forgetting_factor=None,
+                          max_components=None, prefix='', verbose=False):
+    r"""
+    """
+    if verbose:
+        print_dynamic('{}Incrementing shape model'.format(prefix))
+    # compute aligned shapes
+    aligned_shapes = align_shapes(shapes)
+    # increment shape model
+    shape_model.increment(aligned_shapes, forgetting_factor=forgetting_factor)
+    if max_components is not None:
+        shape_model.trim_components(max_components)
     return shape_model

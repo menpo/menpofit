@@ -13,15 +13,15 @@ class MultiFitter(object):
     r"""
     """
     @property
-    def n_levels(self):
+    def n_scales(self):
         r"""
-        The number of pyramidal levels used during alignment.
+        The number of scales used during alignment.
 
         :type: `int`
         """
         return len(self.scales)
 
-    def fit(self, image, initial_shape, max_iters=50, gt_shape=None,
+    def fit(self, image, initial_shape, max_iters=20, gt_shape=None,
             crop_image=0.5, **kwargs):
         r"""
         Fits the multilevel fitter to an image.
@@ -67,11 +67,6 @@ class MultiFitter(object):
         # generate the list of images to be fitted
         images, initial_shapes, gt_shapes = self._prepare_image(
             image, initial_shape, gt_shape=gt_shape, crop_image=crop_image)
-
-        # detach added landmarks from image
-        del image.landmarks['initial_shape']
-        if gt_shape:
-            del image.landmarks['gt_shape']
 
         # work out the affine transform between the initial shape of the
         # highest pyramidal level and the initial shape of the original image
@@ -131,50 +126,58 @@ class MultiFitter(object):
         gt_shapes : `list` of :map:`PointCloud`
             The ground truth shape for each one of the previous images.
         """
-
-        # attach landmarks to the image
-        image.landmarks['initial_shape'] = initial_shape
+        # Attach landmarks to the image
+        image.landmarks['__initial_shape'] = initial_shape
         if gt_shape:
-            image.landmarks['gt_shape'] = gt_shape
+            image.landmarks['__gt_shape'] = gt_shape
 
-        # if specified, crop the image
         if crop_image:
+            # If specified, crop the image
             image = image.crop_to_landmarks_proportion(crop_image,
-                                                       group='initial_shape')
+                                                       group='__initial_shape')
 
-        # rescale image wrt the scale factor between reference_shape and
+        # Rescale image wrt the scale factor between reference_shape and
         # initial_shape
-        image = image.rescale_to_reference_shape(self.reference_shape,
-                                                 group='initial_shape')
+        image = image.rescale_to_pointcloud(self.reference_shape,
+                                            group='__initial_shape')
 
-        # obtain image representation
+        # Compute image representation
         images = []
-        for j, s in enumerate(self.scales[::-1]):
-            if j == 0:
-                # compute features at highest level
-                feature_image = self.features[j](image)
-            elif self.scale_features:
-                # scale features at other levels
-                feature_image = images[0].rescale(s)
+        for i in range(self.n_scales):
+            # Handle features
+            if i == 0 or self.features[i] is not self.features[i-1]:
+                # Compute features only if this is the first pass through
+                # the loop or the features at this scale are different from
+                # the features at the previous scale
+                feature_image = self.features[i](image)
+
+            # Handle scales
+            if self.scales[i] != 1:
+                # Scale feature images only if scale is different than 1
+                scaled_image = feature_image.rescale(self.scales[i])
             else:
-                # scale image and compute features at other levels
-                scaled_image = image.rescale(s)
-                feature_image = self.features[j](scaled_image)
-            images.append(feature_image)
-        images.reverse()
+                scaled_image = feature_image
 
-        # get initial shapes per level
-        initial_shapes = [i.landmarks['initial_shape'].lms for i in images]
+            # Add scaled image to list
+            images.append(scaled_image)
 
-        # get ground truth shapes per level
+        # Get initial shapes per level
+        initial_shapes = [i.landmarks['__initial_shape'].lms for i in images]
+
+        # Get ground truth shapes per level
         if gt_shape:
-            gt_shapes = [i.landmarks['gt_shape'].lms for i in images]
+            gt_shapes = [i.landmarks['__gt_shape'].lms for i in images]
         else:
             gt_shapes = None
 
+        # detach added landmarks from image
+        del image.landmarks['__initial_shape']
+        if gt_shape:
+            del image.landmarks['__gt_shape']
+
         return images, initial_shapes, gt_shapes
 
-    def _fit(self, images, initial_shape, gt_shapes=None, max_iters=50,
+    def _fit(self, images, initial_shape, gt_shapes=None, max_iters=20,
              **kwargs):
         r"""
         Fits the fitter to the multilevel pyramidal images.
@@ -188,8 +191,6 @@ class MultiFitter(object):
         gt_shapes: :class:`menpo.shape.PointCloud` list, optional
             The original ground truth shapes associated to the multilevel
             images.
-
-            Default: None
         max_iters: int or list, optional
             The maximum number of iterations.
             If int, then this will be the overall maximum number of iterations
@@ -197,32 +198,41 @@ class MultiFitter(object):
             If list, then a maximum number of iterations is specified for each
             pyramidal level.
 
-            Default: 50
-
         Returns
         -------
         algorithm_results: :class:`menpo.fg2015.fittingresult.FittingResult` list
             The fitting object containing the state of the whole fitting
             procedure.
         """
-        max_iters = checks.check_max_iters(max_iters, self.n_levels)
+        # Perform check
+        max_iters = checks.check_max_iters(max_iters, self.n_scales)
+
+        # Set initial and ground truth shapes
         shape = initial_shape
         gt_shape = None
-        algorithm_results = []
-        for j, (i, alg, it, s) in enumerate(zip(images, self.algorithms,
-                                                max_iters, self.scales)):
-            if gt_shapes:
-                gt_shape = gt_shapes[j]
 
-            algorithm_result = alg.run(i, shape, gt_shape=gt_shape,
-                                       max_iters=it, **kwargs)
+        # Initialize list of algorithm results
+        algorithm_results = []
+        for i in range(self.n_scales):
+            # Handle ground truth shape
+            if gt_shapes is not None:
+                gt_shape = gt_shapes[i]
+
+            # Run algorithm
+            algorithm_result = self.algorithms[i].run(images[i], shape,
+                                                      gt_shape=gt_shape,
+                                                      max_iters=max_iters[i],
+                                                      **kwargs)
+            # Add algorithm result to the list
             algorithm_results.append(algorithm_result)
 
+            # Prepare this scale's final shape for the next scale
             shape = algorithm_result.final_shape
-            if s != self.scales[-1]:
-                shape = Scale(self.scales[j+1]/s,
+            if self.scales[i] != self.scales[-1]:
+                shape = Scale(self.scales[i+1] / self.scales[i],
                               n_dims=shape.n_dims).apply(shape)
 
+        # Return list of algorithm results
         return algorithm_results
 
 
@@ -240,10 +250,6 @@ class ModelFitter(MultiFitter):
         return self._model.reference_shape
 
     @property
-    def reference_bounding_box(self):
-        return self.reference_shape.bounding_box()
-
-    @property
     def features(self):
         r"""
         The feature extracted at each pyramidal level during AAM building.
@@ -257,44 +263,33 @@ class ModelFitter(MultiFitter):
     def scales(self):
         return self._model.scales
 
-    @property
-    def scale_features(self):
-        r"""
-        Flag that defined the nature of Gaussian pyramid used to build the
-        AAM.
-        If ``True``, the feature space is computed once at the highest scale
-        and the Gaussian pyramid is applied to the feature images.
-        If ``False``, the Gaussian pyramid is applied to the original images
-        and features are extracted at each level.
-
-        :type: `boolean`
-        """
-        return self._model.scale_features
-
     def _check_n_shape(self, n_shape):
         if n_shape is not None:
             if type(n_shape) is int or type(n_shape) is float:
                 for sm in self._model.shape_models:
                     sm.n_active_components = n_shape
-            elif len(n_shape) == 1 and self._model.n_levels > 1:
+            elif len(n_shape) == 1 and self._model.n_scales > 1:
                 for sm in self._model.shape_models:
                     sm.n_active_components = n_shape[0]
-            elif len(n_shape) == self._model.n_levels:
+            elif len(n_shape) == self._model.n_scales:
                 for sm, n in zip(self._model.shape_models, n_shape):
                     sm.n_active_components = n
             else:
                 raise ValueError('n_shape can be an integer or a float or None'
                                  'or a list containing 1 or {} of '
-                                 'those'.format(self._model.n_levels))
+                                 'those'.format(self._model.n_scales))
 
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_std=0.05):
-        transform = noisy_alignment_similarity_transform(
-            self.reference_bounding_box, bounding_box, noise_std=noise_std)
-        return transform.apply(self.reference_shape)
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_type='uniform',
+                                      noise_percentage=0.1, rotation=False):
+        return noisy_shape_from_bounding_box(
+            self.reference_shape, bounding_box, noise_type=noise_type,
+            noise_percentage=noise_percentage, rotation=rotation)
 
-    def noisy_shape_from_shape(self, shape, noise_std=0.05):
-        return self.noisy_shape_from_bounding_box(
-            shape.bounding_box(), noise_std=noise_std)
+    def noisy_shape_from_shape(self, shape, noise_type='uniform',
+                               noise_percentage=0.1, rotation=False):
+        return noisy_shape_from_shape(
+            self.reference_shape, shape, noise_type=noise_type,
+            noise_percentage=noise_percentage, rotation=rotation)
 
 
 def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
