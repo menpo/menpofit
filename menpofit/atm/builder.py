@@ -22,7 +22,7 @@ class ATMBuilder(object):
     Parameters
     ----------
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -64,7 +64,7 @@ class ATMBuilder(object):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -109,8 +109,8 @@ class ATMBuilder(object):
                  max_shape_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
@@ -153,7 +153,7 @@ class ATMBuilder(object):
                                                   verbose=verbose)
 
         # normalize the template size using the reference_shape scaling
-        template = template.rescale_to_reference_shape(
+        template = template.rescale_to_pointcloud(
             reference_shape, group=group)
 
         # build models at each scale
@@ -258,7 +258,7 @@ class PatchATMBuilder(ATMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -292,7 +292,7 @@ class PatchATMBuilder(ATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -339,9 +339,9 @@ class PatchATMBuilder(ATMBuilder):
                  scale_features=True, max_shape_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
@@ -383,7 +383,7 @@ class LinearATMBuilder(ATMBuilder):
     Parameters
     ----------
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -425,7 +425,7 @@ class LinearATMBuilder(ATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -470,8 +470,8 @@ class LinearATMBuilder(ATMBuilder):
                  max_shape_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
@@ -524,7 +524,7 @@ class LinearPatchATMBuilder(LinearATMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -558,7 +558,7 @@ class LinearPatchATMBuilder(LinearATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -605,9 +605,9 @@ class LinearPatchATMBuilder(LinearATMBuilder):
                  scale_features=True, max_shape_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')
@@ -651,7 +651,7 @@ class PartsATMBuilder(ATMBuilder):
     patch_shape: (`int`, `int`) or list or list of (`int`, `int`)
 
     features : `callable` or ``[callable]``, optional
-        If list of length ``n_levels``, feature extraction is performed at
+        If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
         the lowest pyramidal level and so on.
@@ -687,7 +687,7 @@ class PartsATMBuilder(ATMBuilder):
     scale_features : `boolean`, optional
 
     max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_levels``, then a number of shape components is
+        If list of length ``n_scales``, then a number of shape components is
         defined per level. The first element of the list specifies the number
         of components of the lowest pyramidal level and so on.
 
@@ -735,9 +735,9 @@ class PartsATMBuilder(ATMBuilder):
                  max_shape_components=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        patch_shape = checks.check_patch_shape(patch_shape, n_levels)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         max_shape_components = checks.check_max_components(
             max_shape_components, len(scales), 'max_shape_components')

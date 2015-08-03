@@ -220,8 +220,8 @@ class Compositional(LucasKanade):
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
         # define cost closure
-        def cost_closure(x, f):
-            return lambda: x.T.dot(f(x))
+        def cost_closure(x):
+            return lambda: x.T.dot(x)
 
         # initialize transform
         self.transform.set_target(initial_shape)
