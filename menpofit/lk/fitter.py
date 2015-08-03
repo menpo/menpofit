@@ -19,8 +19,8 @@ class LucasKanadeFitter(MultiFitter):
                  **kwargs):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_levels = checks.check_scales(scales)
-        features = checks.check_features(features, n_levels)
+        scales = checks.check_scales(scales)
+        features = checks.check_features(features, len(scales))
         scale_features = checks.check_scale_features(scale_features, features)
         # set parameters
         self.features = features
