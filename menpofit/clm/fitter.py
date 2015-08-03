@@ -1,7 +1,8 @@
 from menpofit import checks
 from menpofit.fitter import ModelFitter
 from menpofit.modelinstance import OrthoPDM
-from .algorithm import CLMAlgorithm, RegularisedLandmarkMeanShift
+from .algorithm import (
+    GradientDescentCLMAlgorithm, RegularisedLandmarkMeanShift)
 from .result import CLMFitterResult
 
 
@@ -28,10 +29,9 @@ class GradientDescentCLMFitter(CLMFitter):
                  n_shape=None):
         self._model = clm
         self._gd_algorithms_cls = checks.check_algorithm_cls(
-            gd_algorithm_cls, self.n_scales, CLMAlgorithm)
+            gd_algorithm_cls, self.n_scales, GradientDescentCLMAlgorithm)
         self._check_n_shape(n_shape)
 
-        # Construct algorithms
         self.algorithms = []
         for i in range(self.clm.n_scales):
             pdm = OrthoPDM(self.clm.shape_models[i])
@@ -45,3 +45,4 @@ class GradientDescentCLMFitter(CLMFitter):
 class SupervisedDescentCLMFitter(CLMFitter):
     r"""
     """
+    raise NotImplementedError
