@@ -1,11 +1,13 @@
 from __future__ import division
+from functools import partial
 import numpy as np
 from menpo.shape import mean_pointcloud, PointCloud, TriMesh
 from menpo.image import Image, MaskedImage
 from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
 from menpo.model.pca import PCAModel
-from menpo.visualize import print_dynamic, progress_bar_str
+from menpo.visualize import print_dynamic
+from menpofit.visualize import print_progress
 
 
 def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
@@ -47,27 +49,21 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
 
 
 # TODO: document me!
-def rescale_images_to_reference_shape(images, group, label, reference_shape,
+def rescale_images_to_reference_shape(images, group, reference_shape,
                                       verbose=False):
     r"""
     """
-    # normalize the scaling of all images wrt the reference_shape size
-    normalized_images = []
-    for c, i in enumerate(images):
-        if verbose:
-            print_dynamic('- Normalizing images size: {}'.format(
-                progress_bar_str((c + 1.) / len(images),
-                                 show_bar=False)))
-        normalized_images.append(i.rescale_to_reference_shape(
-            reference_shape, group=group, label=label))
+    wrap = partial(print_progress, prefix='- Normalizing images size',
+                   verbose=verbose)
 
-    if verbose:
-        print_dynamic('- Normalizing images size: Done\n')
+    # Normalize the scaling of all images wrt the reference_shape size
+    normalized_images = [i.rescale_to_reference_shape(reference_shape,
+                                                      group=group)
+                         for i in wrap(images)]
     return normalized_images
 
 
-def normalization_wrt_reference_shape(images, group, label, diagonal,
-                                      verbose=False):
+def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
     r"""
     Function that normalizes the images sizes with respect to the reference
     shape (mean shape) scaling. This step is essential before building a
@@ -84,15 +80,9 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
     ----------
     images : list of :class:`menpo.image.MaskedImage`
         The set of landmarked images to normalize.
-
     group : `str`
         The key of the landmark set that should be used. If None,
         and if there is only one set of landmarks, this set will be used.
-
-    label : `str`
-        The label of of the landmark manager that you wish to use. If no
-        label is passed, the convex hull of all landmarks is used.
-
     diagonal: `int`
         If int, it ensures that the mean shape is scaled so that the
         diagonal of the bounding box containing it matches the
@@ -103,7 +93,6 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
         landmarks, this kwarg also specifies the diagonal length of the
         reference frame (provided that features computation does not change
         the image size).
-
     verbose : `bool`, Optional
         Flag that controls information and progress printing.
 
@@ -116,64 +105,54 @@ def normalization_wrt_reference_shape(images, group, label, diagonal,
         A list with the normalized images.
     """
     # get shapes
-    shapes = [i.landmarks[group][label] for i in images]
+    shapes = [i.landmarks[group].lms for i in images]
 
     # compute the reference shape and fix its diagonal length
-    reference_shape = compute_reference_shape(shapes, diagonal,
-                                              verbose=verbose)
+    reference_shape = compute_reference_shape(shapes, diagonal, verbose=verbose)
 
     # normalize the scaling of all images wrt the reference_shape size
     normalized_images = rescale_images_to_reference_shape(
-        images, group, label, reference_shape, verbose=False)
+        images, group, reference_shape, verbose=verbose)
     return reference_shape, normalized_images
 
 
 # TODO: document me!
-def compute_features(images, features, level_str='', verbose=None):
-    feature_images = []
-    for c, i in enumerate(images):
-        if verbose:
-            print_dynamic(
-                '{}Computing feature space: {}'.format(
-                    level_str, progress_bar_str((c + 1.) / len(images),
-                                                show_bar=False)))
-        i = features(i)
-        feature_images.append(i)
+def compute_features(images, features, level_str='', verbose=False):
+    wrap = partial(print_progress,
+                   prefix='{}Computing feature space'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
 
-    return feature_images
+    return [features(i) for i in wrap(images)]
 
 
 # TODO: document me!
-def scale_images(images, scale, level_str='', verbose=None):
-    if scale != 1:
-        scaled_images = []
-        for c, i in enumerate(images):
-            if verbose:
-                print_dynamic(
-                    '{}Scaling images: {}'.format(
-                        level_str, progress_bar_str((c + 1.) / len(images),
-                                                    show_bar=False)))
-            scaled_images.append(i.rescale(scale))
-        return scaled_images
+def scale_images(images, scale, level_str='', verbose=False):
+    wrap = partial(print_progress,
+                   prefix='{}Scaling images'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
+
+    if not np.allclose(scale, 1):
+        return [i.rescale(scale) for i in wrap(images)]
     else:
         return images
 
 
-# TODO: Can be done more efficiently for PWA defining a dummy transform
 # TODO: document me!
 def warp_images(images, shapes, reference_frame, transform, level_str='',
                 verbose=None):
+    wrap = partial(print_progress,
+                   prefix='{}Warping images'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
+
     warped_images = []
-    for c, (i, s) in enumerate(zip(images, shapes)):
-        if verbose:
-            print_dynamic('{}Warping images - {}'.format(
-                level_str,
-                progress_bar_str(float(c + 1) / len(images),
-                                 show_bar=False)))
-        # compute transforms
-        t = transform(reference_frame.landmarks['source'].lms, s)
+    # Build a dummy transform, use set_target for efficiency
+    warp_transform = transform(reference_frame.landmarks['source'].lms,
+                               reference_frame.landmarks['source'].lms)
+    for i, s in wrap(zip(images, shapes)):
+        # Update Transform Target
+        warp_transform.set_target(s)
         # warp images
-        warped_i = i.warp_to_mask(reference_frame.mask, t)
+        warped_i = i.warp_to_mask(reference_frame.mask, warp_transform)
         # attach reference frame landmarks to images
         warped_i.landmarks['source'] = reference_frame.landmarks['source']
         warped_images.append(warped_i)
@@ -182,14 +161,13 @@ def warp_images(images, shapes, reference_frame, transform, level_str='',
 
 # TODO: document me!
 def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
-                    level_str='', verbose=None):
+                    level_str='', verbose=False):
+    wrap = partial(print_progress,
+                   prefix='{}Warping images'.format(level_str),
+                   end_with_newline=not level_str, verbose=verbose)
+
     parts_images = []
-    for c, (i, s) in enumerate(zip(images, shapes)):
-        if verbose:
-            print_dynamic('{}Warping images - {}'.format(
-                level_str,
-                progress_bar_str(float(c + 1) / len(images),
-                                 show_bar=False)))
+    for i, s in wrap(zip(images, shapes)):
         parts = i.extract_patches(s, patch_size=patch_shape,
                                   as_single_array=True)
         parts = normalize_function(parts)

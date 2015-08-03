@@ -124,7 +124,7 @@ class ATMBuilder(object):
         self.scale_features = scale_features
         self.max_shape_components = max_shape_components
 
-    def build(self, shapes, template, group=None, label=None, verbose=False):
+    def build(self, shapes, template, group=None, verbose=False):
         r"""
         Builds a Multilevel Active Template Model given a list of shapes and a
         template image.
@@ -133,21 +133,13 @@ class ATMBuilder(object):
         ----------
         shapes : list of :map:`PointCloud`
             The set of shapes from which to build the shape model of the ATM.
-
         template : :map:`Image` or subclass
             The image to be used as template.
-
-        group : `string`, optional
+        group : `str`, optional
             The key of the landmark set of the template that should be used. If
             ``None``, and if there is only one set of landmarks, this set will
             be used.
-
-        label : `string`, optional
-            The label of the landmark manager of the template that you wish to
-            use. If ``None`` is passed, the convex hull of all landmarks is
-            used.
-
-        verbose : `boolean`, optional
+        verbose : `bool`, optional
             Flag that controls information and progress printing.
 
         Returns
@@ -162,7 +154,7 @@ class ATMBuilder(object):
 
         # normalize the template size using the reference_shape scaling
         template = template.rescale_to_reference_shape(
-            reference_shape, group=group, label=label)
+            reference_shape, group=group)
 
         # build models at each scale
         if verbose:
@@ -214,7 +206,7 @@ class ATMBuilder(object):
                 level_template = self.features[j](scaled_template)
 
             # extract potentially rescaled template shape
-            level_template_shape = level_template.landmarks[group][label]
+            level_template_shape = level_template.landmarks[group].lms
 
             # obtain warped template
             warped_template = self._warp_template(level_template,
