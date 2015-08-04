@@ -50,8 +50,9 @@ class IIRLRegression(IRLRegression):
     r"""
     Indirect Incremental Regularized Linear Regression
     """
-    def __init__(self, alpha=0, bias=True, alpha2=0):
-        super(IIRLRegression, self).__init__(alpha=alpha, bias=bias)
+    def __init__(self, alpha=0, bias=False, alpha2=0):
+        # TODO: Can we model the bias? May need to slice off of prediction?
+        super(IIRLRegression, self).__init__(alpha=alpha, bias=False)
         self.alpha2 = alpha2
 
     def train(self, X, Y):
@@ -60,9 +61,10 @@ class IIRLRegression(IRLRegression):
         J = self.W
         # solve the original problem by computing the pseudo-inverse of the
         # previous solution
-        H = J.T.dot(J)
+        # Note that everything is transposed from the above exchanging of roles
+        H = J.dot(J.T)
         np.fill_diagonal(H, self.alpha2 + np.diag(H))
-        self.W = np.linalg.solve(H, J.T)
+        self.W = np.linalg.solve(H, J).T
 
     def increment(self, X, Y):
         # incremental least squares exchanging the roles of X and Y
@@ -70,6 +72,7 @@ class IIRLRegression(IRLRegression):
         J = self.W
         # solve the original problem by computing the pseudo-inverse of the
         # previous solution
-        H = J.T.dot(J)
+        # Note that everything is transposed from the above exchanging of roles
+        H = J.dot(J.T)
         np.fill_diagonal(H, self.alpha2 + np.diag(H))
-        self.W = np.linalg.solve(H, J.T)
+        self.W = np.linalg.solve(H, J).T
