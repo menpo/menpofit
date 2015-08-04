@@ -64,7 +64,7 @@ class IIRLRegression(IRLRegression):
         # Note that everything is transposed from the above exchanging of roles
         H = J.dot(J.T)
         np.fill_diagonal(H, self.alpha2 + np.diag(H))
-        self.W = np.linalg.solve(H, J).T
+        self.W = np.linalg.solve(H, J)
 
     def increment(self, X, Y):
         # incremental least squares exchanging the roles of X and Y
@@ -75,4 +75,7 @@ class IIRLRegression(IRLRegression):
         # Note that everything is transposed from the above exchanging of roles
         H = J.dot(J.T)
         np.fill_diagonal(H, self.alpha2 + np.diag(H))
-        self.W = np.linalg.solve(H, J).T
+        self.W = np.linalg.solve(H, J)
+
+    def predict(self, x):
+        return self.W.dot(x.T).T
