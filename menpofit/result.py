@@ -420,9 +420,9 @@ class IterativeResult(Result):
 class ParametricAlgorithmResult(IterativeResult):
     r"""
     """
-    def __init__(self, image, algorithm, shape_parameters, gt_shape=None):
+    def __init__(self, image, transform, shape_parameters, gt_shape=None):
         self.image = image
-        self.algorithm = algorithm
+        self.transform = transform
         self.shape_parameters = shape_parameters
         self._gt_shape = gt_shape
 
@@ -436,7 +436,7 @@ class ParametricAlgorithmResult(IterativeResult):
         Generates a list containing the transforms obtained at each fitting
         iteration.
         """
-        return [self.algorithm.transform.from_vector(p)
+        return [self.transform.from_vector(p)
                 for p in self.shape_parameters]
 
     @property
@@ -444,18 +444,18 @@ class ParametricAlgorithmResult(IterativeResult):
         r"""
         Returns the final transform.
         """
-        return self.algorithm.transform.from_vector(self.shape_parameters[-1])
+        return self.transform.from_vector(self.shape_parameters[-1])
 
     @property
     def initial_transform(self):
         r"""
         Returns the initial transform from which the fitting started.
         """
-        return self.algorithm.transform.from_vector(self.shape_parameters[0])
+        return self.transform.from_vector(self.shape_parameters[0])
 
     @property
     def shapes(self):
-        return [self.algorithm.transform.from_vector(p).target
+        return [self.transform.from_vector(p).target
                 for p in self.shape_parameters]
 
     @property
@@ -471,9 +471,8 @@ class ParametricAlgorithmResult(IterativeResult):
 class NonParametricAlgorithmResult(IterativeResult):
     r"""
     """
-    def __init__(self, image, algorithm, shapes, gt_shape=None):
+    def __init__(self, image, shapes, gt_shape=None):
         self.image = image
-        self.algorithm = algorithm
         self._shapes = shapes
         self._gt_shape = gt_shape
 
