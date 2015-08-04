@@ -9,12 +9,18 @@ from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 class LucasKanadeStandardInterface(object):
     r"""
     """
-    def __init__(self, aam_algorithm, sampling=None):
-        self.algorithm = aam_algorithm
+    def __init__(self, appearance_model, transform, template, sampling=None):
+        self.appearance_model = appearance_model
+        self.transform = transform
+        self.template = template
 
+        self._build_sampling_mask(sampling)
+
+    def _build_sampling_mask(self, sampling):
         n_true_pixels = self.template.n_true_pixels()
         n_channels = self.template.n_channels
         n_parameters = self.transform.n_parameters
+
         sampling_mask = np.zeros(n_true_pixels, dtype=np.bool)
 
         if sampling is None:
@@ -36,18 +42,6 @@ class LucasKanadeStandardInterface(object):
     @property
     def shape_model(self):
         return self.transform.pdm.model
-
-    @property
-    def appearance_model(self):
-        return self.algorithm.appearance_model
-
-    @property
-    def template(self):
-        return self.algorithm.template
-
-    @property
-    def transform(self):
-        return self.algorithm.transform
 
     @property
     def n(self):
@@ -151,16 +145,20 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
 class LucasKanadePartsInterface(LucasKanadeStandardInterface):
     r"""
     """
-    def __init__(self, aam_algorithm, sampling=None, patch_shape=(17, 17),
-                 normalize_parts=no_op):
-        self.algorithm = aam_algorithm
+    def __init__(self, appearance_model, transform, template, sampling=None,
+                 patch_shape=(17, 17), normalize_parts=no_op):
         self.patch_shape = patch_shape
+        # TODO: Refactor to patch_features
         self.normalize_parts = normalize_parts
 
+        super(LucasKanadePartsInterface, self).__init__(
+            appearance_model, transform, template, sampling=sampling)
+
+    def _build_sampling_mask(self, sampling):
         if sampling is None:
             sampling = np.ones(self.patch_shape, dtype=np.bool)
 
-        image_shape = self.algorithm.template.pixels.shape
+        image_shape = self.template.pixels.shape
         image_mask = np.tile(sampling[None, None, None, ...],
                              image_shape[:3] + (1, 1))
         self.i_mask = np.nonzero(image_mask.flatten())[0]
@@ -210,17 +208,22 @@ class LucasKanadePartsInterface(LucasKanadeStandardInterface):
 class LucasKanade(object):
     r"""
     """
-    def __init__(self, aam_interface, appearance_model, transform,
-                 eps=10**-5, **kwargs):
-        # set common state for all AAM algorithms
-        self.appearance_model = appearance_model
-        self.template = appearance_model.mean()
-        self.transform = transform
+    def __init__(self, aam_interface, eps=10**-5):
         self.eps = eps
-        # set interface
-        self.interface = aam_interface(self, **kwargs)
-        # perform pre-computations
+        self.interface = aam_interface
         self._precompute()
+
+    @property
+    def appearance_model(self):
+        return self.interface.appearance_model
+
+    @property
+    def transform(self):
+        return self.interface.transform
+
+    @property
+    def template(self):
+        return self.interface.template
 
     def _precompute(self):
         # grab number of shape and appearance parameters
