@@ -29,7 +29,8 @@ class SupervisedDescentFitter(MultiFitter):
                  batch_size=None, verbose=False):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_scales = checks.check_scales(scales)
+        n_scales = len(scales)
+        scales = checks.check_scales(scales)
         patch_features = checks.check_features(patch_features, n_scales)
         holistic_features = checks.check_features(holistic_feature, n_scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_scales)
@@ -176,13 +177,13 @@ class SupervisedDescentFitter(MultiFitter):
                     # the features at the previous scale
                     feature_images = compute_features(image_batch,
                                                       self.features[j],
-                                                      level_str=scale_prefix,
+                                                      prefix=scale_prefix,
                                                       verbose=verbose)
                 # handle scales
                 if self.scales[j] != 1:
                     # Scale feature images only if scale is different than 1
                     scaled_images = scale_images(feature_images, self.scales[j],
-                                                 level_str=scale_prefix,
+                                                 prefix=scale_prefix,
                                                  verbose=verbose)
                 else:
                     scaled_images = feature_images
@@ -210,11 +211,11 @@ class SupervisedDescentFitter(MultiFitter):
                 if not increment:
                     current_shapes = self.algorithms[j].train(
                         scaled_images, scaled_shapes, current_shapes,
-                        level_str=scale_prefix, verbose=verbose)
+                        prefix=scale_prefix, verbose=verbose)
                 else:
                     current_shapes = self.algorithms[j].increment(
                         scaled_images, scaled_shapes, current_shapes,
-                        level_str=scale_prefix, verbose=verbose)
+                        prefix=scale_prefix, verbose=verbose)
 
                 # Scale current shapes to next resolution, don't bother
                 # scaling final level

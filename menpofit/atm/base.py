@@ -60,7 +60,7 @@ class ATM(object):
         self.scale_features = scale_features
 
     @property
-    def n_levels(self):
+    def n_scales(self):
         """
         The number of scale level of the ATM.
 
@@ -219,14 +219,14 @@ class ATM(object):
         # small strings about number of channels, channels string and downscale
         n_channels = []
         down_str = []
-        for j in range(self.n_levels):
+        for j in range(self.n_scales):
             n_channels.append(
                 self.warped_templates[j].n_channels)
-            if j == self.n_levels - 1:
+            if j == self.n_scales - 1:
                 down_str.append('(no downscale)')
             else:
                 down_str.append('(downscale by {})'.format(
-                    self.downscale**(self.n_levels - j - 1)))
+                    self.downscale**(self.n_scales - j - 1)))
         # string about features and channels
         if self.pyramid_on_features:
             feat_str = "- Feature is {} with ".format(
@@ -238,7 +238,7 @@ class ATM(object):
         else:
             feat_str = []
             ch_str = []
-            for j in range(self.n_levels):
+            for j in range(self.n_scales):
                 feat_str.append("- Feature is {} with ".format(
                     name_of_callable(self.features[j])))
                 if n_channels[j] == 1:
@@ -246,17 +246,17 @@ class ATM(object):
                 else:
                     ch_str.append("channels")
         out = "{} - {} Warp.\n".format(out, name_of_callable(self.transform))
-        if self.n_levels > 1:
+        if self.n_scales > 1:
             if self.scaled_shape_models:
                 out = "{} - Gaussian pyramid with {} levels and downscale " \
                       "factor of {}.\n   - Each level has a scaled shape " \
-                      "model (reference frame).\n".format(out, self.n_levels,
+                      "model (reference frame).\n".format(out, self.n_scales,
                                                           self.downscale)
 
             else:
                 out = "{} - Gaussian pyramid with {} levels and downscale " \
                       "factor of {}:\n   - Shape models (reference frames) " \
-                      "are not scaled.\n".format(out, self.n_levels,
+                      "are not scaled.\n".format(out, self.n_scales,
                                                  self.downscale)
             if self.pyramid_on_features:
                 out = "{}   - Pyramid was applied on feature space.\n   " \
@@ -275,8 +275,8 @@ class ATM(object):
             else:
                 out = "{}   - Features were extracted at each pyramid " \
                       "level.\n".format(out)
-            for i in range(self.n_levels - 1, -1, -1):
-                out = "{}   - Level {} {}: \n".format(out, self.n_levels - i,
+            for i in range(self.n_scales - 1, -1, -1):
+                out = "{}   - Level {} {}: \n".format(out, self.n_scales - i,
                                                       down_str[i])
                 if not self.pyramid_on_features:
                     out = "{}     {}{} {} per image.\n".format(

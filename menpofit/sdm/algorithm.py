@@ -17,18 +17,18 @@ class SupervisedDescentAlgorithm(object):
     def __init__(self):
         self.regressors = []
 
-    def train(self, images, gt_shapes, current_shapes, level_str='',
+    def train(self, images, gt_shapes, current_shapes, prefix='',
               verbose=False):
         return self._train(images, gt_shapes, current_shapes, increment=False,
-                           level_str=level_str, verbose=verbose)
+                           prefix=prefix, verbose=verbose)
 
-    def increment(self, images, gt_shapes, current_shapes, level_str='',
+    def increment(self, images, gt_shapes, current_shapes, prefix='',
                   verbose=False):
         return self._train(images, gt_shapes, current_shapes, increment=True,
-                           level_str=level_str, verbose=verbose)
+                           prefix=prefix, verbose=verbose)
 
     def _train(self, images, gt_shapes, current_shapes, increment=False,
-               level_str='', verbose=False):
+               prefix='', verbose=False):
 
         if not increment:
             # Reset the regressors
@@ -45,12 +45,12 @@ class SupervisedDescentAlgorithm(object):
             # generate regression data
             features = features_per_image(
                 images, current_shapes, self.patch_shape, self.features,
-                level_str='{}(Iteration {}) - '.format(level_str, k),
+                prefix='{}(Iteration {}) - '.format(prefix, k),
                 verbose=verbose)
 
             if verbose:
                 print_dynamic('{}(Iteration {}) - Performing regression'.format(
-                              level_str, k))
+                    prefix, k))
 
             if not increment:
                 r = self._regressor_cls()
@@ -65,7 +65,7 @@ class SupervisedDescentAlgorithm(object):
                 self._print_regression_info(template_shape, gt_shapes,
                                             n_perturbations, delta_x,
                                             estimated_delta_x, k,
-                                            level_str=level_str)
+                                            prefix=prefix)
 
             j = 0
             for shapes in current_shapes:
@@ -106,9 +106,9 @@ class SupervisedDescentAlgorithm(object):
 
     def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
                                delta_x, estimated_delta_x, level_index,
-                               level_str=''):
+                               prefix=''):
         print_dynamic('{}(Iteration {}) - Calculating errors'.format(
-            level_str, level_index))
+            prefix, level_index))
         errors = []
         for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
             s1 = template_shape.from_vector(dx)
@@ -120,7 +120,7 @@ class SupervisedDescentAlgorithm(object):
         median = np.median(errors)
         print_dynamic('{}(Iteration {}) - Training error -> '
                       'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
-                      format(level_str, level_index, mean, std, median))
+                      format(prefix, level_index, mean, std, median))
 
 
 # TODO: document me!
@@ -184,12 +184,12 @@ def features_per_shape(image, shapes, patch_shape, features_callable):
 
 # TODO: document me!
 def features_per_image(images, shapes, patch_shape, features_callable,
-                       level_str='', verbose=False):
+                       prefix='', verbose=False):
     """r
     """
     wrap = partial(print_progress,
-                   prefix='{}Extracting patches'.format(level_str),
-                   end_with_newline=not level_str, verbose=verbose)
+                   prefix='{}Extracting patches'.format(prefix),
+                   end_with_newline=not prefix, verbose=verbose)
 
     patch_features = [features_per_shape(i, shapes[j], patch_shape,
                                          features_callable)

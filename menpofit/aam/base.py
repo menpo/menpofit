@@ -21,7 +21,7 @@ from menpofit.builder import (
 # TODO: document me!
 class AAM(object):
     r"""
-    Active Appearance Models.
+    Active Appearance Model class.
 
     Parameters
     ----------
@@ -120,7 +120,8 @@ class AAM(object):
                  max_appearance_components=None, batch_size=None):
         # check parameters
         checks.check_diagonal(diagonal)
-        scales, n_scales = checks.check_scales(scales)
+        n_scales = len(scales)
+        scales = checks.check_scales(scales)
         features = checks.check_features(features, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
@@ -222,13 +223,13 @@ class AAM(object):
                     # the features at the previous scale
                     feature_images = compute_features(image_batch,
                                                       self.features[j],
-                                                      level_str=scale_prefix,
+                                                      prefix=scale_prefix,
                                                       verbose=verbose)
                 # handle scales
                 if self.scales[j] != 1:
                     # Scale feature images only if scale is different than 1
                     scaled_images = scale_images(feature_images, self.scales[j],
-                                                 level_str=scale_prefix,
+                                                 prefix=scale_prefix,
                                                  verbose=verbose)
                 else:
                     scaled_images = feature_images
@@ -317,10 +318,10 @@ class AAM(object):
             shape_model.trim_components(max_components)
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     level_str, verbose):
+                     prefix, verbose):
         reference_frame = build_reference_frame(reference_shape)
         return warp_images(images, shapes, reference_frame, self.transform,
-                           level_str=level_str, verbose=verbose)
+                           prefix=prefix, verbose=verbose)
 
     @property
     def n_scales(self):
@@ -575,11 +576,11 @@ class PatchAAM(AAM):
             batch_size=batch_size)
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     level_str, verbose):
+                     prefix, verbose):
         reference_frame = build_patch_reference_frame(
             reference_shape, patch_shape=self.patch_shape[scale_index])
         return warp_images(images, shapes, reference_frame, self.transform,
-                           level_str=level_str, verbose=verbose)
+                           prefix=prefix, verbose=verbose)
 
     @property
     def _str_title(self):
@@ -686,9 +687,9 @@ class LinearAAM(AAM):
             shape_model.trim_components(max_components)
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     level_str, verbose):
+                     prefix, verbose):
         return warp_images(images, shapes, self.reference_frame,
-                           self.transform, level_str=level_str,
+                           self.transform, prefix=prefix,
                            verbose=verbose)
 
     # TODO: implement me!
@@ -782,9 +783,9 @@ class LinearPatchAAM(AAM):
             shape_model.trim_components(max_components)
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     level_str, verbose):
+                     prefix, verbose):
         return warp_images(images, shapes, self.reference_frame,
-                           self.transform, level_str=level_str,
+                           self.transform, prefix=prefix,
                            verbose=verbose)
 
     # TODO: implement me!
@@ -858,10 +859,10 @@ class PartsAAM(AAM):
             batch_size=batch_size)
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     level_str, verbose):
+                     prefix, verbose):
         return extract_patches(images, shapes, self.patch_shape[scale_index],
                                normalize_function=self.normalize_parts,
-                               level_str=level_str, verbose=verbose)
+                               prefix=prefix, verbose=verbose)
 
     # TODO: implement me!
     def _instance(self, scale_index, shape_instance, appearance_instance):

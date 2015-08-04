@@ -5,6 +5,7 @@ from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM
 from menpo.transform.base import Transform, VComposable, VInvertible
 from menpofit.differentiable import DP
 
+
 # TODO: Should MDT implement VComposable and VInvertible?
 class ModelDrivenTransform(Transform, Targetable, Vectorizable,
                            VComposable, VInvertible, DP):

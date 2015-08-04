@@ -15,13 +15,13 @@ class MultiFitter(object):
     @property
     def n_scales(self):
         r"""
-        The number of pyramidal levels used during alignment.
+        The number of scales used during alignment.
 
         :type: `int`
         """
         return len(self.scales)
 
-    def fit(self, image, initial_shape, max_iters=50, gt_shape=None,
+    def fit(self, image, initial_shape, max_iters=20, gt_shape=None,
             crop_image=0.5, **kwargs):
         r"""
         Fits the multilevel fitter to an image.
@@ -126,8 +126,8 @@ class MultiFitter(object):
 
         # Rescale image wrt the scale factor between reference_shape and
         # initial_shape
-        image = image.rescale_to_reference_shape(self.reference_shape,
-                                                 group='__initial_shape')
+        image = image.rescale_to_pointcloud(self.reference_shape,
+                                            group='__initial_shape')
 
         # Compute image representation
         images = []
@@ -158,9 +158,14 @@ class MultiFitter(object):
         else:
             gt_shapes = None
 
+        # detach added landmarks from image
+        del image.landmarks['__initial_shape']
+        if gt_shape:
+            del image.landmarks['__gt_shape']
+
         return images, initial_shapes, gt_shapes
 
-    def _fit(self, images, initial_shape, gt_shapes=None, max_iters=50,
+    def _fit(self, images, initial_shape, gt_shapes=None, max_iters=20,
              **kwargs):
         r"""
         Fits the fitter to the multilevel pyramidal images.
@@ -174,16 +179,12 @@ class MultiFitter(object):
         gt_shapes: :class:`menpo.shape.PointCloud` list, optional
             The original ground truth shapes associated to the multilevel
             images.
-
-            Default: None
         max_iters: int or list, optional
             The maximum number of iterations.
             If int, then this will be the overall maximum number of iterations
             for all the pyramidal levels.
             If list, then a maximum number of iterations is specified for each
             pyramidal level.
-
-            Default: 50
 
         Returns
         -------
@@ -237,16 +238,8 @@ class ModelFitter(MultiFitter):
         return self._model.reference_shape
 
     @property
-    def reference_bounding_box(self):
-        return self.reference_shape.bounding_box()
-
-    @property
     def features(self):
         r"""
-        The feature extracted at each pyramidal level during AAM building.
-        Stored in ascending pyramidal order.
-
-        :type: `list`
         """
         return self._model.features
 
@@ -257,16 +250,17 @@ class ModelFitter(MultiFitter):
     def _check_n_shape(self, n_shape):
         checks.set_models_components(self._model.shape_models, n_shape)
 
-    def noisy_shape_from_bounding_box(self, bounding_box,
-                                      noise_percentage=0.05):
-        transform = noisy_alignment_similarity_transform(
-            self.reference_bounding_box, bounding_box,
-            noise_percentage=noise_percentage)
-        return transform.apply(self.reference_shape)
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_type='uniform',
+                                      noise_percentage=0.1, rotation=False):
+        return noisy_shape_from_bounding_box(
+            self.reference_shape, bounding_box, noise_type=noise_type,
+            noise_percentage=noise_percentage, rotation=rotation)
 
-    def noisy_shape_from_shape(self, shape, noise_percentage=0.05):
-        return self.noisy_shape_from_bounding_box(
-            shape.bounding_box(), noise_percentage=noise_percentage)
+    def noisy_shape_from_shape(self, shape, noise_type='uniform',
+                               noise_percentage=0.1, rotation=False):
+        return noisy_shape_from_shape(
+            self.reference_shape, shape, noise_type=noise_type,
+            noise_percentage=noise_percentage, rotation=rotation)
 
 
 def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
