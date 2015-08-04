@@ -160,7 +160,7 @@ class GaussNewton(SupervisedDescentAlgorithm):
         self.eps = eps
 
 
-# TODO: docment me!
+# TODO: document me!
 def features_per_patch(image, shape, patch_shape, features_callable):
     """r
     """
@@ -171,7 +171,7 @@ def features_per_patch(image, shape, patch_shape, features_callable):
     return np.asarray(patch_features).ravel()
 
 
-# TODO: docment me!
+# TODO: document me!
 def features_per_shape(image, shapes, patch_shape, features_callable):
     """r
     """
@@ -182,7 +182,7 @@ def features_per_shape(image, shapes, patch_shape, features_callable):
     return np.asarray(patch_features)
 
 
-# TODO: docment me!
+# TODO: document me!
 def features_per_image(images, shapes, patch_shape, features_callable,
                        level_str='', verbose=False):
     """r
@@ -250,25 +250,3 @@ def compute_features_info(image, shape, features_callable,
 
     return (features_patch_shape, features_patch_length,
             features_shape, features_length)
-
-
-# def initialize_sampling(self, image, group=None, label=None):
-#         if self._sampling is None:
-#             sampling = np.ones(self.patch_shape, dtype=np.bool)
-#         else:
-#             sampling = self._sampling
-#
-#         # TODO: include offsets support?
-#         patches = image.extract_patches_around_landmarks(
-#             group=group, label=label, patch_size=self.patch_shape,
-#             as_single_array=True)
-#
-#         # TODO: include offsets support?
-#         features_patch_shape = self.features(patches[0, 0]).shape
-#         self._features_patch_length = np.prod(features_patch_shape)
-#         self._features_shape = (patches.shape[0], features_patch_shape)
-#         self._features_length = np.prod(self._features_shape)
-#
-#         feature_mask = np.tile(sampling[None, None, None, ...],
-#                                self._feature_shape[:3] + (1, 1))
-#         self._feature_mask = np.nonzero(feature_mask.flatten())[0]
