@@ -101,7 +101,7 @@ class SupervisedDescentAlgorithm(object):
             shapes.append(current_shape)
 
         # return algorithm result
-        return NonParametricAlgorithmResult(image, self, shapes,
+        return NonParametricAlgorithmResult(image, shapes,
                                             gt_shape=gt_shape)
 
     def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
