@@ -40,54 +40,50 @@ class LucasKanadeAAMFitter(AAMFitter):
     r"""
     """
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
-                 n_shape=None, n_appearance=None, sampling=None, **kwargs):
+                 n_shape=None, n_appearance=None, sampling=None):
         self._model = aam
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
-        sampling = checks.check_sampling(sampling, self.n_scales)
-        self._set_up(lk_algorithm_cls, sampling, **kwargs)
+        self._sampling = checks.check_sampling(sampling, aam.n_scales)
+        self._set_up(lk_algorithm_cls)
 
-    def _set_up(self, lk_algorithm_cls, sampling, **kwargs):
+    def _set_up(self, lk_algorithm_cls):
         self.algorithms = []
         for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
-                                            self.aam.shape_models, sampling)):
+                                            self.aam.shape_models,
+                                            self._sampling)):
 
+            template = am.mean()
             if type(self.aam) is AAM or type(self.aam) is PatchAAM:
                 # build orthonormal model driven transform
                 md_transform = OrthoMDTransform(
                     sm, self.aam.transform,
                     source=am.mean().landmarks['source'].lms)
-                # set up algorithm using standard aam interface
-                algorithm = lk_algorithm_cls(
-                    LucasKanadeStandardInterface, am, md_transform, sampling=s,
-                    **kwargs)
-
+                interface = LucasKanadeStandardInterface(am, md_transform,
+                                                         template, sampling=s)
+                algorithm = lk_algorithm_cls(interface)
             elif (type(self.aam) is LinearAAM or
                   type(self.aam) is LinearPatchAAM):
                 # build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
                     sm, self.aam.reference_shape)
-                # set up algorithm using linear aam interface
-                algorithm = lk_algorithm_cls(
-                    LucasKanadeLinearInterface, am, md_transform, sampling=s,
-                    **kwargs)
-
+                interface = LucasKanadeLinearInterface(am, md_transform,
+                                                       template, sampling=s)
+                algorithm = lk_algorithm_cls(interface)
             elif type(self.aam) is PartsAAM:
                 # build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
-                # set up algorithm using parts aam interface
-                algorithm = lk_algorithm_cls(
-                    LucasKanadePartsInterface, am, pdm, sampling=s,
+                interface = LucasKanadePartsInterface(
+                    am, pdm, template, sampling=s,
                     patch_shape=self.aam.patch_shape[j],
-                    normalize_parts=self.aam.normalize_parts, **kwargs)
-
+                    normalize_parts=self.aam.normalize_parts)
+                algorithm = lk_algorithm_cls(interface)
             else:
                 raise ValueError("AAM object must be of one of the "
                                  "following classes: {}, {}, {}, {}, "
                                  "{}".format(AAM, PatchAAM, LinearAAM,
                                              LinearPatchAAM, PartsAAM))
 
-            # append algorithms to list
             self.algorithms.append(algorithm)
 
 
