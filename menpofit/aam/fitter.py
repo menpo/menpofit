@@ -125,37 +125,34 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
                                             self.aam.shape_models,
                                             self._sampling)):
-
+            template = am.mean()
             if type(self.aam) is AAM or type(self.aam) is PatchAAM:
                 # build orthonormal model driven transform
                 md_transform = OrthoMDTransform(
                     sm, self.aam.transform,
-                    source=am.mean().landmarks['source'].lms)
-                # set up algorithm using standard aam interface
+                    source=template.landmarks['source'].lms)
+                interface = SupervisedDescentStandardInterface(
+                    am, md_transform, template, sampling=s)
                 algorithm = self._sd_algorithm_cls(
-                    SupervisedDescentStandardInterface, am, md_transform,
-                    sampling=s, max_iters=self.n_iterations[j])
-
+                    interface, n_iterations=self.n_iterations[j])
             elif (type(self.aam) is LinearAAM or
                   type(self.aam) is LinearPatchAAM):
-                # build linear version of orthogonal model driven transform
+                # Build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
                     sm, self.aam.reference_shape)
-                # set up algorithm using linear aam interface
+                interface = SupervisedDescentLinearInterface(
+                    am, md_transform, template, sampling=s)
                 algorithm = self._sd_algorithm_cls(
-                    SupervisedDescentLinearInterface, am, md_transform,
-                    sampling=s, max_iters=self.n_iterations[j])
-
+                    interface, n_iterations=self.n_iterations[j])
             elif type(self.aam) is PartsAAM:
-                # build orthogonal point distribution model
+                # Build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
-                # set up algorithm using parts aam interface
-                algorithm = self._sd_algorithm_cls(
-                    SupervisedDescentPartsInterface, am, pdm,
-                    sampling=s, max_iters=self.n_iterations[j],
+                interface = SupervisedDescentPartsInterface(
+                    am, pdm, template, sampling=s,
                     patch_shape=self.aam.patch_shape[j],
                     normalize_parts=self.aam.normalize_parts)
-
+                algorithm = self._sd_algorithm_cls(
+                    interface, n_iterations=self.n_iterations[j])
             else:
                 raise ValueError("AAM object must be of one of the "
                                  "following classes: {}, {}, {}, {}, "
