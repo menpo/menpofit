@@ -246,7 +246,6 @@ class GlobalPDM(PDM):
             Weights of the statistical model that generate the closest
             PointCloud to the requested target
         """
-
         self._update_global_transform(target)
         projected_target = self.global_transform.pseudoinverse().apply(target)
         # now we have the target in model space, project it to recover the
