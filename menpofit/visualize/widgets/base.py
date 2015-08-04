@@ -2223,7 +2223,7 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
             renderer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
             renderer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
         renderer = fitting_results[im].plot_errors(
-            error_type=error_type_wid.value,
+            error_type=_error_type_key_to_func(error_type_wid.value),
             figure_id=save_figure_wid.renderer.figure_id,
             figure_size=new_figure_size)
 
@@ -2517,18 +2517,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # widget closes
         plot_ced_but.visible = False
 
-        # Get error type
         error_type = error_type_wid.value
-
-        from menpofit.result import (
-                compute_root_mean_square_error, compute_point_to_point_error,
-                compute_normalise_point_to_point_error)
-        if error_type is 'me_norm':
-            func = compute_normalise_point_to_point_error
-        elif error_type is 'me':
-            func = compute_point_to_point_error
-        elif error_type is 'rmse':
-            func = compute_root_mean_square_error
+        func = _error_type_key_to_func(error_type)
 
         # Create errors list
         fit_errors = [f.final_error(compute_error=func)
@@ -2646,8 +2636,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # animation. Specifically, if the animation is activated and the user
         # selects the iterations tab, then the animation stops.
         def results_tab_fun(name, value):
-            if value == 1 and image_number_wid.play_toggle.value:
-                image_number_wid.stop_toggle.value = True
+            if value == 1 and image_number_wid.play_options_toggle.value:
+                image_number_wid.stop_options_toggle.value = True
         result_wid.on_trait_change(results_tab_fun, 'selected_index')
 
         # Widget titles
@@ -2676,8 +2666,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # If animation is activated and the user selects the save figure tab,
         # then the animation stops.
         def save_fig_tab_fun(name, value):
-            if value == 3 and image_number_wid.play_toggle.value:
-                image_number_wid.stop_toggle.value = True
+            if value == 3 and image_number_wid.play_options_toggle.value:
+                image_number_wid.stop_options_toggle.value = True
         options_box.on_trait_change(save_fig_tab_fun, 'selected_index')
 
     # Set widget's style
@@ -2691,3 +2681,16 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
 
     # Reset value to trigger initial visualization
     renderer_options_wid.options_widgets[3].render_legend_checkbox.value = True
+
+
+def _error_type_key_to_func(error_type):
+    from menpofit.result import (
+        compute_root_mean_square_error, compute_point_to_point_error,
+        compute_normalise_point_to_point_error)
+    if error_type is 'me_norm':
+        func = compute_normalise_point_to_point_error
+    elif error_type is 'me':
+        func = compute_point_to_point_error
+    elif error_type is 'rmse':
+        func = compute_root_mean_square_error
+    return func
