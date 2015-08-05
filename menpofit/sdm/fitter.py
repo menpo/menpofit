@@ -252,28 +252,32 @@ class SupervisedDescentFitter(MultiFitter):
         scales_info = []
         lvl_str_tmplt = r"""  - Scale {}
    - {} iterations
-   - Patch shape: {}"""
+   - Patch shape: {}
+   - Holistic feature: {}
+   - Patch feature: {}"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(s,
-                                                    self.n_iterations[k],
-                                                    self._patch_shape[k]))
+            scales_info.append(lvl_str_tmplt.format(
+                s, self.n_iterations[k], self._patch_shape[k],
+                name_of_callable(self.features[k]),
+                name_of_callable(self._patch_features[k])))
         scales_info = '\n'.join(scales_info)
 
         cls_str = r"""Supervised Descent Method
  - Regression performed using the {reg_alg} algorithm
    - Regression class: {reg_cls}
- - Scales: {scales}
-{scales_info}
  - Perturbations generated per shape: {n_perturbations}
  - Images scaled to diagonal: {diagonal:.2f}
- - Custom perturbation scheme used: {is_custom_perturb_func}""".format(
+ - Custom perturbation scheme used: {is_custom_perturb_func}
+ - Scales: {scales}
+{scales_info}
+""".format(
             reg_alg=name_of_callable(self._sd_algorithm_cls),
             reg_cls=name_of_callable(regressor_cls),
-            scales=self.scales,
-            scales_info=scales_info,
             n_perturbations=self.n_perturbations,
             diagonal=diagonal,
-            is_custom_perturb_func=is_custom_perturb_func)
+            is_custom_perturb_func=is_custom_perturb_func,
+            scales=self.scales,
+            scales_info=scales_info)
         return cls_str
 
 

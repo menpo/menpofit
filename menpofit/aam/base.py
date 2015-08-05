@@ -341,7 +341,7 @@ class AAM(object):
         Returns a string containing name of the model.
         :type: `string`
         """
-        return 'Active Appearance Model'
+        return 'Holistic Active Appearance Model'
 
     def instance(self, shape_weights=None, appearance_weights=None,
                  scale_index=-1):
@@ -526,9 +526,8 @@ class AAM(object):
                       parameters_bounds=parameters_bounds,
                       figure_size=figure_size, mode=mode)
 
-    # TODO: fix me!
     def __str__(self):
-        return ''
+        return _aam_str(self)
 
 
 # TODO: document me!
@@ -587,7 +586,7 @@ class PatchAAM(AAM):
 
     @property
     def _str_title(self):
-        return 'Patch-Based Active Appearance Model'
+        return 'Patch-based Active Appearance Model'
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         template = self.appearance_models[scale_index].mean
@@ -611,14 +610,8 @@ class PatchAAM(AAM):
                                    parameters_bounds=parameters_bounds,
                                    figure_size=figure_size, mode=mode)
 
-    # TODO: fix me!
     def __str__(self):
-        out = super(PatchAAM, self).__str__()
-        out_splitted = out.splitlines()
-        out_splitted[0] = self._str_title
-        out_splitted.insert(5, "   - Patch size is {}W x {}H.".format(
-            self.patch_shape[1], self.patch_shape[0]))
-        return '\n'.join(out_splitted)
+        return _aam_str(self)
 
 
 # TODO: document me!
@@ -716,9 +709,8 @@ class LinearAAM(AAM):
                         figure_size=(10, 8)):
         raise NotImplemented
 
-    # TODO: implement me!
     def __str__(self):
-        raise NotImplemented
+        return _aam_str(self)
 
 
 # TODO: document me!
@@ -767,7 +759,15 @@ class LinearPatchAAM(AAM):
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
 
-    def _build_shape_model(self, shapes, max_components, scale_index):
+    @property
+    def _str_title(self):
+        r"""
+        Returns a string containing name of the model.
+        :type: `string`
+        """
+        return 'Linear Patch-based Active Appearance Model'
+
+    def _build_shape_model(self, shapes, scale_index):
         mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
         self.n_landmarks = mean_aligned_shape.n_points
         self.reference_frame = build_patch_reference_frame(
@@ -809,9 +809,8 @@ class LinearPatchAAM(AAM):
                         figure_size=(10, 8)):
         raise NotImplemented
 
-    # TODO: implement me!
     def __str__(self):
-        raise NotImplemented
+        return _aam_str(self)
 
 
 # TODO: document me!
@@ -863,6 +862,14 @@ class PartsAAM(AAM):
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
 
+    @property
+    def _str_title(self):
+        r"""
+        Returns a string containing name of the model.
+        :type: `string`
+        """
+        return 'Parts-based Active Appearance Model'
+
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
         return extract_patches(images, shapes, self.patch_shape[scale_index],
@@ -885,6 +892,44 @@ class PartsAAM(AAM):
                         figure_size=(10, 8)):
         raise NotImplemented
 
-    # TODO: implement me!
     def __str__(self):
-        raise NotImplemented
+        return _aam_str(self)
+
+
+def _aam_str(aam):
+    if aam.diagonal is not None:
+        diagonal = aam.diagonal
+    else:
+        y, x = aam.reference_shape.range()
+        diagonal = np.sqrt(x ** 2 + y ** 2)
+
+    # Compute scale info strings
+    scales_info = []
+    lvl_str_tmplt = r"""  - Scale {}
+   - Holistic feature: {}
+   - {} appearance components
+   - {} shape components"""
+    for k, s in enumerate(aam.scales):
+        scales_info.append(lvl_str_tmplt.format(
+            s, name_of_callable(aam.features[k]),
+            aam.appearance_models[k].n_components,
+            aam.shape_models[k].n_components))
+    # Patch based AAM
+    if hasattr(aam, 'patch_shape'):
+        for k, s in enumerate(scales_info):
+            s += '\n   - Patch shape: {}'.format(aam.patch_shape[k])
+    scales_info = '\n'.join(scales_info)
+
+    cls_str = r"""{class_title}
+ - Images warped with {transform} transform
+ - Images scaled to diagonal: {diagonal:.2f}
+ - Scales: {scales}
+{scales_info}
+""".format(class_title=aam._str_title,
+           transform=name_of_callable(aam.transform),
+           diagonal=diagonal,
+           scales=aam.scales,
+           scales_info=scales_info)
+    return cls_str
+
+HolisticAAM = AAM
