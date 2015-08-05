@@ -120,7 +120,7 @@ class LucasKanadeStandardInterface(object):
     def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          appearance_parameters=None, gt_shape=None):
         return AAMAlgorithmResult(
-            image, self.transform, shape_parameters,
+            image, self, shape_parameters,
             cost_functions=cost_functions,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 

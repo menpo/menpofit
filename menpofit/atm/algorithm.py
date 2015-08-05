@@ -101,7 +101,7 @@ class LucasKanadeStandardInterface(object):
     def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          gt_shape=None):
         return ATMAlgorithmResult(
-            image, self.algorithm, shape_parameters,
+            image, self, shape_parameters,
             cost_functions=cost_functions, gt_shape=gt_shape)
 
 

@@ -54,7 +54,7 @@ class SupervisedDescentStandardInterface(object):
     def algorithm_result(self, image, shape_parameters,
                          appearance_parameters=None, gt_shape=None):
         return AAMAlgorithmResult(
-            image, self.transform, shape_parameters,
+            image, self, shape_parameters,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
@@ -69,7 +69,7 @@ class SupervisedDescentLinearInterface(SupervisedDescentStandardInterface):
     def algorithm_result(self, image, shape_parameters,
                          appearance_parameters=None, gt_shape=None):
         return LinearAAMAlgorithmResult(
-            image, self.transform, shape_parameters,
+            image, self, shape_parameters,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
