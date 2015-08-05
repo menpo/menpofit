@@ -5,12 +5,30 @@ from menpo.feature import gradient as fast_gradient, no_op
 from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
+def _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p, m, n):
+    if n is not H.shape[0] - m:
+        # Bidirectional Compositional case
+        Js_prior = np.hstack((Js_prior, Js_prior))
+        p = np.hstack((p, p))
+        # compute and return MAP solution
+    J_prior = np.hstack((Ja_prior, Js_prior))
+    H += np.diag(J_prior)
+    Je = J_prior * np.hstack((c, p)) + J.T.dot(e)
+    dq = - np.linalg.solve(H, Je)
+    return dq[:m], dq[m:]
+
+
+def _solve_all_ml(H, J, e, m):
+    # compute ML solution
+    dq = - np.linalg.solve(H, J.T.dot(e))
+    return dq[:m], dq[m:]
+
+
 # TODO document me!
-class LucasKanadeStandardInterface(object):
+class LucasKanadeBaseInterface(object):
     r"""
     """
-    def __init__(self, appearance_model, transform, template, sampling=None):
-        self.appearance_model = appearance_model
+    def __init__(self, transform, template, sampling=None):
         self.transform = transform
         self.template = template
 
@@ -46,10 +64,6 @@ class LucasKanadeStandardInterface(object):
     @property
     def n(self):
         return self.transform.n_parameters
-
-    @property
-    def m(self):
-        return self.appearance_model.n_active_components
 
     @property
     def true_indices(self):
@@ -100,22 +114,24 @@ class LucasKanadeStandardInterface(object):
         # compute and return ML solution
         return -np.linalg.solve(H, J.T.dot(e))
 
+
+class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
+
+    def __init__(self, appearance_model, transform, template, sampling=None):
+        super(LucasKanadeStandardInterface, self).__init__(transform, template,
+                                                           sampling=sampling)
+        self.appearance_model = appearance_model
+
+    @property
+    def m(self):
+        return self.appearance_model.n_active_components
+
     def solve_all_map(self, H, J, e, Ja_prior, c, Js_prior, p):
-        if self.n is not H.shape[0] - self.m:
-            # Bidirectional Compositional case
-            Js_prior = np.hstack((Js_prior, Js_prior))
-            p = np.hstack((p, p))
-        # compute and return MAP solution
-        J_prior = np.hstack((Ja_prior, Js_prior))
-        H += np.diag(J_prior)
-        Je = J_prior * np.hstack((c, p)) + J.T.dot(e)
-        dq = - np.linalg.solve(H, Je)
-        return dq[:self.m], dq[self.m:]
+        return _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p,
+                              self.m, self.n)
 
     def solve_all_ml(self, H, J, e):
-        # compute ML solution
-        dq = - np.linalg.solve(H, J.T.dot(e))
-        return dq[:self.m], dq[self.m:]
+        return _solve_all_ml(H, J, e, self.m)
 
     def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          appearance_parameters=None, gt_shape=None):
@@ -136,23 +152,23 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
     def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          appearance_parameters=None, gt_shape=None):
         return LinearAAMAlgorithmResult(
-            image, self.transform, shape_parameters,
+            image, self, shape_parameters,
             cost_functions=cost_functions,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
 # TODO document me!
-class LucasKanadePartsInterface(LucasKanadeStandardInterface):
+class LucasKanadePartsBaseInterface(LucasKanadeBaseInterface):
     r"""
     """
-    def __init__(self, appearance_model, transform, template, sampling=None,
+    def __init__(self, transform, template, sampling=None,
                  patch_shape=(17, 17), normalize_parts=no_op):
         self.patch_shape = patch_shape
         # TODO: Refactor to patch_features
         self.normalize_parts = normalize_parts
 
-        super(LucasKanadePartsInterface, self).__init__(
-            appearance_model, transform, template, sampling=sampling)
+        super(LucasKanadeBaseInterface, self).__init__(
+            transform, template, sampling=sampling)
 
     def _build_sampling_mask(self, sampling):
         if sampling is None:
@@ -175,15 +191,18 @@ class LucasKanadePartsInterface(LucasKanadeStandardInterface):
         return np.rollaxis(self.transform.d_dp(None), -1)
 
     def warp(self, image):
-        return Image(image.extract_patches(
-            self.transform.target, patch_size=self.patch_shape,
-            as_single_array=True))
+        parts = image.extract_patches(self.transform.target,
+                                      patch_size=self.patch_shape,
+                                      as_single_array=True)
+        parts = self.normalize_parts(parts)
+        return Image(parts, copy=False)
 
     def gradient(self, image):
-        nabla = fast_gradient(image.pixels.reshape((-1,) + self.patch_shape))
+        pixels = image.pixels
+        nabla = fast_gradient(pixels.reshape((-1,) + self.patch_shape))
         # remove 1st dimension gradient which corresponds to the gradient
         # between parts
-        return nabla.reshape((2,) + image.pixels.shape)
+        return nabla.reshape((2,) + pixels.shape)
 
     def steepest_descent_images(self, nabla, dw_dp):
         # reshape nabla
@@ -202,6 +221,39 @@ class LucasKanadePartsInterface(LucasKanadeStandardInterface):
         # reshape steepest descent images
         # sdi: (parts x offsets x ch x w x h) x params
         return sdi.reshape((-1, sdi.shape[-1]))
+
+
+# TODO document me!
+class LucasKanadePartsInterface(LucasKanadePartsBaseInterface):
+    r"""
+    """
+    def __init__(self, appearance_model, transform, template, sampling=None,
+                 patch_shape=(17, 17), normalize_parts=no_op):
+        self.patch_shape = patch_shape
+        # TODO: Refactor to patch_features
+        self.normalize_parts = normalize_parts
+        self.appearance_model = appearance_model
+
+        super(LucasKanadePartsInterface, self).__init__(
+            transform, template, sampling=sampling)
+
+    @property
+    def m(self):
+        return self.appearance_model.n_active_components
+
+    def solve_all_map(self, H, J, e, Ja_prior, c, Js_prior, p):
+        return _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p,
+                              self.m, self.n)
+
+    def solve_all_ml(self, H, J, e):
+        return _solve_all_ml(H, J, e, self.m)
+
+    def algorithm_result(self, image, shape_parameters, cost_functions=None,
+                         appearance_parameters=None, gt_shape=None):
+        return AAMAlgorithmResult(
+            image, self, shape_parameters,
+            cost_functions=cost_functions,
+            appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
 # TODO document me!
