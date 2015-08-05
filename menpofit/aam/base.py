@@ -1,10 +1,21 @@
 from __future__ import division
+from copy import deepcopy
+import warnings
 import numpy as np
-from menpo.shape import TriMesh
-from menpofit.transform import DifferentiableThinPlateSplines
-from menpofit.base import name_of_callable
+from menpo.feature import no_op
+from menpo.visualize import print_dynamic
+from menpo.model import PCAModel
+from menpo.transform import Scale
+from menpo.shape import mean_pointcloud
+from menpofit import checks
+from menpofit.transform import (DifferentiableThinPlateSplines,
+                                DifferentiablePiecewiseAffine)
+from menpofit.base import name_of_callable, batch
 from menpofit.builder import (
-    build_reference_frame, build_patch_reference_frame)
+    build_reference_frame, build_patch_reference_frame,
+    compute_features, scale_images, build_shape_model, warp_images,
+    align_shapes, rescale_images_to_reference_shape, densify_shapes,
+    extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
 
 # TODO: document me!
@@ -13,22 +24,8 @@ class AAM(object):
     Active Appearance Model class.
 
     Parameters
-    -----------
-    shape_models : :map:`PCAModel` list
-        A list containing the shape models of the AAM.
-
-    appearance_models : :map:`PCAModel` list
-        A list containing the appearance models of the AAM.
-
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
-
-    transform : :map:`PureAlignmentTransform`
-        The transform used to warp the images from which the AAM was
-        constructed.
-
-    features : `callable` or ``[callable]``,
+    ----------
+    features : `callable` or ``[callable]``, optional
         If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
         The first element of the list specifies the features to be extracted at
@@ -41,35 +38,303 @@ class AAM(object):
         Note that from our experience, this approach of extracting features
         once and then creating a pyramid on top tends to lead to better
         performing AAMs.
+    transform : :map:`PureAlignmentTransform`, optional
+        The :map:`PureAlignmentTransform` that will be
+        used to warp the images.
+    trilist : ``(t, 3)`` `ndarray`, optional
+        Triangle list that will be used to build the reference frame. If
+        ``None``, defaults to performing Delaunay triangulation on the points.
+    diagonal : `int` >= ``20``, optional
+        During building an AAM, all images are rescaled to ensure that the
+        scale of their landmarks matches the scale of the mean shape.
 
+        If `int`, it ensures that the mean shape is scaled so that the diagonal
+        of the bounding box containing it matches the diagonal value.
+
+        If ``None``, the mean shape is not rescaled.
+
+        Note that, because the reference frame is computed from the mean
+        landmarks, this kwarg also specifies the diagonal length of the
+        reference frame (provided that features computation does not change
+        the image size).
     scales : `int` or float` or list of those, optional
+    max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
+        If list of length ``n_scales``, then a number of shape components is
+        defined per level. The first element of the list specifies the number
+        of components of the lowest pyramidal level and so on.
 
-    scale_shapes : `boolean`
+        If not a list or a list with length ``1``, then the specified number of
+        shape components will be used for all levels.
 
-    scale_features : `boolean`
+        Per level:
+            If `int`, it specifies the exact number of components to be
+            retained.
 
+            If `float`, it specifies the percentage of variance to be retained.
+
+            If ``None``, all the available components are kept
+            (100% of variance).
+    max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
+        If list of length ``n_scales``, then a number of appearance components
+        is defined per level. The first element of the list specifies the number
+        of components of the lowest pyramidal level and so on.
+
+        If not a list or a list with length ``1``, then the specified number of
+        appearance components will be used for all levels.
+
+        Per level:
+            If `int`, it specifies the exact number of components to be
+            retained.
+
+            If `float`, it specifies the percentage of variance to be retained.
+
+            If ``None``, all the available components are kept
+            (100% of variance).
+
+    Returns
+    -------
+    aam : :map:`AAMBuilder`
+        The AAM Builder object
+
+    Raises
+    -------
+    ValueError
+        ``diagonal`` must be >= ``20``.
+    ValueError
+        ``scales`` must be `int` or `float` or list of those.
+    ValueError
+        ``features`` must be a `function` or a list of those
+        containing ``1`` or ``len(scales)`` elements
+    ValueError
+        ``max_shape_components`` must be ``None`` or an `int` > 0 or
+        a ``0`` <= `float` <= ``1`` or a list of those containing 1 or
+        ``len(scales)`` elements
+    ValueError
+        ``max_appearance_components`` must be ``None`` or an `int` > ``0`` or a
+        ``0`` <= `float` <= ``1`` or a list of those containing 1 or
+        ``len(scales)`` elements
     """
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 transform, features, scales, scale_shapes, scale_features):
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = transform
+    def __init__(self, images, group=None, verbose=False, reference_shape=None,
+                 features=no_op, transform=DifferentiablePiecewiseAffine,
+                 diagonal=None, scales=(0.5, 1.0),  max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
+
+        checks.check_diagonal(diagonal)
+        n_scales = len(scales)
+        scales = checks.check_scales(scales)
+        features = checks.check_features(features, n_scales)
+        max_shape_components = checks.check_max_components(
+            max_shape_components, n_scales, 'max_shape_components')
+        max_appearance_components = checks.check_max_components(
+            max_appearance_components, n_scales, 'max_appearance_components')
+
         self.features = features
-        self.reference_shape = reference_shape
+        self.transform = transform
+        self.diagonal = diagonal
         self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
+        self.max_shape_components = max_shape_components
+        self.max_appearance_components = max_appearance_components
+        self.reference_shape = reference_shape
+        self.shape_models = []
+        self.appearance_models = []
+
+        # Train AAM
+        self._train(images, group=group, verbose=verbose, increment=False,
+                    batch_size=batch_size)
+
+    def _train(self, images, group=None, verbose=False, increment=False,
+               shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
+               batch_size=None):
+        r"""
+        Builds an Active Appearance Model from a list of landmarked images.
+
+        Parameters
+        ----------
+        images : list of :map:`MaskedImage`
+            The set of landmarked images from which to build the AAM.
+        group : `string`, optional
+            The key of the landmark set that should be used. If ``None``,
+            and if there is only one set of landmarks, this set will be used.
+        verbose : `boolean`, optional
+            Flag that controls information and progress printing.
+
+        Returns
+        -------
+        aam : :map:`AAM`
+            The AAM object. Shape and appearance models are stored from
+            lowest to highest scale
+        """
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
+        if batch_size is not None:
+            # Create a generator of fixed sized batches. Will still work even
+            # on an infinite list.
+            image_batches = batch(images, batch_size)
+        else:
+            image_batches = [list(images)]
+
+        for k, image_batch in enumerate(image_batches):
+            # After the first batch, we are incrementing the model
+            if k > 0:
+                increment = True
+
+            if verbose:
+                print('Computing batch {}'.format(k))
+
+            if self.reference_shape is None:
+                # If no reference shape was given, use the mean of the first
+                # batch
+                if batch_size is not None:
+                    warnings.warn('No reference shape was provided. The mean '
+                                  'of the first batch will be the reference '
+                                  'shape. If the batch mean is not '
+                                  'representative of the true mean, this may '
+                                  'cause issues.', MenpoFitBuilderWarning)
+                checks.check_trilist(image_batch[0], self.transform,
+                                     group=group)
+                self.reference_shape = compute_reference_shape(
+                    [i.landmarks[group].lms for i in image_batch],
+                    self.diagonal, verbose=verbose)
+
+            # Rescale to existing reference shape
+            image_batch = rescale_images_to_reference_shape(
+                image_batch, group, self.reference_shape,
+                verbose=verbose)
+
+            # build models at each scale
+            if verbose:
+                print_dynamic('- Building models\n')
+
+            feature_images = []
+            # for each scale (low --> high)
+            for j in range(self.n_scales):
+                if verbose:
+                    if len(self.scales) > 1:
+                        scale_prefix = '  - Scale {}: '.format(j)
+                    else:
+                        scale_prefix = '  - '
+                else:
+                    scale_prefix = None
+
+                # Handle features
+                if j == 0 or self.features[j] is not self.features[j - 1]:
+                    # Compute features only if this is the first pass through
+                    # the loop or the features at this scale are different from
+                    # the features at the previous scale
+                    feature_images = compute_features(image_batch,
+                                                      self.features[j],
+                                                      prefix=scale_prefix,
+                                                      verbose=verbose)
+                # handle scales
+                if self.scales[j] != 1:
+                    # Scale feature images only if scale is different than 1
+                    scaled_images = scale_images(feature_images, self.scales[j],
+                                                 prefix=scale_prefix,
+                                                 verbose=verbose)
+                else:
+                    scaled_images = feature_images
+
+                # Extract potentially rescaled shapes
+                scale_shapes = [i.landmarks[group].lms for i in scaled_images]
+
+                # Build the shape model
+                if verbose:
+                    print_dynamic('{}Building shape model'.format(scale_prefix))
+
+                if not increment:
+                    if j == 0:
+                        shape_model = self._build_shape_model(
+                            scale_shapes, j)
+                        self.shape_models.append(shape_model)
+                    else:
+                        self.shape_models.append(deepcopy(shape_model))
+                else:
+                    self._increment_shape_model(
+                        scale_shapes,  self.shape_models[j],
+                        forgetting_factor=shape_forgetting_factor)
+
+                # Obtain warped images - we use a scaled version of the
+                # reference shape, computed here. This is because the mean
+                # moves when we are incrementing, and we need a consistent
+                # reference frame.
+                scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
+                    self.reference_shape)
+                warped_images = self._warp_images(scaled_images, scale_shapes,
+                                                  scaled_reference_shape,
+                                                  j, scale_prefix, verbose)
+
+                # obtain appearance model
+                if verbose:
+                    print_dynamic('{}Building appearance model'.format(
+                        scale_prefix))
+
+                if not increment:
+                    appearance_model = PCAModel(warped_images)
+                    # trim appearance model if required
+                    if self.max_appearance_components is not None:
+                        appearance_model.trim_components(
+                            self.max_appearance_components[j])
+                    # add appearance model to the list
+                    self.appearance_models.append(appearance_model)
+                else:
+                    # increment appearance model
+                    self.appearance_models[j].increment(
+                        warped_images,
+                        forgetting_factor=appearance_forgetting_factor)
+                    # trim appearance model if required
+                    if self.max_appearance_components is not None:
+                        self.appearance_models[j].trim_components(
+                            self.max_appearance_components[j])
+
+                if verbose:
+                    print_dynamic('{}Done\n'.format(scale_prefix))
+
+            # Because we just copy the shape model, we need to wait to trim
+            # it after building each model. This ensures we can have a different
+            # number of components per level
+            for k, sm in enumerate(self.shape_models):
+                max_sc = self.max_shape_components[k]
+                if max_sc is not None:
+                    sm.trim_components(max_sc)
+
+    def increment(self, images, group=None, verbose=False,
+                  shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
+                  batch_size=None):
+        # Literally just to fit under 80 characters, but maintain the sensible
+        # parameter name
+        aff = appearance_forgetting_factor
+        return self._train(images, group=group,
+                           verbose=verbose,
+                           shape_forgetting_factor=shape_forgetting_factor,
+                           appearance_forgetting_factor=aff,
+                           increment=True, batch_size=batch_size)
+
+    def _build_shape_model(self, shapes, scale_index):
+        return build_shape_model(shapes)
+
+    def _increment_shape_model(self, shapes, shape_model,
+                               forgetting_factor=1.0):
+        # Compute aligned shapes
+        aligned_shapes = align_shapes(shapes)
+        # Increment shape model
+        shape_model.increment(aligned_shapes,
+                              forgetting_factor=forgetting_factor)
+
+    def _warp_images(self, images, shapes, reference_shape, scale_index,
+                     prefix, verbose):
+        reference_frame = build_reference_frame(reference_shape)
+        return warp_images(images, shapes, reference_frame, self.transform,
+                           prefix=prefix, verbose=verbose)
 
     @property
     def n_scales(self):
         """
-        The number of scale levels of the AAM.
+        The number of scales of the AAM.
 
         :type: `int`
         """
         return len(self.scales)
 
-    # TODO: Could we directly use class names instead of this?
     @property
     def _str_title(self):
         r"""
@@ -78,7 +343,8 @@ class AAM(object):
         """
         return 'Active Appearance Model'
 
-    def instance(self, shape_weights=None, appearance_weights=None, level=-1):
+    def instance(self, shape_weights=None, appearance_weights=None,
+                 scale_index=-1):
         r"""
         Generates a novel AAM instance given a set of shape and appearance
         weights. If no weights are provided, the mean AAM instance is
@@ -90,22 +356,20 @@ class AAM(object):
             Weights of the shape model that will be used to create
             a novel shape instance. If ``None``, the mean shape
             ``(shape_weights = [0, 0, ..., 0])`` is used.
-
         appearance_weights : ``(n_weights,)`` `ndarray` or `float` list
             Weights of the appearance model that will be used to create
             a novel appearance instance. If ``None``, the mean appearance
             ``(appearance_weights = [0, 0, ..., 0])`` is used.
-
-        level : `int`, optional
-            The pyramidal level to be used.
+        scale_index : `int`, optional
+            The scale to be used.
 
         Returns
         -------
         image : :map:`Image`
             The novel AAM instance.
         """
-        sm = self.shape_models[level]
-        am = self.appearance_models[level]
+        sm = self.shape_models[scale_index]
+        am = self.appearance_models[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
         if shape_weights is None:
@@ -119,24 +383,24 @@ class AAM(object):
         appearance_weights *= am.eigenvalues[:n_appearance_weights] ** 0.5
         appearance_instance = am.instance(appearance_weights)
 
-        return self._instance(level, shape_instance, appearance_instance)
+        return self._instance(scale_index, shape_instance, appearance_instance)
 
-    def random_instance(self, level=-1):
+    def random_instance(self, scale_index=-1):
         r"""
         Generates a novel random instance of the AAM.
 
         Parameters
         -----------
-        level : `int`, optional
-            The pyramidal level to be used.
+        scale_index : `int`, optional
+            The scale to be used.
 
         Returns
         -------
         image : :map:`Image`
             The novel AAM instance.
         """
-        sm = self.shape_models[level]
-        am = self.appearance_models[level]
+        sm = self.shape_models[scale_index]
+        am = self.appearance_models[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
         shape_weights = (np.random.randn(sm.n_active_components) *
@@ -146,23 +410,18 @@ class AAM(object):
                               am.eigenvalues[:am.n_active_components]**0.5)
         appearance_instance = am.instance(appearance_weights)
 
-        return self._instance(level, shape_instance, appearance_instance)
+        return self._instance(scale_index, shape_instance, appearance_instance)
 
-    def _instance(self, level, shape_instance, appearance_instance):
-        template = self.appearance_models[level].mean()
+    def _instance(self, scale_index, shape_instance, appearance_instance):
+        template = self.appearance_models[scale_index].mean()
         landmarks = template.landmarks['source'].lms
 
-        if type(landmarks) == TriMesh:
-            trilist = landmarks.trilist
-        else:
-            trilist = None
-        reference_frame = build_reference_frame(shape_instance,
-                                                trilist=trilist)
+        reference_frame = build_reference_frame(shape_instance)
 
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        return appearance_instance.as_unmasked().warp_to_mask(
+        return appearance_instance.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
 
     def view_shape_models_widget(self, n_parameters=5,
@@ -207,11 +466,11 @@ class AAM(object):
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of appearance principal components to be used for the
             parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
+            If `int`, then the number of sliders per scale is the minimum
             between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+            scale.
+            If `list` of `int`, then a number of sliders is defined per scale.
+            If ``None``, all the active components per scale will have a slider.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -239,19 +498,19 @@ class AAM(object):
         n_shape_parameters : `int` or `list` of `int` or None, optional
             The number of shape principal components to be used for the
             parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
+            If `int`, then the number of sliders per scale is the minimum
             between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+            scale.
+            If `list` of `int`, then a number of sliders is defined per scale.
+            If ``None``, all the active components per scale will have a slider.
         n_appearance_parameters : `int` or `list` of `int` or None, optional
             The number of appearance principal components to be used for the
             parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
+            If `int`, then the number of sliders per scale is the minimum
             between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
+            scale.
+            If `list` of `int`, then a number of sliders is defined per scale.
+            If ``None``, all the active components per scale will have a slider.
         parameters_bounds : (`float`, `float`), optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -269,106 +528,7 @@ class AAM(object):
 
     # TODO: fix me!
     def __str__(self):
-        out = "{}\n - {} training images.\n".format(self._str_title,
-                                                    self.n_training_images)
-        # small strings about number of channels, channels string and downscale
-        n_channels = []
-        down_str = []
-        for j in range(self.n_scales):
-            n_channels.append(
-                self.appearance_models[j].template_instance.n_channels)
-            if j == self.n_scales - 1:
-                down_str.append('(no downscale)')
-            else:
-                down_str.append('(downscale by {})'.format(
-                    self.downscale**(self.n_scales - j - 1)))
-        # string about features and channels
-        if self.pyramid_on_features:
-            feat_str = "- Feature is {} with ".format(
-                name_of_callable(self.features))
-            if n_channels[0] == 1:
-                ch_str = ["channel"]
-            else:
-                ch_str = ["channels"]
-        else:
-            feat_str = []
-            ch_str = []
-            for j in range(self.n_scales):
-                feat_str.append("- Feature is {} with ".format(
-                    name_of_callable(self.features[j])))
-                if n_channels[j] == 1:
-                    ch_str.append("channel")
-                else:
-                    ch_str.append("channels")
-        out = "{} - {} Warp.\n".format(out, name_of_callable(self.transform))
-        if self.n_scales > 1:
-            if self.scaled_shape_models:
-                out = "{} - Gaussian pyramid with {} levels and downscale " \
-                      "factor of {}.\n   - Each level has a scaled shape " \
-                      "model (reference frame).\n".format(out, self.n_scales,
-                                                          self.downscale)
-
-            else:
-                out = "{} - Gaussian pyramid with {} levels and downscale " \
-                      "factor of {}:\n   - Shape models (reference frames) " \
-                      "are not scaled.\n".format(out, self.n_scales,
-                                                 self.downscale)
-            if self.pyramid_on_features:
-                out = "{}   - Pyramid was applied on feature space.\n   " \
-                      "{}{} {} per image.\n".format(out, feat_str,
-                                                    n_channels[0], ch_str[0])
-                if not self.scaled_shape_models:
-                    out = "{}   - Reference frames of length {} " \
-                          "({} x {}C, {} x {}C)\n".format(
-                        out,
-                        self.appearance_models[0].n_features,
-                        self.appearance_models[0].template_instance.n_true_pixels(),
-                        n_channels[0],
-                        self.appearance_models[0].template_instance._str_shape,
-                        n_channels[0])
-            else:
-                out = "{}   - Features were extracted at each pyramid " \
-                      "level.\n".format(out)
-            for i in range(self.n_scales - 1, -1, -1):
-                out = "{}   - Level {} {}: \n".format(out, self.n_scales - i,
-                                                      down_str[i])
-                if not self.pyramid_on_features:
-                    out = "{}     {}{} {} per image.\n".format(
-                        out, feat_str[i], n_channels[i], ch_str[i])
-                if (self.scaled_shape_models or
-                        (not self.pyramid_on_features)):
-                    out = "{}     - Reference frame of length {} " \
-                          "({} x {}C, {} x {}C)\n".format(
-                        out, self.appearance_models[i].n_features,
-                        self.appearance_models[i].template_instance.n_true_pixels(),
-                        n_channels[i],
-                        self.appearance_models[i].template_instance._str_shape,
-                        n_channels[i])
-                out = "{0}     - {1} shape components ({2:.2f}% of " \
-                      "variance)\n     - {3} appearance components " \
-                      "({4:.2f}% of variance)\n".format(
-                    out, self.shape_models[i].n_components,
-                    self.shape_models[i].variance_ratio() * 100,
-                    self.appearance_models[i].n_components,
-                    self.appearance_models[i].variance_ratio() * 100)
-        else:
-            if self.pyramid_on_features:
-                feat_str = [feat_str]
-            out = "{0} - No pyramid used:\n   {1}{2} {3} per image.\n" \
-                  "   - Reference frame of length {4} ({5} x {6}C, " \
-                  "{7} x {8}C)\n   - {9} shape components ({10:.2f}% of " \
-                  "variance)\n   - {11} appearance components ({12:.2f}% of " \
-                  "variance)\n".format(
-                out, feat_str[0], n_channels[0], ch_str[0],
-                self.appearance_models[0].n_features,
-                self.appearance_models[0].template_instance.n_true_pixels(),
-                n_channels[0],
-                self.appearance_models[0].template_instance._str_shape,
-                n_channels[0], self.shape_models[0].n_components,
-                self.shape_models[0].variance_ratio() * 100,
-                self.appearance_models[0].n_components,
-                self.appearance_models[0].variance_ratio() * 100)
-        return out
+        return ''
 
 
 # TODO: document me!
@@ -380,22 +540,18 @@ class PatchAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
-
     features : `callable` or ``[callable]``
         If list of length ``n_scales``, feature extraction is performed at
-        each level after downscaling of the image.
+        each scale after downscaling of the image.
         The first element of the list specifies the features to be extracted at
-        the lowest pyramidal level and so on.
+        the lowest scale and so on.
 
         If ``callable`` the specified feature will be applied to the original
         image and pyramid generation will be performed on top of the feature
@@ -406,30 +562,35 @@ class PatchAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-
     scale_shapes : `boolean`
-
-    scale_features : `boolean`
-
     """
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, scales, scale_shapes, scale_features):
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = DifferentiableThinPlateSplines
-        self.patch_shape = patch_shape
-        self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
+
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+
+        super(PatchAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
+            scales=scales,  max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    def _warp_images(self, images, shapes, reference_shape, scale_index,
+                     prefix, verbose):
+        reference_frame = build_patch_reference_frame(
+            reference_shape, patch_shape=self.patch_shape[scale_index])
+        return warp_images(images, shapes, reference_frame, self.transform,
+                           prefix=prefix, verbose=verbose)
 
     @property
     def _str_title(self):
         return 'Patch-Based Active Appearance Model'
 
-    def _instance(self, level, shape_instance, appearance_instance):
-        template = self.appearance_models[level].mean
+    def _instance(self, scale_index, shape_instance, appearance_instance):
+        template = self.appearance_models[scale_index].mean
         landmarks = template.landmarks['source'].lms
 
         reference_frame = build_patch_reference_frame(
@@ -469,18 +630,14 @@ class LinearAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     transform : :map:`PureAlignmentTransform`
         The transform used to warp the images from which the AAM was
         constructed.
-
     features : `callable` or ``[callable]``, optional
         If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
@@ -496,27 +653,55 @@ class LinearAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-
-    scale_shapes : `boolean`
-
-    scale_features : `boolean`
-
     """
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 transform, features, scales, scale_shapes, scale_features,
-                 n_landmarks):
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = transform
-        self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-        self.n_landmarks = n_landmarks
+
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 transform=DifferentiableThinPlateSplines, diagonal=None,
+                 scales=(0.5, 1.0), max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
+
+        super(LinearAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=transform, diagonal=diagonal, scales=scales,
+            max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    @property
+    def _str_title(self):
+        r"""
+        Returns a string containing name of the model.
+        :type: `string`
+        """
+        return 'Linear Active Appearance Model'
+
+    def _build_shape_model(self, shapes, scale_index):
+        mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
+        self.n_landmarks = mean_aligned_shape.n_points
+        self.reference_frame = build_reference_frame(mean_aligned_shape)
+        dense_shapes = densify_shapes(shapes, self.reference_frame,
+                                      self.transform)
+        # build dense shape model
+        shape_model = build_shape_model(dense_shapes)
+        return shape_model
+
+    def _increment_shape_model(self, shapes, shape_model,
+                               forgetting_factor=1.0):
+        aligned_shapes = align_shapes(shapes)
+        dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
+                                      self.transform)
+        # Increment shape model
+        shape_model.increment(dense_shapes,
+                              forgetting_factor=forgetting_factor)
+
+    def _warp_images(self, images, shapes, reference_shape, scale_index,
+                     prefix, verbose):
+        return warp_images(images, shapes, self.reference_frame,
+                           self.transform, prefix=prefix,
+                           verbose=verbose)
 
     # TODO: implement me!
-    def _instance(self, level, shape_instance, appearance_instance):
+    def _instance(self, scale_index, shape_instance, appearance_instance):
         raise NotImplemented
 
     # TODO: implement me!
@@ -545,17 +730,13 @@ class LinearPatchAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
-
     features : `callable` or ``[callable]``
         If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
@@ -571,30 +752,49 @@ class LinearPatchAAM(AAM):
         performing AAMs.
 
     scales : `int` or float` or list of those
-
-    scale_shapes : `boolean`
-
-    scale_features : `boolean`
-
-    n_landmarks: `int`
-
     """
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, scales, scale_shapes,
-                 scale_features, n_landmarks):
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.transform = DifferentiableThinPlateSplines
-        self.patch_shape = patch_shape
-        self.features = features
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-        self.n_landmarks = n_landmarks
+
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+
+        super(LinearPatchAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
+            scales=scales,  max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    def _build_shape_model(self, shapes, max_components, scale_index):
+        mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
+        self.n_landmarks = mean_aligned_shape.n_points
+        self.reference_frame = build_patch_reference_frame(
+            mean_aligned_shape, patch_shape=self.patch_shape[scale_index])
+        dense_shapes = densify_shapes(shapes, self.reference_frame,
+                                      self.transform)
+        # build dense shape model
+        shape_model = build_shape_model(dense_shapes)
+        return shape_model
+
+    def _increment_shape_model(self, shapes, shape_model,
+                               forgetting_factor=1.0):
+        aligned_shapes = align_shapes(shapes)
+        dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
+                                      self.transform)
+        # Increment shape model
+        shape_model.increment(dense_shapes,
+                              forgetting_factor=forgetting_factor)
+
+    def _warp_images(self, images, shapes, reference_shape, scale_index,
+                     prefix, verbose):
+        return warp_images(images, shapes, self.reference_frame,
+                           self.transform, prefix=prefix,
+                           verbose=verbose)
 
     # TODO: implement me!
-    def _instance(self, level, shape_instance, appearance_instance):
+    def _instance(self, scale_index, shape_instance, appearance_instance):
         raise NotImplemented
 
     # TODO: implement me!
@@ -615,6 +815,7 @@ class LinearPatchAAM(AAM):
 
 
 # TODO: document me!
+# TODO: implement offsets support?
 class PartsAAM(AAM):
     r"""
     Parts based Active Appearance Model class.
@@ -623,17 +824,13 @@ class PartsAAM(AAM):
     -----------
     shape_models : :map:`PCAModel` list
         A list containing the shape models of the AAM.
-
     appearance_models : :map:`PCAModel` list
         A list containing the appearance models of the AAM.
-
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-
     patch_shape : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
-
     features : `callable` or ``[callable]``
         If list of length ``n_scales``, feature extraction is performed at
         each level after downscaling of the image.
@@ -649,29 +846,31 @@ class PartsAAM(AAM):
         performing AAMs.
 
     normalize_parts: `callable`
-
     scales : `int` or float` or list of those
-
-    scale_shapes : `boolean`
-
-    scale_features : `boolean`
-
     """
-    def __init__(self, shape_models, appearance_models, reference_shape,
-                 patch_shape, features, normalize_parts, scales,
-                 scale_shapes, scale_features):
-        self.shape_models = shape_models
-        self.appearance_models = appearance_models
-        self.patch_shape = patch_shape
-        self.features = features
+
+    def __init__(self, images, group=None, verbose=False, features=no_op,
+                 normalize_parts=no_op, diagonal=None, scales=(0.5, 1.0),
+                 patch_shape=(17, 17), max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.normalize_parts = normalize_parts
-        self.reference_shape = reference_shape
-        self.scales = scales
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
+
+        super(PartsAAM, self).__init__(
+            images, group=group, verbose=verbose, features=features,
+            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
+            scales=scales,  max_shape_components=max_shape_components,
+            max_appearance_components=max_appearance_components,
+            batch_size=batch_size)
+
+    def _warp_images(self, images, shapes, reference_shape, scale_index,
+                     prefix, verbose):
+        return extract_patches(images, shapes, self.patch_shape[scale_index],
+                               normalize_function=self.normalize_parts,
+                               prefix=prefix, verbose=verbose)
 
     # TODO: implement me!
-    def _instance(self, level, shape_instance, appearance_instance):
+    def _instance(self, scale_index, shape_instance, appearance_instance):
         raise NotImplemented
 
     # TODO: implement me!
