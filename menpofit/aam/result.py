@@ -107,4 +107,3 @@ class AAMFitterResult(MultiFitterResult):
         for a in self.algorithm_results:
             costs += a.costs
         return costs
-
