@@ -351,9 +351,9 @@ class ATM(object):
 
 
 # TODO: document me!
-class PatchATM(ATM):
+class MaskedATM(ATM):
     r"""
-    Patch based Based Active Appearance Model class.
+    Masked Based Active Appearance Model class.
     """
 
     def __init__(self, template, shapes, group=None, verbose=False,
@@ -362,7 +362,7 @@ class PatchATM(ATM):
                  batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
-        super(PatchATM, self).__init__(
+        super(MaskedATM, self).__init__(
             template, shapes, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -378,7 +378,7 @@ class PatchATM(ATM):
 
     @property
     def _str_title(self):
-        return 'Patch-based Active Template Model'
+        return 'Masked Active Template Model'
 
     def _instance(self, shape_instance, template):
         landmarks = template.landmarks['source'].lms
@@ -461,9 +461,9 @@ class LinearATM(ATM):
 
 
 # TODO: document me!
-class LinearPatchATM(ATM):
+class LinearMaskedATM(ATM):
     r"""
-    Linear Patch based Active Template Model class.
+    Linear Masked Active Template Model class.
     """
 
     def __init__(self, template, shapes, group=None, verbose=False,
@@ -472,7 +472,7 @@ class LinearPatchATM(ATM):
                  batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
-        super(LinearPatchATM, self).__init__(
+        super(LinearMaskedATM, self).__init__(
             template, shapes, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -484,7 +484,7 @@ class LinearPatchATM(ATM):
         Returns a string containing name of the model.
         :type: `string`
         """
-        return 'Linear Patch-based Active Template Model'
+        return 'Linear Masked Active Template Model'
 
     def _build_shape_model(self, shapes, scale_index):
         mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
@@ -529,9 +529,9 @@ class LinearPatchATM(ATM):
 
 # TODO: document me!
 # TODO: implement offsets support?
-class PartsATM(ATM):
+class PatchATM(ATM):
     r"""
-    Parts based Active Template Model class.
+    Patch-based Active Template Model class.
     """
 
     def __init__(self, template, shapes, group=None, verbose=False,
@@ -541,7 +541,7 @@ class PartsATM(ATM):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.normalize_parts = normalize_parts
 
-        super(PartsATM, self).__init__(
+        super(PatchATM, self).__init__(
             template, shapes, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -553,7 +553,7 @@ class PartsATM(ATM):
         Returns a string containing name of the model.
         :type: `string`
         """
-        return 'Parts-based Active Template Model'
+        return 'Patch-based Active Template Model'
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):

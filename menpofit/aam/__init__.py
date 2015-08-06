@@ -1,4 +1,4 @@
-from .base import HolisticAAM, LinearAAM, LinearPatchAAM, PartsAAM, PatchAAM
+from .base import HolisticAAM, LinearAAM, LinearMaskedAAM, PatchAAM, MaskedAAM
 from .fitter import (
     LucasKanadeAAMFitter, SupervisedDescentAAMFitter,
     holistic_sampling_from_scale, holistic_sampling_from_step)

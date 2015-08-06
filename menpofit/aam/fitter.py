@@ -8,7 +8,7 @@ from menpofit.modelinstance import OrthoPDM
 from menpofit.sdm import SupervisedDescentFitter
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 import menpofit.checks as checks
-from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
+from .base import AAM, MaskedAAM, LinearAAM, LinearMaskedAAM, PatchAAM
 from .algorithm.lk import (
     LucasKanadeStandardInterface, LucasKanadeLinearInterface,
     LucasKanadePartsInterface, WibergInverseCompositional)
@@ -54,7 +54,7 @@ class LucasKanadeAAMFitter(AAMFitter):
                                             self._sampling)):
 
             template = am.mean()
-            if type(self.aam) is AAM or type(self.aam) is PatchAAM:
+            if type(self.aam) is AAM or type(self.aam) is MaskedAAM:
                 # build orthonormal model driven transform
                 md_transform = OrthoMDTransform(
                     sm, self.aam.transform,
@@ -63,14 +63,14 @@ class LucasKanadeAAMFitter(AAMFitter):
                                                          template, sampling=s)
                 algorithm = lk_algorithm_cls(interface)
             elif (type(self.aam) is LinearAAM or
-                  type(self.aam) is LinearPatchAAM):
+                  type(self.aam) is LinearMaskedAAM):
                 # build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
                     sm, self.aam.reference_shape)
                 interface = LucasKanadeLinearInterface(am, md_transform,
                                                        template, sampling=s)
                 algorithm = lk_algorithm_cls(interface)
-            elif type(self.aam) is PartsAAM:
+            elif type(self.aam) is PatchAAM:
                 # build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
                 interface = LucasKanadePartsInterface(
@@ -81,8 +81,8 @@ class LucasKanadeAAMFitter(AAMFitter):
             else:
                 raise ValueError("AAM object must be of one of the "
                                  "following classes: {}, {}, {}, {}, "
-                                 "{}".format(AAM, PatchAAM, LinearAAM,
-                                             LinearPatchAAM, PartsAAM))
+                                 "{}".format(AAM, MaskedAAM, LinearAAM,
+                                             LinearMaskedAAM, PatchAAM))
 
             self.algorithms.append(algorithm)
 
@@ -122,7 +122,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                                             self.aam.shape_models,
                                             self._sampling)):
             template = am.mean()
-            if type(self.aam) is AAM or type(self.aam) is PatchAAM:
+            if type(self.aam) is AAM or type(self.aam) is MaskedAAM:
                 # build orthonormal model driven transform
                 md_transform = OrthoMDTransform(
                     sm, self.aam.transform,
@@ -132,7 +132,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                 algorithm = self._sd_algorithm_cls(
                     interface, n_iterations=self.n_iterations[j])
             elif (type(self.aam) is LinearAAM or
-                  type(self.aam) is LinearPatchAAM):
+                  type(self.aam) is LinearMaskedAAM):
                 # Build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
                     sm, self.aam.reference_shape)
@@ -140,7 +140,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                     am, md_transform, template, sampling=s)
                 algorithm = self._sd_algorithm_cls(
                     interface, n_iterations=self.n_iterations[j])
-            elif type(self.aam) is PartsAAM:
+            elif type(self.aam) is PatchAAM:
                 # Build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
                 interface = SupervisedDescentPartsInterface(
@@ -152,8 +152,8 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
             else:
                 raise ValueError("AAM object must be of one of the "
                                  "following classes: {}, {}, {}, {}, "
-                                 "{}".format(AAM, PatchAAM, LinearAAM,
-                                             LinearPatchAAM, PartsAAM))
+                                 "{}".format(AAM, MaskedAAM, LinearAAM,
+                                             LinearMaskedAAM, PatchAAM))
 
             # append algorithms to list
             self.algorithms.append(algorithm)

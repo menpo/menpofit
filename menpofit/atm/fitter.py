@@ -3,7 +3,7 @@ from menpofit import checks
 from menpofit.fitter import ModelFitter
 from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
-from .base import ATM, PatchATM, LinearATM, LinearPatchATM, PartsATM
+from .base import ATM, MaskedATM, LinearATM, LinearMaskedATM, PatchATM
 from .algorithm import (
     ATMLKStandardInterface, ATMLKPartsInterface, ATMLKLinearInterface,
     InverseCompositional)
@@ -31,19 +31,19 @@ class LucasKanadeATMFitter(ModelFitter):
                                             self.atm.shape_models,
                                             self._sampling)):
 
-            if type(self.atm) is ATM or type(self.atm) is PatchATM:
+            if type(self.atm) is ATM or type(self.atm) is MaskedATM:
                 source_lmarks = wt.landmarks['source'].lms
                 md_transform = OrthoMDTransform(sm, self.atm.transform,
                                                 source=source_lmarks)
                 interface = ATMLKStandardInterface(md_transform, wt, sampling=s)
                 algorithm = algorithm_cls(interface)
             elif (type(self.atm) is LinearATM or
-                  type(self.atm) is LinearPatchATM):
+                  type(self.atm) is LinearMaskedATM):
                 md_transform = LinearOrthoMDTransform(sm,
                                                       self.atm.reference_shape)
                 interface = ATMLKLinearInterface(md_transform, wt, sampling=s)
                 algorithm = algorithm_cls(interface)
-            elif type(self.atm) is PartsATM:
+            elif type(self.atm) is PatchATM:
                 pdm = OrthoPDM(sm)
                 interface = ATMLKPartsInterface(
                     pdm, wt, sampling=s, patch_shape=self.atm.patch_shape[j],
@@ -52,8 +52,8 @@ class LucasKanadeATMFitter(ModelFitter):
             else:
                 raise ValueError("AAM object must be of one of the "
                                  "following classes: {}, {}, {}, {}, "
-                                 "{}".format(ATM, PatchATM, LinearATM,
-                                             LinearPatchATM, PartsATM))
+                                 "{}".format(ATM, MaskedATM, LinearATM,
+                                             LinearMaskedATM, PatchATM))
             self.algorithms.append(algorithm)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,

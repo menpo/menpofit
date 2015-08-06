@@ -531,9 +531,9 @@ class AAM(object):
 
 
 # TODO: document me!
-class PatchAAM(AAM):
+class MaskedAAM(AAM):
     r"""
-    Patch based Based Active Appearance Model class.
+    Masked Active Appearance Model class.
 
     Parameters
     -----------
@@ -570,7 +570,7 @@ class PatchAAM(AAM):
                  batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
-        super(PatchAAM, self).__init__(
+        super(MaskedAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -586,7 +586,7 @@ class PatchAAM(AAM):
 
     @property
     def _str_title(self):
-        return 'Patch-based Active Appearance Model'
+        return 'Masked Active Appearance Model'
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         template = self.appearance_models[scale_index].mean
@@ -714,9 +714,9 @@ class LinearAAM(AAM):
 
 
 # TODO: document me!
-class LinearPatchAAM(AAM):
+class LinearMaskedAAM(AAM):
     r"""
-    Linear Patch based Active Appearance Model class.
+    Linear Masked Active Appearance Model class.
 
     Parameters
     -----------
@@ -752,7 +752,7 @@ class LinearPatchAAM(AAM):
                  batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
-        super(LinearPatchAAM, self).__init__(
+        super(LinearMaskedAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -765,7 +765,7 @@ class LinearPatchAAM(AAM):
         Returns a string containing name of the model.
         :type: `string`
         """
-        return 'Linear Patch-based Active Appearance Model'
+        return 'Linear Masked Active Appearance Model'
 
     def _build_shape_model(self, shapes, scale_index):
         mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
@@ -815,9 +815,9 @@ class LinearPatchAAM(AAM):
 
 # TODO: document me!
 # TODO: implement offsets support?
-class PartsAAM(AAM):
+class PatchAAM(AAM):
     r"""
-    Parts based Active Appearance Model class.
+    Patch-based Active Appearance Model class.
 
     Parameters
     -----------
@@ -855,7 +855,7 @@ class PartsAAM(AAM):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.normalize_parts = normalize_parts
 
-        super(PartsAAM, self).__init__(
+        super(PatchAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -868,7 +868,7 @@ class PartsAAM(AAM):
         Returns a string containing name of the model.
         :type: `string`
         """
-        return 'Parts-based Active Appearance Model'
+        return 'Patch-based Active Appearance Model'
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
