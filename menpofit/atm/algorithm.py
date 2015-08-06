@@ -41,7 +41,7 @@ class ATMLKPartsInterface(LucasKanadePartsBaseInterface):
     """
     def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          gt_shape=None):
-        return LinearATMAlgorithmResult(
+        return ATMAlgorithmResult(
             image, self, shape_parameters,
             cost_functions=cost_functions, gt_shape=gt_shape)
 
@@ -51,12 +51,8 @@ class LucasKanade(object):
 
     def __init__(self, atm_interface, eps=10**-5):
         self.eps = eps
-        self.interface = atm_interface()
+        self.interface = atm_interface
         self._precompute()
-
-    @property
-    def appearance_model(self):
-        return self.interface.appearance_model
 
     @property
     def transform(self):
@@ -77,7 +73,9 @@ class LucasKanade(object):
         self.dW_dp = self.interface.warp_jacobian()
 
         # compute shape model prior
-        s2 = 1 / self.interface.shape_model.noise_variance()
+        # TODO: Is this correct? It's like modelling no noise at all
+        noise_variance = self.interface.shape_model.noise_variance() or 1
+        s2 = 1.0 / noise_variance
         L = self.interface.shape_model.eigenvalues
         self.s2_inv_L = np.hstack((np.ones((4,)), s2 / L))
 
