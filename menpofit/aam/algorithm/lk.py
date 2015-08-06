@@ -42,9 +42,9 @@ class LucasKanadeBaseInterface(object):
         sampling_mask = np.zeros(n_true_pixels, dtype=np.bool)
 
         if sampling is None:
-            sampling = xrange(0, n_true_pixels, 1)
+            sampling = range(0, n_true_pixels, 1)
         elif isinstance(sampling, np.int):
-            sampling = xrange(0, n_true_pixels, sampling)
+            sampling = range(0, n_true_pixels, sampling)
 
         sampling_mask[sampling] = 1
 
