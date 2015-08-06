@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
-from menpo.model import PCAModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 from menpofit import checks
@@ -14,7 +13,7 @@ from menpofit.base import name_of_callable, batch
 from menpofit.builder import (
     build_reference_frame, build_patch_reference_frame,
     compute_features, scale_images, build_shape_model, warp_images,
-    align_shapes, rescale_images_to_reference_shape, densify_shapes,
+    align_shapes, densify_shapes,
     extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
 
@@ -23,9 +22,10 @@ class ATM(object):
     r"""
     Active Template Model class.
     """
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 features=no_op, transform=DifferentiablePiecewiseAffine,
-                 diagonal=None, scales=(0.5, 1.0),  max_shape_components=None,
+    def __init__(self, template, shapes, group=None, verbose=False,
+                 reference_shape=None, features=no_op,
+                 transform=DifferentiablePiecewiseAffine, diagonal=None,
+                 scales=(0.5, 1.0), max_shape_components=None,
                  batch_size=None):
 
         checks.check_diagonal(diagonal)
@@ -45,11 +45,11 @@ class ATM(object):
         self.warped_templates = []
 
         # Train ATM
-        self._train(images, group=group, verbose=verbose, increment=False,
-                    batch_size=batch_size)
+        self._train(template, shapes, group=group, verbose=verbose,
+                    increment=False, batch_size=batch_size)
 
-    def _train(self, images, group=None, verbose=False, increment=False,
-               shape_forgetting_factor=1.0, batch_size=None):
+    def _train(self, template, shapes, group=None, verbose=False,
+               increment=False, shape_forgetting_factor=1.0, batch_size=None):
         r"""
         Builds an Active Template Model from a list of landmarked images.
 
@@ -74,11 +74,11 @@ class ATM(object):
         if batch_size is not None:
             # Create a generator of fixed sized batches. Will still work even
             # on an infinite list.
-            image_batches = batch(images, batch_size)
+            shape_batches = batch(shapes, batch_size)
         else:
-            image_batches = [list(images)]
+            shape_batches = [list(shapes)]
 
-        for k, image_batch in enumerate(image_batches):
+        for k, shape_batch in enumerate(shape_batches):
             # After the first batch, we are incrementing the model
             if k > 0:
                 increment = True
@@ -95,16 +95,14 @@ class ATM(object):
                                   'shape. If the batch mean is not '
                                   'representative of the true mean, this may '
                                   'cause issues.', MenpoFitBuilderWarning)
-                checks.check_trilist(image_batch[0], self.transform,
-                                     group=group)
+                checks.check_trilist(shape_batch[0], self.transform)
                 self.reference_shape = compute_reference_shape(
-                    [i.landmarks[group].lms for i in image_batch],
-                    self.diagonal, verbose=verbose)
+                    shape_batch, self.diagonal, verbose=verbose)
 
-            # Rescale to existing reference shape
-            image_batch = rescale_images_to_reference_shape(
-                image_batch, group, self.reference_shape,
-                verbose=verbose)
+            if k == 0:
+                # Rescale the template the reference shape
+                template = template.rescale_to_pointcloud(
+                    self.reference_shape, group=group)
 
             # build models at each scale
             if verbose:
@@ -126,7 +124,7 @@ class ATM(object):
                     # Compute features only if this is the first pass through
                     # the loop or the features at this scale are different from
                     # the features at the previous scale
-                    feature_images = compute_features(image_batch,
+                    feature_images = compute_features([template],
                                                       self.features[j],
                                                       prefix=scale_prefix,
                                                       verbose=verbose)
@@ -136,11 +134,14 @@ class ATM(object):
                     scaled_images = scale_images(feature_images, self.scales[j],
                                                  prefix=scale_prefix,
                                                  verbose=verbose)
+                    # Extract potentially rescaled shapes
+                    scale_transform = Scale(scale_factor=self.scales[j],
+                                            n_dims=2)
+                    scale_shapes = [scale_transform.apply(s)
+                                    for s in shape_batch]
                 else:
                     scaled_images = feature_images
-
-                # Extract potentially rescaled shapes
-                scale_shapes = [i.landmarks[group].lms for i in scaled_images]
+                    scale_shapes = shape_batch
 
                 # Build the shape model
                 if verbose:
@@ -148,8 +149,7 @@ class ATM(object):
 
                 if not increment:
                     if j == 0:
-                        shape_model = self._build_shape_model(
-                            scale_shapes, j)
+                        shape_model = self._build_shape_model(scale_shapes, j)
                         self.shape_models.append(shape_model)
                     else:
                         self.shape_models.append(deepcopy(shape_model))
@@ -164,32 +164,10 @@ class ATM(object):
                 # reference frame.
                 scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
                     self.reference_shape)
-                warped_images = self._warp_images(scaled_images, scale_shapes,
-                                                  scaled_reference_shape,
-                                                  j, scale_prefix, verbose)
-
-                # obtain appearance model
-                if verbose:
-                    print_dynamic('{}Building appearance model'.format(
-                        scale_prefix))
-
-                if not increment:
-                    appearance_model = PCAModel(warped_images)
-                    # trim appearance model if required
-                    if self.max_appearance_components is not None:
-                        appearance_model.trim_components(
-                            self.max_appearance_components[j])
-                    # add appearance model to the list
-                    self.appearance_models.append(appearance_model)
-                else:
-                    # increment appearance model
-                    self.appearance_models[j].increment(
-                        warped_images,
-                        forgetting_factor=appearance_forgetting_factor)
-                    # trim appearance model if required
-                    if self.max_appearance_components is not None:
-                        self.appearance_models[j].trim_components(
-                            self.max_appearance_components[j])
+                warped_template = self._warp_template(scaled_images[0], group,
+                                                      scaled_reference_shape,
+                                                      j, scale_prefix, verbose)
+                self.warped_templates.append(warped_template[0])
 
                 if verbose:
                     print_dynamic('{}Done\n'.format(scale_prefix))
@@ -197,14 +175,14 @@ class ATM(object):
             # Because we just copy the shape model, we need to wait to trim
             # it after building each model. This ensures we can have a different
             # number of components per level
-            for k, sm in enumerate(self.shape_models):
-                max_sc = self.max_shape_components[k]
+            for j, sm in enumerate(self.shape_models):
+                max_sc = self.max_shape_components[j]
                 if max_sc is not None:
                     sm.trim_components(max_sc)
 
-    def increment(self, images, group=None, verbose=False,
+    def increment(self, template, shapes, group=None, verbose=False,
                   shape_forgetting_factor=1.0, batch_size=None):
-        return self._train(images, group=group,
+        return self._train(template, shapes, group=group,
                            verbose=verbose,
                            shape_forgetting_factor=shape_forgetting_factor,
                            increment=True, batch_size=batch_size)
@@ -220,10 +198,11 @@ class ATM(object):
         shape_model.increment(aligned_shapes,
                               forgetting_factor=forgetting_factor)
 
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
+    def _warp_template(self, template, group, reference_shape, scale_index,
+                       prefix, verbose):
         reference_frame = build_reference_frame(reference_shape)
-        return warp_images(images, shapes, reference_frame, self.transform,
+        shape = template.landmarks[group].lms
+        return warp_images([template], [shape], reference_frame, self.transform,
                            prefix=prefix, verbose=verbose)
 
     @property
@@ -284,7 +263,7 @@ class ATM(object):
                          sm.eigenvalues[:sm.n_active_components]**0.5)
         shape_instance = sm.instance(shape_weights)
 
-        return self._instance(scale_index, shape_instance, template)
+        return self._instance(shape_instance, template)
 
     def _instance(self, shape_instance, template):
         landmarks = template.landmarks['source'].lms
@@ -377,22 +356,24 @@ class PatchATM(ATM):
     Patch based Based Active Appearance Model class.
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 max_shape_components=None, batch_size=None):
+    def __init__(self, template, shapes, group=None, verbose=False,
+                 features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 patch_shape=(17, 17), max_shape_components=None,
+                 batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(PatchATM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
+            template, shapes, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             batch_size=batch_size)
 
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
+    def _warp_template(self, template, group, reference_shape, scale_index,
+                       prefix, verbose):
         reference_frame = build_patch_reference_frame(
             reference_shape, patch_shape=self.patch_shape[scale_index])
-        return warp_images(images, shapes, reference_frame, self.transform,
+        shape = template.landmarks[group].lms
+        return warp_images([template], [shape], reference_frame, self.transform,
                            prefix=prefix, verbose=verbose)
 
     @property
@@ -421,13 +402,13 @@ class LinearATM(ATM):
     Linear Active Template Model class.
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
-                 transform=DifferentiableThinPlateSplines, diagonal=None,
-                 scales=(0.5, 1.0), max_shape_components=None,
+    def __init__(self, template, shapes, group=None, verbose=False,
+                 features=no_op, transform=DifferentiableThinPlateSplines,
+                 diagonal=None, scales=(0.5, 1.0), max_shape_components=None,
                  batch_size=None):
 
         super(LinearATM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
+            template, shapes, group=group, verbose=verbose, features=features,
             transform=transform, diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components, batch_size=batch_size)
 
@@ -458,9 +439,10 @@ class LinearATM(ATM):
         shape_model.increment(dense_shapes,
                               forgetting_factor=forgetting_factor)
 
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        return warp_images(images, shapes, self.reference_frame,
+    def _warp_template(self, template, group, reference_shape, scale_index,
+                       prefix, verbose):
+        shape = template.landmarks[group].lms
+        return warp_images([template], [shape], self.reference_frame,
                            self.transform, prefix=prefix,
                            verbose=verbose)
 
@@ -484,13 +466,14 @@ class LinearPatchATM(ATM):
     Linear Patch based Active Template Model class.
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 max_shape_components=None, batch_size=None):
+    def __init__(self, template, shapes, group=None, verbose=False,
+                 features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 patch_shape=(17, 17), max_shape_components=None,
+                 batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(LinearPatchATM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
+            template, shapes, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             batch_size=batch_size)
@@ -523,9 +506,10 @@ class LinearPatchATM(ATM):
         shape_model.increment(dense_shapes,
                               forgetting_factor=forgetting_factor)
 
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        return warp_images(images, shapes, self.reference_frame,
+    def _warp_template(self, template, group, reference_shape, scale_index,
+                       prefix, verbose):
+        shape = template.landmarks[group].lms
+        return warp_images([template], [shape], self.reference_frame,
                            self.transform, prefix=prefix,
                            verbose=verbose)
 
@@ -550,15 +534,15 @@ class PartsATM(ATM):
     Parts based Active Template Model class.
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
-                 normalize_parts=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), max_shape_components=None,
-                 batch_size=None):
+    def __init__(self, template, shapes, group=None, verbose=False,
+                 features=no_op, normalize_parts=no_op, diagonal=None,
+                 scales=(0.5, 1.0), patch_shape=(17, 17),
+                 max_shape_components=None, batch_size=None):
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.normalize_parts = normalize_parts
 
         super(PartsATM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
+            template, shapes, group=group, verbose=verbose, features=features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             batch_size=batch_size)
@@ -571,9 +555,11 @@ class PartsATM(ATM):
         """
         return 'Parts-based Active Template Model'
 
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        return extract_patches(images, shapes, self.patch_shape[scale_index],
+    def _warp_template(self, template, group, reference_shape, scale_index,
+                       prefix, verbose):
+        shape = template.landmarks[group].lms
+        return extract_patches([template], [shape],
+                               self.patch_shape[scale_index],
                                normalize_function=self.normalize_parts,
                                prefix=prefix, verbose=verbose)
 
@@ -602,17 +588,18 @@ def _atm_str(atm):
     scales_info = []
     lvl_str_tmplt = r"""  - Scale {}
    - Holistic feature: {}
-   - {} appearance components
+   - Template shape: {}
    - {} shape components"""
     for k, s in enumerate(atm.scales):
         scales_info.append(lvl_str_tmplt.format(
             s, name_of_callable(atm.features[k]),
-            atm.appearance_models[k].n_components,
+            atm.warped_templates[k].shape,
             atm.shape_models[k].n_components))
     # Patch based ATM
     if hasattr(atm, 'patch_shape'):
-        for k, s in enumerate(scales_info):
-            s += '\n   - Patch shape: {}'.format(atm.patch_shape[k])
+        for k in range(len(scales_info)):
+            scales_info[k] += '\n   - Patch shape: {}'.format(
+                atm.patch_shape[k])
     scales_info = '\n'.join(scales_info)
 
     cls_str = r"""{class_title}
