@@ -15,11 +15,14 @@ def check_diagonal(diagonal):
     return diagonal
 
 
-def check_trilist(image, transform, group=None):
-    trilist = image.landmarks[group].lms
+def check_landmark_trilist(image, transform, group=None):
+    shape = image.landmarks[group].lms
+    check_trilist(shape, transform)
 
-    if not isinstance(trilist, TriMesh) and isinstance(transform,
-                                                       PiecewiseAffine):
+
+def check_trilist(shape, transform):
+    if not isinstance(shape, TriMesh) and isinstance(transform,
+                                                     PiecewiseAffine):
         warnings.warn('The given images do not have an explicit triangulation '
                       'applied. A Delaunay Triangulation will be computed '
                       'and used for warping. This may be suboptimal and cause '
