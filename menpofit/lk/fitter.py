@@ -1,10 +1,11 @@
 from __future__ import division
 from menpo.feature import no_op
 from menpofit.transform import DifferentiableAlignmentAffine
-from menpofit.fitter import MultiFitter, noisy_target_alignment_transform
+from menpofit.fitter import (MultiFitter, noisy_shape_from_shape,
+                             noisy_shape_from_bounding_box)
 from menpofit import checks
 from .algorithm import InverseCompositional
-from .residual import SSD, FourierSSD
+from .residual import SSD
 from .result import LucasKanadeFitterResult
 
 
@@ -14,76 +15,54 @@ class LucasKanadeFitter(MultiFitter):
     """
     def __init__(self, template, group=None, features=no_op,
                  transform_cls=DifferentiableAlignmentAffine, diagonal=None,
-                 scales=(1, .5), scale_features=True,
-                 algorithm_cls=InverseCompositional, residual_cls=SSD,
-                 **kwargs):
-        # check parameters
+                 scales=(0.5, 1.0), algorithm_cls=InverseCompositional,
+                 residual_cls=SSD):
+
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         features = checks.check_features(features, len(scales))
-        scale_features = checks.check_scale_features(scale_features, features)
-        # set parameters
+
         self.features = features
         self.transform_cls = transform_cls
         self.diagonal = diagonal
         self.scales = list(scales)
-        self.scales.reverse()
-        self.scale_features = scale_features
+        # Make template masked for warping
+        template = template.as_masked(copy=False)
 
-        self.templates, self.sources = self._prepare_template(
-            template, group=group)
-
-        self.reference_shape = self.sources[0]
-
-        self.algorithms = []
-        for j, (t, s) in enumerate(zip(self.templates, self.sources)):
-            transform = self.transform_cls(s, s)
-            if ('kernel_func' in kwargs and
-                (residual_cls is SSD or
-                 residual_cls is FourierSSD)):
-                kernel_func = kwargs.pop('kernel_func')
-                kernel = kernel_func(t.shape)
-                residual = residual_cls(kernel=kernel)
-            else:
-                residual = residual_cls()
-            algorithm = algorithm_cls(t, transform, residual, **kwargs)
-            self.algorithms.append(algorithm)
-
-    def _prepare_template(self, template, group=None):
-        template = template.crop_to_landmarks(group=group)
-        template = template.as_masked()
-
-        # rescale template to diagonal range
         if self.diagonal:
             template = template.rescale_landmarks_to_diagonal_range(
                 self.diagonal, group=group)
+        self.reference_shape = template.landmarks[group].lms
 
-        # obtain image representation
-        templates = []
-        for j, s in enumerate(self.scales[::-1]):
-            if j == 0:
-                # compute features at highest level
-                feature_template = self.features[j](template)
-            elif self.scale_features:
-                # scale features at other levels
-                feature_template = templates[0].rescale(s)
-            else:
-                # scale image and compute features at other levels
-                scaled_template = template.rescale(s)
-                feature_template = self.features[j](scaled_template)
-            templates.append(feature_template)
-        templates.reverse()
+        self.templates, self.sources = self._prepare_template(template,
+                                                              group=group)
+        self._set_up(algorithm_cls, residual_cls)
 
-        # get sources per level
-        sources = [i.landmarks[group].lms for i in templates]
+    def _set_up(self, algorithm_cls, residual_cls):
+        self.algorithms = []
+        for j, (t, s) in enumerate(zip(self.templates, self.sources)):
+            transform = self.transform_cls(s, s)
+            residual = residual_cls()
+            algorithm = algorithm_cls(t, transform, residual)
+            self.algorithms.append(algorithm)
 
+    def _prepare_template(self, template, group=None):
+        gt_shape = template.landmarks[group].lms
+        templates, _, sources = self._prepare_image(template, gt_shape,
+                                                    gt_shape=gt_shape)
         return templates, sources
 
-    def noisy_shape_from_shape(self, gt_shape, noise_std=0.04):
-        transform = noisy_target_alignment_transform(
-            self.reference_shape, gt_shape,
-            alignment_transform_cls=self.transform_cls, noise_std=noise_std)
-        return transform.apply(self.reference_shape)
+    def noisy_shape_from_bounding_box(self, bounding_box, noise_type='uniform',
+                                      noise_percentage=0.1, rotation=False):
+        return noisy_shape_from_bounding_box(
+            self.reference_shape, bounding_box, noise_type=noise_type,
+            noise_percentage=noise_percentage, rotation=rotation)
+
+    def noisy_shape_from_shape(self, shape, noise_type='uniform',
+                               noise_percentage=0.1, rotation=False):
+        return noisy_shape_from_shape(
+            self.reference_shape, shape, noise_type=noise_type,
+            noise_percentage=noise_percentage, rotation=rotation)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
