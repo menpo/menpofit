@@ -167,7 +167,7 @@ class LucasKanadePartsBaseInterface(LucasKanadeBaseInterface):
         # TODO: Refactor to patch_features
         self.normalize_parts = normalize_parts
 
-        super(LucasKanadeBaseInterface, self).__init__(
+        super(LucasKanadePartsBaseInterface, self).__init__(
             transform, template, sampling=sampling)
 
     def _build_sampling_mask(self, sampling):
