@@ -298,8 +298,9 @@ class LucasKanade(object):
         self.dW_dp = self.interface.warp_jacobian()
 
         # compute shape model prior
-        s2 = (self.appearance_model.noise_variance() /
-              self.interface.shape_model.noise_variance())
+        # TODO: Is this correct? It's like modelling no noise at all
+        sm_noise_variance = self.interface.shape_model.noise_variance() or 1
+        s2 = self.appearance_model.noise_variance() / sm_noise_variance
         L = self.interface.shape_model.eigenvalues
         self.s2_inv_L = np.hstack((np.ones((4,)), s2 / L))
         # compute appearance model prior
