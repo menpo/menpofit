@@ -5,6 +5,7 @@ from numpy.fft import fftn, ifftn, fft2
 import scipy.linalg
 from menpo.feature import gradient
 
+
 # TODO: Do we want residuals to support masked templates?
 class Residual(object):
     """
