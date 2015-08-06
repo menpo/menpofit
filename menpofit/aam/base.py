@@ -292,8 +292,8 @@ class AAM(object):
             # Because we just copy the shape model, we need to wait to trim
             # it after building each model. This ensures we can have a different
             # number of components per level
-            for k, sm in enumerate(self.shape_models):
-                max_sc = self.max_shape_components[k]
+            for j, sm in enumerate(self.shape_models):
+                max_sc = self.max_shape_components[j]
                 if max_sc is not None:
                     sm.trim_components(max_sc)
 
@@ -916,8 +916,9 @@ def _aam_str(aam):
             aam.shape_models[k].n_components))
     # Patch based AAM
     if hasattr(aam, 'patch_shape'):
-        for k, s in enumerate(scales_info):
-            s += '\n   - Patch shape: {}'.format(aam.patch_shape[k])
+        for k in range(len(scales_info)):
+            scales_info[k] += '\n   - Patch shape: {}'.format(
+                aam.patch_shape[k])
     scales_info = '\n'.join(scales_info)
 
     cls_str = r"""{class_title}
