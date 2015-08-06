@@ -961,39 +961,17 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         aam_mean = lvl_app_mod.mean()
         n_channels = aam_mean.n_channels
         tmplt_inst = lvl_app_mod.template_instance
-        feat = (aam.features if aam.pyramid_on_features
-                else aam.features[level])
+        feat = aam.features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(
             name_of_callable(feat), n_channels, 's' * (n_channels > 1))
 
-        # create info str
-        if n_levels == 1:
-            tmp_shape_models = ''
-            tmp_pyramid = ''
-        else:  # n_scales > 1
-            # shape models info
-            if aam.scaled_shape_models:
-                tmp_shape_models = "Each level has a scaled shape model " \
-                                   "(reference frame)"
-            else:
-                tmp_shape_models = "Shape models (reference frames) are " \
-                                   "not scaled"
-            # pyramid info
-            if aam.pyramid_on_features:
-                tmp_pyramid = "Pyramid was applied on feature space"
-            else:
-                tmp_pyramid = "Features were extracted at each pyramid level"
-
         # update info widgets
         text_per_line = [
-            "> {} training images".format(aam.n_training_images),
-            "> {}".format(tmp_shape_models),
             "> Warp using {} transform".format(aam.transform.__name__),
-            "> {}".format(tmp_pyramid),
-            "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, aam.n_scales, aam.downscale),
+            "> Level {}/{}".format(
+                level + 1, aam.n_scales),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -1377,39 +1355,17 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         lvl_shape_mod = atm.shape_models[level]
         tmplt_inst = atm.warped_templates[level]
         n_channels = tmplt_inst.n_channels
-        feat = (atm.features if atm.pyramid_on_features
-                else atm.features[level])
+        feat = atm.features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(
             name_of_callable(feat), n_channels, 's' * (n_channels > 1))
 
-        # create info str
-        if n_levels == 1:
-            tmp_shape_models = ''
-            tmp_pyramid = ''
-        else:  # n_scales > 1
-            # shape models info
-            if atm.scaled_shape_models:
-                tmp_shape_models = "Each level has a scaled shape model " \
-                                   "(reference frame)"
-            else:
-                tmp_shape_models = "Shape models (reference frames) are " \
-                                   "not scaled"
-            # pyramid info
-            if atm.pyramid_on_features:
-                tmp_pyramid = "Pyramid was applied on feature space"
-            else:
-                tmp_pyramid = "Features were extracted at each pyramid level"
-
         # update info widgets
         text_per_line = [
-            "> {} training shapes".format(atm.n_training_shapes),
-            "> {}".format(tmp_shape_models),
             "> Warp using {} transform".format(atm.transform.__name__),
-            "> {}".format(tmp_pyramid),
-            "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, atm.n_scales, atm.downscale),
+            "> Level {}/{}".format(
+                level + 1, atm.n_scales),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -2467,8 +2423,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
             text_per_line = [
                 "> {} iterations".format(fitting_results[im].n_iters)]
         if hasattr(fitting_results[im], 'n_scales'):  # Multilevel result
-            text_per_line.append("> {} levels with downscale of {:.1f}".format(
-                fitting_results[im].n_scales, fitting_results[im].downscale))
+            text_per_line.append("> {} scales".format(
+                fitting_results[im].n_scales))
         info_wid.set_widget_state(n_lines=len(text_per_line),
                                   text_per_line=text_per_line)
 
