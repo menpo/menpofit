@@ -116,7 +116,7 @@ class AAM(object):
     """
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  features=no_op, transform=DifferentiablePiecewiseAffine,
-                 diagonal=None, scales=(0.5, 1.0),  max_shape_components=None,
+                 diagonal=None, scales=(0.5, 1.0), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
 
         checks.check_diagonal(diagonal)
@@ -190,8 +190,8 @@ class AAM(object):
                                   'shape. If the batch mean is not '
                                   'representative of the true mean, this may '
                                   'cause issues.', MenpoFitBuilderWarning)
-                checks.check_trilist(image_batch[0], self.transform,
-                                     group=group)
+                checks.check_landmark_trilist(image_batch[0], self.transform,
+                                              group=group)
                 self.reference_shape = compute_reference_shape(
                     [i.landmarks[group].lms for i in image_batch],
                     self.diagonal, verbose=verbose)
