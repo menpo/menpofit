@@ -1,2 +1,2 @@
-from ensemble import ExpertEnsemble, CorrelationFilterExpertEnsemble
-from base import IncrementalCorrelationFilterThinWrapper
+from .ensemble import ExpertEnsemble, CorrelationFilterExpertEnsemble
+from .base import IncrementalCorrelationFilterThinWrapper
