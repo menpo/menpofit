@@ -1,15 +1,14 @@
 from __future__ import division
 import numpy as np
 from copy import deepcopy
-from menpo.transform import Scale, AlignmentUniformScale
+from menpo.transform import AlignmentUniformScale
 from menpo.image import BooleanImage
-from menpofit.builder import (
-    rescale_images_to_reference_shape, compute_features, scale_images)
-from menpofit.fitter import ModelFitter
+from menpofit.fitter import ModelFitter, noisy_shape_from_bounding_box
 from menpofit.modelinstance import OrthoPDM
+from menpofit.sdm import SupervisedDescentFitter
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 import menpofit.checks as checks
-from .base import AAM, PatchAAM, LinearAAM, LinearPatchAAM, PartsAAM
+from .base import AAM, MaskedAAM, LinearAAM, LinearMaskedAAM, PatchAAM
 from .algorithm.lk import (
     LucasKanadeStandardInterface, LucasKanadeLinearInterface,
     LucasKanadePartsInterface, WibergInverseCompositional)
@@ -28,20 +27,7 @@ class AAMFitter(ModelFitter):
         return self._model
 
     def _check_n_appearance(self, n_appearance):
-        if n_appearance is not None:
-            if type(n_appearance) is int or type(n_appearance) is float:
-                for am in self.aam.appearance_models:
-                    am.n_active_components = n_appearance
-            elif len(n_appearance) == 1 and self.aam.n_scales > 1:
-                for am in self.aam.appearance_models:
-                    am.n_active_components = n_appearance[0]
-            elif len(n_appearance) == self.aam.n_scales:
-                for am, n in zip(self.aam.appearance_models, n_appearance):
-                    am.n_active_components = n
-            else:
-                raise ValueError('n_appearance can be an integer or a float '
-                                 'or None or a list containing 1 or {} of '
-                                 'those'.format(self.aam.n_scales))
+        checks.set_models_components(self.aam.appearance_models, n_appearance)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
@@ -54,176 +40,123 @@ class LucasKanadeAAMFitter(AAMFitter):
     r"""
     """
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
-                 n_shape=None, n_appearance=None, sampling=None, **kwargs):
+                 n_shape=None, n_appearance=None, sampling=None):
         self._model = aam
         self._check_n_shape(n_shape)
         self._check_n_appearance(n_appearance)
-        sampling = checks.check_sampling(sampling, self.n_scales)
-        self._set_up(lk_algorithm_cls, sampling, **kwargs)
+        self._sampling = checks.check_sampling(sampling, aam.n_scales)
+        self._set_up(lk_algorithm_cls)
 
-    def _set_up(self, lk_algorithm_cls, sampling, **kwargs):
+    def _set_up(self, lk_algorithm_cls):
         self.algorithms = []
         for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
-                                            self.aam.shape_models, sampling)):
+                                            self.aam.shape_models,
+                                            self._sampling)):
 
-            if type(self.aam) is AAM or type(self.aam) is PatchAAM:
+            template = am.mean()
+            if type(self.aam) is AAM or type(self.aam) is MaskedAAM:
                 # build orthonormal model driven transform
                 md_transform = OrthoMDTransform(
                     sm, self.aam.transform,
                     source=am.mean().landmarks['source'].lms)
-                # set up algorithm using standard aam interface
-                algorithm = lk_algorithm_cls(
-                    LucasKanadeStandardInterface, am, md_transform, sampling=s,
-                    **kwargs)
-
+                interface = LucasKanadeStandardInterface(am, md_transform,
+                                                         template, sampling=s)
+                algorithm = lk_algorithm_cls(interface)
             elif (type(self.aam) is LinearAAM or
-                  type(self.aam) is LinearPatchAAM):
+                  type(self.aam) is LinearMaskedAAM):
                 # build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
                     sm, self.aam.reference_shape)
-                # set up algorithm using linear aam interface
-                algorithm = lk_algorithm_cls(
-                    LucasKanadeLinearInterface, am, md_transform, sampling=s,
-                    **kwargs)
-
-            elif type(self.aam) is PartsAAM:
+                interface = LucasKanadeLinearInterface(am, md_transform,
+                                                       template, sampling=s)
+                algorithm = lk_algorithm_cls(interface)
+            elif type(self.aam) is PatchAAM:
                 # build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
-                # set up algorithm using parts aam interface
-                algorithm = lk_algorithm_cls(
-                    LucasKanadePartsInterface, am, pdm, sampling=s,
+                interface = LucasKanadePartsInterface(
+                    am, pdm, template, sampling=s,
                     patch_shape=self.aam.patch_shape[j],
-                    normalize_parts=self.aam.normalize_parts, **kwargs)
-
+                    normalize_parts=self.aam.normalize_parts)
+                algorithm = lk_algorithm_cls(interface)
             else:
                 raise ValueError("AAM object must be of one of the "
                                  "following classes: {}, {}, {}, {}, "
-                                 "{}".format(AAM, PatchAAM, LinearAAM,
-                                             LinearPatchAAM, PartsAAM))
+                                 "{}".format(AAM, MaskedAAM, LinearAAM,
+                                             LinearMaskedAAM, PatchAAM))
 
-            # append algorithms to list
             self.algorithms.append(algorithm)
 
 
 # TODO: document me!
-class SupervisedDescentAAMFitter(AAMFitter):
+class SupervisedDescentAAMFitter(SupervisedDescentFitter):
     r"""
     """
-    def __init__(self, aam, sd_algorithm_cls=ProjectOutNewton,
+    def __init__(self, images, aam, group=None, bounding_box_group=None,
                  n_shape=None, n_appearance=None, sampling=None,
-                 n_perturbations=10, noise_std=0.05, max_iters=6, **kwargs):
-        self._model = aam
-        self._check_n_shape(n_shape)
-        self._check_n_appearance(n_appearance)
-        sampling = checks.check_sampling(sampling, self.n_scales)
-        self.n_perturbations = n_perturbations
-        self.noise_std = noise_std
-        self.max_iters = checks.check_max_iters(max_iters, self.n_scales)
-        self._set_up(sd_algorithm_cls, sampling, **kwargs)
+                 sd_algorithm_cls=ProjectOutNewton,
+                 n_iterations=6, n_perturbations=30,
+                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
+                 batch_size=None, verbose=False):
+        self.aam = aam
+        checks.set_models_components(aam.appearance_models, n_appearance)
+        checks.set_models_components(aam.shape_models, n_shape)
+        self._sampling = checks.check_sampling(sampling, aam.n_scales)
 
-    def _set_up(self, sd_algorithm_cls, sampling, **kwargs):
+        # patch_feature and patch_shape are not actually
+        # used because they are fully defined by the AAM already. Therefore,
+        # we just leave them as their 'defaults' because they won't be used.
+        super(SupervisedDescentAAMFitter, self).__init__(
+            images, group=group, bounding_box_group=bounding_box_group,
+            reference_shape=self.aam.reference_shape,
+            sd_algorithm_cls=sd_algorithm_cls,
+            holistic_feature=self.aam.features,
+            diagonal=self.aam.diagonal,
+            scales=self.aam.scales, n_iterations=n_iterations,
+            n_perturbations=n_perturbations,
+            perturb_from_bounding_box=perturb_from_bounding_box,
+            batch_size=batch_size, verbose=verbose)
+
+    def _setup_algorithms(self):
         self.algorithms = []
         for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
-                                            self.aam.shape_models, sampling)):
-
-            if type(self.aam) is AAM or type(self.aam) is PatchAAM:
+                                            self.aam.shape_models,
+                                            self._sampling)):
+            template = am.mean()
+            if type(self.aam) is AAM or type(self.aam) is MaskedAAM:
                 # build orthonormal model driven transform
                 md_transform = OrthoMDTransform(
                     sm, self.aam.transform,
-                    source=am.mean().landmarks['source'].lms)
-                # set up algorithm using standard aam interface
-                algorithm = sd_algorithm_cls(
-                    SupervisedDescentStandardInterface, am, md_transform,
-                    sampling=s, max_iters=self.max_iters[j], **kwargs)
-
+                    source=template.landmarks['source'].lms)
+                interface = SupervisedDescentStandardInterface(
+                    am, md_transform, template, sampling=s)
+                algorithm = self._sd_algorithm_cls(
+                    interface, n_iterations=self.n_iterations[j])
             elif (type(self.aam) is LinearAAM or
-                  type(self.aam) is LinearPatchAAM):
-                # build linear version of orthogonal model driven transform
+                  type(self.aam) is LinearMaskedAAM):
+                # Build linear version of orthogonal model driven transform
                 md_transform = LinearOrthoMDTransform(
                     sm, self.aam.reference_shape)
-                # set up algorithm using linear aam interface
-                algorithm = sd_algorithm_cls(
-                    SupervisedDescentLinearInterface, am, md_transform,
-                    sampling=s, max_iters=self.max_iters[j], **kwargs)
-
-            elif type(self.aam) is PartsAAM:
-                # build orthogonal point distribution model
+                interface = SupervisedDescentLinearInterface(
+                    am, md_transform, template, sampling=s)
+                algorithm = self._sd_algorithm_cls(
+                    interface, n_iterations=self.n_iterations[j])
+            elif type(self.aam) is PatchAAM:
+                # Build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
-                # set up algorithm using parts aam interface
-                algorithm = sd_algorithm_cls(
-                    SupervisedDescentPartsInterface, am, pdm,
-                    sampling=s, max_iters=self.max_iters[j],
+                interface = SupervisedDescentPartsInterface(
+                    am, pdm, template, sampling=s,
                     patch_shape=self.aam.patch_shape[j],
-                    normalize_parts=self.aam.normalize_parts, **kwargs)
-
+                    normalize_parts=self.aam.normalize_parts)
+                algorithm = self._sd_algorithm_cls(
+                    interface, n_iterations=self.n_iterations[j])
             else:
                 raise ValueError("AAM object must be of one of the "
                                  "following classes: {}, {}, {}, {}, "
-                                 "{}".format(AAM, PatchAAM, LinearAAM,
-                                             LinearPatchAAM, PartsAAM))
+                                 "{}".format(AAM, MaskedAAM, LinearAAM,
+                                             LinearMaskedAAM, PatchAAM))
 
             # append algorithms to list
             self.algorithms.append(algorithm)
-
-    # TODO: Allow training from bounding boxes
-    def train(self, images, group=None, verbose=False, **kwargs):
-        # normalize images with respect to reference shape of aam
-        images = rescale_images_to_reference_shape(
-            images, group, self.reference_shape, verbose=verbose)
-
-        # compute features at highest level
-        feature_images = compute_features(images, self.features[0],
-                                          verbose=verbose)
-
-        # for each pyramid level (low --> high)
-        for j, s in enumerate(self.scales):
-            if verbose:
-                if len(self.scales) > 1:
-                    level_str = '  - Level {}: '.format(j)
-                else:
-                    level_str = '  - '
-
-            # obtain image representation
-            if s == self.scales[-1]:
-                level_images = feature_images
-            elif self.scale_features:
-                # scale features at other levels
-                level_images = scale_images(feature_images, s,
-                                            prefix=level_str,
-                                            verbose=verbose)
-            else:
-                # scale images and compute features at other levels
-                scaled_images = scale_images(images, s, prefix=level_str,
-                                             verbose=verbose)
-                level_images = compute_features(scaled_images,
-                                                self.features[j],
-                                                prefix=level_str,
-                                                verbose=verbose)
-
-            # extract ground truth shapes for current level
-            level_gt_shapes = [i.landmarks[group].lms for i in level_images]
-
-            if j == 0:
-                # generate perturbed shapes
-                current_shapes = []
-                for gt_s in level_gt_shapes:
-                    perturbed_shapes = []
-                    for _ in range(self.n_perturbations):
-                        p_s = self.noisy_shape_from_shape(gt_s, self.noise_std)
-                        perturbed_shapes.append(p_s)
-                    current_shapes.append(perturbed_shapes)
-
-            # train cascaded regression algorithm
-            current_shapes = self.algorithms[j].train(
-                level_images, level_gt_shapes, current_shapes,
-                verbose=verbose, **kwargs)
-
-            # scale current shapes to next level resolution
-            if s != self.scales[-1]:
-                transform = Scale(self.scales[j+1]/s, n_dims=2)
-                for image_shapes in current_shapes:
-                    for shape in image_shapes:
-                        transform.apply_inplace(shape)
 
 
 # TODO: Document me!
@@ -246,6 +179,7 @@ def holistic_sampling_from_scale(aam, scale=0.35):
     return true_positions, BooleanImage(modified_mask[0])
 
 
+# TODO: Document me!
 def holistic_sampling_from_step(aam, step=8):
     reference = aam.appearance_models[0].mean()
 

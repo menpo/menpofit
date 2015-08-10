@@ -1,8 +1,13 @@
 from __future__ import division
+from functools import partial
 import numpy as np
 from menpo.image import Image
 from menpo.feature import no_op
-from menpo.visualize import print_dynamic, progress_bar_str
+from menpo.visualize import print_dynamic
+from menpofit.math import IRLRegression, IIRLRegression
+from menpofit.result import compute_normalise_point_to_point_error
+from menpofit.sdm.algorithm import SupervisedDescentAlgorithm
+from menpofit.visualize import print_progress
 from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 
 
@@ -10,9 +15,14 @@ from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
 class SupervisedDescentStandardInterface(object):
     r"""
     """
-    def __init__(self, cr_aam_algorithm, sampling=None):
-        self.algorithm = cr_aam_algorithm
+    def __init__(self, appearance_model, transform, template, sampling=None):
+        self.appearance_model = appearance_model
+        self.transform = transform
+        self.template = template
 
+        self._build_sampling_mask(sampling)
+
+    def _build_sampling_mask(self, sampling):
         n_true_pixels = self.template.n_true_pixels()
         n_channels = self.template.n_channels
         sampling_mask = np.zeros(n_true_pixels, dtype=np.bool)
@@ -30,18 +40,6 @@ class SupervisedDescentStandardInterface(object):
         return self.transform.pdm.model
 
     @property
-    def appearance_model(self):
-        return self.algorithm.appearance_model
-
-    @property
-    def template(self):
-        return self.algorithm.template
-
-    @property
-    def transform(self):
-        return self.algorithm.transform
-
-    @property
     def n(self):
         return self.transform.n_parameters
 
@@ -56,7 +54,7 @@ class SupervisedDescentStandardInterface(object):
     def algorithm_result(self, image, shape_parameters,
                          appearance_parameters=None, gt_shape=None):
         return AAMAlgorithmResult(
-            image, self.algorithm, shape_parameters,
+            image, self, shape_parameters,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
@@ -71,7 +69,7 @@ class SupervisedDescentLinearInterface(SupervisedDescentStandardInterface):
     def algorithm_result(self, image, shape_parameters,
                          appearance_parameters=None, gt_shape=None):
         return LinearAAMAlgorithmResult(
-            image, self.algorithm, shape_parameters,
+            image, self, shape_parameters,
             appearance_parameters=appearance_parameters, gt_shape=gt_shape)
 
 
@@ -79,16 +77,20 @@ class SupervisedDescentLinearInterface(SupervisedDescentStandardInterface):
 class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
     r"""
     """
-    def __init__(self, cr_aam_algorithm, sampling=None, patch_shape=(17, 17),
-                 normalize_parts=no_op):
-        self.algorithm = cr_aam_algorithm
+    def __init__(self, appearance_model, transform, template, sampling=None,
+                 patch_shape=(17, 17), normalize_parts=no_op):
         self.patch_shape = patch_shape
+        # TODO: Refactor to patch_features
         self.normalize_parts = normalize_parts
 
+        super(SupervisedDescentPartsInterface, self).__init__(
+            appearance_model, transform, template, sampling=sampling)
+
+    def _build_sampling_mask(self, sampling):
         if sampling is None:
             sampling = np.ones(self.patch_shape, dtype=np.bool)
 
-        image_shape = self.algorithm.template.pixels.shape
+        image_shape = self.template.pixels.shape
         image_mask = np.tile(sampling[None, None, None, ...],
                              image_shape[:3] + (1, 1))
         self.i_mask = np.nonzero(image_mask.flatten())[0]
@@ -102,137 +104,143 @@ class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
                                       patch_size=self.patch_shape,
                                       as_single_array=True)
         parts = self.normalize_parts(parts)
-        return Image(parts)
+        return Image(parts, copy=False)
+
+
+def _weights_for_target(transform, target):
+    transform.set_target(target)
+    return transform.as_vector()
 
 
 # TODO document me!
-class SupervisedDescent(object):
-    r"""
-    """
-    def __init__(self, aam_interface, appearance_model, transform, max_iters=3,
-                 eps=10**-5, **kwargs):
-        # set common state for all AAM algorithms
-        self.appearance_model = appearance_model
-        self.template = appearance_model.mean()
-        self.transform = transform
-        self.max_iters = max_iters
-        # TODO: Make use of eps in self.train?
-        self.eps = eps
-        # set interface
-        self.interface = aam_interface(self, **kwargs)
-        # perform pre-computations
-        self._precompute()
+def obtain_parametric_delta_x(gt_shapes, current_shapes, transform):
+    # initialize current and delta parameters arrays
+    n_samples = len(gt_shapes) * len(current_shapes[0])
+    gt_params = np.empty((n_samples, transform.n_parameters))
+    delta_params = np.empty_like(gt_params)
 
-    def _precompute(self):
-        # grab appearance model mean
-        a_bar = self.appearance_model.mean()
-        # vectorize it and mask it
-        self.a_bar_m = a_bar.as_vector()[self.interface.i_mask]
+    k = 0
+    for gt_s, c_s in zip(gt_shapes, current_shapes):
+        # Compute and cache ground truth parameters
+        c_gt_params = _weights_for_target(transform, gt_s)
+        for s in c_s:
+            gt_params[k] = c_gt_params
 
-    def train(self, images, gt_shapes, current_shapes, verbose=False,
-              **kwargs):
-        n_images = len(images)
-        n_samples_image = len(current_shapes[0])
+            current_params = _weights_for_target(transform, s)
+            delta_params[k] = c_gt_params - current_params
 
-        # set number of iterations and initialize list of regressors
-        self.regressors = []
-
-        # compute current and delta parameters from current and ground truth
-        # shapes
-        delta_params, current_params, gt_params = self._generate_params(
-            gt_shapes, current_shapes)
-        # initialize iteration counter
-        k = 0
-
-        # Cascaded Regression loop
-        while k < self.max_iters:
-            # generate regression data
-            features = self._generate_features(images, current_params,
-                                               verbose=verbose)
-
-            # perform regression
-            if verbose:
-                print_dynamic('- Performing regression...')
-            regressor = self._perform_regression(features, delta_params,
-                                                 **kwargs)
-            # add regressor to list
-            self.regressors.append(regressor)
-
-            # compute regression rmse
-            estimated_delta_params = regressor(features)
-            # TODO: Should print a more informative error here?
-            rmse = _compute_rmse(delta_params, estimated_delta_params)
-            if verbose:
-                print_dynamic('- Regression RMSE is {0:.5f}.\n'.format(rmse))
-
-            current_params += estimated_delta_params
-
-            delta_params = gt_params - current_params
-            # increase iteration counter
             k += 1
 
-        # obtain current shapes from current parameters
-        current_shapes = []
-        for p in current_params:
-            current_shapes.append(self.transform.from_vector(p).target)
+    return delta_params, gt_params
 
-        # convert current shapes into a list of list and return
-        final_shapes = []
-        for j in range(n_images):
-            k = j * n_samples_image
-            l = k + n_samples_image
-            final_shapes.append(current_shapes[k:l])
-        return final_shapes
 
-    def _generate_params(self, gt_shapes, current_shapes):
-        # initialize current and delta parameters arrays
-        n_samples = len(gt_shapes) * len(current_shapes[0])
-        current_params = np.empty((n_samples, self.transform.n_parameters))
-        gt_params = np.empty((n_samples, self.transform.n_parameters))
-        delta_params = np.empty((n_samples, self.transform.n_parameters))
+class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
+    r"""
+    """
+    def __init__(self, aam_interface, n_iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5):
+        super(ParametricSupervisedDescentAlgorithm, self).__init__()
+
+        self.interface = aam_interface
+        self.n_iterations = n_iterations
+        self.eps = eps
+
+        self._compute_error = compute_error
+        self._precompute()
+
+    @property
+    def appearance_model(self):
+        return self.interface.appearance_model
+
+    @property
+    def transform(self):
+        return self.interface.transform
+
+    def _precompute(self):
+        # Grab appearance model mean
+        a_bar = self.appearance_model.mean()
+        # Vectorise it and mask it
+        self.a_bar_m = a_bar.as_vector()[self.interface.i_mask]
+
+    def _train(self, images, gt_shapes, current_shapes, increment=False,
+               prefix='', verbose=False):
+
+        if not increment:
+            # Reset the regressors
+            self.regressors = []
+
+        n_perturbations = len(current_shapes[0])
+        template_shape = gt_shapes[0]
+
+        # obtain delta_x and gt_x (parameters rather than shapes)
+        delta_x, gt_x = obtain_parametric_delta_x(gt_shapes, current_shapes,
+                                                  self.transform)
+
+        # Cascaded Regression loop
+        for k in range(self.n_iterations):
+            # generate regression data
+            features = self._generate_features(
+                images, current_shapes,
+                prefix='{}(Iteration {}) - '.format(prefix, k),
+                verbose=verbose)
+
+            if verbose:
+                print_dynamic('{}(Iteration {}) - Performing regression'.format(
+                    prefix, k))
+
+            if not increment:
+                r = self._regressor_cls()
+                r.train(features, delta_x)
+                self.regressors.append(r)
+            else:
+                self.regressors[k].increment(features, delta_x)
+
+            # Estimate delta_points
+            estimated_delta_x = self.regressors[k].predict(features)
+            if verbose:
+                self._print_regression_info(template_shape, gt_shapes,
+                                            n_perturbations, delta_x,
+                                            estimated_delta_x, k,
+                                            prefix=prefix)
+
+            j = 0
+            for shapes in current_shapes:
+                for s in shapes:
+                    # Estimate parameters
+                    edx = estimated_delta_x[j]
+                    # Current parameters
+                    cx = _weights_for_target(self.transform, s) + edx
+
+                    # Uses less memory to find updated target shape
+                    self.transform.from_vector_inplace(cx)
+                    # Update current shape inplace
+                    s.from_vector_inplace(self.transform.target.as_vector())
+
+                    delta_x[j] = gt_x[j] - cx
+                    j += 1
+
+        return current_shapes
+
+    def _generate_features(self, images, current_shapes, prefix='',
+                           verbose=False):
+        # Initialize features array - since current_shapes is a list of lists
+        # we need to know the total size
+        n_samples = len(images) * len(current_shapes[0])
+        features = np.empty((n_samples,) + self.a_bar_m.shape)
+
+        wrap = partial(print_progress,
+                       prefix='{}Computing features'.format(prefix),
+                       end_with_newline=not prefix, verbose=verbose)
+
         # initialize sample counter
         k = 0
-        # compute ground truth and current shape parameters
-        for gt_s, c_s in zip(gt_shapes, current_shapes):
-            for s in c_s:
-                # compute current parameters
-                current_params[k] = self._compute_params(s)
-                # compute ground truth parameters
-                gt_params[k] = self._compute_params(gt_s)
-                # compute delta parameters
-                delta_params[k] = gt_params[k] - current_params[k]
-                # increment counter
-                k += 1
+        for img, img_shapes in wrap(zip(images, current_shapes)):
+            for s in img_shapes:
+                self.transform.set_target(s)
+                # Assumes that the transform is correctly set
+                features[k] = self._compute_features(img)
 
-        return delta_params, current_params, gt_params
-
-    def _compute_params(self, shape):
-        self.transform.set_target(shape)
-        return self.transform.as_vector()
-
-    def _generate_features(self, images, current_params, verbose=False):
-        # initialize features array
-        n_images = len(images)
-        n_samples = len(current_params)
-        n_samples_image = int(n_samples / n_images)
-        features = np.zeros((n_samples,) + self.a_bar_m.shape)
-
-        # initialize sample counter
-        k = 0
-        for i in images:
-            for _ in range(n_samples_image):
-                if verbose:
-                    print_dynamic('- Generating regression features - {'
-                                  '}'.format(
-                        progress_bar_str((k + 1.) / n_samples,
-                                         show_bar=False)))
-                # set transform
-                self.transform.from_vector_inplace(current_params[k])
-                # compute regression features
-                f = self._compute_train_features(i)
-                # add to features array
-                features[k] = f
-                # increment counter
                 k += 1
 
         return features
@@ -242,47 +250,53 @@ class SupervisedDescent(object):
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
 
-        # initialize iteration counter
-        k = 0
-
         # Cascaded Regression loop
-        while k < self.max_iters:
-            # compute regression features
-            features = self._compute_test_features(image)
+        for r in self.regressors:
+            # Assumes that the transform is correctly set
+            features = self._compute_features(image)
 
             # solve for increments on the shape parameters
-            dp = self.regressors[k](features)
+            dx = r.predict(features)
 
-            # update warp
-            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
-            p_list.append(self.transform.as_vector())
-
-            # increase iteration counter
-            k += 1
+            # We need to update the transform to set the state for the warping
+            # of the image above.
+            new_x = p_list[-1] + dx
+            self.transform.from_vector_inplace(new_x)
+            p_list.append(new_x)
 
         # return algorithm result
         return self.interface.algorithm_result(
             image, p_list, gt_shape=gt_shape)
 
+    def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
+                               delta_x, estimated_delta_x, level_index,
+                               prefix=''):
+        print_dynamic('{}(Iteration {}) - Calculating errors'.format(
+            prefix, level_index))
+        errors = []
+        for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
+            self.transform.from_vector_inplace(dx)
+            s1 = self.transform.target
+            self.transform.from_vector_inplace(edx)
+            s2 = self.transform.target
+
+            gt_s = gt_shapes[np.floor_divide(j, n_perturbations)]
+            errors.append(self._compute_error(s1, s2, gt_s))
+        mean = np.mean(errors)
+        std = np.std(errors)
+        median = np.median(errors)
+        print_dynamic('{}(Iteration {}) - Training error -> '
+                      'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
+                      format(prefix, level_index, mean, std, median))
+
 
 # TODO: document me!
-class MeanTemplate(SupervisedDescent):
+class MeanTemplate(ParametricSupervisedDescentAlgorithm):
     r"""
     """
-    def _compute_train_features(self, image):
-        # warp image
+    def _compute_features(self, image):
         i = self.interface.warp(image)
-        # vectorize it and mask it
         i_m = i.as_vector()[self.interface.i_mask]
-        # compute masked error
-        return i_m - self.a_bar_m
-
-    def _compute_test_features(self, image):
-        # warp image
-        i = self.interface.warp(image)
-        # vectorize it and mask it
-        i_m = i.as_vector()[self.interface.i_mask]
-        # compute masked error
         return i_m - self.a_bar_m
 
 
@@ -290,111 +304,103 @@ class MeanTemplate(SupervisedDescent):
 class MeanTemplateNewton(MeanTemplate):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None,
-                            dtype=np.float64):
-        return _supervised_newton(features, deltas, gamma=gamma, dtype=dtype)
+    def __init__(self, aam_interface, n_iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5, alpha=0, bias=True):
+        super(MeanTemplateNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations,
+            compute_error=compute_error, eps=eps)
+
+        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
 
 
 # TODO: document me!
 class MeanTemplateGaussNewton(MeanTemplate):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None, psi=None,
-                            dtype=np.float64):
-        return _supervised_gauss_newton(features, deltas, gamma=gamma,
-                                        psi=psi, dtype=dtype)
+    def __init__(self, aam_interface, n_iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5, alpha=0, alpha2=0, bias=True):
+        super(MeanTemplateGaussNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations,
+            compute_error=compute_error, eps=eps)
+
+        self._regressor_cls = partial(IIRLRegression, alpha=alpha,
+                                      alpha2=alpha2, bias=bias)
 
 
 # TODO: document me!
-class ProjectOut(SupervisedDescent):
+class ProjectOut(ParametricSupervisedDescentAlgorithm):
     r"""
     """
     def _precompute(self):
-        # call super method
         super(ProjectOut, self)._precompute()
-        # grab appearance model components
         A = self.appearance_model.components
-        # mask them
         self.A_m = A.T[self.interface.i_mask, :]
-        # compute their pseudoinverse
+
         self.pinv_A_m = np.linalg.pinv(self.A_m)
 
     def project_out(self, J):
-        # project-out appearance bases from a particular vector or matrix
+        # Project-out appearance bases from a particular vector or matrix
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
 
-    def _compute_train_features(self, image):
-        # warp image
+    def _compute_features(self, image):
         i = self.interface.warp(image)
-        # vectorize it and mask it
         i_m = i.as_vector()[self.interface.i_mask]
-        # compute masked error
+        # TODO: This project out could actually be cached at test time -
+        # but we need to think about the best way to implement this and still
+        # allow incrementing
         e_m = i_m - self.a_bar_m
         return self.project_out(e_m)
-
-    def _compute_test_features(self, image):
-        # warp image
-        i = self.interface.warp(image)
-        # vectorize it and mask it
-        i_m = i.as_vector()[self.interface.i_mask]
-        # compute masked error
-        return i_m - self.a_bar_m
 
 
 # TODO: document me!
 class ProjectOutNewton(ProjectOut):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None,
-                            dtype=np.float64):
-        regressor = _supervised_newton(features, deltas, gamma=gamma,
-                                       dtype=dtype)
-        regressor.R = self.project_out(regressor.R)
-        return regressor
+    def __init__(self, aam_interface, n_iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5, alpha=0, bias=True):
+        super(ProjectOutNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations,
+            compute_error=compute_error, eps=eps)
+
+        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
 
 
 # TODO: document me!
 class ProjectOutGaussNewton(ProjectOut):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None, psi=None,
-                            dtype=np.float64):
-        return _supervised_gauss_newton(features, deltas, gamma=gamma,
-                                        psi=psi, dtype=dtype)
+    def __init__(self, aam_interface, n_iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5, alpha=0, alpha2=0, bias=True):
+        super(ProjectOutGaussNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations,
+            compute_error=compute_error, eps=eps)
 
+        self._regressor_cls = partial(IIRLRegression, alpha=alpha,
+                                      alpha2=alpha2, bias=bias)
 
 # TODO: document me!
-class AppearanceWeights(SupervisedDescent):
+class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
     r"""
     """
     def _precompute(self):
-        # call super method
         super(AppearanceWeights, self)._precompute()
-        # grab appearance model components
         A = self.appearance_model.components
-        # mask them
         A_m = A.T[self.interface.i_mask, :]
-        # compute their pseudoinverse
+
         self.pinv_A_m = np.linalg.pinv(A_m)
 
     def project(self, J):
-        # project a particular vector or matrix onto the appearance bases
+        # Project a particular vector or matrix onto the appearance bases
         return self.pinv_A_m.dot(J - self.a_bar_m)
 
-    def _compute_train_features(self, image):
-        # warp image
+    def _compute_features(self, image):
         i = self.interface.warp(image)
-        # vectorize it and mask it
         i_m = i.as_vector()[self.interface.i_mask]
-        # project it onto the appearance model
-        return self.project(i_m)
-
-    def _compute_test_features(self, image):
-        # warp image
-        i = self.interface.warp(image)
-        # vectorize it and mask it
-        i_m = i.as_vector()[self.interface.i_mask]
-        # project it onto the appearance model
+        # Project image onto the appearance model
         return self.project(i_m)
 
 
@@ -402,65 +408,27 @@ class AppearanceWeights(SupervisedDescent):
 class AppearanceWeightsNewton(AppearanceWeights):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None,
-                            dtype=np.float64):
-        return _supervised_newton(features, deltas, gamma=gamma, dtype=dtype)
+    def __init__(self, aam_interface, n_iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5, alpha=0, bias=True):
+        super(AppearanceWeightsNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations,
+            compute_error=compute_error, eps=eps)
+
+        self._regressor_cls = partial(IRLRegression, alpha=alpha,
+                                      bias=bias)
 
 
 # TODO: document me!
 class AppearanceWeightsGaussNewton(AppearanceWeights):
     r"""
     """
-    def _perform_regression(self, features, deltas, gamma=None, psi=None,
-                            dtype=np.float64):
-        return _supervised_gauss_newton(features, deltas, gamma=gamma,
-                                        psi=psi, dtype=dtype)
+    def __init__(self, aam_interface, n_iterations=3,
+                 compute_error=compute_normalise_point_to_point_error,
+                 eps=10**-5, alpha=0, alpha2=0, bias=True):
+        super(AppearanceWeightsGaussNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations,
+            compute_error=compute_error, eps=eps)
 
-
-# TODO: document me!
-class _supervised_newton(object):
-    r"""
-    """
-    def __init__(self, features, deltas, gamma=None, dtype=np.float64):
-        features = features.astype(dtype)
-        deltas = deltas.astype(dtype)
-        XX = features.T.dot(features)
-        XT = features.T.dot(deltas)
-        if gamma:
-            np.fill_diagonal(XX, gamma + np.diag(XX))
-        # descent direction
-        self.R = np.linalg.solve(XX, XT)
-
-    def __call__(self, features):
-        return np.dot(features, self.R)
-
-
-# TODO: document me!
-class _supervised_gauss_newton(object):
-    r"""
-    """
-    def __init__(self, features, deltas, gamma=None, psi=None,
-                 dtype=np.float64):
-        features = features.astype(dtype)
-        # ridge regression
-        deltas = deltas.astype(dtype)
-        XX = deltas.T.dot(deltas)
-        XT = deltas.T.dot(features)
-        if gamma:
-            np.fill_diagonal(XX, gamma + np.diag(XX))
-        # average Jacobian
-        self.J = np.linalg.solve(XX, XT)
-        # average Hessian
-        self.H = self.J.dot(self.J.T)
-        if psi:
-            np.fill_diagonal(self.H, psi + np.diag(self.H))
-        # descent direction
-        self.R = np.linalg.solve(self.H, self.J).T
-
-    def __call__(self, features):
-        return np.dot(features, self.R)
-
-
-# TODO: document me!
-def _compute_rmse(x1, x2):
-    return np.sqrt(np.mean(np.sum((x1 - x2) ** 2, axis=1)))
+        self._regressor_cls = partial(IIRLRegression, alpha=alpha,
+                                      alpha2=alpha2, bias=bias)

@@ -6,7 +6,7 @@ from menpofit.base import batch
 from menpofit.builder import (
     normalization_wrt_reference_shape, compute_features, scale_images,
     build_shape_model, increment_shape_model)
-from expert import ExpertEnsemble, CorrelationFilterExpertEnsemble
+from .expert import ExpertEnsemble, CorrelationFilterExpertEnsemble
 
 
 # TODO: Document me!

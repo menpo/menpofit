@@ -13,8 +13,26 @@ from menpofit.math import IRLRegression, IIRLRegression
 class SupervisedDescentAlgorithm(object):
     r"""
     """
-    def train(self, images, gt_shapes, current_shapes, level_str='',
+
+    def __init__(self):
+        self.regressors = []
+
+    def train(self, images, gt_shapes, current_shapes, prefix='',
               verbose=False):
+        return self._train(images, gt_shapes, current_shapes, increment=False,
+                           prefix=prefix, verbose=verbose)
+
+    def increment(self, images, gt_shapes, current_shapes, prefix='',
+                  verbose=False):
+        return self._train(images, gt_shapes, current_shapes, increment=True,
+                           prefix=prefix, verbose=verbose)
+
+    def _train(self, images, gt_shapes, current_shapes, increment=False,
+               prefix='', verbose=False):
+
+        if not increment:
+            # Reset the regressors
+            self.regressors = []
 
         n_perturbations = len(current_shapes[0])
         template_shape = gt_shapes[0]
@@ -22,44 +40,32 @@ class SupervisedDescentAlgorithm(object):
         # obtain delta_x and gt_x
         delta_x, gt_x = obtain_delta_x(gt_shapes, current_shapes)
 
-        # initialize iteration counter and list of regressors
-        self.regressors = []
-
         # Cascaded Regression loop
-        for k in range(self.iterations):
+        for k in range(self.n_iterations):
             # generate regression data
             features = features_per_image(
                 images, current_shapes, self.patch_shape, self.features,
-                level_str='{}(Iteration {}) - '.format(level_str, k),
+                prefix='{}(Iteration {}) - '.format(prefix, k),
                 verbose=verbose)
 
-            # Perform regression
             if verbose:
                 print_dynamic('{}(Iteration {}) - Performing regression'.format(
-                              level_str, k))
-            r = self._regressor_cls()
-            r.train(features, delta_x)
-            # add regressor to list
-            self.regressors.append(r)
+                    prefix, k))
+
+            if not increment:
+                r = self._regressor_cls()
+                r.train(features, delta_x)
+                self.regressors.append(r)
+            else:
+                self.regressors[k].increment(features, delta_x)
 
             # Estimate delta_points
-            estimated_delta_x = r.predict(features)
-
+            estimated_delta_x = self.regressors[k].predict(features)
             if verbose:
-                print_dynamic('{}(Iteration {}) - Calculating errors'.format(
-                    level_str, k))
-                errors = []
-                for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
-                    s1 = template_shape.from_vector(dx)
-                    s2 = template_shape.from_vector(edx)
-                    gt_s = gt_shapes[np.floor_divide(j, n_perturbations)]
-                    errors.append(self._compute_error(s1, s2, gt_s))
-                mean = np.mean(errors)
-                std = np.std(errors)
-                median = np.median(errors)
-                print_dynamic('{}(Iteration {}) - Training error -> '
-                              'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
-                              format(level_str, k, mean, std, median))
+                self._print_regression_info(template_shape, gt_shapes,
+                                            n_perturbations, delta_x,
+                                            estimated_delta_x, k,
+                                            prefix=prefix)
 
             j = 0
             for shapes in current_shapes:
@@ -73,56 +79,6 @@ class SupervisedDescentAlgorithm(object):
                     # increase index
                     j += 1
 
-        return current_shapes
-
-    def increment(self, images, gt_shapes, current_shapes, verbose=False):
-
-        n_perturbations = len(current_shapes[0])
-        template_shape = gt_shapes[0]
-
-        # obtain delta_x and gt_x
-        delta_x, gt_x = obtain_delta_x(gt_shapes, current_shapes)
-
-        # Cascaded Regression loop
-        for r in self.regressors:
-            # generate regression data
-            features = features_per_image(images, current_shapes,
-                                          self.patch_shape, self.features)
-
-            # update regression
-            if verbose:
-                print_dynamic('- Updating regression')
-            r.increment(features, delta_x)
-
-            # estimate delta_points
-            estimated_delta_x = r.predict(features)
-            if verbose:
-                errors = []
-                for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
-                    s1 = template_shape.from_vector(dx)
-                    s2 = template_shape.from_vector(edx)
-                    gt_s = gt_shapes[np.floor_divide(j, n_perturbations)]
-                    errors.append(self._compute_error(s1, s2, gt_s))
-                mean = np.mean(errors)
-                std = np.std(errors)
-                median = np.median(errors)
-                print_dynamic('- Training error -> mean: {0:.4f}, '
-                              'std: {1:.4f}, median: {2:.4f}.\n'.
-                              format(mean, std, median))
-
-            j = 0
-            for shapes in current_shapes:
-                for s in shapes:
-                    # update current x
-                    current_x = s.as_vector() + estimated_delta_x[j]
-                    # update current shape inplace
-                    s.from_vector_inplace(current_x)
-                    # update delta_x
-                    delta_x[j] = gt_x[j] - current_x
-                    # increase index
-                    j += 1
-
-        # rearrange current shapes into their original list of list form
         return current_shapes
 
     def run(self, image, initial_shape, gt_shape=None, **kwargs):
@@ -145,22 +101,42 @@ class SupervisedDescentAlgorithm(object):
             shapes.append(current_shape)
 
         # return algorithm result
-        return NonParametricAlgorithmResult(image, self, shapes,
+        return NonParametricAlgorithmResult(image, shapes,
                                             gt_shape=gt_shape)
+
+    def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
+                               delta_x, estimated_delta_x, level_index,
+                               prefix=''):
+        print_dynamic('{}(Iteration {}) - Calculating errors'.format(
+            prefix, level_index))
+        errors = []
+        for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
+            s1 = template_shape.from_vector(dx)
+            s2 = template_shape.from_vector(edx)
+            gt_s = gt_shapes[np.floor_divide(j, n_perturbations)]
+            errors.append(self._compute_error(s1, s2, gt_s))
+        mean = np.mean(errors)
+        std = np.std(errors)
+        median = np.median(errors)
+        print_dynamic('{}(Iteration {}) - Training error -> '
+                      'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
+                      format(prefix, level_index, mean, std, median))
 
 
 # TODO: document me!
 class Newton(SupervisedDescentAlgorithm):
     r"""
     """
-    def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
+    def __init__(self, features=no_op, patch_shape=(17, 17), n_iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5, alpha=0, bias=True):
+        super(Newton, self).__init__()
+
         self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
-        self.iterations = iterations
+        self.n_iterations = n_iterations
         self._compute_error = compute_error
         self.eps = eps
 
@@ -169,20 +145,22 @@ class Newton(SupervisedDescentAlgorithm):
 class GaussNewton(SupervisedDescentAlgorithm):
     r"""
     """
-    def __init__(self, features=no_op, patch_shape=(17, 17), iterations=3,
+    def __init__(self, features=no_op, patch_shape=(17, 17), n_iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5, alpha=0, bias=True, alpha2=0):
+        super(GaussNewton, self).__init__()
+
         self._regressor_cls = partial(IIRLRegression, alpha=alpha, bias=bias,
                                       alpha2=alpha2)
         self.patch_shape = patch_shape
         self.features = features
         self.patch_shape = patch_shape
-        self.iterations = iterations
+        self.n_iterations = n_iterations
         self._compute_error = compute_error
         self.eps = eps
 
 
-# TODO: docment me!
+# TODO: document me!
 def features_per_patch(image, shape, patch_shape, features_callable):
     """r
     """
@@ -193,7 +171,7 @@ def features_per_patch(image, shape, patch_shape, features_callable):
     return np.asarray(patch_features).ravel()
 
 
-# TODO: docment me!
+# TODO: document me!
 def features_per_shape(image, shapes, patch_shape, features_callable):
     """r
     """
@@ -204,14 +182,14 @@ def features_per_shape(image, shapes, patch_shape, features_callable):
     return np.asarray(patch_features)
 
 
-# TODO: docment me!
+# TODO: document me!
 def features_per_image(images, shapes, patch_shape, features_callable,
-                       level_str='', verbose=False):
+                       prefix='', verbose=False):
     """r
     """
     wrap = partial(print_progress,
-                   prefix='{}Extracting patches'.format(level_str),
-                   end_with_newline=not level_str, verbose=verbose)
+                   prefix='{}Extracting patches'.format(prefix),
+                   end_with_newline=not prefix, verbose=verbose)
 
     patch_features = [features_per_shape(i, shapes[j], patch_shape,
                                          features_callable)
@@ -272,25 +250,3 @@ def compute_features_info(image, shape, features_callable,
 
     return (features_patch_shape, features_patch_length,
             features_shape, features_length)
-
-
-# def initialize_sampling(self, image, group=None, label=None):
-#         if self._sampling is None:
-#             sampling = np.ones(self.patch_shape, dtype=np.bool)
-#         else:
-#             sampling = self._sampling
-#
-#         # TODO: include offsets support?
-#         patches = image.extract_patches_around_landmarks(
-#             group=group, label=label, patch_size=self.patch_shape,
-#             as_single_array=True)
-#
-#         # TODO: include offsets support?
-#         features_patch_shape = self.features(patches[0, 0]).shape
-#         self._features_patch_length = np.prod(features_patch_shape)
-#         self._features_shape = (patches.shape[0], features_patch_shape)
-#         self._features_length = np.prod(self._features_shape)
-#
-#         feature_mask = np.tile(sampling[None, None, None, ...],
-#                                self._feature_shape[:3] + (1, 1))
-#         self._feature_mask = np.nonzero(feature_mask.flatten())[0]

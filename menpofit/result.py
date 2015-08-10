@@ -171,7 +171,7 @@ class IterativeResult(Result):
             raise ValueError('Ground truth has not been set, errors cannot '
                              'be computed')
 
-    def plot_errors(self, error_type='me_norm', figure_id=None,
+    def plot_errors(self, error_type=None, figure_id=None,
                     new_figure=False, render_lines=True, line_colour='b',
                     line_style='-', line_width=2, render_markers=True,
                     marker_style='o', marker_size=4, marker_face_colour='b',
@@ -245,7 +245,7 @@ class IterativeResult(Result):
             The viewer object.
         """
         from menpo.visualize import GraphPlotter
-        errors_list = self.errors(error_type=error_type)
+        errors_list = self.errors(compute_error=error_type)
         return GraphPlotter(figure_id=figure_id, new_figure=new_figure,
                             x_axis=range(len(errors_list)),
                             y_axis=[errors_list],
@@ -471,9 +471,8 @@ class ParametricAlgorithmResult(IterativeResult):
 class NonParametricAlgorithmResult(IterativeResult):
     r"""
     """
-    def __init__(self, image, algorithm, shapes, gt_shape=None):
+    def __init__(self, image, shapes, gt_shape=None):
         self.image = image
-        self.algorithm = algorithm
         self._shapes = shapes
         self._gt_shape = gt_shape
 

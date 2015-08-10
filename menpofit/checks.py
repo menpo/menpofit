@@ -1,6 +1,8 @@
 import warnings
 from functools import partial
 import numpy as np
+from menpo.shape import TriMesh
+from menpo.transform import PiecewiseAffine
 
 
 def check_diagonal(diagonal):
@@ -11,6 +13,20 @@ def check_diagonal(diagonal):
     if diagonal is not None and diagonal < 20:
         raise ValueError("diagonal must be >= 20")
     return diagonal
+
+
+def check_landmark_trilist(image, transform, group=None):
+    shape = image.landmarks[group].lms
+    check_trilist(shape, transform)
+
+
+def check_trilist(shape, transform):
+    if not isinstance(shape, TriMesh) and isinstance(transform,
+                                                     PiecewiseAffine):
+        warnings.warn('The given images do not have an explicit triangulation '
+                      'applied. A Delaunay Triangulation will be computed '
+                      'and used for warping. This may be suboptimal and cause '
+                      'warping artifacts.')
 
 
 # TODO: document me!
@@ -144,6 +160,24 @@ def check_sampling(sampling, n_scales):
                          'a integer or ndarray list '
                          'containing 1 or {} elements or '
                          'None'.format(n_scales))
+
+
+def set_models_components(models, n_components):
+    if n_components is not None:
+        n_scales = len(models)
+        if type(n_components) is int or type(n_components) is float:
+            for am in models:
+                am.n_active_components = n_components
+        elif len(n_components) == 1 and n_scales > 1:
+            for am in models:
+                am.n_active_components = n_components[0]
+        elif len(n_components) == n_scales:
+            for am, n in zip(models, n_components):
+                am.n_active_components = n
+        else:
+            raise ValueError('n_components can be an integer or a float '
+                             'or None or a list containing 1 or {} of '
+                             'those'.format(n_scales))
 
 
 def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):

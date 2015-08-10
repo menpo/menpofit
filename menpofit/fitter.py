@@ -30,20 +30,16 @@ class MultiFitter(object):
         -----------
         image: :map:`Image` or subclass
             The image to be fitted.
-
         initial_shape: :map:`PointCloud`
             The initial shape estimate from which the fitting procedure
             will start.
-
         max_iters: `int` or `list` of `int`, optional
             The maximum number of iterations.
             If `int`, specifies the overall maximum number of iterations.
             If `list` of `int`, specifies the maximum number of iterations per
             level.
-
         gt_shape: :map:`PointCloud`
             The ground truth shape associated to the image.
-
         crop_image: `None` or float`, optional
             If `float`, it specifies the proportion of the border wrt the
             initial shape to which the image will be internally cropped around
@@ -53,7 +49,6 @@ class MultiFitter(object):
             This will limit the fitting algorithm search region but is
             likely to speed up its running time, specially when the
             modeled object occupies a small portion of the image.
-
         **kwargs:
             Additional keyword arguments that can be passed to specific
             implementations of ``_fit`` method.
@@ -98,31 +93,24 @@ class MultiFitter(object):
         ----------
         image : :map:`Image` or subclass
             The image to be fitted.
-
         initial_shape : :map:`PointCloud`
             The initial shape from which the fitting will start.
-
         gt_shape : class : :map:`PointCloud`, optional
             The original ground truth shape associated to the image.
-
         crop_image: `None` or float`, optional
             If `float`, it specifies the proportion of the border wrt the
             initial shape to which the image will be internally cropped around
             the initial shape range.
             If `None`, no cropping is performed.
-
             This will limit the fitting algorithm search region but is
             likely to speed up its running time, specially when the
             modeled object occupies a small portion of the image.
-
         Returns
         -------
         images : `list` of :map:`Image` or subclass
             The list of images that will be fitted by the fitters.
-
         initial_shapes : `list` of :map:`PointCloud`
             The initial shape for each one of the previous images.
-
         gt_shapes : `list` of :map:`PointCloud`
             The ground truth shape for each one of the previous images.
         """
@@ -145,7 +133,7 @@ class MultiFitter(object):
         images = []
         for i in range(self.n_scales):
             # Handle features
-            if i == 0 or self.features[i] is not self.features[i-1]:
+            if i == 0 or self.features[i] is not self.features[i - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
@@ -200,7 +188,7 @@ class MultiFitter(object):
 
         Returns
         -------
-        algorithm_results: :class:`menpo.fg2015.fittingresult.FittingResult` list
+        algorithm_results: :class:`FittingResult` list
             The fitting object containing the state of the whole fitting
             procedure.
         """
@@ -229,7 +217,7 @@ class MultiFitter(object):
             # Prepare this scale's final shape for the next scale
             shape = algorithm_result.final_shape
             if self.scales[i] != self.scales[-1]:
-                shape = Scale(self.scales[i+1] / self.scales[i],
+                shape = Scale(self.scales[i + 1] / self.scales[i],
                               n_dims=shape.n_dims).apply(shape)
 
         # Return list of algorithm results
@@ -252,10 +240,6 @@ class ModelFitter(MultiFitter):
     @property
     def features(self):
         r"""
-        The feature extracted at each pyramidal level during AAM building.
-        Stored in ascending pyramidal order.
-
-        :type: `list`
         """
         return self._model.features
 
@@ -264,20 +248,7 @@ class ModelFitter(MultiFitter):
         return self._model.scales
 
     def _check_n_shape(self, n_shape):
-        if n_shape is not None:
-            if type(n_shape) is int or type(n_shape) is float:
-                for sm in self._model.shape_models:
-                    sm.n_active_components = n_shape
-            elif len(n_shape) == 1 and self._model.n_scales > 1:
-                for sm in self._model.shape_models:
-                    sm.n_active_components = n_shape[0]
-            elif len(n_shape) == self._model.n_scales:
-                for sm, n in zip(self._model.shape_models, n_shape):
-                    sm.n_active_components = n
-            else:
-                raise ValueError('n_shape can be an integer or a float or None'
-                                 'or a list containing 1 or {} of '
-                                 'those'.format(self._model.n_scales))
+        checks.set_models_components(self._model.shape_models, n_shape)
 
     def noisy_shape_from_bounding_box(self, bounding_box, noise_type='uniform',
                                       noise_percentage=0.1, rotation=False):

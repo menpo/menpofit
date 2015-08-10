@@ -897,7 +897,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         # Compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters
         appearance_weights = appearance_model_parameters_wid.parameters
-        instance = aam.instance(level=level, shape_weights=shape_weights,
+        instance = aam.instance(scale_index=level, shape_weights=shape_weights,
                                 appearance_weights=appearance_weights)
 
         # Update info
@@ -961,39 +961,17 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         aam_mean = lvl_app_mod.mean()
         n_channels = aam_mean.n_channels
         tmplt_inst = lvl_app_mod.template_instance
-        feat = (aam.features if aam.pyramid_on_features
-                else aam.features[level])
+        feat = aam.features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(
             name_of_callable(feat), n_channels, 's' * (n_channels > 1))
 
-        # create info str
-        if n_levels == 1:
-            tmp_shape_models = ''
-            tmp_pyramid = ''
-        else:  # n_scales > 1
-            # shape models info
-            if aam.scaled_shape_models:
-                tmp_shape_models = "Each level has a scaled shape model " \
-                                   "(reference frame)"
-            else:
-                tmp_shape_models = "Shape models (reference frames) are " \
-                                   "not scaled"
-            # pyramid info
-            if aam.pyramid_on_features:
-                tmp_pyramid = "Pyramid was applied on feature space"
-            else:
-                tmp_pyramid = "Features were extracted at each pyramid level"
-
         # update info widgets
         text_per_line = [
-            "> {} training images".format(aam.n_training_images),
-            "> {}".format(tmp_shape_models),
             "> Warp using {} transform".format(aam.transform.__name__),
-            "> {}".format(tmp_pyramid),
-            "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, aam.n_scales, aam.downscale),
+            "> Level {}/{}".format(
+                level + 1, aam.n_scales),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -1317,7 +1295,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
 
         # Compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters
-        instance = atm.instance(level=level, shape_weights=shape_weights)
+        instance = atm.instance(scale_index=level, shape_weights=shape_weights)
 
         # Update info
         update_info(atm, instance, level,
@@ -1377,39 +1355,17 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         lvl_shape_mod = atm.shape_models[level]
         tmplt_inst = atm.warped_templates[level]
         n_channels = tmplt_inst.n_channels
-        feat = (atm.features if atm.pyramid_on_features
-                else atm.features[level])
+        feat = atm.features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(
             name_of_callable(feat), n_channels, 's' * (n_channels > 1))
 
-        # create info str
-        if n_levels == 1:
-            tmp_shape_models = ''
-            tmp_pyramid = ''
-        else:  # n_scales > 1
-            # shape models info
-            if atm.scaled_shape_models:
-                tmp_shape_models = "Each level has a scaled shape model " \
-                                   "(reference frame)"
-            else:
-                tmp_shape_models = "Shape models (reference frames) are " \
-                                   "not scaled"
-            # pyramid info
-            if atm.pyramid_on_features:
-                tmp_pyramid = "Pyramid was applied on feature space"
-            else:
-                tmp_pyramid = "Features were extracted at each pyramid level"
-
         # update info widgets
         text_per_line = [
-            "> {} training shapes".format(atm.n_training_shapes),
-            "> {}".format(tmp_shape_models),
             "> Warp using {} transform".format(atm.transform.__name__),
-            "> {}".format(tmp_pyramid),
-            "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, atm.n_scales, atm.downscale),
+            "> Level {}/{}".format(
+                level + 1, atm.n_scales),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -2223,7 +2179,7 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
             renderer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
             renderer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
         renderer = fitting_results[im].plot_errors(
-            error_type=error_type_wid.value,
+            error_type=_error_type_key_to_func(error_type_wid.value),
             figure_id=save_figure_wid.renderer.figure_id,
             figure_size=new_figure_size)
 
@@ -2467,8 +2423,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
             text_per_line = [
                 "> {} iterations".format(fitting_results[im].n_iters)]
         if hasattr(fitting_results[im], 'n_scales'):  # Multilevel result
-            text_per_line.append("> {} levels with downscale of {:.1f}".format(
-                fitting_results[im].n_scales, fitting_results[im].downscale))
+            text_per_line.append("> {} scales".format(
+                fitting_results[im].n_scales))
         info_wid.set_widget_state(n_lines=len(text_per_line),
                                   text_per_line=text_per_line)
 
@@ -2517,18 +2473,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # widget closes
         plot_ced_but.visible = False
 
-        # Get error type
         error_type = error_type_wid.value
-
-        from menpofit.result import (
-                compute_root_mean_square_error, compute_point_to_point_error,
-                compute_normalise_point_to_point_error)
-        if error_type is 'me_norm':
-            func = compute_normalise_point_to_point_error
-        elif error_type is 'me':
-            func = compute_point_to_point_error
-        elif error_type is 'rmse':
-            func = compute_root_mean_square_error
+        func = _error_type_key_to_func(error_type)
 
         # Create errors list
         fit_errors = [f.final_error(compute_error=func)
@@ -2646,8 +2592,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # animation. Specifically, if the animation is activated and the user
         # selects the iterations tab, then the animation stops.
         def results_tab_fun(name, value):
-            if value == 1 and image_number_wid.play_toggle.value:
-                image_number_wid.stop_toggle.value = True
+            if value == 1 and image_number_wid.play_options_toggle.value:
+                image_number_wid.stop_options_toggle.value = True
         result_wid.on_trait_change(results_tab_fun, 'selected_index')
 
         # Widget titles
@@ -2676,8 +2622,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # If animation is activated and the user selects the save figure tab,
         # then the animation stops.
         def save_fig_tab_fun(name, value):
-            if value == 3 and image_number_wid.play_toggle.value:
-                image_number_wid.stop_toggle.value = True
+            if value == 3 and image_number_wid.play_options_toggle.value:
+                image_number_wid.stop_options_toggle.value = True
         options_box.on_trait_change(save_fig_tab_fun, 'selected_index')
 
     # Set widget's style
@@ -2691,3 +2637,16 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
 
     # Reset value to trigger initial visualization
     renderer_options_wid.options_widgets[3].render_legend_checkbox.value = True
+
+
+def _error_type_key_to_func(error_type):
+    from menpofit.result import (
+        compute_root_mean_square_error, compute_point_to_point_error,
+        compute_normalise_point_to_point_error)
+    if error_type is 'me_norm':
+        func = compute_normalise_point_to_point_error
+    elif error_type is 'me':
+        func = compute_point_to_point_error
+    elif error_type is 'rmse':
+        func = compute_root_mean_square_error
+    return func
