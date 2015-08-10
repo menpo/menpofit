@@ -1,11 +1,13 @@
 from __future__ import division
+import warnings
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
 from menpofit import checks
 from menpofit.base import batch
 from menpofit.builder import (
     normalization_wrt_reference_shape, compute_features, scale_images,
-    build_shape_model, increment_shape_model)
+    build_shape_model, increment_shape_model, MenpoFitBuilderWarning,
+    compute_reference_shape, rescale_images_to_reference_shape)
 from .expert import ExpertEnsemble, CorrelationFilterExpertEnsemble
 
 
@@ -28,7 +30,7 @@ class CLM(object):
                  diagonal=None, scales=(0.5, 1), features=no_op,
                  # shape_model_cls=build_normalised_pca_shape_model,
                  expert_ensemble_cls=CorrelationFilterExpertEnsemble,
-                 max_shape_components=None,
+                 max_shape_components=None, reference_shape=None,
                  shape_forgetting_factor=1.0):
         self.diagonal = checks.check_diagonal(diagonal)
         self.scales = checks.check_scales(scales)
@@ -41,9 +43,13 @@ class CLM(object):
         self.max_shape_components = checks.check_max_components(
             max_shape_components, self.n_scales, 'max_shape_components')
         self.shape_forgetting_factor = shape_forgetting_factor
+        self.reference_shape = reference_shape
+        self.shape_models = []
+        self.expert_ensembles = []
 
         # Train CLM
-        self.train(images, group=group, verbose=verbose, batch_size=batch_size)
+        self._train(images, increment=False, group=group, verbose=verbose,
+                    batch_size=batch_size)
 
     @property
     def n_scales(self):
@@ -54,18 +60,13 @@ class CLM(object):
         """
         return len(self.scales)
 
-    def _train_batch(self, image_batch, increment, group=None, verbose=False):
+    def _train_batch(self, image_batch, increment=False, group=None,
+                     verbose=False):
         r"""
         """
-        # If increment is False, we need to initialise/reset both shape models
-        # and ensembles of experts
-        if not increment:
-            self.shape_models = []
-            self.expert_ensembles = []
-
-        # normalize images and compute reference shape
-        self.reference_shape, image_batch = normalization_wrt_reference_shape(
-            image_batch, group, self.diagonal, verbose=verbose)
+        # normalize images
+        image_batch = rescale_images_to_reference_shape(
+            image_batch, group, self.reference_shape, verbose=verbose)
 
         # build models at each scale
         if verbose:
@@ -139,7 +140,7 @@ class CLM(object):
             if verbose:
                 print_dynamic('{}Done\n'.format(prefix))
 
-    def _train(self, images, increment, group=None, verbose=False,
+    def _train(self, images, increment=False, group=None, verbose=False,
                batch_size=None):
         r"""
         """
@@ -155,27 +156,36 @@ class CLM(object):
             image_batches = [list(images)]
 
         for k, image_batch in enumerate(image_batches):
+            if k == 0:
+                if self.reference_shape is None:
+                    # If no reference shape was given, use the mean of the first
+                    # batch
+                    if batch_size is not None:
+                        warnings.warn('No reference shape was provided. The '
+                                      'mean of the first batch will be the '
+                                      'reference shape. If the batch mean is '
+                                      'not representative of the true mean, '
+                                      'this may cause issues.',
+                                      MenpoFitBuilderWarning)
+                    self.reference_shape = compute_reference_shape(
+                        [i.landmarks[group].lms for i in image_batch],
+                        self.diagonal, verbose=verbose)
+
             # After the first batch, we are incrementing the model
             if k > 0:
                 increment = True
 
             if verbose:
-                print('Batch {}'.format(k))
+                print('Computing batch {}'.format(k))
 
             # Train each batch
-            self._train_batch(image_batch, increment, group=group,
+            self._train_batch(image_batch, increment=increment, group=group,
                               verbose=verbose)
-
-    def train(self, images, group=None, verbose=False, batch_size=None):
-        r"""
-        """
-        return self._train(images, False, group=group, verbose=verbose,
-                           batch_size=batch_size)
 
     def increment(self, images, group=None, verbose=False, batch_size=None):
         r"""
         """
-        return self._train(images, True, group=group, verbose=verbose,
+        return self._train(images, increment=True, group=group, verbose=verbose,
                            batch_size=batch_size)
 
     def view_shape_models_widget(self, n_parameters=5,
