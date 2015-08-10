@@ -5,9 +5,9 @@ from menpo.visualize import print_dynamic
 from menpofit import checks
 from menpofit.base import batch
 from menpofit.builder import (
-    normalization_wrt_reference_shape, compute_features, scale_images,
-    build_shape_model, increment_shape_model, MenpoFitBuilderWarning,
-    compute_reference_shape, rescale_images_to_reference_shape)
+    compute_features, scale_images, build_shape_model, increment_shape_model,
+    MenpoFitBuilderWarning, compute_reference_shape,
+    rescale_images_to_reference_shape)
 from .expert import ExpertEnsemble, CorrelationFilterExpertEnsemble
 
 
@@ -59,6 +59,48 @@ class CLM(object):
         :type: `int`
         """
         return len(self.scales)
+
+    def _train(self, images, increment=False, group=None, verbose=False,
+               batch_size=None):
+        r"""
+        """
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
+        if batch_size is not None:
+            # Create a generator of fixed sized batches. Will still work even
+            # on an infinite list.
+            image_batches = batch(images, batch_size)
+        else:
+            image_batches = [list(images)]
+
+        for k, image_batch in enumerate(image_batches):
+            if k == 0:
+                if self.reference_shape is None:
+                    # If no reference shape was given, use the mean of the first
+                    # batch
+                    if batch_size is not None:
+                        warnings.warn('No reference shape was provided. The '
+                                      'mean of the first batch will be the '
+                                      'reference shape. If the batch mean is '
+                                      'not representative of the true mean, '
+                                      'this may cause issues.',
+                                      MenpoFitBuilderWarning)
+                    self.reference_shape = compute_reference_shape(
+                        [i.landmarks[group].lms for i in image_batch],
+                        self.diagonal, verbose=verbose)
+
+            # After the first batch, we are incrementing the model
+            if k > 0:
+                increment = True
+
+            if verbose:
+                print('Computing batch {}'.format(k))
+
+            # Train each batch
+            self._train_batch(image_batch, increment=increment, group=group,
+                              verbose=verbose)
 
     def _train_batch(self, image_batch, increment=False, group=None,
                      verbose=False):
@@ -139,48 +181,6 @@ class CLM(object):
 
             if verbose:
                 print_dynamic('{}Done\n'.format(prefix))
-
-    def _train(self, images, increment=False, group=None, verbose=False,
-               batch_size=None):
-        r"""
-        """
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
-        if batch_size is not None:
-            # Create a generator of fixed sized batches. Will still work even
-            # on an infinite list.
-            image_batches = batch(images, batch_size)
-        else:
-            image_batches = [list(images)]
-
-        for k, image_batch in enumerate(image_batches):
-            if k == 0:
-                if self.reference_shape is None:
-                    # If no reference shape was given, use the mean of the first
-                    # batch
-                    if batch_size is not None:
-                        warnings.warn('No reference shape was provided. The '
-                                      'mean of the first batch will be the '
-                                      'reference shape. If the batch mean is '
-                                      'not representative of the true mean, '
-                                      'this may cause issues.',
-                                      MenpoFitBuilderWarning)
-                    self.reference_shape = compute_reference_shape(
-                        [i.landmarks[group].lms for i in image_batch],
-                        self.diagonal, verbose=verbose)
-
-            # After the first batch, we are incrementing the model
-            if k > 0:
-                increment = True
-
-            if verbose:
-                print('Computing batch {}'.format(k))
-
-            # Train each batch
-            self._train_batch(image_batch, increment=increment, group=group,
-                              verbose=verbose)
 
     def increment(self, images, group=None, verbose=False, batch_size=None):
         r"""
