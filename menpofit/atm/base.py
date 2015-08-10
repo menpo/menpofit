@@ -45,30 +45,15 @@ class ATM(object):
         self.warped_templates = []
 
         # Train ATM
-        self._train(template, shapes, group=group, verbose=verbose,
-                    increment=False, batch_size=batch_size)
+        self._train(template, shapes, increment=False, group=group,
+                    verbose=verbose, batch_size=batch_size)
 
-    def _train(self, template, shapes, group=None, verbose=False,
-               increment=False, shape_forgetting_factor=1.0, batch_size=None):
+    def _train(self, template, shapes, increment=False, group=None,
+               shape_forgetting_factor=1.0, verbose=False, batch_size=None):
         r"""
-        Builds an Active Template Model from a list of landmarked images.
-
-        Parameters
-        ----------
-        images : list of :map:`MaskedImage`
-            The set of landmarked images from which to build the AAM.
-        group : `string`, optional
-            The key of the landmark set that should be used. If ``None``,
-            and if there is only one set of landmarks, this set will be used.
-        verbose : `boolean`, optional
-            Flag that controls information and progress printing.
-
-        Returns
-        -------
-        aam : :map:`AAM`
-            The AAM object. Shape and appearance models are stored from
-            lowest to highest scale
         """
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -79,6 +64,26 @@ class ATM(object):
             shape_batches = [list(shapes)]
 
         for k, shape_batch in enumerate(shape_batches):
+            if k == 0:
+                # Rescale the template the reference shape
+                if self.reference_shape is None:
+                    # If no reference shape was given, use the mean of the first
+                    # batch
+                    if batch_size is not None:
+                        warnings.warn('No reference shape was provided. The '
+                                      'mean of the first batch will be the '
+                                      'reference shape. If the batch mean is '
+                                      'not representative of the true mean, '
+                                      'this may cause issues.',
+                                      MenpoFitBuilderWarning)
+                    checks.check_trilist(shape_batch[0], self.transform)
+                    self.reference_shape = compute_reference_shape(
+                        shape_batch, self.diagonal, verbose=verbose)
+
+                # Rescale the template the reference shape
+                template = template.rescale_to_pointcloud(
+                    self.reference_shape, group=group)
+
             # After the first batch, we are incrementing the model
             if k > 0:
                 increment = True
@@ -86,99 +91,92 @@ class ATM(object):
             if verbose:
                 print('Computing batch {}'.format(k))
 
-            if self.reference_shape is None:
-                # If no reference shape was given, use the mean of the first
-                # batch
-                if batch_size is not None:
-                    warnings.warn('No reference shape was provided. The mean '
-                                  'of the first batch will be the reference '
-                                  'shape. If the batch mean is not '
-                                  'representative of the true mean, this may '
-                                  'cause issues.', MenpoFitBuilderWarning)
-                checks.check_trilist(shape_batch[0], self.transform)
-                self.reference_shape = compute_reference_shape(
-                    shape_batch, self.diagonal, verbose=verbose)
+            # Train each batch
+            self._train_batch(template, shape_batch, increment=increment,
+                              group=group,
+                              shape_forgetting_factor=shape_forgetting_factor,
+                              verbose=verbose)
 
-            if k == 0:
-                # Rescale the template the reference shape
-                template = template.rescale_to_pointcloud(
-                    self.reference_shape, group=group)
+    def _train_batch(self, template, shape_batch, increment=False, group=None,
+                     shape_forgetting_factor=1.0, verbose=False):
+        r"""
+        Builds an Active Template Model from a list of landmarked images.
+        """
+        # build models at each scale
+        if verbose:
+            print_dynamic('- Building models\n')
 
-            # build models at each scale
+        feature_images = []
+        # for each scale (low --> high)
+        for j in range(self.n_scales):
             if verbose:
-                print_dynamic('- Building models\n')
-
-            feature_images = []
-            # for each scale (low --> high)
-            for j in range(self.n_scales):
-                if verbose:
-                    if len(self.scales) > 1:
-                        scale_prefix = '  - Scale {}: '.format(j)
-                    else:
-                        scale_prefix = '  - '
+                if len(self.scales) > 1:
+                    scale_prefix = '  - Scale {}: '.format(j)
                 else:
-                    scale_prefix = None
+                    scale_prefix = '  - '
+            else:
+                scale_prefix = None
 
-                # Handle features
-                if j == 0 or self.features[j] is not self.features[j - 1]:
-                    # Compute features only if this is the first pass through
-                    # the loop or the features at this scale are different from
-                    # the features at the previous scale
-                    feature_images = compute_features([template],
-                                                      self.features[j],
-                                                      prefix=scale_prefix,
-                                                      verbose=verbose)
-                # handle scales
-                if self.scales[j] != 1:
-                    # Scale feature images only if scale is different than 1
-                    scaled_images = scale_images(feature_images, self.scales[j],
-                                                 prefix=scale_prefix,
-                                                 verbose=verbose)
-                    # Extract potentially rescaled shapes
-                    scale_transform = Scale(scale_factor=self.scales[j],
-                                            n_dims=2)
-                    scale_shapes = [scale_transform.apply(s)
-                                    for s in shape_batch]
+            # Handle features
+            if j == 0 or self.features[j] is not self.features[j - 1]:
+                # Compute features only if this is the first pass through
+                # the loop or the features at this scale are different from
+                # the features at the previous scale
+                feature_images = compute_features([template],
+                                                  self.features[j],
+                                                  prefix=scale_prefix,
+                                                  verbose=verbose)
+            # handle scales
+            if self.scales[j] != 1:
+                # Scale feature images only if scale is different than 1
+                scaled_images = scale_images(feature_images, self.scales[j],
+                                             prefix=scale_prefix,
+                                             verbose=verbose)
+                # Extract potentially rescaled shapes
+                scale_transform = Scale(scale_factor=self.scales[j],
+                                        n_dims=2)
+                scale_shapes = [scale_transform.apply(s)
+                                for s in shape_batch]
+            else:
+                scaled_images = feature_images
+                scale_shapes = shape_batch
+
+            # Build the shape model
+            if verbose:
+                print_dynamic('{}Building shape model'.format(scale_prefix))
+
+            if not increment:
+                if j == 0:
+                    shape_model = self._build_shape_model(scale_shapes, j)
+                    self.shape_models.append(shape_model)
                 else:
-                    scaled_images = feature_images
-                    scale_shapes = shape_batch
+                    self.shape_models.append(deepcopy(shape_model))
+            else:
+                self._increment_shape_model(
+                    scale_shapes,  self.shape_models[j],
+                    forgetting_factor=shape_forgetting_factor)
 
-                # Build the shape model
-                if verbose:
-                    print_dynamic('{}Building shape model'.format(scale_prefix))
+            # Obtain warped images - we use a scaled version of the
+            # reference shape, computed here. This is because the mean
+            # moves when we are incrementing, and we need a consistent
+            # reference frame.
+            scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
+                self.reference_shape)
+            warped_template = self._warp_template(scaled_images[0], group,
+                                                  scaled_reference_shape,
+                                                  j, scale_prefix, verbose)
+            self.warped_templates.append(warped_template[0])
 
-                if not increment:
-                    if j == 0:
-                        shape_model = self._build_shape_model(scale_shapes, j)
-                        self.shape_models.append(shape_model)
-                    else:
-                        self.shape_models.append(deepcopy(shape_model))
-                else:
-                    self._increment_shape_model(
-                        scale_shapes,  self.shape_models[j],
-                        forgetting_factor=shape_forgetting_factor)
+            if verbose:
+                print_dynamic('{}Done\n'.format(scale_prefix))
 
-                # Obtain warped images - we use a scaled version of the
-                # reference shape, computed here. This is because the mean
-                # moves when we are incrementing, and we need a consistent
-                # reference frame.
-                scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
-                    self.reference_shape)
-                warped_template = self._warp_template(scaled_images[0], group,
-                                                      scaled_reference_shape,
-                                                      j, scale_prefix, verbose)
-                self.warped_templates.append(warped_template[0])
-
-                if verbose:
-                    print_dynamic('{}Done\n'.format(scale_prefix))
-
-            # Because we just copy the shape model, we need to wait to trim
-            # it after building each model. This ensures we can have a different
-            # number of components per level
-            for j, sm in enumerate(self.shape_models):
-                max_sc = self.max_shape_components[j]
-                if max_sc is not None:
-                    sm.trim_components(max_sc)
+        # Because we just copy the shape model, we need to wait to trim
+        # it after building each model. This ensures we can have a different
+        # number of components per level
+        for j, sm in enumerate(self.shape_models):
+            max_sc = self.max_shape_components[j]
+            if max_sc is not None:
+                sm.trim_components(max_sc)
 
     def increment(self, template, shapes, group=None, verbose=False,
                   shape_forgetting_factor=1.0, batch_size=None):

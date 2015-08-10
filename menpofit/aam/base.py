@@ -139,12 +139,60 @@ class AAM(object):
         self.appearance_models = []
 
         # Train AAM
-        self._train(images, group=group, verbose=verbose, increment=False,
+        self._train(images, increment=False, group=group, verbose=verbose,
                     batch_size=batch_size)
 
-    def _train(self, images, group=None, verbose=False, increment=False,
+    def _train(self, images, increment=False, group=None,
                shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
-               batch_size=None):
+               verbose=False, batch_size=None):
+        r"""
+        """
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
+        if batch_size is not None:
+            # Create a generator of fixed sized batches. Will still work even
+            # on an infinite list.
+            image_batches = batch(images, batch_size)
+        else:
+            image_batches = [list(images)]
+
+        for k, image_batch in enumerate(image_batches):
+            if k == 0:
+                if self.reference_shape is None:
+                    # If no reference shape was given, use the mean of the first
+                    # batch
+                    if batch_size is not None:
+                        warnings.warn('No reference shape was provided. The '
+                                      'mean of the first batch will be the '
+                                      'reference shape. If the batch mean is '
+                                      'not representative of the true mean, '
+                                      'this may cause issues.',
+                                      MenpoFitBuilderWarning)
+                    checks.check_landmark_trilist(image_batch[0],
+                                                  self.transform, group=group)
+                    self.reference_shape = compute_reference_shape(
+                        [i.landmarks[group].lms for i in image_batch],
+                        self.diagonal, verbose=verbose)
+
+            # After the first batch, we are incrementing the model
+            if k > 0:
+                increment = True
+
+            if verbose:
+                print('Computing batch {}'.format(k))
+
+            # Train each batch
+            self._train_batch(
+                image_batch, increment=increment, group=group,
+                shape_forgetting_factor=shape_forgetting_factor,
+                appearance_forgetting_factor=appearance_forgetting_factor,
+                verbose=verbose)
+
+    def _train_batch(self, image_batch, increment=False, group=None,
+                     verbose=False, shape_forgetting_factor=1.0,
+                     appearance_forgetting_factor=1.0):
         r"""
         Builds an Active Appearance Model from a list of landmarked images.
 
@@ -164,138 +212,106 @@ class AAM(object):
             The AAM object. Shape and appearance models are stored from
             lowest to highest scale
         """
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
-        if batch_size is not None:
-            # Create a generator of fixed sized batches. Will still work even
-            # on an infinite list.
-            image_batches = batch(images, batch_size)
-        else:
-            image_batches = [list(images)]
+        # Rescale to existing reference shape
+        image_batch = rescale_images_to_reference_shape(
+            image_batch, group, self.reference_shape,
+            verbose=verbose)
 
-        for k, image_batch in enumerate(image_batches):
-            # After the first batch, we are incrementing the model
-            if k > 0:
-                increment = True
+        # build models at each scale
+        if verbose:
+            print_dynamic('- Building models\n')
+
+        feature_images = []
+        # for each scale (low --> high)
+        for j in range(self.n_scales):
+            if verbose:
+                if len(self.scales) > 1:
+                    scale_prefix = '  - Scale {}: '.format(j)
+                else:
+                    scale_prefix = '  - '
+            else:
+                scale_prefix = None
+
+            # Handle features
+            if j == 0 or self.features[j] is not self.features[j - 1]:
+                # Compute features only if this is the first pass through
+                # the loop or the features at this scale are different from
+                # the features at the previous scale
+                feature_images = compute_features(image_batch,
+                                                  self.features[j],
+                                                  prefix=scale_prefix,
+                                                  verbose=verbose)
+            # handle scales
+            if self.scales[j] != 1:
+                # Scale feature images only if scale is different than 1
+                scaled_images = scale_images(feature_images, self.scales[j],
+                                             prefix=scale_prefix,
+                                             verbose=verbose)
+            else:
+                scaled_images = feature_images
+
+            # Extract potentially rescaled shapes
+            scale_shapes = [i.landmarks[group].lms for i in scaled_images]
+
+            # Build the shape model
+            if verbose:
+                print_dynamic('{}Building shape model'.format(scale_prefix))
+
+            if not increment:
+                if j == 0:
+                    shape_model = self._build_shape_model(
+                        scale_shapes, j)
+                    self.shape_models.append(shape_model)
+                else:
+                    self.shape_models.append(deepcopy(shape_model))
+            else:
+                self._increment_shape_model(
+                    scale_shapes,  self.shape_models[j],
+                    forgetting_factor=shape_forgetting_factor)
+
+            # Obtain warped images - we use a scaled version of the
+            # reference shape, computed here. This is because the mean
+            # moves when we are incrementing, and we need a consistent
+            # reference frame.
+            scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
+                self.reference_shape)
+            warped_images = self._warp_images(scaled_images, scale_shapes,
+                                              scaled_reference_shape,
+                                              j, scale_prefix, verbose)
+
+            # obtain appearance model
+            if verbose:
+                print_dynamic('{}Building appearance model'.format(
+                    scale_prefix))
+
+            if not increment:
+                appearance_model = PCAModel(warped_images)
+                # trim appearance model if required
+                if self.max_appearance_components is not None:
+                    appearance_model.trim_components(
+                        self.max_appearance_components[j])
+                # add appearance model to the list
+                self.appearance_models.append(appearance_model)
+            else:
+                # increment appearance model
+                self.appearance_models[j].increment(
+                    warped_images,
+                    forgetting_factor=appearance_forgetting_factor)
+                # trim appearance model if required
+                if self.max_appearance_components is not None:
+                    self.appearance_models[j].trim_components(
+                        self.max_appearance_components[j])
 
             if verbose:
-                print('Computing batch {}'.format(k))
+                print_dynamic('{}Done\n'.format(scale_prefix))
 
-            if self.reference_shape is None:
-                # If no reference shape was given, use the mean of the first
-                # batch
-                if batch_size is not None:
-                    warnings.warn('No reference shape was provided. The mean '
-                                  'of the first batch will be the reference '
-                                  'shape. If the batch mean is not '
-                                  'representative of the true mean, this may '
-                                  'cause issues.', MenpoFitBuilderWarning)
-                checks.check_landmark_trilist(image_batch[0], self.transform,
-                                              group=group)
-                self.reference_shape = compute_reference_shape(
-                    [i.landmarks[group].lms for i in image_batch],
-                    self.diagonal, verbose=verbose)
-
-            # Rescale to existing reference shape
-            image_batch = rescale_images_to_reference_shape(
-                image_batch, group, self.reference_shape,
-                verbose=verbose)
-
-            # build models at each scale
-            if verbose:
-                print_dynamic('- Building models\n')
-
-            feature_images = []
-            # for each scale (low --> high)
-            for j in range(self.n_scales):
-                if verbose:
-                    if len(self.scales) > 1:
-                        scale_prefix = '  - Scale {}: '.format(j)
-                    else:
-                        scale_prefix = '  - '
-                else:
-                    scale_prefix = None
-
-                # Handle features
-                if j == 0 or self.features[j] is not self.features[j - 1]:
-                    # Compute features only if this is the first pass through
-                    # the loop or the features at this scale are different from
-                    # the features at the previous scale
-                    feature_images = compute_features(image_batch,
-                                                      self.features[j],
-                                                      prefix=scale_prefix,
-                                                      verbose=verbose)
-                # handle scales
-                if self.scales[j] != 1:
-                    # Scale feature images only if scale is different than 1
-                    scaled_images = scale_images(feature_images, self.scales[j],
-                                                 prefix=scale_prefix,
-                                                 verbose=verbose)
-                else:
-                    scaled_images = feature_images
-
-                # Extract potentially rescaled shapes
-                scale_shapes = [i.landmarks[group].lms for i in scaled_images]
-
-                # Build the shape model
-                if verbose:
-                    print_dynamic('{}Building shape model'.format(scale_prefix))
-
-                if not increment:
-                    if j == 0:
-                        shape_model = self._build_shape_model(
-                            scale_shapes, j)
-                        self.shape_models.append(shape_model)
-                    else:
-                        self.shape_models.append(deepcopy(shape_model))
-                else:
-                    self._increment_shape_model(
-                        scale_shapes,  self.shape_models[j],
-                        forgetting_factor=shape_forgetting_factor)
-
-                # Obtain warped images - we use a scaled version of the
-                # reference shape, computed here. This is because the mean
-                # moves when we are incrementing, and we need a consistent
-                # reference frame.
-                scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
-                    self.reference_shape)
-                warped_images = self._warp_images(scaled_images, scale_shapes,
-                                                  scaled_reference_shape,
-                                                  j, scale_prefix, verbose)
-
-                # obtain appearance model
-                if verbose:
-                    print_dynamic('{}Building appearance model'.format(
-                        scale_prefix))
-
-                if not increment:
-                    appearance_model = PCAModel(warped_images)
-                    # trim appearance model if required
-                    if self.max_appearance_components is not None:
-                        appearance_model.trim_components(
-                            self.max_appearance_components[j])
-                    # add appearance model to the list
-                    self.appearance_models.append(appearance_model)
-                else:
-                    # increment appearance model
-                    self.appearance_models[j].increment(
-                        warped_images,
-                        forgetting_factor=appearance_forgetting_factor)
-                    # trim appearance model if required
-                    if self.max_appearance_components is not None:
-                        self.appearance_models[j].trim_components(
-                            self.max_appearance_components[j])
-
-                if verbose:
-                    print_dynamic('{}Done\n'.format(scale_prefix))
-
-            # Because we just copy the shape model, we need to wait to trim
-            # it after building each model. This ensures we can have a different
-            # number of components per level
-            for j, sm in enumerate(self.shape_models):
-                max_sc = self.max_shape_components[j]
-                if max_sc is not None:
-                    sm.trim_components(max_sc)
+        # Because we just copy the shape model, we need to wait to trim
+        # it after building each model. This ensures we can have a different
+        # number of components per level
+        for j, sm in enumerate(self.shape_models):
+            max_sc = self.max_shape_components[j]
+            if max_sc is not None:
+                sm.trim_components(max_sc)
 
     def increment(self, images, group=None, verbose=False,
                   shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
@@ -303,11 +319,11 @@ class AAM(object):
         # Literally just to fit under 80 characters, but maintain the sensible
         # parameter name
         aff = appearance_forgetting_factor
-        return self._train(images, group=group,
+        return self._train(images, increment=True, group=group,
                            verbose=verbose,
                            shape_forgetting_factor=shape_forgetting_factor,
                            appearance_forgetting_factor=aff,
-                           increment=True, batch_size=batch_size)
+                           batch_size=batch_size)
 
     def _build_shape_model(self, shapes, scale_index):
         return build_shape_model(shapes)
