@@ -218,10 +218,10 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
                 # Increment correlation filter
                 correlation_filter, auto_correlation, cross_correlation = (
                     self._icf.increment(self.auto_correlations[i],
-                                       self.cross_correlations[i],
-                                       self.n_images,
-                                       patches,
-                                       self.response))
+                                        self.cross_correlations[i],
+                                        self.n_images,
+                                        patches,
+                                        self.response))
             else:
                 # Train correlation filter
                 correlation_filter, auto_correlation, cross_correlation = (
@@ -258,5 +258,3 @@ def generate_cosine_mask(patch_size):
     cy = np.hanning(patch_size[0])
     cx = np.hanning(patch_size[1])
     return cy[..., None].dot(cx[None, ...])
-
-

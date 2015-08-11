@@ -162,8 +162,8 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
     r"""
     """
     def __init__(self, transform, template, sampling=None,
-                 patch_shape=(17, 17), normalize_parts=no_op):
-        self.patch_shape = patch_shape
+                 patch_size=(17, 17), normalize_parts=no_op):
+        self.patch_size = patch_size
         # TODO: Refactor to patch_features
         self.normalize_parts = normalize_parts
 
@@ -172,7 +172,7 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
 
     def _build_sampling_mask(self, sampling):
         if sampling is None:
-            sampling = np.ones(self.patch_shape, dtype=np.bool)
+            sampling = np.ones(self.patch_size, dtype=np.bool)
 
         image_shape = self.template.pixels.shape
         image_mask = np.tile(sampling[None, None, None, ...],
@@ -192,14 +192,14 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
 
     def warp(self, image):
         parts = image.extract_patches(self.transform.target,
-                                      patch_size=self.patch_shape,
+                                      patch_size=self.patch_size,
                                       as_single_array=True)
         parts = self.normalize_parts(parts)
         return Image(parts, copy=False)
 
     def gradient(self, image):
         pixels = image.pixels
-        nabla = fast_gradient(pixels.reshape((-1,) + self.patch_shape))
+        nabla = fast_gradient(pixels.reshape((-1,) + self.patch_size))
         # remove 1st dimension gradient which corresponds to the gradient
         # between parts
         return nabla.reshape((2,) + pixels.shape)
@@ -228,12 +228,12 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     r"""
     """
     def __init__(self, appearance_model, transform, template, sampling=None,
-                 patch_shape=(17, 17), normalize_parts=no_op):
+                 patch_size=(17, 17), normalize_parts=no_op):
         # TODO: Refactor to patch_features
         self.appearance_model = appearance_model
 
         super(LucasKanadePatchInterface, self).__init__(
-            transform, template, patch_shape=patch_shape,
+            transform, template, patch_size=patch_size,
             normalize_parts=normalize_parts, sampling=sampling)
 
     @property

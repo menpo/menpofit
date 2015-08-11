@@ -78,8 +78,8 @@ class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
     r"""
     """
     def __init__(self, appearance_model, transform, template, sampling=None,
-                 patch_shape=(17, 17), normalize_parts=no_op):
-        self.patch_shape = patch_shape
+                 patch_size=(17, 17), normalize_parts=no_op):
+        self.patch_size = patch_size
         # TODO: Refactor to patch_features
         self.normalize_parts = normalize_parts
 
@@ -88,7 +88,7 @@ class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
 
     def _build_sampling_mask(self, sampling):
         if sampling is None:
-            sampling = np.ones(self.patch_shape, dtype=np.bool)
+            sampling = np.ones(self.patch_size, dtype=np.bool)
 
         image_shape = self.template.pixels.shape
         image_mask = np.tile(sampling[None, None, None, ...],
@@ -101,7 +101,7 @@ class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
 
     def warp(self, image):
         parts = image.extract_patches(self.transform.target,
-                                      patch_size=self.patch_shape,
+                                      patch_size=self.patch_size,
                                       as_single_array=True)
         parts = self.normalize_parts(parts)
         return Image(parts, copy=False)
