@@ -21,8 +21,8 @@ class MultiFitter(object):
         """
         return len(self.scales)
 
-    def fit(self, image, initial_shape, max_iters=20, gt_shape=None,
-            crop_image=0.5, **kwargs):
+    def fit_from_shape(self, image, initial_shape, max_iters=20, gt_shape=None,
+                       crop_image=None, **kwargs):
         r"""
         Fits the multilevel fitter to an image.
 
@@ -77,6 +77,14 @@ class MultiFitter(object):
             image, algorithm_results, affine_correction, gt_shape=gt_shape)
 
         return fitter_result
+
+    def fit_from_bb(self, image, bounding_box, max_iters=20, gt_shape=None,
+                    crop_image=None, **kwargs):
+        initial_shape = align_shape_with_bounding_box(self.reference_shape,
+                                                      bounding_box)
+        return self.fit_from_shape(image, initial_shape, max_iters=max_iters,
+                                   gt_shape=gt_shape, crop_image=crop_image,
+                                   **kwargs)
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
                        crop_image=0.5):
