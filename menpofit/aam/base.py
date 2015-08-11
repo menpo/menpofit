@@ -873,7 +873,7 @@ class PatchAAM(AAM):
 
         super(PatchAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
-            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
+            transform=None, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
@@ -937,13 +937,18 @@ def _aam_str(aam):
                 aam.patch_shape[k])
     scales_info = '\n'.join(scales_info)
 
+    if aam.transform is not None:
+        transform_str = 'Images warped with {transform} transform'
+    else:
+        transform_str = 'No image warping performed'
+
     cls_str = r"""{class_title}
- - Images warped with {transform} transform
  - Images scaled to diagonal: {diagonal:.2f}
+ - {transform}
  - Scales: {scales}
 {scales_info}
 """.format(class_title=aam._str_title,
-           transform=name_of_callable(aam.transform),
+           transform=transform_str,
            diagonal=diagonal,
            scales=aam.scales,
            scales_info=scales_info)
