@@ -162,7 +162,7 @@ def warp_images(images, shapes, reference_frame, transform, prefix='',
 def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
                     prefix='', verbose=False):
     wrap = partial(print_progress,
-                   prefix='{}Warping images'.format(prefix),
+                   prefix='{}Extracting patches'.format(prefix),
                    end_with_newline=not prefix, verbose=verbose)
 
     parts_images = []

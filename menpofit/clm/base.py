@@ -118,9 +118,11 @@ class CLM(object):
         for i in range(self.n_scales):
             if verbose:
                 if self.n_scales > 1:
-                    prefix = ' - Scale {}: '.format(i)
+                    prefix = '  - Scale {}: '.format(j)
                 else:
-                    prefix = ' - '
+                    prefix = '  - '
+            else:
+                prefix = None
 
             # Handle holistic features
             if i == 0 and self.features[i] == no_op:
