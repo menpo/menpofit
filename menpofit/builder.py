@@ -173,9 +173,7 @@ def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
         parts_images.append(Image(parts))
     return parts_images
 
-
-def build_reference_frame(landmarks, boundary=3, group='source',
-                          trilist=None):
+def build_reference_frame(landmarks, boundary=3, group='source'):
     r"""
     Builds a reference frame from a particular set of landmarks.
 
@@ -183,21 +181,13 @@ def build_reference_frame(landmarks, boundary=3, group='source',
     ----------
     landmarks : :map:`PointCloud`
         The landmarks that will be used to build the reference frame.
-
     boundary : `int`, optional
         The number of pixels to be left as a safe margin on the boundaries
         of the reference frame (has potential effects on the gradient
         computation).
-
     group : `string`, optional
         Group that will be assigned to the provided set of landmarks on the
         reference frame.
-
-    trilist : ``(t, 3)`` `ndarray`, optional
-        Triangle list that will be used to build the reference frame.
-
-        If ``None``, defaults to performing Delaunay triangulation on the
-        points.
 
     Returns
     -------
@@ -206,14 +196,13 @@ def build_reference_frame(landmarks, boundary=3, group='source',
     """
     reference_frame = _build_reference_frame(landmarks, boundary=boundary,
                                              group=group)
-    if trilist is not None:
-        reference_frame.landmarks[group] = TriMesh(
-            reference_frame.landmarks['source'].lms.points, trilist=trilist)
+    source_landmarks = reference_frame.landmarks['source'].lms
+    if isinstance(source_landmarks, TriMesh):
+        trilist = source_landmarks.trilist
+    else:
+        trilist = None
 
-    # TODO: revise kwarg trilist in method constrain_mask_to_landmarks,
-    # perhaps the trilist should be directly obtained from the group landmarks
     reference_frame.constrain_mask_to_landmarks(group=group, trilist=trilist)
-
     return reference_frame
 
 
@@ -337,3 +326,10 @@ def increment_shape_model(shape_model, shapes, forgetting_factor=None,
     if max_components is not None:
         shape_model.trim_components(max_components)
     return shape_model
+
+
+class MenpoFitBuilderWarning(Warning):
+    r"""
+    A warning that some part of building the model may cause issues.
+    """
+    pass
