@@ -5,7 +5,7 @@ from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 from .base import ATM, MaskedATM, LinearATM, LinearMaskedATM, PatchATM
 from .algorithm import (
-    ATMLKStandardInterface, ATMLKPartsInterface, ATMLKLinearInterface,
+    ATMLKStandardInterface, ATMLKPatchInterface, ATMLKLinearInterface,
     InverseCompositional)
 from .result import ATMFitterResult
 
@@ -45,7 +45,7 @@ class LucasKanadeATMFitter(ModelFitter):
                 algorithm = algorithm_cls(interface)
             elif type(self.atm) is PatchATM:
                 pdm = OrthoPDM(sm)
-                interface = ATMLKPartsInterface(
+                interface = ATMLKPatchInterface(
                     pdm, wt, sampling=s, patch_shape=self.atm.patch_shape[j],
                     normalize_parts=self.atm.normalize_parts)
                 algorithm = algorithm_cls(interface)

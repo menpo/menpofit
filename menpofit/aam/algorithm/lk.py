@@ -158,7 +158,7 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
 
 
 # TODO document me!
-class LucasKanadePartsBaseInterface(LucasKanadeBaseInterface):
+class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
     r"""
     """
     def __init__(self, transform, template, sampling=None,
@@ -167,7 +167,7 @@ class LucasKanadePartsBaseInterface(LucasKanadeBaseInterface):
         # TODO: Refactor to patch_features
         self.normalize_parts = normalize_parts
 
-        super(LucasKanadePartsBaseInterface, self).__init__(
+        super(LucasKanadePatchBaseInterface, self).__init__(
             transform, template, sampling=sampling)
 
     def _build_sampling_mask(self, sampling):
@@ -224,7 +224,7 @@ class LucasKanadePartsBaseInterface(LucasKanadeBaseInterface):
 
 
 # TODO document me!
-class LucasKanadePartsInterface(LucasKanadePartsBaseInterface):
+class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     r"""
     """
     def __init__(self, appearance_model, transform, template, sampling=None,
@@ -232,7 +232,7 @@ class LucasKanadePartsInterface(LucasKanadePartsBaseInterface):
         # TODO: Refactor to patch_features
         self.appearance_model = appearance_model
 
-        super(LucasKanadePartsInterface, self).__init__(
+        super(LucasKanadePatchInterface, self).__init__(
             transform, template, patch_shape=patch_shape,
             normalize_parts=normalize_parts, sampling=sampling)
 
