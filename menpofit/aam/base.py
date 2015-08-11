@@ -232,8 +232,11 @@ class AAM(object):
             else:
                 scale_prefix = None
 
-            # Handle features
-            if j == 0 or self.features[j] is not self.features[j - 1]:
+            # Handle holistic features
+            if j == 0 and self.features[j] == no_op:
+                # Saves a lot of memory
+                feature_images = image_batch
+            elif j == 0 or self.features[j] is not self.features[j - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale

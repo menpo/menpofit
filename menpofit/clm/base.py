@@ -122,8 +122,11 @@ class CLM(object):
                 else:
                     prefix = ' - '
 
-            # handle features
-            if i == 0 or self.features[i] is not self.features[i-1]:
+            # Handle holistic features
+            if i == 0 and self.features[i] == no_op:
+                # Saves a lot of memory
+                feature_images = image_batch
+            elif i == 0 or self.features[i] is not self.features[i - 1]:
                 # compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
