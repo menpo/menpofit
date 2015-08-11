@@ -563,7 +563,7 @@ class MaskedAAM(AAM):
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-    patch_shape : tuple of `int`
+    patch_size : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
     features : `callable` or ``[callable]``
         If list of length ``n_scales``, feature extraction is performed at
@@ -584,10 +584,10 @@ class MaskedAAM(AAM):
     """
 
     def __init__(self, images, group=None, verbose=False, features=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
                  max_shape_components=None, max_appearance_components=None,
                  batch_size=None):
-        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        self.patch_size = checks.check_patch_size(patch_size, len(scales))
 
         super(MaskedAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
@@ -599,7 +599,7 @@ class MaskedAAM(AAM):
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
         reference_frame = build_patch_reference_frame(
-            reference_shape, patch_shape=self.patch_shape[scale_index])
+            reference_shape, patch_size=self.patch_size[scale_index])
         return warp_images(images, shapes, reference_frame, self.transform,
                            prefix=prefix, verbose=verbose)
 
@@ -612,7 +612,7 @@ class MaskedAAM(AAM):
         landmarks = template.landmarks['source'].lms
 
         reference_frame = build_patch_reference_frame(
-            shape_instance, patch_shape=self.patch_shape)
+            shape_instance, patch_size=self.patch_size)
 
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
@@ -746,7 +746,7 @@ class LinearMaskedAAM(AAM):
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-    patch_shape : tuple of `int`
+    patch_size : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
     features : `callable` or ``[callable]``
         If list of length ``n_scales``, feature extraction is performed at
@@ -766,10 +766,10 @@ class LinearMaskedAAM(AAM):
     """
 
     def __init__(self, images, group=None, verbose=False, features=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
                  max_shape_components=None, max_appearance_components=None,
                  batch_size=None):
-        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        self.patch_size = checks.check_patch_size(patch_size, len(scales))
 
         super(LinearMaskedAAM, self).__init__(
             images, group=group, verbose=verbose, features=features,
@@ -790,7 +790,7 @@ class LinearMaskedAAM(AAM):
         mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
         self.n_landmarks = mean_aligned_shape.n_points
         self.reference_frame = build_patch_reference_frame(
-            mean_aligned_shape, patch_shape=self.patch_shape[scale_index])
+            mean_aligned_shape, patch_size=self.patch_size[scale_index])
         dense_shapes = densify_shapes(shapes, self.reference_frame,
                                       self.transform)
         # build dense shape model
@@ -847,7 +847,7 @@ class PatchAAM(AAM):
     reference_shape : :map:`PointCloud`
         The reference shape that was used to resize all training images to a
         consistent object size.
-    patch_shape : tuple of `int`
+    patch_size : tuple of `int`
         The shape of the patches used to build the Patch Based AAM.
     features : `callable` or ``[callable]``
         If list of length ``n_scales``, feature extraction is performed at
@@ -869,9 +869,9 @@ class PatchAAM(AAM):
 
     def __init__(self, images, group=None, verbose=False, features=no_op,
                  normalize_parts=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), max_shape_components=None,
+                 patch_size=(17, 17), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
-        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        self.patch_size = checks.check_patch_size(patch_size, len(scales))
         self.normalize_parts = normalize_parts
 
         super(PatchAAM, self).__init__(
@@ -891,7 +891,7 @@ class PatchAAM(AAM):
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
-        return extract_patches(images, shapes, self.patch_shape[scale_index],
+        return extract_patches(images, shapes, self.patch_size[scale_index],
                                normalize_function=self.normalize_parts,
                                prefix=prefix, verbose=verbose)
 
@@ -934,10 +934,10 @@ def _aam_str(aam):
             aam.appearance_models[k].n_components,
             aam.shape_models[k].n_components))
     # Patch based AAM
-    if hasattr(aam, 'patch_shape'):
+    if hasattr(aam, 'patch_size'):
         for k in range(len(scales_info)):
-            scales_info[k] += '\n   - Patch shape: {}'.format(
-                aam.patch_shape[k])
+            scales_info[k] += '\n   - Patch size: {}'.format(
+                aam.patch_size[k])
     scales_info = '\n'.join(scales_info)
 
     if aam.transform is not None:

@@ -159,7 +159,7 @@ def warp_images(images, shapes, reference_frame, transform, prefix='',
 
 
 # TODO: document me!
-def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
+def extract_patches(images, shapes, patch_size, normalize_function=no_op,
                     prefix='', verbose=False):
     wrap = partial(print_progress,
                    prefix='{}Extracting patches'.format(prefix),
@@ -167,7 +167,7 @@ def extract_patches(images, shapes, patch_shape, normalize_function=no_op,
 
     parts_images = []
     for i, s in wrap(zip(images, shapes)):
-        parts = i.extract_patches(s, patch_size=patch_shape,
+        parts = i.extract_patches(s, patch_size=patch_size,
                                   as_single_array=True)
         parts = normalize_function(parts)
         parts_images.append(Image(parts))
@@ -207,7 +207,7 @@ def build_reference_frame(landmarks, boundary=3, group='source'):
 
 
 def build_patch_reference_frame(landmarks, boundary=3, group='source',
-                                patch_shape=(17, 17)):
+                                patch_size=(17, 17)):
     r"""
     Builds a reference frame from a particular set of landmarks.
 
@@ -225,7 +225,7 @@ def build_patch_reference_frame(landmarks, boundary=3, group='source',
         Group that will be assigned to the provided set of landmarks on the
         reference frame.
 
-    patch_shape : tuple of ints, optional
+    patch_size : tuple of ints, optional
         Tuple specifying the shape of the patches.
 
     Returns
@@ -233,12 +233,12 @@ def build_patch_reference_frame(landmarks, boundary=3, group='source',
     patch_based_reference_frame : :map:`Image`
         The patch based reference frame.
     """
-    boundary = np.max(patch_shape) + boundary
+    boundary = np.max(patch_size) + boundary
     reference_frame = _build_reference_frame(landmarks, boundary=boundary,
                                              group=group)
 
     # mask reference frame
-    reference_frame.build_mask_around_landmarks(patch_shape, group=group)
+    reference_frame.build_mask_around_landmarks(patch_size, group=group)
 
     return reference_frame
 

@@ -44,7 +44,7 @@ class SupervisedDescentAlgorithm(object):
         for k in range(self.n_iterations):
             # generate regression data
             features = features_per_image(
-                images, current_shapes, self.patch_shape, self.features,
+                images, current_shapes, self.patch_size, self.features,
                 prefix='{}(Iteration {}) - '.format(prefix, k),
                 verbose=verbose)
 
@@ -90,7 +90,7 @@ class SupervisedDescentAlgorithm(object):
         for r in self.regressors:
             # compute regression features
             features = features_per_patch(image, current_shape,
-                                          self.patch_shape, self.features)
+                                          self.patch_size, self.features)
 
             # solve for increments on the shape vector
             dx = r.predict(features)
@@ -127,15 +127,14 @@ class SupervisedDescentAlgorithm(object):
 class Newton(SupervisedDescentAlgorithm):
     r"""
     """
-    def __init__(self, features=no_op, patch_shape=(17, 17), n_iterations=3,
+    def __init__(self, features=no_op, patch_size=(17, 17), n_iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5, alpha=0, bias=True):
         super(Newton, self).__init__()
 
         self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
-        self.patch_shape = patch_shape
+        self.patch_size = patch_size
         self.features = features
-        self.patch_shape = patch_shape
         self.n_iterations = n_iterations
         self._compute_error = compute_error
         self.eps = eps
@@ -145,26 +144,25 @@ class Newton(SupervisedDescentAlgorithm):
 class GaussNewton(SupervisedDescentAlgorithm):
     r"""
     """
-    def __init__(self, features=no_op, patch_shape=(17, 17), n_iterations=3,
+    def __init__(self, features=no_op, patch_size=(17, 17), n_iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5, alpha=0, bias=True, alpha2=0):
         super(GaussNewton, self).__init__()
 
         self._regressor_cls = partial(IIRLRegression, alpha=alpha, bias=bias,
                                       alpha2=alpha2)
-        self.patch_shape = patch_shape
+        self.patch_size = patch_size
         self.features = features
-        self.patch_shape = patch_shape
         self.n_iterations = n_iterations
         self._compute_error = compute_error
         self.eps = eps
 
 
 # TODO: document me!
-def features_per_patch(image, shape, patch_shape, features_callable):
+def features_per_patch(image, shape, patch_size, features_callable):
     """r
     """
-    patches = image.extract_patches(shape, patch_size=patch_shape,
+    patches = image.extract_patches(shape, patch_size=patch_size,
                                     as_single_array=True)
 
     patch_features = [features_callable(p[0]).ravel() for p in patches]
@@ -172,10 +170,10 @@ def features_per_patch(image, shape, patch_shape, features_callable):
 
 
 # TODO: document me!
-def features_per_shape(image, shapes, patch_shape, features_callable):
+def features_per_shape(image, shapes, patch_size, features_callable):
     """r
     """
-    patch_features = [features_per_patch(image, s, patch_shape,
+    patch_features = [features_per_patch(image, s, patch_size,
                                          features_callable)
                       for s in shapes]
 
@@ -183,7 +181,7 @@ def features_per_shape(image, shapes, patch_shape, features_callable):
 
 
 # TODO: document me!
-def features_per_image(images, shapes, patch_shape, features_callable,
+def features_per_image(images, shapes, patch_size, features_callable,
                        prefix='', verbose=False):
     """r
     """
@@ -191,7 +189,7 @@ def features_per_image(images, shapes, patch_shape, features_callable,
                    prefix='{}Extracting patches'.format(prefix),
                    end_with_newline=not prefix, verbose=verbose)
 
-    patch_features = [features_per_shape(i, shapes[j], patch_shape,
+    patch_features = [features_per_shape(i, shapes[j], patch_size,
                                          features_callable)
                       for j, i in enumerate(wrap(images))]
     patch_features = np.asarray(patch_features)
@@ -237,16 +235,16 @@ def obtain_delta_x(gt_shapes, current_shapes):
 
 
 def compute_features_info(image, shape, features_callable,
-                          patch_shape=(17, 17)):
+                          patch_size=(17, 17)):
     # TODO: include offsets support?
-    patches = image.extract_patches(shape, patch_size=patch_shape,
+    patches = image.extract_patches(shape, patch_size=patch_size,
                                     as_single_array=True)
 
     # TODO: include offsets support?
-    features_patch_shape = features_callable(patches[0, 0]).shape
-    features_patch_length = np.prod(features_patch_shape)
-    features_shape = patches.shape[:1] + features_patch_shape
+    features_patch_size = features_callable(patches[0, 0]).shape
+    features_patch_length = np.prod(features_patch_size)
+    features_shape = patches.shape[:1] + features_patch_size
     features_length = np.prod(features_shape)
 
-    return (features_patch_shape, features_patch_length,
+    return (features_patch_size, features_patch_length,
             features_shape, features_length)
