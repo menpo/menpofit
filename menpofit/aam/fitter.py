@@ -11,7 +11,7 @@ import menpofit.checks as checks
 from .base import AAM, MaskedAAM, LinearAAM, LinearMaskedAAM, PatchAAM
 from .algorithm.lk import (
     LucasKanadeStandardInterface, LucasKanadeLinearInterface,
-    LucasKanadePartsInterface, WibergInverseCompositional)
+    LucasKanadePatchInterface, WibergInverseCompositional)
 from .algorithm.sd import (
     SupervisedDescentStandardInterface, SupervisedDescentLinearInterface,
     SupervisedDescentPartsInterface, ProjectOutNewton)
@@ -73,7 +73,7 @@ class LucasKanadeAAMFitter(AAMFitter):
             elif type(self.aam) is PatchAAM:
                 # build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
-                interface = LucasKanadePartsInterface(
+                interface = LucasKanadePatchInterface(
                     am, pdm, template, sampling=s,
                     patch_shape=self.aam.patch_shape[j],
                     normalize_parts=self.aam.normalize_parts)

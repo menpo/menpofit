@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 from menpofit.aam.algorithm.lk import (LucasKanadeBaseInterface,
-                                       LucasKanadePartsBaseInterface)
+                                       LucasKanadePatchBaseInterface)
 from .result import ATMAlgorithmResult, LinearATMAlgorithmResult
 
 
@@ -36,7 +36,7 @@ class ATMLKLinearInterface(ATMLKStandardInterface):
 
 
 # TODO document me!
-class ATMLKPartsInterface(LucasKanadePartsBaseInterface):
+class ATMLKPatchInterface(LucasKanadePatchBaseInterface):
     r"""
     """
     def algorithm_result(self, image, shape_parameters, cost_functions=None,
