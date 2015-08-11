@@ -229,13 +229,12 @@ class LucasKanadePartsInterface(LucasKanadePartsBaseInterface):
     """
     def __init__(self, appearance_model, transform, template, sampling=None,
                  patch_shape=(17, 17), normalize_parts=no_op):
-        self.patch_shape = patch_shape
         # TODO: Refactor to patch_features
-        self.normalize_parts = normalize_parts
         self.appearance_model = appearance_model
 
         super(LucasKanadePartsInterface, self).__init__(
-            transform, template, sampling=sampling)
+            transform, template, patch_shape=patch_shape,
+            normalize_parts=normalize_parts, sampling=sampling)
 
     @property
     def m(self):
