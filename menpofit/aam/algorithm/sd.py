@@ -163,7 +163,7 @@ class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
         self.a_bar_m = a_bar.as_vector()[self.interface.i_mask]
 
     def _train(self, images, gt_shapes, current_shapes, increment=False,
-               level_str='', verbose=False):
+               prefix='', verbose=False):
 
         if not increment:
             # Reset the regressors
@@ -181,12 +181,12 @@ class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
             # generate regression data
             features = self._generate_features(
                 images, current_shapes,
-                level_str='{}(Iteration {}) - '.format(level_str, k),
+                prefix='{}(Iteration {}) - '.format(prefix, k),
                 verbose=verbose)
 
             if verbose:
                 print_dynamic('{}(Iteration {}) - Performing regression'.format(
-                    level_str, k))
+                    prefix, k))
 
             if not increment:
                 r = self._regressor_cls()
@@ -201,7 +201,7 @@ class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
                 self._print_regression_info(template_shape, gt_shapes,
                                             n_perturbations, delta_x,
                                             estimated_delta_x, k,
-                                            level_str=level_str)
+                                            prefix=prefix)
 
             j = 0
             for shapes in current_shapes:
@@ -221,7 +221,7 @@ class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
 
         return current_shapes
 
-    def _generate_features(self, images, current_shapes, level_str='',
+    def _generate_features(self, images, current_shapes, prefix='',
                            verbose=False):
         # Initialize features array - since current_shapes is a list of lists
         # we need to know the total size
@@ -229,8 +229,8 @@ class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
         features = np.empty((n_samples,) + self.a_bar_m.shape)
 
         wrap = partial(print_progress,
-                       prefix='{}Computing features'.format(level_str),
-                       end_with_newline=not level_str, verbose=verbose)
+                       prefix='{}Computing features'.format(prefix),
+                       end_with_newline=not prefix, verbose=verbose)
 
         # initialize sample counter
         k = 0
@@ -269,9 +269,9 @@ class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
 
     def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
                                delta_x, estimated_delta_x, level_index,
-                               level_str=''):
+                               prefix=''):
         print_dynamic('{}(Iteration {}) - Calculating errors'.format(
-            level_str, level_index))
+            prefix, level_index))
         errors = []
         for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
             self.transform.from_vector_inplace(dx)
@@ -286,7 +286,7 @@ class ParametricSupervisedDescentAlgorithm(SupervisedDescentAlgorithm):
         median = np.median(errors)
         print_dynamic('{}(Iteration {}) - Training error -> '
                       'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
-                      format(level_str, level_index, mean, std, median))
+                      format(prefix, level_index, mean, std, median))
 
 
 # TODO: document me!

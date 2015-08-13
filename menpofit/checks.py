@@ -1,7 +1,6 @@
 import warnings
 from functools import partial
 import numpy as np
-import warnings
 from menpo.shape import TriMesh
 from menpo.transform import PiecewiseAffine
 
@@ -161,6 +160,7 @@ def check_sampling(sampling, n_scales):
                          'a integer or ndarray list '
                          'containing 1 or {} elements or '
                          'None'.format(n_scales))
+
 
 def set_models_components(models, n_components):
     if n_components is not None:
