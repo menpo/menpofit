@@ -159,7 +159,7 @@ def warp_images(images, shapes, reference_frame, transform, prefix='',
 
 
 # TODO: document me!
-def extract_patches(images, shapes, patch_size, normalize_function=no_op,
+def extract_patches(images, shapes, patch_size, normalise_function=no_op,
                     prefix='', verbose=False):
     wrap = partial(print_progress,
                    prefix='{}Extracting patches'.format(prefix),
@@ -169,8 +169,8 @@ def extract_patches(images, shapes, patch_size, normalize_function=no_op,
     for i, s in wrap(zip(images, shapes)):
         parts = i.extract_patches(s, patch_size=patch_size,
                                   as_single_array=True)
-        parts = normalize_function(parts)
-        parts_images.append(Image(parts))
+        parts = normalise_function(parts)
+        parts_images.append(Image(parts, copy=False))
     return parts_images
 
 def build_reference_frame(landmarks, boundary=3, group='source'):

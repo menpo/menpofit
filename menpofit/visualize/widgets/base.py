@@ -961,7 +961,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         aam_mean = lvl_app_mod.mean()
         n_channels = aam_mean.n_channels
         tmplt_inst = lvl_app_mod.template_instance
-        feat = aam.features[level]
+        feat = aam.holistic_features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(
@@ -1355,7 +1355,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         lvl_shape_mod = atm.shape_models[level]
         tmplt_inst = atm.warped_templates[level]
         n_channels = tmplt_inst.n_channels
-        feat = atm.features[level]
+        feat = atm.holistic_features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(

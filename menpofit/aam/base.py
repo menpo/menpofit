@@ -115,20 +115,21 @@ class AAM(object):
         ``len(scales)`` elements
     """
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 features=no_op, transform=DifferentiablePiecewiseAffine,
-                 diagonal=None, scales=(0.5, 1.0), max_shape_components=None,
+                 holistic_features=no_op,
+                 transform=DifferentiablePiecewiseAffine, diagonal=None,
+                 scales=(0.5, 1.0), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
 
         checks.check_diagonal(diagonal)
         n_scales = len(scales)
         scales = checks.check_scales(scales)
-        features = checks.check_features(features, n_scales)
+        holistic_features = checks.check_features(holistic_features, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_scales, 'max_appearance_components')
 
-        self.features = features
+        self.holistic_features = holistic_features
         self.transform = transform
         self.diagonal = diagonal
         self.scales = scales
@@ -233,15 +234,15 @@ class AAM(object):
                 scale_prefix = None
 
             # Handle holistic features
-            if j == 0 and self.features[j] == no_op:
+            if j == 0 and self.holistic_features[j] == no_op:
                 # Saves a lot of memory
                 feature_images = image_batch
-            elif j == 0 or self.features[j] is not self.features[j - 1]:
+            elif j == 0 or self.holistic_features[j] is not self.holistic_features[j - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
                 feature_images = compute_features(image_batch,
-                                                  self.features[j],
+                                                  self.holistic_features[j],
                                                   prefix=scale_prefix,
                                                   verbose=verbose)
             # handle scales
@@ -583,14 +584,15 @@ class MaskedAAM(AAM):
     scale_shapes : `boolean`
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
-                 max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+    def __init__(self, images, group=None, verbose=False,
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 patch_size=(17, 17), max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
         self.patch_size = checks.check_patch_size(patch_size, len(scales))
 
         super(MaskedAAM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
+            images, group=group, verbose=verbose,
+            holistic_features=holistic_features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
@@ -667,14 +669,16 @@ class LinearAAM(AAM):
     scales : `int` or float` or list of those
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
+    def __init__(self, images, group=None, verbose=False,
+                 holistic_features=no_op,
                  transform=DifferentiableThinPlateSplines, diagonal=None,
                  scales=(0.5, 1.0), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
 
         super(LinearAAM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
-            transform=transform, diagonal=diagonal, scales=scales,
+            images, group=group, verbose=verbose,
+            holistic_features=holistic_features, transform=transform,
+            diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
@@ -765,14 +769,15 @@ class LinearMaskedAAM(AAM):
     scales : `int` or float` or list of those
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
-                 max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+    def __init__(self, images, group=None, verbose=False,
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 patch_size=(17, 17), max_shape_components=None,
+                 max_appearance_components=None, batch_size=None):
         self.patch_size = checks.check_patch_size(patch_size, len(scales))
 
         super(LinearMaskedAAM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
+            images, group=group, verbose=verbose,
+            holistic_features=holistic_features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
@@ -867,17 +872,19 @@ class PatchAAM(AAM):
     scales : `int` or float` or list of those
     """
 
-    def __init__(self, images, group=None, verbose=False, features=no_op,
-                 normalize_parts=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_size=(17, 17), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
+    def __init__(self, images, group=None, verbose=False,
+                 holistic_features=no_op, patch_normalisation=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
         self.patch_size = checks.check_patch_size(patch_size, len(scales))
-        self.normalize_parts = normalize_parts
+        self.patch_normalisation = patch_normalisation
 
         super(PatchAAM, self).__init__(
-            images, group=group, verbose=verbose, features=features,
-            transform=None, diagonal=diagonal,
-            scales=scales,  max_shape_components=max_shape_components,
+            images, group=group, verbose=verbose,
+            holistic_features=holistic_features, transform=None,
+            diagonal=diagonal, scales=scales,
+            max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
             batch_size=batch_size)
 
@@ -892,7 +899,7 @@ class PatchAAM(AAM):
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
         return extract_patches(images, shapes, self.patch_size[scale_index],
-                               normalize_function=self.normalize_parts,
+                               normalise_function=self.patch_normalisation,
                                prefix=prefix, verbose=verbose)
 
     # TODO: implement me!
@@ -930,7 +937,7 @@ def _aam_str(aam):
    - {} shape components"""
     for k, s in enumerate(aam.scales):
         scales_info.append(lvl_str_tmplt.format(
-            s, name_of_callable(aam.features[k]),
+            s, name_of_callable(aam.holistic_features[k]),
             aam.appearance_models[k].n_components,
             aam.shape_models[k].n_components))
     # Patch based AAM

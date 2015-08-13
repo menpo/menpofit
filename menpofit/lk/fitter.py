@@ -13,16 +13,17 @@ from .result import LucasKanadeFitterResult
 class LucasKanadeFitter(MultiFitter):
     r"""
     """
-    def __init__(self, template, group=None, features=no_op,
+    def __init__(self, template, group=None, holistic_features=no_op,
                  transform_cls=DifferentiableAlignmentAffine, diagonal=None,
                  scales=(0.5, 1.0), algorithm_cls=InverseCompositional,
                  residual_cls=SSD):
 
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
-        features = checks.check_features(features, len(scales))
+        holistic_features = checks.check_features(holistic_features,
+                                                  len(scales))
 
-        self.features = features
+        self.holistic_features = holistic_features
         self.transform_cls = transform_cls
         self.diagonal = diagonal
         self.scales = list(scales)

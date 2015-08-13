@@ -76,7 +76,7 @@ class LucasKanadeAAMFitter(AAMFitter):
                 interface = LucasKanadePatchInterface(
                     am, pdm, template, sampling=s,
                     patch_size=self.aam.patch_size[j],
-                    normalize_parts=self.aam.normalize_parts)
+                    patch_normalisation=self.aam.patch_normalisation)
                 algorithm = lk_algorithm_cls(interface)
             else:
                 raise ValueError("AAM object must be of one of the "
@@ -109,7 +109,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
             images, group=group, bounding_box_group=bounding_box_group,
             reference_shape=self.aam.reference_shape,
             sd_algorithm_cls=sd_algorithm_cls,
-            holistic_feature=self.aam.features,
+            holistic_feature=self.aam.holistic_features,
             diagonal=self.aam.diagonal,
             scales=self.aam.scales, n_iterations=n_iterations,
             n_perturbations=n_perturbations,
@@ -146,7 +146,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                 interface = SupervisedDescentPartsInterface(
                     am, pdm, template, sampling=s,
                     patch_size=self.aam.patch_size[j],
-                    normalize_parts=self.aam.normalize_parts)
+                    patch_normalisation=self.aam.patch_normalisation)
                 algorithm = self._sd_algorithm_cls(
                     interface, n_iterations=self.n_iterations[j])
             else:

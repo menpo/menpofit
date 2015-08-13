@@ -47,7 +47,7 @@ class LucasKanadeATMFitter(ModelFitter):
                 pdm = OrthoPDM(sm)
                 interface = ATMLKPatchInterface(
                     pdm, wt, sampling=s, patch_size=self.atm.patch_size[j],
-                    normalize_parts=self.atm.normalize_parts)
+                    patch_normalisation=self.atm.patch_normalisation)
                 algorithm = algorithm_cls(interface)
             else:
                 raise ValueError("AAM object must be of one of the "

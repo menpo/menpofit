@@ -141,11 +141,11 @@ class MultiFitter(object):
         images = []
         for i in range(self.n_scales):
             # Handle features
-            if i == 0 or self.features[i] is not self.features[i - 1]:
+            if i == 0 or self.holistic_features[i] is not self.holistic_features[i - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
-                feature_image = self.features[i](image)
+                feature_image = self.holistic_features[i](image)
 
             # Handle scales
             if self.scales[i] != 1:
@@ -246,14 +246,14 @@ class ModelFitter(MultiFitter):
         return self._model.reference_shape
 
     @property
-    def features(self):
+    def holistic_features(self):
         r"""
         The feature extracted at each pyramidal level during AAM building.
         Stored in ascending pyramidal order.
 
         :type: `list`
         """
-        return self._model.features
+        return self._model.holistic_features
 
     @property
     def scales(self):

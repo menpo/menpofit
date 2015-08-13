@@ -23,7 +23,7 @@ class ATM(object):
     Active Template Model class.
     """
     def __init__(self, template, shapes, group=None, verbose=False,
-                 reference_shape=None, features=no_op,
+                 reference_shape=None, holistic_features=no_op,
                  transform=DifferentiablePiecewiseAffine, diagonal=None,
                  scales=(0.5, 1.0), max_shape_components=None,
                  batch_size=None):
@@ -31,11 +31,11 @@ class ATM(object):
         checks.check_diagonal(diagonal)
         n_scales = len(scales)
         scales = checks.check_scales(scales)
-        features = checks.check_features(features, n_scales)
+        holistic_features = checks.check_features(holistic_features, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
 
-        self.features = features
+        self.holistic_features = holistic_features
         self.transform = transform
         self.diagonal = diagonal
         self.scales = scales
@@ -118,12 +118,12 @@ class ATM(object):
                 scale_prefix = None
 
             # Handle features
-            if j == 0 or self.features[j] is not self.features[j - 1]:
+            if j == 0 or self.holistic_features[j] is not self.holistic_features[j - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
                 feature_images = compute_features([template],
-                                                  self.features[j],
+                                                  self.holistic_features[j],
                                                   prefix=scale_prefix,
                                                   verbose=verbose)
             # handle scales
@@ -355,13 +355,14 @@ class MaskedATM(ATM):
     """
 
     def __init__(self, template, shapes, group=None, verbose=False,
-                 features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_size=(17, 17), max_shape_components=None,
                  batch_size=None):
         self.patch_size = checks.check_patch_size(patch_size, len(scales))
 
         super(MaskedATM, self).__init__(
-            template, shapes, group=group, verbose=verbose, features=features,
+            template, shapes, group=group, verbose=verbose,
+            holistic_features=holistic_features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             batch_size=batch_size)
@@ -401,13 +402,14 @@ class LinearATM(ATM):
     """
 
     def __init__(self, template, shapes, group=None, verbose=False,
-                 features=no_op, transform=DifferentiableThinPlateSplines,
-                 diagonal=None, scales=(0.5, 1.0), max_shape_components=None,
-                 batch_size=None):
+                 holistic_features=no_op,
+                 transform=DifferentiableThinPlateSplines, diagonal=None,
+                 scales=(0.5, 1.0), max_shape_components=None, batch_size=None):
 
         super(LinearATM, self).__init__(
-            template, shapes, group=group, verbose=verbose, features=features,
-            transform=transform, diagonal=diagonal, scales=scales,
+            template, shapes, group=group, verbose=verbose,
+            holistic_features=holistic_features, transform=transform,
+            diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components, batch_size=batch_size)
 
     @property
@@ -465,13 +467,14 @@ class LinearMaskedATM(ATM):
     """
 
     def __init__(self, template, shapes, group=None, verbose=False,
-                 features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_size=(17, 17), max_shape_components=None,
                  batch_size=None):
         self.patch_size = checks.check_patch_size(patch_size, len(scales))
 
         super(LinearMaskedATM, self).__init__(
-            template, shapes, group=group, verbose=verbose, features=features,
+            template, shapes, group=group, verbose=verbose,
+            holistic_features=holistic_features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             batch_size=batch_size)
@@ -533,14 +536,15 @@ class PatchATM(ATM):
     """
 
     def __init__(self, template, shapes, group=None, verbose=False,
-                 features=no_op, normalize_parts=no_op, diagonal=None,
-                 scales=(0.5, 1.0), patch_size=(17, 17),
+                 holistic_features=no_op, patch_normalisation=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
                  max_shape_components=None, batch_size=None):
         self.patch_size = checks.check_patch_size(patch_size, len(scales))
-        self.normalize_parts = normalize_parts
+        self.patch_normalisation = patch_normalisation
 
         super(PatchATM, self).__init__(
-            template, shapes, group=group, verbose=verbose, features=features,
+            template, shapes, group=group, verbose=verbose,
+            holistic_features=holistic_features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             batch_size=batch_size)
@@ -558,7 +562,7 @@ class PatchATM(ATM):
         shape = template.landmarks[group].lms
         return extract_patches([template], [shape],
                                self.patch_size[scale_index],
-                               normalize_function=self.normalize_parts,
+                               normalise_function=self.patch_normalisation,
                                prefix=prefix, verbose=verbose)
 
     # TODO: implement me!
@@ -590,7 +594,7 @@ def _atm_str(atm):
    - {} shape components"""
     for k, s in enumerate(atm.scales):
         scales_info.append(lvl_str_tmplt.format(
-            s, name_of_callable(atm.features[k]),
+            s, name_of_callable(atm.holistic_features[k]),
             atm.warped_templates[k].shape,
             atm.shape_models[k].n_components))
     # Patch based ATM
