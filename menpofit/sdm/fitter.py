@@ -22,7 +22,7 @@ class SupervisedDescentFitter(MultiFitter):
     """
     def __init__(self, images, group=None, bounding_box_group=None,
                  reference_shape=None, sd_algorithm_cls=Newton,
-                 holistic_feature=no_op, patch_features=no_op,
+                 holistic_features=no_op, patch_features=no_op,
                  patch_size=(17, 17), diagonal=None, scales=(0.5, 1.0),
                  n_iterations=6, n_perturbations=30,
                  perturb_from_bounding_box=noisy_shape_from_bounding_box,
@@ -32,15 +32,15 @@ class SupervisedDescentFitter(MultiFitter):
         n_scales = len(scales)
         scales = checks.check_scales(scales)
         patch_features = checks.check_features(patch_features, n_scales)
-        holistic_features = checks.check_features(holistic_feature, n_scales)
+        holistic_features = checks.check_features(holistic_features, n_scales)
         patch_size = checks.check_patch_size(patch_size, n_scales)
         # set parameters
         self.algorithms = []
         self.reference_shape = reference_shape
         self._sd_algorithm_cls = sd_algorithm_cls
-        self.features = holistic_features
-        self._patch_features = patch_features
-        self._patch_size = patch_size
+        self.holistic_features = holistic_features
+        self.patch_features = patch_features
+        self.patch_size = patch_size
         self.diagonal = diagonal
         self.scales = scales
         self.n_perturbations = n_perturbations
@@ -57,8 +57,8 @@ class SupervisedDescentFitter(MultiFitter):
     def _setup_algorithms(self):
         for j in range(self.n_scales):
             self.algorithms.append(self._sd_algorithm_cls(
-                features=self._patch_features[j],
-                patch_size=self._patch_size[j],
+                patch_features=self.patch_features[j],
+                patch_size=self.patch_size[j],
                 n_iterations=self.n_iterations[j]))
 
     def _train(self, images, increment=False, group=None,
@@ -180,15 +180,15 @@ class SupervisedDescentFitter(MultiFitter):
                 scale_prefix = None
 
             # Handle holistic features
-            if j == 0 and self.features[j] == no_op:
+            if j == 0 and self.holistic_features[j] == no_op:
                 # Saves a lot of memory
                 feature_images = image_batch
-            elif j == 0 or self.features[j] is not self.features[j - 1]:
+            elif j == 0 or self.holistic_features[j] is not self.holistic_features[j - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
                 feature_images = compute_features(image_batch,
-                                                  self.features[j],
+                                                  self.holistic_features[j],
                                                   prefix=scale_prefix,
                                                   verbose=verbose)
             # handle scales
@@ -273,9 +273,9 @@ class SupervisedDescentFitter(MultiFitter):
    - Patch feature: {}"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
-                s, self.n_iterations[k], self._patch_size[k],
-                name_of_callable(self.features[k]),
-                name_of_callable(self._patch_features[k])))
+                s, self.n_iterations[k], self.patch_size[k],
+                name_of_callable(self.holistic_features[k]),
+                name_of_callable(self.patch_features[k])))
         scales_info = '\n'.join(scales_info)
 
         cls_str = r"""Supervised Descent Method
@@ -304,7 +304,7 @@ class RegularizedSDM(SupervisedDescentFitter):
 
     def __init__(self, images, group=None, bounding_box_group=None,
                  alpha=1.0, reference_shape=None,
-                 holistic_feature=no_op, patch_features=no_op,
+                 holistic_features=no_op, patch_features=no_op,
                  patch_size=(17, 17), diagonal=None, scales=(0.5, 1.0),
                  n_iterations=6, n_perturbations=30,
                  perturb_from_bounding_box=noisy_shape_from_bounding_box,
@@ -313,7 +313,7 @@ class RegularizedSDM(SupervisedDescentFitter):
             images, group=group,  bounding_box_group=bounding_box_group,
             reference_shape=reference_shape,
             sd_algorithm_cls=partial(Newton, alpha=alpha),
-            holistic_feature=holistic_feature, patch_features=patch_features,
+            holistic_features=holistic_features, patch_features=patch_features,
             patch_size=patch_size, diagonal=diagonal, scales=scales,
             n_iterations=n_iterations, n_perturbations=n_perturbations,
             perturb_from_bounding_box=perturb_from_bounding_box,

@@ -27,14 +27,15 @@ class CLM(object):
         The CLM object
     """
     def __init__(self, images, group=None, verbose=False, batch_size=None,
-                 diagonal=None, scales=(0.5, 1), features=no_op,
+                 diagonal=None, scales=(0.5, 1), holistic_features=no_op,
                  # shape_model_cls=build_normalised_pca_shape_model,
                  expert_ensemble_cls=CorrelationFilterExpertEnsemble,
                  max_shape_components=None, reference_shape=None,
                  shape_forgetting_factor=1.0):
         self.diagonal = checks.check_diagonal(diagonal)
         self.scales = checks.check_scales(scales)
-        self.features = checks.check_features(features, self.n_scales)
+        self.holistic_features = checks.check_features(holistic_features,
+                                                       self.n_scales)
         # self.shape_model_cls = checks.check_algorithm_cls(
         #     shape_model_cls, self.n_scales, ShapeModel)
         self.expert_ensemble_cls = checks.check_algorithm_cls(
@@ -125,15 +126,15 @@ class CLM(object):
                 prefix = None
 
             # Handle holistic features
-            if i == 0 and self.features[i] == no_op:
+            if i == 0 and self.holistic_features[i] == no_op:
                 # Saves a lot of memory
                 feature_images = image_batch
-            elif i == 0 or self.features[i] is not self.features[i - 1]:
+            elif i == 0 or self.holistic_features[i] is not self.holistic_features[i - 1]:
                 # compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
                 feature_images = compute_features(image_batch,
-                                                  self.features[i],
+                                                  self.holistic_features[i],
                                                   prefix=prefix,
                                                   verbose=verbose)
             # handle scales

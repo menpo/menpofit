@@ -93,7 +93,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         # patch: (offsets x ch) x h x w
         patch = patch.reshape((-1,) + patch.shape[-2:])
         # Normalise patch
-        return self.normalise_callable(patch)
+        return self.patch_normalisation(patch)
 
     def _extract_patches(self, image, shape):
         r"""
@@ -107,7 +107,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         # patches: n_patches x (n_offsets x n_channels) x height x width
         patches = patches.reshape((patches.shape[0], -1) + patches.shape[-2:])
         # Normalise patches
-        return self.normalise_callable(patches)
+        return self.patch_normalisation(patches)
 
     def predict_response(self, image, shape):
         r"""
@@ -134,7 +134,7 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     def __init__(self, images, shapes, verbose=False, prefix='',
                  icf_cls=IncrementalCorrelationFilterThinWrapper,
                  patch_size=(17, 17), context_size=(34, 34),
-                 response_covariance=3, normalise_callable=normalize_norm,
+                 response_covariance=3, patch_normalisation=normalize_norm,
                  cosine_mask=True, sample_offsets=None):
         # TODO: check parameters?
         # Set parameters
@@ -142,7 +142,7 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         self.patch_size = patch_size
         self.context_size = context_size
         self.response_covariance = response_covariance
-        self.normalise_callable = normalise_callable
+        self.patch_normalisation = patch_normalisation
         self.cosine_mask = cosine_mask
         self.sample_offsets = sample_offsets
 
@@ -168,7 +168,7 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         # patch: (offsets x ch) x h x w
         patch = patch.reshape((-1,) + patch.shape[-2:])
         # Normalise patch
-        patch = self.normalise_callable(patch)
+        patch = self.patch_normalisation(patch)
         if self.cosine_mask:
             # Apply cosine mask if require
             patch = self._cosine_mask * patch
