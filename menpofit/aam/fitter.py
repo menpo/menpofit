@@ -14,7 +14,7 @@ from .algorithm.lk import (
     LucasKanadePatchInterface, WibergInverseCompositional)
 from .algorithm.sd import (
     SupervisedDescentStandardInterface, SupervisedDescentLinearInterface,
-    SupervisedDescentPartsInterface, ProjectOutNewton)
+    SupervisedDescentPatchInterface, ProjectOutNewton)
 from .result import AAMFitterResult
 
 
@@ -143,7 +143,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
             elif type(self.aam) is PatchAAM:
                 # Build orthogonal point distribution model
                 pdm = OrthoPDM(sm)
-                interface = SupervisedDescentPartsInterface(
+                interface = SupervisedDescentPatchInterface(
                     am, pdm, template, sampling=s,
                     patch_size=self.aam.patch_size[j],
                     patch_normalisation=self.aam.patch_normalisation)
