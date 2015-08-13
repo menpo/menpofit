@@ -44,7 +44,7 @@ class SupervisedDescentAlgorithm(object):
         for k in range(self.n_iterations):
             # generate regression data
             features = features_per_image(
-                images, current_shapes, self.patch_size, self.features,
+                images, current_shapes, self.patch_size, self.patch_features,
                 prefix='{}(Iteration {}) - '.format(prefix, k),
                 verbose=verbose)
 
@@ -89,8 +89,8 @@ class SupervisedDescentAlgorithm(object):
         # Cascaded Regression loop
         for r in self.regressors:
             # compute regression features
-            features = features_per_patch(image, current_shape,
-                                          self.patch_size, self.features)
+            features = features_per_patch(image, current_shape, self.patch_size,
+                                          self.patch_features)
 
             # solve for increments on the shape vector
             dx = r.predict(features)
@@ -127,14 +127,15 @@ class SupervisedDescentAlgorithm(object):
 class Newton(SupervisedDescentAlgorithm):
     r"""
     """
-    def __init__(self, features=no_op, patch_size=(17, 17), n_iterations=3,
+    def __init__(self, patch_features=no_op, patch_size=(17, 17),
+                 n_iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5, alpha=0, bias=True):
         super(Newton, self).__init__()
 
         self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
         self.patch_size = patch_size
-        self.features = features
+        self.patch_features = patch_features
         self.n_iterations = n_iterations
         self._compute_error = compute_error
         self.eps = eps
@@ -144,7 +145,7 @@ class Newton(SupervisedDescentAlgorithm):
 class GaussNewton(SupervisedDescentAlgorithm):
     r"""
     """
-    def __init__(self, features=no_op, patch_size=(17, 17), n_iterations=3,
+    def __init__(self, patch_features=no_op, patch_size=(17, 17), n_iterations=3,
                  compute_error=compute_normalise_point_to_point_error,
                  eps=10**-5, alpha=0, bias=True, alpha2=0):
         super(GaussNewton, self).__init__()
@@ -152,7 +153,7 @@ class GaussNewton(SupervisedDescentAlgorithm):
         self._regressor_cls = partial(IIRLRegression, alpha=alpha, bias=bias,
                                       alpha2=alpha2)
         self.patch_size = patch_size
-        self.features = features
+        self.patch_features = patch_features
         self.n_iterations = n_iterations
         self._compute_error = compute_error
         self.eps = eps

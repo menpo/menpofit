@@ -162,10 +162,9 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
     r"""
     """
     def __init__(self, transform, template, sampling=None,
-                 patch_size=(17, 17), normalize_parts=no_op):
+                 patch_size=(17, 17), patch_normalisation=no_op):
         self.patch_size = patch_size
-        # TODO: Refactor to patch_features
-        self.normalize_parts = normalize_parts
+        self.patch_normalisation = patch_normalisation
 
         super(LucasKanadePatchBaseInterface, self).__init__(
             transform, template, sampling=sampling)
@@ -194,7 +193,7 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
         parts = image.extract_patches(self.transform.target,
                                       patch_size=self.patch_size,
                                       as_single_array=True)
-        parts = self.normalize_parts(parts)
+        parts = self.patch_normalisation(parts)
         return Image(parts, copy=False)
 
     def gradient(self, image):
@@ -228,13 +227,12 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     r"""
     """
     def __init__(self, appearance_model, transform, template, sampling=None,
-                 patch_size=(17, 17), normalize_parts=no_op):
-        # TODO: Refactor to patch_features
+                 patch_size=(17, 17), patch_normalisation=no_op):
         self.appearance_model = appearance_model
 
         super(LucasKanadePatchInterface, self).__init__(
             transform, template, patch_size=patch_size,
-            normalize_parts=normalize_parts, sampling=sampling)
+            patch_normalisation=patch_normalisation, sampling=sampling)
 
     @property
     def m(self):

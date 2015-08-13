@@ -74,16 +74,15 @@ class SupervisedDescentLinearInterface(SupervisedDescentStandardInterface):
 
 
 # TODO document me!
-class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
+class SupervisedDescentPatchInterface(SupervisedDescentStandardInterface):
     r"""
     """
     def __init__(self, appearance_model, transform, template, sampling=None,
-                 patch_size=(17, 17), normalize_parts=no_op):
+                 patch_size=(17, 17), patch_normalisation=no_op):
         self.patch_size = patch_size
-        # TODO: Refactor to patch_features
-        self.normalize_parts = normalize_parts
+        self.patch_normalisation = patch_normalisation
 
-        super(SupervisedDescentPartsInterface, self).__init__(
+        super(SupervisedDescentPatchInterface, self).__init__(
             appearance_model, transform, template, sampling=sampling)
 
     def _build_sampling_mask(self, sampling):
@@ -103,7 +102,7 @@ class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
         parts = image.extract_patches(self.transform.target,
                                       patch_size=self.patch_size,
                                       as_single_array=True)
-        parts = self.normalize_parts(parts)
+        parts = self.patch_normalisation(parts)
         return Image(parts, copy=False)
 
 
