@@ -74,7 +74,7 @@ class SupervisedDescentLinearInterface(SupervisedDescentStandardInterface):
 
 
 # TODO document me!
-class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
+class SupervisedDescentPatchInterface(SupervisedDescentStandardInterface):
     r"""
     """
     def __init__(self, appearance_model, transform, template, sampling=None,
@@ -82,7 +82,7 @@ class SupervisedDescentPartsInterface(SupervisedDescentStandardInterface):
         self.patch_size = patch_size
         self.patch_normalisation = patch_normalisation
 
-        super(SupervisedDescentPartsInterface, self).__init__(
+        super(SupervisedDescentPatchInterface, self).__init__(
             appearance_model, transform, template, sampling=sampling)
 
     def _build_sampling_mask(self, sampling):
