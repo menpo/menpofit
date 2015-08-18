@@ -250,8 +250,8 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
     def style(self, box_style=None, border_visible=False, border_color='black',
               border_style='solid', border_width=1, border_radius=0, padding=0,
               margin=0, font_family='', font_size=None, font_style='',
-              font_weight='', slider_width='', slider_handle_colour='',
-              slider_background_colour='', buttons_style=''):
+              font_weight='', slider_width='', slider_handle_colour=None,
+              slider_background_colour=None, buttons_style=''):
         r"""
         Function that defines the styling of the widget.
 
@@ -376,8 +376,8 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
                        border_width=1, border_radius=0, padding='0.2cm',
                        margin='0.3cm', font_family='', font_size=None,
                        font_style='', font_weight='', slider_width='',
-                       slider_handle_colour='', slider_background_colour='',
-                       buttons_style='')
+                       slider_handle_colour=None,
+                       slider_background_colour=None, buttons_style='')
         elif (style == 'info' or style == 'success' or style == 'danger' or
               style == 'warning'):
             self.style(box_style=style, border_visible=True,
@@ -387,7 +387,8 @@ class LinearModelParametersWidget(ipywidgets.FlexBox):
                        font_size=None, font_style='', font_weight='',
                        slider_width='',
                        slider_handle_colour=_map_styles_to_hex_colours(style),
-                       slider_background_colour='', buttons_style='primary')
+                       slider_background_colour=None,
+                       buttons_style='primary')
         else:
             raise ValueError('style must be minimal or info or success or '
                              'danger or warning')
@@ -1381,10 +1382,10 @@ class FittingResultIterationsOptionsWidget(ipywidgets.FlexBox):
             self.index_animation.play_options_toggle.button_style = ''
             _format_box(self.index_animation.loop_interval_box, '', False,
                         'black', 'solid', 1, 10, '0.1cm', '0.1cm')
-            self.index_animation.index_wid.slider.slider_color = ''
-            self.index_animation.index_wid.slider.background_color = ''
-            self.index_slider.slider_color = ''
-            self.index_slider.background_color = ''
+            self.index_animation.index_wid.slider.slider_color = None
+            self.index_animation.index_wid.slider.background_color = None
+            self.index_slider.slider_color = None
+            self.index_slider.background_color = None
             self.common_figure.button_style = ''
         else:
             self.index_animation.play_stop_toggle.button_style = 'success'
