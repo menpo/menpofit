@@ -121,8 +121,8 @@ class AAM(object):
                  max_appearance_components=None, batch_size=None):
 
         checks.check_diagonal(diagonal)
-        n_scales = len(scales)
         scales = checks.check_scales(scales)
+        n_scales = len(scales)
         holistic_features = checks.check_features(holistic_features, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')

@@ -29,8 +29,8 @@ class SupervisedDescentFitter(MultiFitter):
                  batch_size=None, verbose=False):
         # check parameters
         checks.check_diagonal(diagonal)
-        n_scales = len(scales)
         scales = checks.check_scales(scales)
+        n_scales = len(scales)
         patch_features = checks.check_features(patch_features, n_scales)
         holistic_features = checks.check_features(holistic_features, n_scales)
         patch_size = checks.check_patch_size(patch_size, n_scales)
