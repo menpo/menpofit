@@ -326,11 +326,11 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
     mode_dict = OrderedDict()
     mode_dict['Deformation'] = 1
     mode_dict['Vectors'] = 2
-    mode_wid = ipywidgets.RadioButtonsWidget(options=mode_dict,
-                                             description='Mode:', value=1)
+    mode_wid = ipywidgets.RadioButtons(options=mode_dict,
+                                       description='Mode:', value=1)
     mode_wid.on_trait_change(render_function, 'value')
-    mean_wid = ipywidgets.CheckboxWidget(value=False,
-                                         description='Render mean shape')
+    mean_wid = ipywidgets.Checkbox(value=False,
+                                   description='Render mean shape')
     mean_wid.on_trait_change(render_function, 'value')
 
     # Function that controls mean shape checkbox visibility
@@ -346,7 +346,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
         mode=mode, params_bounds=parameters_bounds, params_step=0.1,
         plot_variance_visible=True, plot_variance_function=plot_variance,
         style=model_parameters_style)
-    axes_mode_wid = ipywidgets.RadioButtonsWidget(
+    axes_mode_wid = ipywidgets.RadioButtons(
         options={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
         value=2)
     axes_mode_wid.on_trait_change(render_function, 'value')
@@ -381,7 +381,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
@@ -718,7 +718,7 @@ def visualize_appearance_model(appearance_model, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
@@ -1128,7 +1128,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
@@ -1476,7 +1476,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
