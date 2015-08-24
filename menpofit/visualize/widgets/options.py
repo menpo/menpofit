@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-import IPython.html.widgets as ipywidgets
+import ipywidgets
 
 from menpo.visualize.widgets.tools import (_format_box, _format_font,
                                            _map_styles_to_hex_colours)

@@ -3,7 +3,7 @@ from collections import OrderedDict
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
 
-import IPython.html.widgets as ipywidgets
+import ipywidgets
 import IPython.display as ipydisplay
 
 from menpo.visualize.widgets import (RendererOptionsWidget,
