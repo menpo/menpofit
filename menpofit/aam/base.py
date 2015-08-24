@@ -588,7 +588,8 @@ class MaskedAAM(AAM):
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_size=(17, 17), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
-        self.patch_size = checks.check_patch_size(patch_size, len(scales))
+        n_scales = len(checks.check_scales(scales))
+        self.patch_size = checks.check_patch_size(patch_size, n_scales)
 
         super(MaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
@@ -773,7 +774,8 @@ class LinearMaskedAAM(AAM):
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_size=(17, 17), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
-        self.patch_size = checks.check_patch_size(patch_size, len(scales))
+        n_scales = len(checks.check_scales(scales))
+        self.patch_size = checks.check_patch_size(patch_size, n_scales)
 
         super(LinearMaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
@@ -877,7 +879,8 @@ class PatchAAM(AAM):
                  diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
                  max_shape_components=None, max_appearance_components=None,
                  batch_size=None):
-        self.patch_size = checks.check_patch_size(patch_size, len(scales))
+        n_scales = len(checks.check_scales(scales))
+        self.patch_size = checks.check_patch_size(patch_size, n_scales)
         self.patch_normalisation = patch_normalisation
 
         super(PatchAAM, self).__init__(
