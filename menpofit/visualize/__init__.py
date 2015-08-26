@@ -5,3 +5,4 @@ try:
                           visualize_fitting_result)
 except ImportError:
     pass
+from .textutils import print_progress

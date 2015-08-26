@@ -1,5 +1,4 @@
 import numpy as np
-
 from menpo.base import Targetable, Vectorizable
 from menpo.model import MeanInstanceLinearModel
 from menpofit.differentiable import DP
@@ -185,7 +184,7 @@ class PDM(ModelInstance, DP):
         return d_dp.swapaxes(0, 1)
 
 
-# TODO: document me
+# TODO: document me!
 class GlobalPDM(PDM):
     r"""
     """
@@ -247,7 +246,6 @@ class GlobalPDM(PDM):
             Weights of the statistical model that generate the closest
             PointCloud to the requested target
         """
-
         self._update_global_transform(target)
         projected_target = self.global_transform.pseudoinverse().apply(target)
         # now we have the target in model space, project it to recover the
@@ -319,11 +317,11 @@ class GlobalPDM(PDM):
         return self.global_transform.d_dp(points)
 
 
-# TODO: document me
+# TODO: document me!
 class OrthoPDM(GlobalPDM):
     r"""
     """
-    def __init__(self, model, global_transform_cls):
+    def __init__(self, model):
         # 1. Construct similarity model from the mean of the model
         self.similarity_model = similarity_2d_instance_model(model.mean())
         # 2. Orthonormalize model and similarity model
@@ -331,7 +329,9 @@ class OrthoPDM(GlobalPDM):
         model_cpy.orthonormalize_against_inplace(self.similarity_model)
         self.similarity_weights = self.similarity_model.project(
             model_cpy.mean())
-        super(OrthoPDM, self).__init__(model_cpy, global_transform_cls)
+        from menpofit.transform import DifferentiableAlignmentSimilarity
+        super(OrthoPDM, self).__init__(model_cpy,
+                                       DifferentiableAlignmentSimilarity)
 
     @property
     def global_parameters(self):
@@ -354,3 +354,4 @@ class OrthoPDM(GlobalPDM):
     def _global_transform_d_dp(self, points):
         return self.similarity_model.components.reshape(
             self.n_global_parameters, -1, self.n_dims).swapaxes(0, 1)
+

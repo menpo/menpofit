@@ -3,7 +3,7 @@ from collections import OrderedDict
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
 
-import IPython.html.widgets as ipywidgets
+import ipywidgets
 import IPython.display as ipydisplay
 
 from menpo.visualize.widgets import (RendererOptionsWidget,
@@ -31,7 +31,7 @@ def _check_n_parameters(n_params, n_levels, max_n_params):
     r"""
     Checks the maximum number of components per level either of the shape
     or the appearance model. It must be ``None`` or `int` or `float` or a `list`
-    of those containing ``1`` or ``n_levels`` elements.
+    of those containing ``1`` or ``n_scales`` elements.
     """
     str_error = ("n_params must be None or 1 <= int <= max_n_params or "
                  "a list of those containing 1 or {} elements").format(n_levels)
@@ -128,7 +128,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
     max_n_params = [sp.n_active_components for sp in shape_model]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_parameters = _check_n_parameters(n_parameters, n_levels, max_n_params)
 
     # Initial options dictionaries
@@ -213,7 +213,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
                 axes_font_weight=tmp3['axes_font_weight'],
                 axes_x_limits=tmp3['axes_x_limits'],
                 axes_y_limits=tmp3['axes_y_limits'],
-                figure_size=new_figure_size, label=None)
+                figure_size=new_figure_size)
 
             # Invert y axis if needed
             if mean_wid.value and axes_mode_wid.value == 1:
@@ -247,7 +247,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
                 axes_font_weight=tmp3['axes_font_weight'],
                 axes_x_limits=tmp3['axes_x_limits'],
                 axes_y_limits=tmp3['axes_y_limits'],
-                figure_size=new_figure_size, label=None)
+                figure_size=new_figure_size)
 
             # Render vectors
             ax = plt.gca()
@@ -326,11 +326,11 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
     mode_dict = OrderedDict()
     mode_dict['Deformation'] = 1
     mode_dict['Vectors'] = 2
-    mode_wid = ipywidgets.RadioButtonsWidget(options=mode_dict,
-                                             description='Mode:', value=1)
+    mode_wid = ipywidgets.RadioButtons(options=mode_dict,
+                                       description='Mode:', value=1)
     mode_wid.on_trait_change(render_function, 'value')
-    mean_wid = ipywidgets.CheckboxWidget(value=False,
-                                         description='Render mean shape')
+    mean_wid = ipywidgets.Checkbox(value=False,
+                                   description='Render mean shape')
     mean_wid.on_trait_change(render_function, 'value')
 
     # Function that controls mean shape checkbox visibility
@@ -346,7 +346,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
         mode=mode, params_bounds=parameters_bounds, params_step=0.1,
         plot_variance_visible=True, plot_variance_function=plot_variance,
         style=model_parameters_style)
-    axes_mode_wid = ipywidgets.RadioButtonsWidget(
+    axes_mode_wid = ipywidgets.RadioButtons(
         options={'Image': 1, 'Point cloud': 2}, description='Axes mode:',
         value=2)
     axes_mode_wid.on_trait_change(render_function, 'value')
@@ -381,7 +381,7 @@ def visualize_shape_model(shape_model, n_parameters=5, mode='multiple',
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
@@ -487,7 +487,7 @@ def visualize_appearance_model(appearance_model, n_parameters=5,
     max_n_params = [ap.n_active_components for ap in appearance_model]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_parameters = _check_n_parameters(n_parameters, n_levels, max_n_params)
 
     # Find initial groups and labels that will be passed to the landmark options
@@ -718,7 +718,7 @@ def visualize_appearance_model(appearance_model, n_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
@@ -790,7 +790,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     print('Initializing...')
 
     # Get the number of levels
-    n_levels = aam.n_levels
+    n_levels = aam.n_scales
 
     # Define the styling options
     if style == 'coloured':
@@ -829,7 +829,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
     max_n_appearance = [ap.n_active_components for ap in aam.appearance_models]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_shape_parameters = _check_n_parameters(n_shape_parameters, n_levels,
                                              max_n_shape)
     n_appearance_parameters = _check_n_parameters(n_appearance_parameters,
@@ -897,7 +897,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         # Compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters
         appearance_weights = appearance_model_parameters_wid.parameters
-        instance = aam.instance(level=level, shape_weights=shape_weights,
+        instance = aam.instance(scale_index=level, shape_weights=shape_weights,
                                 appearance_weights=appearance_weights)
 
         # Update info
@@ -961,39 +961,17 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         aam_mean = lvl_app_mod.mean()
         n_channels = aam_mean.n_channels
         tmplt_inst = lvl_app_mod.template_instance
-        feat = (aam.features if aam.pyramid_on_features
-                else aam.features[level])
+        feat = aam.holistic_features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(
             name_of_callable(feat), n_channels, 's' * (n_channels > 1))
 
-        # create info str
-        if n_levels == 1:
-            tmp_shape_models = ''
-            tmp_pyramid = ''
-        else:  # n_levels > 1
-            # shape models info
-            if aam.scaled_shape_models:
-                tmp_shape_models = "Each level has a scaled shape model " \
-                                   "(reference frame)"
-            else:
-                tmp_shape_models = "Shape models (reference frames) are " \
-                                   "not scaled"
-            # pyramid info
-            if aam.pyramid_on_features:
-                tmp_pyramid = "Pyramid was applied on feature space"
-            else:
-                tmp_pyramid = "Features were extracted at each pyramid level"
-
         # update info widgets
         text_per_line = [
-            "> {} training images".format(aam.n_training_images),
-            "> {}".format(tmp_shape_models),
             "> Warp using {} transform".format(aam.transform.__name__),
-            "> {}".format(tmp_pyramid),
-            "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, aam.n_levels, aam.downscale),
+            "> Level {}/{}".format(
+                level + 1, aam.n_scales),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -1150,7 +1128,7 @@ def visualize_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
@@ -1216,7 +1194,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
     print('Initializing...')
 
     # Get the number of levels
-    n_levels = atm.n_levels
+    n_levels = atm.n_scales
 
     # Define the styling options
     if style == 'coloured':
@@ -1252,7 +1230,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
     max_n_shape = [sp.n_active_components for sp in atm.shape_models]
 
     # Check the given number of parameters (the returned n_parameters is a list
-    # of len n_levels)
+    # of len n_scales)
     n_shape_parameters = _check_n_parameters(n_shape_parameters, n_levels,
                                              max_n_shape)
 
@@ -1317,7 +1295,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
 
         # Compute weights and instance
         shape_weights = shape_model_parameters_wid.parameters
-        instance = atm.instance(level=level, shape_weights=shape_weights)
+        instance = atm.instance(scale_index=level, shape_weights=shape_weights)
 
         # Update info
         update_info(atm, instance, level,
@@ -1377,39 +1355,17 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
         lvl_shape_mod = atm.shape_models[level]
         tmplt_inst = atm.warped_templates[level]
         n_channels = tmplt_inst.n_channels
-        feat = (atm.features if atm.pyramid_on_features
-                else atm.features[level])
+        feat = atm.holistic_features[level]
 
         # Feature string
         tmp_feat = 'Feature is {} with {} channel{}'.format(
             name_of_callable(feat), n_channels, 's' * (n_channels > 1))
 
-        # create info str
-        if n_levels == 1:
-            tmp_shape_models = ''
-            tmp_pyramid = ''
-        else:  # n_levels > 1
-            # shape models info
-            if atm.scaled_shape_models:
-                tmp_shape_models = "Each level has a scaled shape model " \
-                                   "(reference frame)"
-            else:
-                tmp_shape_models = "Shape models (reference frames) are " \
-                                   "not scaled"
-            # pyramid info
-            if atm.pyramid_on_features:
-                tmp_pyramid = "Pyramid was applied on feature space"
-            else:
-                tmp_pyramid = "Features were extracted at each pyramid level"
-
         # update info widgets
         text_per_line = [
-            "> {} training shapes".format(atm.n_training_shapes),
-            "> {}".format(tmp_shape_models),
             "> Warp using {} transform".format(atm.transform.__name__),
-            "> {}".format(tmp_pyramid),
-            "> Level {}/{} (downscale={:.1f})".format(
-                level + 1, atm.n_levels, atm.downscale),
+            "> Level {}/{}".format(
+                level + 1, atm.n_scales),
             "> {} landmark points".format(
                 instance.landmarks[group].lms.n_points),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -1520,7 +1476,7 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
                 radio_str["Level {} (high)".format(l)] = l
             else:
                 radio_str["Level {}".format(l)] = l
-        level_wid = ipywidgets.RadioButtonsWidget(
+        level_wid = ipywidgets.RadioButtons(
             options=radio_str, description='Pyramid:', value=0)
         level_wid.on_trait_change(update_widgets, 'value')
         level_wid.on_trait_change(render_function, 'value')
@@ -1590,7 +1546,7 @@ def plot_ced(errors, legend_entries=None, error_range=None,
         as part of a parent widget. If ``False``, the widget object is not
         returned, it is just visualized.
     """
-    from menpofit.fittingresult import plot_cumulative_error_distribution
+    from menpofit.result import plot_cumulative_error_distribution
     print('Initializing...')
 
     # Make sure that errors is a list even with one list member
@@ -2223,7 +2179,7 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
             renderer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
             renderer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
         renderer = fitting_results[im].plot_errors(
-            error_type=error_type_wid.value,
+            error_type=_error_type_key_to_func(error_type_wid.value),
             figure_id=save_figure_wid.renderer.figure_id,
             figure_size=new_figure_size)
 
@@ -2448,18 +2404,27 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
 
         # Create output str
         if fitting_results[im].gt_shape is not None:
+            from menpofit.result import (
+                compute_root_mean_square_error, compute_point_to_point_error,
+                compute_normalise_point_to_point_error)
+            if value is 'me_norm':
+                func = compute_normalise_point_to_point_error
+            elif value is 'me':
+                func = compute_point_to_point_error
+            elif value is 'rmse':
+                func = compute_root_mean_square_error
             text_per_line = [
                 "> Initial error: {:.4f}".format(
-                    fitting_results[im].initial_error(error_type=value)),
+                    fitting_results[im].initial_error(compute_error=func)),
                 "> Final error: {:.4f}".format(
-                    fitting_results[im].final_error(error_type=value)),
+                    fitting_results[im].final_error(compute_error=func)),
                 "> {} iterations".format(fitting_results[im].n_iters)]
         else:
             text_per_line = [
                 "> {} iterations".format(fitting_results[im].n_iters)]
-        if hasattr(fitting_results[im], 'n_levels'):  # Multilevel result
-            text_per_line.append("> {} levels with downscale of {:.1f}".format(
-                fitting_results[im].n_levels, fitting_results[im].downscale))
+        if hasattr(fitting_results[im], 'n_scales'):  # Multilevel result
+            text_per_line.append("> {} scales".format(
+                fitting_results[im].n_scales))
         info_wid.set_widget_state(n_lines=len(text_per_line),
                                   text_per_line=text_per_line)
 
@@ -2508,13 +2473,13 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # widget closes
         plot_ced_but.visible = False
 
-        # Get error type
         error_type = error_type_wid.value
+        func = _error_type_key_to_func(error_type)
 
         # Create errors list
-        fit_errors = [f.final_error(error_type=error_type)
+        fit_errors = [f.final_error(compute_error=func)
                       for f in fitting_results]
-        initial_errors = [f.initial_error(error_type=error_type)
+        initial_errors = [f.initial_error(compute_error=func)
                           for f in fitting_results]
         errors = [fit_errors, initial_errors]
 
@@ -2627,8 +2592,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # animation. Specifically, if the animation is activated and the user
         # selects the iterations tab, then the animation stops.
         def results_tab_fun(name, value):
-            if value == 1 and image_number_wid.play_toggle.value:
-                image_number_wid.stop_toggle.value = True
+            if value == 1 and image_number_wid.play_options_toggle.value:
+                image_number_wid.stop_options_toggle.value = True
         result_wid.on_trait_change(results_tab_fun, 'selected_index')
 
         # Widget titles
@@ -2657,8 +2622,8 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
         # If animation is activated and the user selects the save figure tab,
         # then the animation stops.
         def save_fig_tab_fun(name, value):
-            if value == 3 and image_number_wid.play_toggle.value:
-                image_number_wid.stop_toggle.value = True
+            if value == 3 and image_number_wid.play_options_toggle.value:
+                image_number_wid.stop_options_toggle.value = True
         options_box.on_trait_change(save_fig_tab_fun, 'selected_index')
 
     # Set widget's style
@@ -2672,3 +2637,16 @@ def visualize_fitting_result(fitting_results, figure_size=(10, 8),
 
     # Reset value to trigger initial visualization
     renderer_options_wid.options_widgets[3].render_legend_checkbox.value = True
+
+
+def _error_type_key_to_func(error_type):
+    from menpofit.result import (
+        compute_root_mean_square_error, compute_point_to_point_error,
+        compute_normalise_point_to_point_error)
+    if error_type is 'me_norm':
+        func = compute_normalise_point_to_point_error
+    elif error_type is 'me':
+        func = compute_point_to_point_error
+    elif error_type is 'rmse':
+        func = compute_root_mean_square_error
+    return func

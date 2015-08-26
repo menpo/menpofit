@@ -1,11 +1,12 @@
 import numpy as np
-
 from menpo.base import Targetable, Vectorizable
+from menpo.shape import PointCloud
 from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM
 from menpo.transform.base import Transform, VComposable, VInvertible
 from menpofit.differentiable import DP
 
 
+# TODO: Should MDT implement VComposable and VInvertible?
 class ModelDrivenTransform(Transform, Targetable, Vectorizable,
                            VComposable, VInvertible, DP):
     r"""
@@ -135,22 +136,17 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         r"""
         Composes two ModelDrivenTransforms together based on the
         first order approximation proposed by Papandreou and Maragos in [1].
-
         Parameters
         ----------
         delta : (N,) ndarray
             Vectorized :class:`ModelDrivenTransform` to be applied **before**
             self
-
         Returns
         --------
         transform : self
             self, updated to the result of the composition
-
-
         References
         ----------
-
         .. [1] G. Papandreou and P. Maragos, "Adaptive and Constrained
                Algorithms for Inverse Compositional Active Appearance Model
                Fitting", CVPR08
@@ -176,15 +172,6 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         # (n_points, n_params, n_dims)
         dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> eilk', dW_dx, dW_dp_0)
 
-        #TODO: Can we do this without splitting across the two dimensions?
-        # dW_dx_x = dW_dx[:, 0, :].flatten()[..., None]
-        # dW_dx_y = dW_dx[:, 1, :].flatten()[..., None]
-        # dW_dp_0_mat = np.reshape(dW_dp_0, (n_points * self.n_dims,
-        #                                    self.n_parameters))
-        # dW_dx_dW_dp_0 = dW_dp_0_mat * dW_dx_x + dW_dp_0_mat * dW_dx_y
-        # dW_dx_dW_dp_0 = np.reshape(dW_dx_dW_dp_0,
-        #                            (n_points, self.n_parameters, self.n_dims))
-
         # (n_params, n_params)
         J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
         # (n_params, n_params)
@@ -203,19 +190,14 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
     def pseudoinverse_vector(self, vector):
         r"""
         The vectorized pseudoinverse of a provided vector instance.
-
         Syntactic sugar for
-
         self.from_vector(vector).pseudoinverse.as_vector()
-
         On ModelDrivenTransform this is especially fast - we just negate the
         vector provided.
-
         Parameters
         ----------
         vector :  (P,) ndarray
             A vectorized version of self
-
         Returns
         -------
         pseudoinverse_vector : (N,) ndarray
@@ -262,7 +244,6 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
         # dW_dl:  n_points x (n_dims) x n_centres x n_dims
         # dX_dp:  (n_points x n_dims) x n_params
-        
 
         # The following is equivalent to
         # np.einsum('ild, lpd -> ipd', self.dW_dl, dX_dp)
@@ -272,6 +253,47 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         # dW_dp:  n_points x n_params x n_dims
 
         return dW_dp
+
+    def Jp(self):
+        r"""
+        Compute parameters' Jacobian.
+
+        References
+        ----------
+
+        .. [1] G. Papandreou and P. Maragos, "Adaptive and Constrained
+               Algorithms for Inverse Compositional Active Appearance Model
+               Fitting", CVPR08
+        """
+        # the incremental warp is always evaluated at p=0, ie the mean shape
+        points = self.pdm.model.mean().points
+
+        # compute:
+        #   - dW/dp when p=0
+        #   - dW/dp when p!=0
+        #   - dW/dx when p!=0 evaluated at the source landmarks
+
+        # dW/dp when p=0 and when p!=0 are the same and simply given by
+        # the Jacobian of the model
+        # (n_points, n_params, n_dims)
+        dW_dp_0 = self.pdm.d_dp(points)
+        # (n_points, n_params, n_dims)
+        dW_dp = dW_dp_0
+
+        # (n_points, n_dims, n_dims)
+        dW_dx = self.transform.d_dx(points)
+
+        # (n_points, n_params, n_dims)
+        dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> eilk', dW_dx, dW_dp_0)
+
+        # (n_params, n_params)
+        J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
+        # (n_params, n_params)
+        H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
+        # (n_params, n_params)
+        Jp = np.linalg.solve(H, J)
+
+        return Jp
 
 
 # noinspection PyMissingConstructor
@@ -326,18 +348,76 @@ class GlobalMDTransform(ModelDrivenTransform):
         r"""
         Composes two ModelDrivenTransforms together based on the
         first order approximation proposed by Papandreou and Maragos in [1].
-
         Parameters
         ----------
         delta : (N,) ndarray
             Vectorized :class:`ModelDrivenTransform` to be applied **before**
             self
-
         Returns
         --------
         transform : self
             self, updated to the result of the composition
+        References
+        ----------
+        .. [1] G. Papandreou and P. Maragos, "Adaptive and Constrained
+               Algorithms for Inverse Compositional Active Appearance Model
+               Fitting", CVPR08
+        """
+        # the incremental warp is always evaluated at p=0, ie the mean shape
+        points = self.pdm.model.mean().points
 
+        # compute:
+        #   - dW/dp when p=0
+        #   - dW/dp when p!=0
+        #   - dW/dx when p!=0 evaluated at the source landmarks
+
+        # dW/dq when p=0 and when p!=0 are the same and given by the
+        # Jacobian of the global transform evaluated at the mean of the
+        # model
+        # (n_points, n_global_params, n_dims)
+        dW_dq = self.pdm._global_transform_d_dp(points)
+
+        # dW/db when p=0, is the Jacobian of the model
+        # (n_points, n_weights, n_dims)
+        dW_db_0 = PDM.d_dp(self.pdm, points)
+
+        # dW/dp when p=0, is simply the concatenation of the previous
+        # two terms
+        # (n_points, n_params, n_dims)
+        dW_dp_0 = np.hstack((dW_dq, dW_db_0))
+
+        # by application of the chain rule dW_db when p!=0,
+        # is the Jacobian of the global transform wrt the points times
+        # the Jacobian of the model: dX(S)/db = dX/dS *  dS/db
+        # (n_points, n_dims, n_dims)
+        dW_dS = self.pdm.global_transform.d_dx(points)
+        # (n_points, n_weights, n_dims)
+        dW_db = np.einsum('ilj, idj -> idj', dW_dS, dW_db_0)
+
+        # dW/dp is simply the concatenation of dW_dq with dW_db
+        # (n_points, n_params, n_dims)
+        dW_dp = np.hstack((dW_dq, dW_db))
+
+        # dW/dx is the jacobian of the transform evaluated at the source
+        # landmarks
+        # (n_points, n_dims, n_dims)
+        dW_dx = self.transform.d_dx(points)
+
+        # (n_points, n_params, n_dims)
+        dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> ilk', dW_dx, dW_dp_0)
+
+        # (n_params, n_params)
+        J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
+        # (n_params, n_params)
+        H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
+        # (n_params, n_params)
+        Jp = np.linalg.solve(H, J)
+
+        self.from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
+
+    def Jp(self):
+        r"""
+        Compute parameters Jacobian.
 
         References
         ----------
@@ -389,16 +469,6 @@ class GlobalMDTransform(ModelDrivenTransform):
         # (n_points, n_params, n_dims)
         dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> ilk', dW_dx, dW_dp_0)
 
-        #TODO: Can we do this without splitting across the two dimensions?
-        # dW_dx_x = dW_dx[:, 0, :].flatten()[..., None]
-        # dW_dx_y = dW_dx[:, 1, :].flatten()[..., None]
-        # dW_dp_0_mat = np.reshape(dW_dp_0, (n_points * self.n_dims,
-        #                                    self.n_parameters))
-        # dW_dx_dW_dp_0 = dW_dp_0_mat * dW_dx_x + dW_dp_0_mat * dW_dx_y
-        # # (n_points, n_params, n_dims)
-        # dW_dx_dW_dp_0 = np.reshape(dW_dx_dW_dp_0,
-        #                            (n_points, self.n_parameters, self.n_dims))
-
         # (n_params, n_params)
         J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
         # (n_params, n_params)
@@ -406,7 +476,7 @@ class GlobalMDTransform(ModelDrivenTransform):
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
 
-        self.from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
+        return Jp
 
 
 # noinspection PyMissingConstructor
@@ -450,8 +520,47 @@ class OrthoMDTransform(GlobalMDTransform):
         The source landmarks of the transform. If no `source` is provided the
         mean of the model is used.
     """
-    def __init__(self, model, transform_cls, global_transform, source=None):
-        self.pdm = OrthoPDM(model, global_transform)
+    def __init__(self, model, transform_cls, source=None):
+        self.pdm = OrthoPDM(model)
         self._cached_points = None
         self.transform = transform_cls(source, self.target)
+
+
+# TODO: document me!
+class LinearOrthoMDTransform(OrthoPDM, Transform):
+    r"""
+    """
+    def __init__(self, model, sparse_instance):
+        super(LinearOrthoMDTransform, self).__init__(model)
+        self._sparse_instance = sparse_instance
+        self.W = np.vstack((self.similarity_model.components,
+                            self.model.components))
+        V = self.W[:, :self.n_dims*self.n_landmarks]
+        self.pinv_V = np.linalg.pinv(V)
+
+    @property
+    def n_landmarks(self):
+        return self._sparse_instance.n_points
+
+    @property
+    def dense_target(self):
+        return PointCloud(self.target.points[self.n_landmarks:])
+
+    @property
+    def sparse_target(self):
+        sparse_target = PointCloud(self.target.points[:self.n_landmarks])
+        return self._sparse_instance.from_vector(sparse_target.as_vector())
+
+    def set_target(self, target):
+        if target.n_points == self.n_landmarks:
+            # densify target
+            target = np.dot(np.dot(target.as_vector(), self.pinv_V), self.W)
+            target = PointCloud(np.reshape(target, (-1, self.n_dims)))
+        OrthoPDM.set_target(self, target)
+
+    def _apply(self, _, **kwargs):
+        return self.target.points[self.n_landmarks:]
+
+    def d_dp(self, _):
+        return OrthoPDM.d_dp(self, _)[self.n_landmarks:, ...]
 

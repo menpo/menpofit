@@ -1,5 +1,11 @@
 sudo: false
 
+os:
+- linux
+
+git:
+  depth: 200
+
 env:
   global:
     - BINSTAR_USER: menpo
@@ -8,11 +14,11 @@ env:
     - PYTHON_VERSION: 3.4
 
 install:
-  - wget https://raw.githubusercontent.com/menpo/condaci/v0.4.2/condaci.py -O condaci.py
-  - python condaci.py setup
+- wget https://raw.githubusercontent.com/menpo/condaci/v0.4.6/condaci.py -O condaci.py
+- python condaci.py setup
 
 script:
-  - ~/miniconda/bin/python condaci.py build ./conda
+- ~/miniconda/bin/python condaci.py build ./conda
 
 notifications:
   slack:
