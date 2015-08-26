@@ -167,7 +167,7 @@ def features_per_patch(image, shape, patch_size, features_callable):
                                     as_single_array=True)
 
     patch_features = [features_callable(p[0]).ravel() for p in patches]
-    return np.asarray(patch_features).ravel()
+    return np.hstack(patch_features)
 
 
 # TODO: document me!
@@ -178,7 +178,7 @@ def features_per_shape(image, shapes, patch_size, features_callable):
                                          features_callable)
                       for s in shapes]
 
-    return np.asarray(patch_features)
+    return np.vstack(patch_features)
 
 
 # TODO: document me!
@@ -193,8 +193,7 @@ def features_per_image(images, shapes, patch_size, features_callable,
     patch_features = [features_per_shape(i, shapes[j], patch_size,
                                          features_callable)
                       for j, i in enumerate(wrap(images))]
-    patch_features = np.asarray(patch_features)
-    return patch_features.reshape((-1, patch_features.shape[-1]))
+    return np.vstack(patch_features)
 
 
 def compute_delta_x(gt_shape, current_shapes):
