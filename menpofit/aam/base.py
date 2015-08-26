@@ -22,97 +22,6 @@ from menpofit.builder import (
 class AAM(object):
     r"""
     Active Appearance Model class.
-
-    Parameters
-    ----------
-    features : `callable` or ``[callable]``, optional
-        If list of length ``n_scales``, feature extraction is performed at
-        each level after downscaling of the image.
-        The first element of the list specifies the features to be extracted at
-        the lowest pyramidal level and so on.
-
-        If ``callable`` the specified feature will be applied to the original
-        image and pyramid generation will be performed on top of the feature
-        image. Also see the `pyramid_on_features` property.
-
-        Note that from our experience, this approach of extracting features
-        once and then creating a pyramid on top tends to lead to better
-        performing AAMs.
-    transform : :map:`PureAlignmentTransform`, optional
-        The :map:`PureAlignmentTransform` that will be
-        used to warp the images.
-    trilist : ``(t, 3)`` `ndarray`, optional
-        Triangle list that will be used to build the reference frame. If
-        ``None``, defaults to performing Delaunay triangulation on the points.
-    diagonal : `int` >= ``20``, optional
-        During building an AAM, all images are rescaled to ensure that the
-        scale of their landmarks matches the scale of the mean shape.
-
-        If `int`, it ensures that the mean shape is scaled so that the diagonal
-        of the bounding box containing it matches the diagonal value.
-
-        If ``None``, the mean shape is not rescaled.
-
-        Note that, because the reference frame is computed from the mean
-        landmarks, this kwarg also specifies the diagonal length of the
-        reference frame (provided that features computation does not change
-        the image size).
-    scales : `int` or float` or list of those, optional
-    max_shape_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_scales``, then a number of shape components is
-        defined per level. The first element of the list specifies the number
-        of components of the lowest pyramidal level and so on.
-
-        If not a list or a list with length ``1``, then the specified number of
-        shape components will be used for all levels.
-
-        Per level:
-            If `int`, it specifies the exact number of components to be
-            retained.
-
-            If `float`, it specifies the percentage of variance to be retained.
-
-            If ``None``, all the available components are kept
-            (100% of variance).
-    max_appearance_components : ``None`` or `int` > 0 or ``0`` <= `float` <= ``1`` or list of those, optional
-        If list of length ``n_scales``, then a number of appearance components
-        is defined per level. The first element of the list specifies the number
-        of components of the lowest pyramidal level and so on.
-
-        If not a list or a list with length ``1``, then the specified number of
-        appearance components will be used for all levels.
-
-        Per level:
-            If `int`, it specifies the exact number of components to be
-            retained.
-
-            If `float`, it specifies the percentage of variance to be retained.
-
-            If ``None``, all the available components are kept
-            (100% of variance).
-
-    Returns
-    -------
-    aam : :map:`AAMBuilder`
-        The AAM Builder object
-
-    Raises
-    -------
-    ValueError
-        ``diagonal`` must be >= ``20``.
-    ValueError
-        ``scales`` must be `int` or `float` or list of those.
-    ValueError
-        ``features`` must be a `function` or a list of those
-        containing ``1`` or ``len(scales)`` elements
-    ValueError
-        ``max_shape_components`` must be ``None`` or an `int` > 0 or
-        a ``0`` <= `float` <= ``1`` or a list of those containing 1 or
-        ``len(scales)`` elements
-    ValueError
-        ``max_appearance_components`` must be ``None`` or an `int` > ``0`` or a
-        ``0`` <= `float` <= ``1`` or a list of those containing 1 or
-        ``len(scales)`` elements
     """
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op,
@@ -554,37 +463,9 @@ class AAM(object):
 class MaskedAAM(AAM):
     r"""
     Masked Active Appearance Model class.
-
-    Parameters
-    -----------
-    shape_models : :map:`PCAModel` list
-        A list containing the shape models of the AAM.
-    appearance_models : :map:`PCAModel` list
-        A list containing the appearance models of the AAM.
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
-    patch_size : tuple of `int`
-        The shape of the patches used to build the Patch Based AAM.
-    features : `callable` or ``[callable]``
-        If list of length ``n_scales``, feature extraction is performed at
-        each scale after downscaling of the image.
-        The first element of the list specifies the features to be extracted at
-        the lowest scale and so on.
-
-        If ``callable`` the specified feature will be applied to the original
-        image and pyramid generation will be performed on top of the feature
-        image. Also see the `pyramid_on_features` property.
-
-        Note that from our experience, this approach of extracting features
-        once and then creating a pyramid on top tends to lead to better
-        performing AAMs.
-
-    scales : `int` or float` or list of those
-    scale_shapes : `boolean`
     """
 
-    def __init__(self, images, group=None, verbose=False,
+    def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_size=(17, 17), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
@@ -593,6 +474,7 @@ class MaskedAAM(AAM):
 
         super(MaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
+            reference_shape=reference_shape,
             holistic_features=holistic_features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -640,37 +522,9 @@ class MaskedAAM(AAM):
 class LinearAAM(AAM):
     r"""
     Linear Active Appearance Model class.
-
-    Parameters
-    -----------
-    shape_models : :map:`PCAModel` list
-        A list containing the shape models of the AAM.
-    appearance_models : :map:`PCAModel` list
-        A list containing the appearance models of the AAM.
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
-    transform : :map:`PureAlignmentTransform`
-        The transform used to warp the images from which the AAM was
-        constructed.
-    features : `callable` or ``[callable]``, optional
-        If list of length ``n_scales``, feature extraction is performed at
-        each level after downscaling of the image.
-        The first element of the list specifies the features to be extracted at
-        the lowest pyramidal level and so on.
-
-        If ``callable`` the specified feature will be applied to the original
-        image and pyramid generation will be performed on top of the feature
-        image. Also see the `pyramid_on_features` property.
-
-        Note that from our experience, this approach of extracting features
-        once and then creating a pyramid on top tends to lead to better
-        performing AAMs.
-
-    scales : `int` or float` or list of those
     """
 
-    def __init__(self, images, group=None, verbose=False,
+    def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op,
                  transform=DifferentiableThinPlateSplines, diagonal=None,
                  scales=(0.5, 1.0), max_shape_components=None,
@@ -678,6 +532,7 @@ class LinearAAM(AAM):
 
         super(LinearAAM, self).__init__(
             images, group=group, verbose=verbose,
+            reference_shape=reference_shape,
             holistic_features=holistic_features, transform=transform,
             diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components,
@@ -741,36 +596,9 @@ class LinearAAM(AAM):
 class LinearMaskedAAM(AAM):
     r"""
     Linear Masked Active Appearance Model class.
-
-    Parameters
-    -----------
-    shape_models : :map:`PCAModel` list
-        A list containing the shape models of the AAM.
-    appearance_models : :map:`PCAModel` list
-        A list containing the appearance models of the AAM.
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
-    patch_size : tuple of `int`
-        The shape of the patches used to build the Patch Based AAM.
-    features : `callable` or ``[callable]``
-        If list of length ``n_scales``, feature extraction is performed at
-        each level after downscaling of the image.
-        The first element of the list specifies the features to be extracted at
-        the lowest pyramidal level and so on.
-
-        If ``callable`` the specified feature will be applied to the original
-        image and pyramid generation will be performed on top of the feature
-        image. Also see the `pyramid_on_features` property.
-
-        Note that from our experience, this approach of extracting features
-        once and then creating a pyramid on top tends to lead to better
-        performing AAMs.
-
-    scales : `int` or float` or list of those
     """
 
-    def __init__(self, images, group=None, verbose=False,
+    def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_size=(17, 17), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
@@ -779,6 +607,7 @@ class LinearMaskedAAM(AAM):
 
         super(LinearMaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
+            reference_shape=reference_shape,
             holistic_features=holistic_features,
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
@@ -844,37 +673,9 @@ class LinearMaskedAAM(AAM):
 class PatchAAM(AAM):
     r"""
     Patch-based Active Appearance Model class.
-
-    Parameters
-    -----------
-    shape_models : :map:`PCAModel` list
-        A list containing the shape models of the AAM.
-    appearance_models : :map:`PCAModel` list
-        A list containing the appearance models of the AAM.
-    reference_shape : :map:`PointCloud`
-        The reference shape that was used to resize all training images to a
-        consistent object size.
-    patch_size : tuple of `int`
-        The shape of the patches used to build the Patch Based AAM.
-    features : `callable` or ``[callable]``
-        If list of length ``n_scales``, feature extraction is performed at
-        each level after downscaling of the image.
-        The first element of the list specifies the features to be extracted at
-        the lowest pyramidal level and so on.
-
-        If ``callable`` the specified feature will be applied to the original
-        image and pyramid generation will be performed on top of the feature
-        image. Also see the `pyramid_on_features` property.
-
-        Note that from our experience, this approach of extracting features
-        once and then creating a pyramid on top tends to lead to better
-        performing AAMs.
-
-    normalize_parts: `callable`
-    scales : `int` or float` or list of those
     """
 
-    def __init__(self, images, group=None, verbose=False,
+    def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, patch_normalisation=no_op,
                  diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
                  max_shape_components=None, max_appearance_components=None,
@@ -885,6 +686,7 @@ class PatchAAM(AAM):
 
         super(PatchAAM, self).__init__(
             images, group=group, verbose=verbose,
+            reference_shape=reference_shape,
             holistic_features=holistic_features, transform=None,
             diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components,
