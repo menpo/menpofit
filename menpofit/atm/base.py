@@ -356,9 +356,9 @@ class MaskedATM(ATM):
 
     def __init__(self, template, shapes, group=None, verbose=False,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_size=(17, 17), max_shape_components=None,
+                 patch_shape=(17, 17), max_shape_components=None,
                  batch_size=None):
-        self.patch_size = checks.check_patch_size(patch_size, len(scales))
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(MaskedATM, self).__init__(
             template, shapes, group=group, verbose=verbose,
@@ -370,7 +370,7 @@ class MaskedATM(ATM):
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
         reference_frame = build_patch_reference_frame(
-            reference_shape, patch_size=self.patch_size[scale_index])
+            reference_shape, patch_shape=self.patch_shape[scale_index])
         shape = template.landmarks[group].lms
         return warp_images([template], [shape], reference_frame, self.transform,
                            prefix=prefix, verbose=verbose)
@@ -383,7 +383,7 @@ class MaskedATM(ATM):
         landmarks = template.landmarks['source'].lms
 
         reference_frame = build_patch_reference_frame(
-            shape_instance, patch_size=self.patch_size)
+            shape_instance, patch_shape=self.patch_shape)
 
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
@@ -468,9 +468,9 @@ class LinearMaskedATM(ATM):
 
     def __init__(self, template, shapes, group=None, verbose=False,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_size=(17, 17), max_shape_components=None,
+                 patch_shape=(17, 17), max_shape_components=None,
                  batch_size=None):
-        self.patch_size = checks.check_patch_size(patch_size, len(scales))
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
 
         super(LinearMaskedATM, self).__init__(
             template, shapes, group=group, verbose=verbose,
@@ -491,7 +491,7 @@ class LinearMaskedATM(ATM):
         mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
         self.n_landmarks = mean_aligned_shape.n_points
         self.reference_frame = build_patch_reference_frame(
-            mean_aligned_shape, patch_size=self.patch_size[scale_index])
+            mean_aligned_shape, patch_shape=self.patch_shape[scale_index])
         dense_shapes = densify_shapes(shapes, self.reference_frame,
                                       self.transform)
         # build dense shape model
@@ -537,9 +537,9 @@ class PatchATM(ATM):
 
     def __init__(self, template, shapes, group=None, verbose=False,
                  holistic_features=no_op, patch_normalisation=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
                  max_shape_components=None, batch_size=None):
-        self.patch_size = checks.check_patch_size(patch_size, len(scales))
+        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.patch_normalisation = patch_normalisation
 
         super(PatchATM, self).__init__(
@@ -561,7 +561,7 @@ class PatchATM(ATM):
                        prefix, verbose):
         shape = template.landmarks[group].lms
         return extract_patches([template], [shape],
-                               self.patch_size[scale_index],
+                               self.patch_shape[scale_index],
                                normalise_function=self.patch_normalisation,
                                prefix=prefix, verbose=verbose)
 
@@ -598,10 +598,10 @@ def _atm_str(atm):
             atm.warped_templates[k].shape,
             atm.shape_models[k].n_components))
     # Patch based ATM
-    if hasattr(atm, 'patch_size'):
+    if hasattr(atm, 'patch_shape'):
         for k in range(len(scales_info)):
-            scales_info[k] += '\n   - Patch size: {}'.format(
-                atm.patch_size[k])
+            scales_info[k] += '\n   - Patch shape: {}'.format(
+                atm.patch_shape[k])
     scales_info = '\n'.join(scales_info)
 
     cls_str = r"""{class_title}

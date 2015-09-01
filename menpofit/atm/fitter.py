@@ -46,7 +46,7 @@ class LucasKanadeATMFitter(ModelFitter):
             elif type(self.atm) is PatchATM:
                 pdm = OrthoPDM(sm)
                 interface = ATMLKPatchInterface(
-                    pdm, wt, sampling=s, patch_size=self.atm.patch_size[j],
+                    pdm, wt, sampling=s, patch_shape=self.atm.patch_shape[j],
                     patch_normalisation=self.atm.patch_normalisation)
                 algorithm = algorithm_cls(interface)
             else:

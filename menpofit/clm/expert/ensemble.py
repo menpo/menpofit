@@ -42,14 +42,14 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     def padded_size(self):
         r"""
         """
-        pad_size = np.floor(1.5 * np.asarray(self.patch_size) - 1).astype(int)
+        pad_size = np.floor(1.5 * np.asarray(self.patch_shape) - 1).astype(int)
         return tuple(pad_size)
 
     @property
     def search_size(self):
         r"""
         """
-        return self.patch_size
+        return self.patch_shape
 
     def increment(self, images, shapes, prefix='', verbose=False):
         r"""
@@ -65,7 +65,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         for fft_padded_filter in self.fft_padded_filters:
             spatial_filter = np.real(ifft2(fft_padded_filter))
             spatial_filter = crop(spatial_filter,
-                                  self.patch_size)[:, ::-1, ::-1]
+                                  self.patch_shape)[:, ::-1, ::-1]
             filter_images.append(Image(spatial_filter))
         return filter_images
 
@@ -77,7 +77,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         for fft_padded_filter in self.fft_padded_filters:
             spatial_filter = np.real(ifft2(fft_padded_filter))
             spatial_filter = crop(spatial_filter,
-                                  self.patch_size)[:, ::-1, ::-1]
+                                  self.patch_shape)[:, ::-1, ::-1]
             frequency_filter = np.abs(fftshift(fft2(spatial_filter)))
             filter_images.append(Image(frequency_filter))
         return filter_images
@@ -87,7 +87,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         """
         # Extract patch from image
         patch = image.extract_patches(
-            landmark, patch_size=self.patch_size,
+            landmark, patch_shape=self.patch_shape,
             sample_offsets=self.sample_offsets, as_single_array=True)
         # Reshape patch
         # patch: (offsets x ch) x h x w
@@ -100,7 +100,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         """
         # Obtain patch ensemble, the whole shape is used to extract patches
         # from all landmarks at once
-        patches = image.extract_patches(shape, patch_size=self.patch_size,
+        patches = image.extract_patches(shape, patch_shape=self.patch_shape,
                                         sample_offsets=self.sample_offsets,
                                         as_single_array=True)
         # Reshape patches
@@ -133,13 +133,13 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     """
     def __init__(self, images, shapes, verbose=False, prefix='',
                  icf_cls=IncrementalCorrelationFilterThinWrapper,
-                 patch_size=(17, 17), context_size=(34, 34),
+                 patch_shape=(17, 17), context_size=(34, 34),
                  response_covariance=3, patch_normalisation=normalize_norm,
                  cosine_mask=True, sample_offsets=None):
         # TODO: check parameters?
         # Set parameters
         self._icf = icf_cls()
-        self.patch_size = patch_size
+        self.patch_shape = patch_shape
         self.context_size = context_size
         self.response_covariance = response_covariance
         self.patch_normalisation = patch_normalisation
@@ -152,7 +152,7 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         # Generate desired response, i.e. a Gaussian response with the
         # specified covariance centred at the middle of the patch
         self.response = generate_gaussian_response(
-            self.patch_size, self.response_covariance)[None, ...]
+            self.patch_shape, self.response_covariance)[None, ...]
 
         # Train ensemble of correlation filter experts
         self._train(images, shapes, verbose=verbose, prefix=prefix)
@@ -162,7 +162,7 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         """
         # Extract patch from image
         patch = image.extract_patches(
-            landmark, patch_size=self.context_size,
+            landmark, patch_shape=self.context_size,
             sample_offsets=self.sample_offsets, as_single_array=True)
         # Reshape patch
         # patch: (offsets x ch) x h x w
@@ -243,18 +243,18 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
 
 
 # TODO: Document me!
-def generate_gaussian_response(patch_size, response_covariance):
+def generate_gaussian_response(patch_shape, response_covariance):
     r"""
     """
-    grid = build_grid(patch_size)
+    grid = build_grid(patch_shape)
     mvn = multivariate_normal(mean=np.zeros(2), cov=response_covariance)
     return mvn.pdf(grid)
 
 
 # TODO: Document me!
-def generate_cosine_mask(patch_size):
+def generate_cosine_mask(patch_shape):
     r"""
     """
-    cy = np.hanning(patch_size[0])
-    cx = np.hanning(patch_size[1])
+    cy = np.hanning(patch_shape[0])
+    cx = np.hanning(patch_shape[1])
     return cy[..., None].dot(cx[None, ...])
