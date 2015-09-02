@@ -361,7 +361,7 @@ def noisy_target_alignment_transform(source, target,
 
 
 def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
-                                  noise_percentage=0.1, rotation=False):
+                                  noise_percentage=0.05, rotation=False):
     transform = noisy_alignment_similarity_transform(
         shape.bounding_box(), bounding_box, noise_type=noise_type,
         noise_percentage=noise_percentage, rotation=rotation)
@@ -369,7 +369,7 @@ def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
 
 
 def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
-                           noise_percentage=0.1, rotation=False):
+                           noise_percentage=0.05, rotation=False):
     transform = noisy_alignment_similarity_transform(
         reference_shape, shape, noise_type=noise_type,
         noise_percentage=noise_percentage, rotation=rotation)
