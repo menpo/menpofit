@@ -75,7 +75,7 @@ class LucasKanadeAAMFitter(AAMFitter):
                 pdm = OrthoPDM(sm)
                 interface = LucasKanadePatchInterface(
                     am, pdm, template, sampling=s,
-                    patch_size=self.aam.patch_size[j],
+                    patch_shape=self.aam.patch_shape[j],
                     patch_normalisation=self.aam.patch_normalisation)
                 algorithm = lk_algorithm_cls(interface)
             else:
@@ -102,7 +102,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         checks.set_models_components(aam.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, aam.n_scales)
 
-        # patch_feature and patch_size are not actually
+        # patch_feature and patch_shape are not actually
         # used because they are fully defined by the AAM already. Therefore,
         # we just leave them as their 'defaults' because they won't be used.
         super(SupervisedDescentAAMFitter, self).__init__(
@@ -145,7 +145,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                 pdm = OrthoPDM(sm)
                 interface = SupervisedDescentPatchInterface(
                     am, pdm, template, sampling=s,
-                    patch_size=self.aam.patch_size[j],
+                    patch_shape=self.aam.patch_shape[j],
                     patch_normalisation=self.aam.patch_normalisation)
                 algorithm = self._sd_algorithm_cls(
                     interface, n_iterations=self.n_iterations[j])

@@ -467,10 +467,10 @@ class MaskedAAM(AAM):
 
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_size=(17, 17), max_shape_components=None,
+                 patch_shape=(17, 17), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
         n_scales = len(checks.check_scales(scales))
-        self.patch_size = checks.check_patch_size(patch_size, n_scales)
+        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
 
         super(MaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
@@ -484,7 +484,7 @@ class MaskedAAM(AAM):
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
         reference_frame = build_patch_reference_frame(
-            reference_shape, patch_size=self.patch_size[scale_index])
+            reference_shape, patch_shape=self.patch_shape[scale_index])
         return warp_images(images, shapes, reference_frame, self.transform,
                            prefix=prefix, verbose=verbose)
 
@@ -497,7 +497,7 @@ class MaskedAAM(AAM):
         landmarks = template.landmarks['source'].lms
 
         reference_frame = build_patch_reference_frame(
-            shape_instance, patch_size=self.patch_size)
+            shape_instance, patch_shape=self.patch_shape)
 
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
@@ -600,10 +600,10 @@ class LinearMaskedAAM(AAM):
 
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_size=(17, 17), max_shape_components=None,
+                 patch_shape=(17, 17), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
         n_scales = len(checks.check_scales(scales))
-        self.patch_size = checks.check_patch_size(patch_size, n_scales)
+        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
 
         super(LinearMaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
@@ -626,7 +626,7 @@ class LinearMaskedAAM(AAM):
         mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
         self.n_landmarks = mean_aligned_shape.n_points
         self.reference_frame = build_patch_reference_frame(
-            mean_aligned_shape, patch_size=self.patch_size[scale_index])
+            mean_aligned_shape, patch_shape=self.patch_shape[scale_index])
         dense_shapes = densify_shapes(shapes, self.reference_frame,
                                       self.transform)
         # build dense shape model
@@ -677,11 +677,11 @@ class PatchAAM(AAM):
 
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, patch_normalisation=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_size=(17, 17),
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
                  max_shape_components=None, max_appearance_components=None,
                  batch_size=None):
         n_scales = len(checks.check_scales(scales))
-        self.patch_size = checks.check_patch_size(patch_size, n_scales)
+        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
         self.patch_normalisation = patch_normalisation
 
         super(PatchAAM, self).__init__(
@@ -703,7 +703,7 @@ class PatchAAM(AAM):
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
-        return extract_patches(images, shapes, self.patch_size[scale_index],
+        return extract_patches(images, shapes, self.patch_shape[scale_index],
                                normalise_function=self.patch_normalisation,
                                prefix=prefix, verbose=verbose)
 
@@ -746,10 +746,10 @@ def _aam_str(aam):
             aam.appearance_models[k].n_components,
             aam.shape_models[k].n_components))
     # Patch based AAM
-    if hasattr(aam, 'patch_size'):
+    if hasattr(aam, 'patch_shape'):
         for k in range(len(scales_info)):
-            scales_info[k] += '\n   - Patch size: {}'.format(
-                aam.patch_size[k])
+            scales_info[k] += '\n   - Patch shape: {}'.format(
+                aam.patch_shape[k])
     scales_info = '\n'.join(scales_info)
 
     if aam.transform is not None:

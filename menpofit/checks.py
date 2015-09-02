@@ -85,17 +85,17 @@ def check_scale_features(scale_features, features):
 
 
 # TODO: document me!
-def check_patch_size(patch_size, n_scales):
-    if len(patch_size) == 2 and isinstance(patch_size[0], int):
-        return [patch_size] * n_scales
-    elif len(patch_size) == 1:
-        return check_patch_size(patch_size[0], 1)
-    elif len(patch_size) == n_scales:
-        l1 = check_patch_size(patch_size[0], 1)
-        l2 = check_patch_size(patch_size[1:], n_scales-1)
+def check_patch_shape(patch_shape, n_scales):
+    if len(patch_shape) == 2 and isinstance(patch_shape[0], int):
+        return [patch_shape] * n_scales
+    elif len(patch_shape) == 1:
+        return check_patch_shape(patch_shape[0], 1)
+    elif len(patch_shape) == n_scales:
+        l1 = check_patch_shape(patch_shape[0], 1)
+        l2 = check_patch_shape(patch_shape[1:], n_scales-1)
         return l1 + l2
     else:
-        raise ValueError("patch_size must be a list/tuple of int or a "
+        raise ValueError("patch_shape must be a list/tuple of int or a "
                          "list/tuple of lit/tuple of int/float with the "
                          "same length as the number of scales")
 
