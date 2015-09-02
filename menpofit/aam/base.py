@@ -717,7 +717,7 @@ class PatchAAM(AAM):
         from menpofit.visualize import visualize_patch_aam
         visualize_patch_aam(self, n_shape_parameters=n_shape_parameters,
                             n_appearance_parameters=n_appearance_parameters,
-                            parameters_bounds=parameters_bounds, 
+                            parameters_bounds=parameters_bounds,
                             figure_size=figure_size, mode=mode)
 
     def __str__(self):
