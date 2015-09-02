@@ -565,9 +565,8 @@ class PatchATM(ATM):
                                normalise_function=self.patch_normalisation,
                                prefix=prefix, verbose=verbose)
 
-    # TODO: implement me!
     def _instance(self, shape_instance, template):
-        raise NotImplemented
+        return shape_instance, template
 
     # TODO: implement me!
     def view_atm_widget(self, n_shape_parameters=5,

@@ -1716,8 +1716,7 @@ def visualize_patch_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
 
         lvl_app_mod = aam.appearance_models[level]
         lvl_shape_mod = aam.shape_models[level]
-        aam_mean = lvl_app_mod.mean()
-        n_channels = aam_mean.pixels.shape[2]
+        n_channels = lvl_app_mod.mean().pixels.shape[2]
         feat = aam.holistic_features[level]
 
         # Feature string
@@ -1730,6 +1729,7 @@ def visualize_patch_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
 
         # update info widgets
         text_per_line = [
+            "> No image warping performed.",
             "> Level {}/{}".format(level + 1, aam.n_scales),
             "> {} landmark points".format(appearance_instance.pixels.shape[0]),
             "> {} shape components ({:.2f}% of variance)".format(
@@ -1828,7 +1828,7 @@ def visualize_patch_aam(aam, n_shape_parameters=5, n_appearance_parameters=5,
         object_selection_dropdown_visible=False,
         render_function=render_function, style=renderer_style,
         tabs_style=renderer_tabs_style)
-    info_wid = TextPrintWidget(n_lines=7, text_per_line=[''] * 7,
+    info_wid = TextPrintWidget(n_lines=8, text_per_line=[''] * 8,
                                style=info_style)
     initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
                                                image=np.zeros((10, 10)))
@@ -2285,6 +2285,364 @@ def visualize_atm(atm, n_shape_parameters=5, mode='multiple',
 
     # Reset value to trigger initial visualization
     renderer_options_wid.options_widgets[3].render_axes_checkbox.value = False
+
+def visualize_patch_atm(atm, n_shape_parameters=5, mode='multiple',
+                        parameters_bounds=(-3.0, 3.0), figure_size=(10, 8),
+                        style='coloured'):
+    r"""
+    Widget that allows the dynamic visualization of a multilevel patch-based
+    Active Template Model.
+
+    Parameters
+    -----------
+    atm : :map:`PatchATM`
+        The multilevel patch-based ATM to be visualized. Note that each level
+        can have different number of components.
+    n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+        The number of principal components to be used for the shape parameters
+        sliders. If `int`, then the number of sliders per level is the minimum
+        between `n_parameters` and the number of active components per level.
+        If `list` of `int`, then a number of sliders is defined per level.
+        If ``None``, all the active components per level will have a slider.
+    mode : {``'single'``, ``'multiple'``}, optional
+        If ``'single'``, then only a single slider is constructed along with a
+        drop down menu. If ``'multiple'``, then a slider is constructed for each
+        parameter.
+    parameters_bounds : (`float`, `float`), optional
+        The minimum and maximum bounds, in std units, for the sliders.
+    figure_size : (`int`, `int`), optional
+        The size of the plotted figures.
+    style : {``'coloured'``, ``'minimal'``}, optional
+        If ``'coloured'``, then the style of the widget will be coloured. If
+        ``minimal``, then the style is simple using black and white colours.
+    """
+    print('Initializing...')
+
+    # Get the number of levels
+    n_levels = atm.n_scales
+
+    # Define the styling options
+    if style == 'coloured':
+        model_style = 'info'
+        model_parameters_style = 'danger'
+        patches_style = 'minimal'
+        patches_subwidgets_style = 'danger'
+        channels_style = 'danger'
+        logo_style = 'info'
+        widget_box_style = 'info'
+        widget_border_radius = 10
+        widget_border_width = 1
+        info_style = 'danger'
+        renderer_style = 'danger'
+        renderer_tabs_style = 'info'
+        save_figure_style = 'danger'
+    elif style == 'minimal':
+        model_style = ''
+        model_parameters_style = 'minimal'
+        patches_style = 'minimal'
+        patches_subwidgets_style = 'minimal'
+        channels_style = 'minimal'
+        logo_style = 'minimal'
+        widget_box_style = ''
+        widget_border_radius = 0
+        widget_border_width = 0
+        info_style = 'minimal'
+        renderer_style = 'minimal'
+        renderer_tabs_style = 'minimal'
+        save_figure_style = 'minimal'
+    else:
+        raise ValueError("style must be either coloured or minimal")
+
+    # Get the maximum number of components per level
+    max_n_shape = [sp.n_active_components for sp in atm.shape_models]
+
+    # Check the given number of parameters (the returned n_parameters is a list
+    # of len n_scales)
+    n_shape_parameters = _check_n_parameters(n_shape_parameters, n_levels,
+                                             max_n_shape)
+
+    # Initial options dictionaries
+    channels_default = 0
+    if atm.warped_templates[0].pixels.shape[2] == 3:
+        channels_default = None
+    channel_options = {
+        'n_channels': atm.warped_templates[0].pixels.shape[2],
+        'image_is_masked': False, 'channels': channels_default,
+        'glyph_enabled': False, 'glyph_block_size': 3,
+        'glyph_use_negative': False, 'sum_enabled': False,
+        'masked_enabled': False}
+    n_centers = atm.warped_templates[0].pixels.shape[0]
+    n_offsets = atm.warped_templates[0].pixels.shape[1]
+    patch_options = {'patches': {'command': "range({})".format(n_centers),
+                                 'indices': range(n_centers),
+                                 'length': n_centers},
+                     'offset_index': 0,
+                     'n_offsets': n_offsets,
+                     'render_patches': True,
+                     'render_centers': True,
+                     'background': 'white',
+                     'bboxes': {'render_lines': False, 'line_colour': ['b'],
+                                'line_style': '-', 'line_width': 1}}
+    image_options = {'alpha': 1.0, 'interpolation': 'none', 'cmap_name': None}
+    line_options = {'render_lines': True, 'line_width': 1,
+                    'line_colour': ['r'], 'line_style': '-'}
+    marker_options = {'render_markers': True, 'marker_size': 20,
+                      'marker_face_colour': ['r'],
+                      'marker_edge_colour': ['r'],
+                      'marker_style': 'o', 'marker_edge_width': 1}
+    numbering_options = {'render_numbering': False,
+                         'numbers_font_name': 'sans-serif',
+                         'numbers_font_size': 10,
+                         'numbers_font_style': 'normal',
+                         'numbers_font_weight': 'normal',
+                         'numbers_font_colour': ['k'],
+                         'numbers_horizontal_align': 'center',
+                         'numbers_vertical_align': 'bottom'}
+    figure_options = {'x_scale': 1., 'y_scale': 1., 'render_axes': False,
+                      'axes_font_name': 'sans-serif', 'axes_font_size': 10,
+                      'axes_font_style': 'normal', 'axes_font_weight': 'normal',
+                      'axes_x_limits': None, 'axes_y_limits': None}
+    renderer_options = {'lines': line_options, 'markers': marker_options,
+                        'numbering': numbering_options,
+                        'figure': figure_options, 'image': image_options}
+
+    # Define render function
+    def render_function(name, value):
+        # Clear current figure, but wait until the generation of the new data
+        # that will be rendered
+        ipydisplay.clear_output(wait=True)
+
+        # Get selected level
+        level = 0
+        if n_levels > 1:
+            level = level_wid.value
+
+        # Compute weights and instance
+        shape_weights = shape_model_parameters_wid.parameters
+        shape_instance, template = atm.instance(scale_index=level,
+                                                shape_weights=shape_weights)
+
+        # Update info
+        update_info(atm, template, level)
+
+        # Render instance with selected options
+        tmp1 = renderer_options_wid.selected_values[0]['lines']
+        tmp2 = renderer_options_wid.selected_values[0]['markers']
+        tmp3 = renderer_options_wid.selected_values[0]['numbering']
+        tmp4 = renderer_options_wid.selected_values[0]['figure']
+        tmp5 = renderer_options_wid.selected_values[0]['image']
+        new_figure_size = (tmp4['x_scale'] * figure_size[0],
+                           tmp4['y_scale'] * figure_size[1])
+        renderer = _visualize_patches(
+            template.pixels, shape_instance,
+            patch_options_wid.selected_values['patches']['indices'],
+            patch_options_wid.selected_values['offset_index'],
+            save_figure_wid.renderer,
+            patch_options_wid.selected_values['background'],
+            patch_options_wid.selected_values['render_patches'],
+            channel_options_wid.selected_values['channels'],
+            channel_options_wid.selected_values['glyph_enabled'],
+            channel_options_wid.selected_values['glyph_block_size'],
+            channel_options_wid.selected_values['glyph_use_negative'],
+            channel_options_wid.selected_values['sum_enabled'],
+            tmp5['interpolation'], tmp5['cmap_name'], tmp5['alpha'],
+            patch_options_wid.selected_values['bboxes']['render_lines'],
+            patch_options_wid.selected_values['bboxes']['line_colour'][0],
+            patch_options_wid.selected_values['bboxes']['line_style'],
+            patch_options_wid.selected_values['bboxes']['line_width'],
+            patch_options_wid.selected_values['render_centers'],
+            tmp1['render_lines'], tmp1['line_colour'][0], tmp1['line_style'],
+            tmp1['line_width'], tmp2['render_markers'], tmp2['marker_style'],
+            tmp2['marker_size'], tmp2['marker_face_colour'],
+            tmp2['marker_edge_colour'], tmp2['marker_edge_width'],
+            tmp3['render_numbering'], tmp3['numbers_horizontal_align'],
+            tmp3['numbers_vertical_align'], tmp3['numbers_font_name'],
+            tmp3['numbers_font_size'], tmp3['numbers_font_style'],
+            tmp3['numbers_font_weight'], tmp3['numbers_font_colour'][0],
+            tmp4['render_axes'], tmp4['axes_font_name'], tmp4['axes_font_size'],
+            tmp4['axes_font_style'], tmp4['axes_font_weight'],
+            tmp4['axes_x_limits'], tmp4['axes_y_limits'], new_figure_size)
+
+        # Save the current figure id
+        save_figure_wid.renderer = renderer
+
+    # Define function that updates the info text
+    def update_info(atm, instance, level):
+        from menpofit.base import name_of_callable
+
+        lvl_shape_mod = atm.shape_models[level]
+        n_channels = instance.pixels.shape[2]
+        feat = atm.holistic_features[level]
+
+        # Feature string
+        tmp_feat = 'Feature is {} with {} channel{}'.format(
+            name_of_callable(feat), n_channels, 's' * (n_channels > 1))
+        n_feat = (instance.pixels.shape[0] * instance.pixels.shape[2] *
+                  instance.pixels.shape[3] * instance.pixels.shape[4])
+
+        # update info widgets
+        text_per_line = [
+            "> Warp using {} transform".format(atm.transform.__name__),
+            "> Level {}/{}".format(
+                level + 1, atm.n_scales),
+            "> {} landmark points".format(instance.pixels.shape[0]),
+            "> {} shape components ({:.2f}% of variance)".format(
+                lvl_shape_mod.n_components,
+                lvl_shape_mod.variance_ratio() * 100),
+            "> {}".format(tmp_feat),
+            "> Reference frame of length {} ({} patches of shape {} x {} "
+            "and {} channel{}.)".format(
+                n_feat, instance.pixels.shape[0], instance.pixels.shape[3],
+                instance.pixels.shape[4], instance.pixels.shape[2],
+                's' * (instance.pixels.shape[2] > 1)),
+            "> Instance: min={:.3f} , max={:.3f}".format(
+                instance.pixels.min(), instance.pixels.max())]
+        info_wid.set_widget_state(n_lines=len(text_per_line),
+                                  text_per_line=text_per_line)
+
+    # Plot shape variance function
+    def plot_shape_variance(name):
+        # Clear current figure, but wait until the generation of the new data
+        # that will be rendered
+        ipydisplay.clear_output(wait=True)
+
+        # Get selected level
+        level = 0
+        if n_levels > 1:
+            level = level_wid.value
+
+        # Render
+        new_figure_size = (
+            renderer_options_wid.selected_values[0]['figure']['x_scale'] * 10,
+            renderer_options_wid.selected_values[0]['figure']['y_scale'] * 3)
+        plt.subplot(121)
+        atm.shape_models[level].plot_eigenvalues_ratio(
+            figure_id=save_figure_wid.renderer.figure_id)
+        plt.subplot(122)
+        renderer = atm.shape_models[level].plot_eigenvalues_cumulative_ratio(
+            figure_id=save_figure_wid.renderer.figure_id,
+            figure_size=new_figure_size)
+        plt.show()
+
+        # Save the current figure id
+        save_figure_wid.renderer = renderer
+
+    # Create widgets
+    shape_model_parameters_wid = LinearModelParametersWidget(
+        [0] * n_shape_parameters[0], render_function, params_str='param ',
+        mode=mode, params_bounds=parameters_bounds, params_step=0.1,
+        plot_variance_visible=True, plot_variance_function=plot_shape_variance,
+        style=model_parameters_style)
+    patch_options_wid = PatchOptionsWidget(
+        patch_options, render_function=render_function, style=patches_style,
+        subwidgets_style=patches_subwidgets_style)
+    channel_options_wid = ChannelOptionsWidget(
+        channel_options, render_function=render_function, style=channels_style)
+    renderer_options_wid = RendererOptionsWidget(
+        renderer_options, ['markers', 'lines', 'numbering', 'figure_one',
+                           'image'],
+        object_selection_dropdown_visible=False,
+        render_function=render_function, style=renderer_style,
+        tabs_style=renderer_tabs_style)
+    info_wid = TextPrintWidget(n_lines=7, text_per_line=[''] * 7,
+                               style=info_style)
+    initial_renderer = MatplotlibImageViewer2d(figure_id=None, new_figure=True,
+                                               image=np.zeros((10, 10)))
+    save_figure_wid = SaveFigureOptionsWidget(initial_renderer,
+                                              style=save_figure_style)
+
+    # Define function that updates options' widgets state
+    def update_widgets(name, value):
+        # Update shape model parameters
+        shape_model_parameters_wid.set_widget_state(
+            [0] * n_shape_parameters[value], params_str='param ',
+            allow_callback=True)
+        # Update patch options
+        if (patch_options_wid.selected_values['patches']['length'] ==
+                atm.warped_templates[value].pixels.shape[0]):
+            new_patch_options = {
+                'n_offsets': atm.warped_templates[value].pixels.shape[1],
+                'bboxes': patch_options_wid.selected_values['bboxes']}
+        else:
+            tmp_patches = {
+                'command': "range({})".format(
+                    atm.warped_templates[value].pixels.shape[0]),
+                'indices': range(
+                    atm.warped_templates[value].pixels.shape[0]),
+                'length': atm.warped_templates[value].pixels.shape[0]}
+            new_patch_options = {
+                'patches': tmp_patches,
+                'n_offsets': atm.warped_templates[value].pixels.shape[1],
+                'bboxes': patch_options_wid.selected_values['bboxes']}
+        patch_options_wid.set_widget_state(new_patch_options,
+                                           allow_callback=False)
+        # Update channel options
+        tmp_n_channels = atm.warped_templates[value].pixels.shape[2]
+        tmp_channels = channel_options_wid.selected_values['channels']
+        tmp_glyph_enabled = channel_options_wid.selected_values['glyph_enabled']
+        tmp_sum_enabled = channel_options_wid.selected_values['sum_enabled']
+        if np.max(tmp_channels) > tmp_n_channels - 1:
+            tmp_channels = 0
+            tmp_glyph_enabled = False
+            tmp_sum_enabled = False
+        tmp_glyph_block_size = \
+            channel_options_wid.selected_values['glyph_block_size']
+        tmp_glyph_use_negative = \
+            channel_options_wid.selected_values['glyph_use_negative']
+        if not(tmp_n_channels == 3) and tmp_channels is None:
+            tmp_channels = 0
+        channel_options = {
+            'n_channels': tmp_n_channels,
+            'image_is_masked': False,
+            'channels': tmp_channels, 'glyph_enabled': tmp_glyph_enabled,
+            'glyph_block_size': tmp_glyph_block_size,
+            'glyph_use_negative': tmp_glyph_use_negative,
+            'sum_enabled': tmp_sum_enabled,
+            'masked_enabled': False}
+        channel_options_wid.set_widget_state(channel_options,
+                                             allow_callback=False)
+
+    # Group widgets
+    tmp_children = [shape_model_parameters_wid]
+    if n_levels > 1:
+        radio_str = OrderedDict()
+        for l in range(n_levels):
+            if l == 0:
+                radio_str["Level {} (low)".format(l)] = l
+            elif l == n_levels - 1:
+                radio_str["Level {} (high)".format(l)] = l
+            else:
+                radio_str["Level {}".format(l)] = l
+        level_wid = ipywidgets.RadioButtons(
+            options=radio_str, description='Pyramid:', value=0)
+        level_wid.on_trait_change(update_widgets, 'value')
+        level_wid.on_trait_change(render_function, 'value')
+        tmp_children.insert(0, level_wid)
+    tmp_wid = ipywidgets.HBox(children=tmp_children, align='center',
+                              box_style=model_style)
+    options_box = ipywidgets.Tab(children=[tmp_wid, patch_options_wid,
+                                           channel_options_wid,
+                                           renderer_options_wid,
+                                           info_wid, save_figure_wid])
+    tab_titles = ['Model', 'Patches', 'Channels', 'Renderer', 'Info', 'Export']
+    for (k, tl) in enumerate(tab_titles):
+        options_box.set_title(k, tl)
+    logo_wid = LogoWidget(style=logo_style)
+    logo_wid.margin = '0.1cm'
+    wid = ipywidgets.HBox(children=[logo_wid, options_box], align='start')
+
+    # Set widget's style
+    wid.box_style = widget_box_style
+    wid.border_radius = widget_border_radius
+    wid.border_width = widget_border_width
+    wid.border_color = _map_styles_to_hex_colours(widget_box_style)
+    renderer_options_wid.margin = '0.2cm'
+
+    # Display final widget
+    ipydisplay.display(wid)
+
+    # Reset value to trigger initial visualization
+    patch_options_wid.bboxes_line_options_wid.render_lines_checkbox.value = True
 
 def plot_ced(errors, legend_entries=None, error_range=None,
              error_type='me_norm', figure_size=(10, 6), style='coloured',
