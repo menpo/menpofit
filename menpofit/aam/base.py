@@ -707,9 +707,8 @@ class PatchAAM(AAM):
                                normalise_function=self.patch_normalisation,
                                prefix=prefix, verbose=verbose)
 
-    # TODO: implement me!
     def _instance(self, scale_index, shape_instance, appearance_instance):
-        raise NotImplemented
+        return shape_instance, appearance_instance
 
     # TODO: implement me!
     def view_appearance_models_widget(self, n_parameters=5,
