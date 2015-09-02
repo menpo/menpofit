@@ -415,7 +415,6 @@ class AAM(object):
                                    parameters_bounds=parameters_bounds,
                                    figure_size=figure_size, mode=mode)
 
-    # TODO: fix me!
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
@@ -493,26 +492,17 @@ class MaskedAAM(AAM):
         return 'Masked Active Appearance Model'
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
-        template = self.appearance_models[scale_index].mean
+        template = self.appearance_models[scale_index].mean()
         landmarks = template.landmarks['source'].lms
 
         reference_frame = build_patch_reference_frame(
-            shape_instance, patch_shape=self.patch_shape)
+            shape_instance, patch_shape=self.patch_shape[scale_index])
 
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
         return appearance_instance.as_unmasked().warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
-
-    def view_appearance_models_widget(self, n_parameters=5,
-                                      parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
-        from menpofit.visualize import visualize_appearance_model
-        visualize_appearance_model(self.appearance_models,
-                                   n_parameters=n_parameters,
-                                   parameters_bounds=parameters_bounds,
-                                   figure_size=figure_size, mode=mode)
 
     def __str__(self):
         return _aam_str(self)
@@ -710,17 +700,25 @@ class PatchAAM(AAM):
     def _instance(self, scale_index, shape_instance, appearance_instance):
         return shape_instance, appearance_instance
 
-    # TODO: implement me!
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
                                       mode='multiple', figure_size=(10, 8)):
-        raise NotImplemented
+        from menpofit.visualize import visualize_patch_appearance_model
+        centers = [sp.mean() for sp in self.shape_models]
+        visualize_patch_appearance_model(self.appearance_models, centers,
+                                         n_parameters=n_parameters,
+                                         parameters_bounds=parameters_bounds,
+                                         figure_size=figure_size, mode=mode)
 
     # TODO: implement me!
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        raise NotImplemented
+        from menpofit.visualize import visualize_patch_aam
+        visualize_patch_aam(self, n_shape_parameters=n_shape_parameters,
+                            n_appearance_parameters=n_appearance_parameters,
+                            parameters_bounds=parameters_bounds, 
+                            figure_size=figure_size, mode=mode)
 
     def __str__(self):
         return _aam_str(self)
