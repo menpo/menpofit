@@ -99,7 +99,7 @@ def check_features(features, n_scales):
 def check_scale_features(scale_features, features):
     r"""
     """
-    if np.alltrue([f == features[0] for f in features]):
+    if all(f == features[0] for f in features):
         return scale_features
     else:
         warnings.warn('scale_features has been automatically set to False '
