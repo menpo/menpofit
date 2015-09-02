@@ -1,4 +1,5 @@
 from __future__ import division
+from functools import partial
 import numpy as np
 from copy import deepcopy
 from menpo.shape import PointCloud
@@ -9,6 +10,9 @@ import menpofit.checks as checks
 
 
 # TODO: document me!
+from menpofit.visualize import print_progress
+
+
 class MultiFitter(object):
     r"""
     """
@@ -399,3 +403,57 @@ def align_shape_with_bounding_box(shape, bounding_box,
     shape_bb = shape.bounding_box()
     transform = alignment_transform_cls(shape_bb, bounding_box, **kwargs)
     return transform.apply(shape)
+
+
+def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
+                                   gt_group=None, bb_group_glob=None,
+                                   verbose=False):
+
+    if bb_group_glob is None:
+        bb_generator = lambda im: [im.landmarks[gt_group].lms.bounding_box()]
+        n_bbs = 1
+    else:
+        def bb_glob(im):
+            for k, v in im.landmarks.items_matching(bb_group_glob):
+                yield v.lms.bounding_box()
+        bb_generator = bb_glob
+        n_bbs = len(list(bb_glob(images[0])))
+
+    if n_bbs == 0:
+        raise ValueError('Must provide a valid bounding box glob - no bounding '
+                         'boxes matched the following '
+                         'glob: {}'.format(bb_group_glob))
+
+    # If we have multiple boxes - we didn't just throw them away, we re-add them
+    # to the end
+    if bb_group_glob is not None:
+        msg = '- Generating {0} ({1} perturbations * {2} provided boxes) new ' \
+              'initial bounding boxes + {2} provided boxes per image'.format(
+            n_perturbations * n_bbs, n_perturbations, n_bbs)
+    else:
+        msg = '- Generating {} new bounding boxes directly from the ' \
+              'ground truth shape'.format(n_perturbations)
+
+    wrap = partial(print_progress, prefix=msg, verbose=verbose)
+    for im in wrap(images):
+        gt_s = im.landmarks[gt_group].lms.bounding_box()
+
+        k = 0
+        for bb in bb_generator(im):
+            for _ in range(n_perturbations):
+                p_s = perturb_func(gt_s, bb).bounding_box()
+                perturb_bbox_group = '__generated_bb_{}'.format(k)
+                im.landmarks[perturb_bbox_group] = p_s
+                k += 1
+
+            if bb_group_glob is not None:
+                perturb_bbox_group = '__generated_bb_{}'.format(k)
+                im.landmarks[perturb_bbox_group] = bb
+                k += 1
+
+        if im.has_landmarks_outside_bounds:
+            im.constrain_landmarks_to_bounds()
+
+    generated_bb_func = lambda x: [v.lms for k, v in x.landmarks.items_matching(
+        '__generated_bb_*')]
+    return generated_bb_func
