@@ -763,6 +763,11 @@ def visualize_patch_appearance_model(appearance_model, centers,
     appearance_model : `list` of :map:`PCAModel` or subclass
         The multilevel patch-based appearance model to be visualized. Note that
         each level can have different number of components.
+    centers : `list` of :map:`PointCloud` or subclass
+        The centers to set the patches around. If the `list` has only one
+        :map:`PointCloud` then this will be used for all appearance model
+        levels. Otherwise, it needs to have the same length as
+        `appearance_model`.
     n_parameters : `int` or `list` of `int` or ``None``, optional
         The number of principal components to be used for the parameters
         sliders. If `int`, then the number of sliders per level is the minimum
@@ -789,6 +794,12 @@ def visualize_patch_appearance_model(appearance_model, centers,
 
     # Get the number of levels (i.e. number of appearance models)
     n_levels = len(appearance_model)
+
+    # Make sure that centers is a list even with one pointcloud
+    if not isinstance(centers, list):
+        centers = [centers] * n_levels
+    elif isinstance(centers, list) and len(centers) == 1:
+        centers *= n_levels
 
     # Define the styling options
     if style == 'coloured':
