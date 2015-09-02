@@ -1,4 +1,5 @@
 import warnings
+import collections
 from functools import partial
 import numpy as np
 from menpo.shape import TriMesh
@@ -40,6 +41,29 @@ def check_scales(scales):
     else:
         raise ValueError("scales must be an int/float or a list/tuple of "
                          "int/float")
+
+
+def check_multi_scale_param(n_scales, types, param_name, param):
+    error_msg = "{0} must be in {1} or a list/tuple of " \
+                "{1} with the same length as the number " \
+                "of scales".format(param_name, types)
+
+    # Could be a single value - or we have an error
+    if isinstance(param, types):
+        return [param] * n_scales
+    elif not isinstance(param, collections.Iterable):
+        raise ValueError(error_msg)
+
+    # Must be an iterable object
+    len_param = len(param)
+    isinstance_all_in_param = all(isinstance(p, types) for p in param)
+
+    if len_param == 1 and isinstance_all_in_param:
+        return list(param) * n_scales
+    elif len_param == n_scales and isinstance_all_in_param:
+        return list(param)
+    else:
+        raise ValueError(error_msg)
 
 
 def check_features(features, n_scales):
