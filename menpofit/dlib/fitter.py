@@ -2,13 +2,15 @@ from __future__ import division
 from functools import partial
 import warnings
 import dlib
+from pathlib import Path
 
 from .algorithm import DlibAlgorithm
 
 from menpo.feature import no_op
-from menpo.transform import Scale, AlignmentAffine
+from menpo.transform import Scale, AlignmentAffine, Affine
 
 from menpofit import checks
+from menpofit.compatibility import STRING_TYPES
 from menpofit.fitter import noisy_shape_from_bounding_box, MultiFitter, \
     generate_perturbations_from_gt
 from menpofit.result import MultiFitterResult
@@ -19,7 +21,7 @@ from menpofit.builder import (
 
 class DlibERT(MultiFitter):
     r"""
-    Dlib wrapper class.
+    Multiscale Dlib wrapper class. Trains models over multiple scales.
     """
     def __init__(self, images, group=None, bounding_box_group_glob=None,
                  verbose=False, reference_shape=None, diagonal=None,
@@ -237,3 +239,38 @@ class DlibERT(MultiFitter):
 
     def __str__(self):
         return ''
+
+
+class DlibWrapper(object):
+    r"""
+    Multiscale Dlib wrapper class. Trains models over multiple scales.
+    """
+    def __init__(self, model):
+        if isinstance(model, STRING_TYPES) or isinstance(model, Path):
+            m_path = Path(model)
+            if not Path(m_path).exists():
+                raise ValueError('Model {} does not exist.'.format(m_path))
+            model = dlib.shape_predictor(str(m_path))
+
+        # Dlib doesn't expose any information about how the model was buit,
+        # so we just create dummy options
+        self.algorithm = DlibAlgorithm(dlib.shape_predictor_training_options(),
+                                       n_iterations=0)
+        self.algorithm.dlib_model = model
+        self.scales = [1]
+
+    def fit_from_shape(self, image, initial_shape, gt_shape=None, **kwargs):
+
+        warnings.warn('Fitting from an initial shape is not supported by '
+                      'Dlib - therefore we are falling back to the tightest '
+                      'bounding box from the given initial_shape')
+        tightest_bb = initial_shape.bounding_box()
+        return self.fit_from_bb(image, tightest_bb, gt_shape=gt_shape, **kwargs)
+
+    def fit_from_bb(self, image, bounding_box, gt_shape=None, **kwargs):
+        algo_result = self.algorithm.run(image, bounding_box, gt_shape=gt_shape)
+
+        # TODO: This should be a basic result instead.
+        return MultiFitterResult(image, self, [algo_result],
+                                 Affine.init_identity(2),
+                                 gt_shape=gt_shape)
