@@ -565,15 +565,16 @@ class PatchATM(ATM):
                                normalise_function=self.patch_normalisation,
                                prefix=prefix, verbose=verbose)
 
-    # TODO: implement me!
     def _instance(self, shape_instance, template):
-        raise NotImplemented
+        return shape_instance, template
 
-    # TODO: implement me!
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        raise NotImplemented
+        from menpofit.visualize import visualize_patch_atm
+        visualize_patch_atm(self, n_shape_parameters=n_shape_parameters,
+                            parameters_bounds=parameters_bounds,
+                            figure_size=figure_size, mode=mode)
 
     def __str__(self):
         return _atm_str(self)
