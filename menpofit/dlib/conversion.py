@@ -39,8 +39,8 @@ def copy_dlib_options(options):
 
 
 def image_to_dlib_pixels(im):
-    pixels = im.rolled_channels()
+    pixels = np.array(im.as_PILImage())
     # Only supports RGB and Grayscale
-    if im.n_channels == 1 or im.n_channels != 3:
+    if im.n_channels > 3:
         pixels = pixels[..., 0]
     return pixels
