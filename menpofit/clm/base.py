@@ -198,8 +198,8 @@ class CLM(object):
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the shape models of the AAM object using the
-        `menpo.visualize.widgets.visualize_shape_model` widget.
+        Visualizes the shape models of the AAM object using an interactive
+        widget.
 
         Parameters
         -----------
@@ -222,7 +222,11 @@ class CLM(object):
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
-        from menpofit.visualize import visualize_shape_model
+        try:
+            from menpowidgets import visualize_shape_model
+        except:
+            from menpo.visualize.base import MenpowidgetsError
+            raise MenpowidgetsError()
         visualize_shape_model(self.shape_models, n_parameters=n_parameters,
                               parameters_bounds=parameters_bounds,
                               figure_size=figure_size, mode=mode,)
