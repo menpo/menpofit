@@ -1,11 +1,10 @@
 from __future__ import division
 from functools import partial
 import numpy as np
-from copy import deepcopy
 from menpo.shape import PointCloud
 from menpo.transform import (
     scale_about_centre, rotate_ccw_about_centre, Translation,
-    Scale, Similarity, AlignmentAffine, AlignmentSimilarity)
+    Scale, AlignmentAffine, AlignmentSimilarity)
 import menpofit.checks as checks
 
 
@@ -320,7 +319,6 @@ def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
         s = scale_about_centre(target, 1 + s)
         r = rotate_ccw_about_centre(target, r)
         t = Translation(t, source.n_dims)
-
     elif noise_type is 'uniform':
         s = noise_percentage[0] * 0.5 * (2 * np.asscalar(np.random.randn(1)) - 1)
         r = noise_percentage[1] * 180 * (2 * np.asscalar(np.random.rand(1)) - 1)
@@ -329,6 +327,9 @@ def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
         s = scale_about_centre(target, 1. + s)
         r = rotate_ccw_about_centre(target, r)
         t = Translation(t, source.n_dims)
+    else:
+        raise ValueError('Unexpected noise type. '
+                         'Supported values are {gaussian, uniform}')
 
     return similarity.compose_after(t.compose_after(s.compose_after(r)))
 
