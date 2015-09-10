@@ -9,18 +9,17 @@ requirements:
 
   run:
     - python
-    - menpo >=0.5.1,<0.6
+    - menpo 0.6.*
     - scikit-learn 0.16.*
     - dlib 18.16
 
 test:
   requires:
-  - coverage
-  - nose
-  - mock 1.0.1
+    - nose
+    - mock 1.0.1
 
   imports:
-  - menpofit
+    - menpofit
 
 about:
   home: https://github.com/menpo/menpofit/
