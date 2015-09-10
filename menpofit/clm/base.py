@@ -119,7 +119,7 @@ class CLM(object):
         for i in range(self.n_scales):
             if verbose:
                 if self.n_scales > 1:
-                    prefix = '  - Scale {}: '.format(j)
+                    prefix = '  - Scale {}: '.format(i)
                 else:
                     prefix = '  - '
             else:
