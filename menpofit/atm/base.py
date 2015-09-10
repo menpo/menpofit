@@ -278,8 +278,8 @@ class ATM(object):
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the shape models of the AAM object using the
-        `menpo.visualize.widgets.visualize_shape_model` widget.
+        Visualizes the shape models of the AAM object using an interactive
+        widget.
 
         Parameters
         -----------
@@ -300,18 +300,21 @@ class ATM(object):
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
-        from menpofit.visualize import visualize_shape_model
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode)
+        try:
+            from menpowidgets import visualize_shape_model
+            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
+                                  parameters_bounds=parameters_bounds,
+                                  figure_size=figure_size, mode=mode)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
-    # TODO: fix me!
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
         r"""
         Visualizes both the shape and appearance models of the AAM object using
-        the `menpo.visualize.widgets.visualize_aam` widget.
+        an interactive widget.
         Parameters
         -----------
         n_shape_parameters : `int` or `list` of `int` or None, optional
@@ -339,10 +342,14 @@ class ATM(object):
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
-        from menpofit.visualize import visualize_atm
-        visualize_atm(self, n_shape_parameters=n_shape_parameters,
-                      parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode)
+        try:
+            from menpowidgets import visualize_atm
+            visualize_atm(self, n_shape_parameters=n_shape_parameters,
+                          parameters_bounds=parameters_bounds,
+                          figure_size=figure_size, mode=mode)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def __str__(self):
         return _atm_str(self)
@@ -571,10 +578,14 @@ class PatchATM(ATM):
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        from menpofit.visualize import visualize_patch_atm
-        visualize_patch_atm(self, n_shape_parameters=n_shape_parameters,
-                            parameters_bounds=parameters_bounds,
-                            figure_size=figure_size, mode=mode)
+        try:
+            from menpowidgets import visualize_patch_atm
+            visualize_patch_atm(self, n_shape_parameters=n_shape_parameters,
+                                parameters_bounds=parameters_bounds,
+                                figure_size=figure_size, mode=mode)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def __str__(self):
         return _atm_str(self)

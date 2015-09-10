@@ -119,7 +119,7 @@ class CLM(object):
         for i in range(self.n_scales):
             if verbose:
                 if self.n_scales > 1:
-                    prefix = '  - Scale {}: '.format(j)
+                    prefix = '  - Scale {}: '.format(i)
                 else:
                     prefix = '  - '
             else:
@@ -198,8 +198,8 @@ class CLM(object):
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the shape models of the AAM object using the
-        `menpo.visualize.widgets.visualize_shape_model` widget.
+        Visualizes the shape models of the AAM object using an interactive
+        widget.
 
         Parameters
         -----------
@@ -222,10 +222,14 @@ class CLM(object):
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
-        from menpofit.visualize import visualize_shape_model
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode,)
+        try:
+            from menpowidgets import visualize_shape_model
+            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
+                                  parameters_bounds=parameters_bounds,
+                                  figure_size=figure_size, mode=mode,)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     # TODO: Implement me!
     def view_expert_ensemble_widget(self):
