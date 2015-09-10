@@ -91,11 +91,11 @@ class LucasKanadeAAMFitter(AAMFitter):
 class SupervisedDescentAAMFitter(SupervisedDescentFitter):
     r"""
     """
-    def __init__(self, images, aam, group=None, bounding_box_group=None,
+    def __init__(self, images, aam, group=None, bounding_box_group_glob=None,
                  n_shape=None, n_appearance=None, sampling=None,
                  sd_algorithm_cls=ProjectOutNewton,
                  n_iterations=6, n_perturbations=30,
-                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
+                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         self.aam = aam
         checks.set_models_components(aam.appearance_models, n_appearance)
@@ -106,14 +106,14 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         # used because they are fully defined by the AAM already. Therefore,
         # we just leave them as their 'defaults' because they won't be used.
         super(SupervisedDescentAAMFitter, self).__init__(
-            images, group=group, bounding_box_group=bounding_box_group,
+            images, group=group, bounding_box_group_glob=bounding_box_group_glob,
             reference_shape=self.aam.reference_shape,
             sd_algorithm_cls=sd_algorithm_cls,
-            holistic_feature=self.aam.holistic_features,
+            holistic_features=self.aam.holistic_features,
             diagonal=self.aam.diagonal,
             scales=self.aam.scales, n_iterations=n_iterations,
             n_perturbations=n_perturbations,
-            perturb_from_bounding_box=perturb_from_bounding_box,
+            perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
             batch_size=batch_size, verbose=verbose)
 
     def _setup_algorithms(self):

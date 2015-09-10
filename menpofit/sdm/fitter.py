@@ -10,7 +10,8 @@ from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
                               compute_reference_shape, MenpoFitBuilderWarning,
                               compute_features)
 from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
-                             align_shape_with_bounding_box)
+                             align_shape_with_bounding_box,
+                             generate_perturbations_from_gt)
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
 from .algorithm import Newton
@@ -20,12 +21,12 @@ from .algorithm import Newton
 class SupervisedDescentFitter(MultiFitter):
     r"""
     """
-    def __init__(self, images, group=None, bounding_box_group=None,
+    def __init__(self, images, group=None, bounding_box_group_glob=None,
                  reference_shape=None, sd_algorithm_cls=Newton,
                  holistic_features=no_op, patch_features=no_op,
                  patch_shape=(17, 17), diagonal=None, scales=(0.5, 1.0),
                  n_iterations=6, n_perturbations=30,
-                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
+                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         # check parameters
         checks.check_diagonal(diagonal)
@@ -45,14 +46,14 @@ class SupervisedDescentFitter(MultiFitter):
         self.scales = scales
         self.n_perturbations = n_perturbations
         self.n_iterations = checks.check_max_iters(n_iterations, n_scales)
-        self._perturb_from_bounding_box = perturb_from_bounding_box
+        self._perturb_from_gt_bounding_box = perturb_from_gt_bounding_box
         # set up algorithms
         self._setup_algorithms()
 
         # Now, train the model!
         self._train(images,increment=False,  group=group,
-                    bounding_box_group=bounding_box_group, verbose=verbose,
-                    batch_size=batch_size)
+                    bounding_box_group_glob=bounding_box_group_glob,
+                    verbose=verbose, batch_size=batch_size)
 
     def _setup_algorithms(self):
         for j in range(self.n_scales):
@@ -62,7 +63,7 @@ class SupervisedDescentFitter(MultiFitter):
                 n_iterations=self.n_iterations[j]))
 
     def _train(self, images, increment=False, group=None,
-               bounding_box_group=None, verbose=False, batch_size=None):
+               bounding_box_group_glob=None, verbose=False, batch_size=None):
         r"""
         """
         # If batch_size is not None, then we may have a generator, else we
@@ -107,66 +108,20 @@ class SupervisedDescentFitter(MultiFitter):
             # Train each batch
             self._train_batch(
                 image_batch, increment=increment, group=group,
-                bounding_box_group=bounding_box_group,
+                bounding_box_group_glob=bounding_box_group_glob,
                 verbose=verbose)
 
     def _train_batch(self, image_batch, increment=False, group=None,
-                     bounding_box_group=None, verbose=False):
+                     bounding_box_group_glob=None, verbose=False):
         # Rescale to existing reference shape
         image_batch = rescale_images_to_reference_shape(
             image_batch, group, self.reference_shape,
             verbose=verbose)
 
-        # No bounding box is given, so we will use the ground truth box
-        if bounding_box_group is None:
-            # It's important to use bb_group for batching, so that we
-            # generate ground truth bounding boxes for each batch, every
-            # time
-            bb_group = '__gt_bb_'
-            for i in image_batch:
-                gt_s = i.landmarks[group].lms
-                perturb_bbox_group = bb_group + '0'
-                i.landmarks[perturb_bbox_group] = gt_s.bounding_box()
-        else:
-            bb_group = bounding_box_group
-
-        # Find all bounding boxes on the images with the given bounding
-        # box key
-        all_bb_keys = list(image_batch[0].landmarks.keys_matching(
-            '*{}*'.format(bb_group)))
-        n_perturbations = len(all_bb_keys)
-
-        # If there is only one example bounding box, then we will generate
-        # more perturbations based on the bounding box.
-        if n_perturbations == 1:
-            msg = '- Generating {} new initial bounding boxes ' \
-                  'per image'.format(self.n_perturbations)
-            wrap = partial(print_progress, prefix=msg, verbose=verbose)
-
-            for i in wrap(image_batch):
-                # We assume that the first bounding box is a valid
-                # perturbation thus create n_perturbations - 1 new bounding
-                # boxes
-                for j in range(1, self.n_perturbations):
-                    gt_s = i.landmarks[group].lms.bounding_box()
-                    bb = i.landmarks[all_bb_keys[0]].lms
-
-                    # This is customizable by passing in the correct method
-                    p_s = self._perturb_from_bounding_box(gt_s, bb)
-                    perturb_bbox_group = '{}_{}'.format(bb_group, j)
-                    i.landmarks[perturb_bbox_group] = p_s
-        elif n_perturbations != self.n_perturbations:
-            warnings.warn('The original value of n_perturbation {} '
-                          'will be reset to {} in order to agree with '
-                          'the provided bounding_box_group.'.
-                          format(self.n_perturbations, n_perturbations),
-                          MenpoFitBuilderWarning)
-            self.n_perturbations = n_perturbations
-
-        # Re-grab all the bounding box keys for iterating over when
-        # calculating perturbations
-        all_bb_keys = list(image_batch[0].landmarks.keys_matching(
-            '*{}*'.format(bb_group)))
+        generated_bb_func = generate_perturbations_from_gt(
+            image_batch, self.n_perturbations,
+            self._perturb_from_gt_bounding_box, gt_group=group,
+            bb_group_glob=bounding_box_group_glob, verbose=verbose)
 
         # for each scale (low --> high)
         current_shapes = []
@@ -204,16 +159,15 @@ class SupervisedDescentFitter(MultiFitter):
             scaled_shapes = [i.landmarks[group].lms for i in scaled_images]
 
             if j == 0:
-                msg = '{}Generating {} perturbations per image'.format(
-                    scale_prefix, self.n_perturbations)
+                msg = '{}Aligning reference shape with bounding boxes.'.format(
+                    scale_prefix)
                 wrap = partial(print_progress, prefix=msg,
                                end_with_newline=False, verbose=verbose)
 
                 # Extract perturbations at the very bottom level
-                for i in wrap(scaled_images):
+                for ii in wrap(scaled_images):
                     c_shapes = []
-                    for perturb_bbox_group in all_bb_keys:
-                        bbox = i.landmarks[perturb_bbox_group].lms
+                    for bbox in generated_bb_func(ii):
                         c_s = align_shape_with_bounding_box(
                             self.reference_shape, bbox)
                         c_shapes.append(c_s)
@@ -241,13 +195,15 @@ class SupervisedDescentFitter(MultiFitter):
     def increment(self, images, group=None, bounding_box_group=None,
                   verbose=False, batch_size=None):
         return self._train(images, group=group,
-                           bounding_box_group=bounding_box_group,
+                           bounding_box_group_glob=bounding_box_group,
                            verbose=verbose,
                            increment=True, batch_size=batch_size)
 
-    def perturb_from_bounding_box(self, bounding_box):
-        return self._perturb_from_bounding_box(self.reference_shape,
-                                               bounding_box)
+    def perturb_from_bb(self, gt_shape, bb):
+        return self._perturb_from_gt_bounding_box(gt_shape, bb)
+
+    def perturb_from_gt_bb(self, gt_bb):
+        return self._perturb_from_gt_bounding_box(gt_bb, gt_bb)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
@@ -260,7 +216,7 @@ class SupervisedDescentFitter(MultiFitter):
         else:
             y, x = self.reference_shape.range()
             diagonal = np.sqrt(x ** 2 + y ** 2)
-        is_custom_perturb_func = (self._perturb_from_bounding_box !=
+        is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
                                   noisy_shape_from_bounding_box)
         regressor_cls = self.algorithms[0]._regressor_cls
 
@@ -302,19 +258,20 @@ SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=Newton)
 
 class RegularizedSDM(SupervisedDescentFitter):
 
-    def __init__(self, images, group=None, bounding_box_group=None,
-                 alpha=1.0, reference_shape=None,
+    def __init__(self, images, group=None, bounding_box_group_glob=None,
+                 alpha=0.0001, reference_shape=None,
                  holistic_features=no_op, patch_features=no_op,
                  patch_shape=(17, 17), diagonal=None, scales=(0.5, 1.0),
                  n_iterations=6, n_perturbations=30,
-                 perturb_from_bounding_box=noisy_shape_from_bounding_box,
+                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         super(RegularizedSDM, self).__init__(
-            images, group=group,  bounding_box_group=bounding_box_group,
+            images, group=group,
+            bounding_box_group_glob=bounding_box_group_glob,
             reference_shape=reference_shape,
             sd_algorithm_cls=partial(Newton, alpha=alpha),
             holistic_features=holistic_features, patch_features=patch_features,
             patch_shape=patch_shape, diagonal=diagonal, scales=scales,
             n_iterations=n_iterations, n_perturbations=n_perturbations,
-            perturb_from_bounding_box=perturb_from_bounding_box,
+            perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
             batch_size=batch_size, verbose=verbose)
