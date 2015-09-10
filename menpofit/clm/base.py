@@ -224,12 +224,12 @@ class CLM(object):
         """
         try:
             from menpowidgets import visualize_shape_model
+            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
+                                  parameters_bounds=parameters_bounds,
+                                  figure_size=figure_size, mode=mode,)
         except:
-            from menpo.visualize.base import MenpowidgetsError
-            raise MenpowidgetsError()
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode,)
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     # TODO: Implement me!
     def view_expert_ensemble_widget(self):

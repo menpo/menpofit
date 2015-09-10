@@ -381,12 +381,12 @@ class AAM(object):
         """
         try:
             from menpowidgets import visualize_shape_model
+            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
+                                  parameters_bounds=parameters_bounds,
+                                  figure_size=figure_size, mode=mode)
         except:
-            from menpo.visualize.base import MenpowidgetsError
-            raise MenpowidgetsError()
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode)
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
@@ -416,13 +416,13 @@ class AAM(object):
         """
         try:
             from menpowidgets import visualize_appearance_model
+            visualize_appearance_model(self.appearance_models,
+                                       n_parameters=n_parameters,
+                                       parameters_bounds=parameters_bounds,
+                                       figure_size=figure_size, mode=mode)
         except:
-            from menpo.visualize.base import MenpowidgetsError
-            raise MenpowidgetsError()
-        visualize_appearance_model(self.appearance_models,
-                                   n_parameters=n_parameters,
-                                   parameters_bounds=parameters_bounds,
-                                   figure_size=figure_size, mode=mode)
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
@@ -460,13 +460,13 @@ class AAM(object):
         """
         try:
             from menpowidgets import visualize_aam
+            visualize_aam(self, n_shape_parameters=n_shape_parameters,
+                          n_appearance_parameters=n_appearance_parameters,
+                          parameters_bounds=parameters_bounds,
+                          figure_size=figure_size, mode=mode)
         except:
-            from menpo.visualize.base import MenpowidgetsError
-            raise MenpowidgetsError()
-        visualize_aam(self, n_shape_parameters=n_shape_parameters,
-                      n_appearance_parameters=n_appearance_parameters,
-                      parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode)
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def __str__(self):
         return _aam_str(self)
@@ -719,27 +719,27 @@ class PatchAAM(AAM):
                                       mode='multiple', figure_size=(10, 8)):
         try:
             from menpowidgets import visualize_patch_appearance_model
+            centers = [sp.mean() for sp in self.shape_models]
+            visualize_patch_appearance_model(self.appearance_models, centers,
+                                             n_parameters=n_parameters,
+                                             parameters_bounds=parameters_bounds,
+                                             figure_size=figure_size, mode=mode)
         except:
-            from menpo.visualize.base import MenpowidgetsError
-            raise MenpowidgetsError()
-        centers = [sp.mean() for sp in self.shape_models]
-        visualize_patch_appearance_model(self.appearance_models, centers,
-                                         n_parameters=n_parameters,
-                                         parameters_bounds=parameters_bounds,
-                                         figure_size=figure_size, mode=mode)
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
         try:
             from menpowidgets import visualize_patch_aam
+            visualize_patch_aam(self, n_shape_parameters=n_shape_parameters,
+                                n_appearance_parameters=n_appearance_parameters,
+                                parameters_bounds=parameters_bounds,
+                                figure_size=figure_size, mode=mode)
         except:
-            from menpo.visualize.base import MenpowidgetsError
-            raise MenpowidgetsError()
-        visualize_patch_aam(self, n_shape_parameters=n_shape_parameters,
-                            n_appearance_parameters=n_appearance_parameters,
-                            parameters_bounds=parameters_bounds,
-                            figure_size=figure_size, mode=mode)
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def __str__(self):
         return _aam_str(self)
