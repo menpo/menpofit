@@ -2,7 +2,8 @@ import warnings
 import collections
 from functools import partial
 import numpy as np
-from menpo.shape import TriMesh
+
+from menpo.shape import TriMesh, DirectedGraph, UndirectedGraph, Tree
 from menpo.transform import PiecewiseAffine
 
 
@@ -225,3 +226,18 @@ def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
                          "as the number of scales {}"
                          .format(base_algorithm_cls, base_algorithm_cls,
                                  n_scales))
+
+
+def check_precision(precision):
+    if precision != 'single' and precision != 'double':
+        raise ValueError('precision can be either ''single or ''double''')
+
+
+def check_graph(graph, graph_types, var_name):
+    if not isinstance(graph_types, list):
+        graph_types = [graph_types]
+    if type(graph) not in graph_types:
+        graph_types_str = ' or '.join(g.__name__ for g in graph_types)
+        raise ValueError('{} must be {}. {} given instead.'.format(
+            var_name, graph_types_str, type(graph).__name__))
+    return graph

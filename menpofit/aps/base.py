@@ -8,6 +8,7 @@ from menpo.visualize import print_dynamic
 from menpo.model import PCAModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
+from menpo.shape import DirectedGraph, UndirectedGraph, Tree
 
 from menpofit import checks
 from menpofit.transform import (DifferentiableThinPlateSplines,
@@ -19,38 +20,53 @@ from menpofit.builder import (
     align_shapes, rescale_images_to_reference_shape, densify_shapes,
     extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
-
 # TODO: document me!
-class AAM(object):
+class APS(object):
     r"""
-    Active Appearance Model class.
+    Active Pictorial Structures class.
     """
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op,
-                 transform=DifferentiablePiecewiseAffine, diagonal=None,
-                 scales=(0.5, 1.0), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
-
+    def __init__(self, images, group=None, verbose=False, appearance_graph=None,
+                 shape_graph=None, deformation_graph=None, reference_shape=None,
+                 holistic_features=no_op, patch_normalisation=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 use_procrustes=True, covariance_precision='single',
+                 max_shape_components=None, n_appearance_parameters=None,
+                 batch_size=None):
+        # Check arguments
+        checks.check_graph(appearance_graph, UndirectedGraph,
+                           'appearance_graph')
+        checks.check_graph(shape_graph, UndirectedGraph, 'shape_graph')
+        checks.check_graph(deformation_graph, [DirectedGraph, Tree],
+                           'deformation_graph')
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
+        patch_shape = checks.check_patch_shape(patch_shape, n_scales)
+        checks.check_precision(covariance_precision)
         holistic_features = checks.check_features(holistic_features, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
-        max_appearance_components = checks.check_max_components(
-            max_appearance_components, n_scales, 'max_appearance_components')
+        n_appearance_parameters = checks.check_max_components(
+            n_appearance_parameters, n_scales, 'n_appearance_parameters')
 
+        self.reference_shape = reference_shape
         self.holistic_features = holistic_features
-        self.transform = transform
+        self.patch_shape = patch_shape
         self.diagonal = diagonal
         self.scales = scales
         self.max_shape_components = max_shape_components
-        self.max_appearance_components = max_appearance_components
-        self.reference_shape = reference_shape
+        self.n_appearance_parameters = n_appearance_parameters
+        self.use_procrustes = use_procrustes
+        self.covariance_precision = covariance_precision
+        self.patch_normalisation = patch_normalisation
+
+        self.gaussian_per_patch = gaussian_per_patch
+
         self.shape_models = []
         self.appearance_models = []
+        self.deformation_models = []
 
-        # Train AAM
+        # Train APS
         self._train(images, increment=False, group=group, verbose=verbose,
                     batch_size=batch_size)
 
@@ -59,6 +75,8 @@ class AAM(object):
                verbose=False, batch_size=None):
         r"""
         """
+        # If batch_size is not None, then we may have a generator, else we
+        # assume we have a list.
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -80,8 +98,6 @@ class AAM(object):
                                       'not representative of the true mean, '
                                       'this may cause issues.',
                                       MenpoFitBuilderWarning)
-                    checks.check_landmark_trilist(image_batch[0],
-                                                  self.transform, group=group)
                     self.reference_shape = compute_reference_shape(
                         [i.landmarks[group].lms for i in image_batch],
                         self.diagonal, verbose=verbose)
@@ -103,25 +119,6 @@ class AAM(object):
     def _train_batch(self, image_batch, increment=False, group=None,
                      verbose=False, shape_forgetting_factor=1.0,
                      appearance_forgetting_factor=1.0):
-        r"""
-        Builds an Active Appearance Model from a list of landmarked images.
-
-        Parameters
-        ----------
-        images : list of :map:`MaskedImage`
-            The set of landmarked images from which to build the AAM.
-        group : `string`, optional
-            The key of the landmark set that should be used. If ``None``,
-            and if there is only one set of landmarks, this set will be used.
-        verbose : `boolean`, optional
-            Flag that controls information and progress printing.
-
-        Returns
-        -------
-        aam : :map:`AAM`
-            The AAM object. Shape and appearance models are stored from
-            lowest to highest scale
-        """
         # Rescale to existing reference shape
         image_batch = rescale_images_to_reference_shape(
             image_batch, group, self.reference_shape, verbose=verbose)
@@ -173,13 +170,14 @@ class AAM(object):
             if not increment:
                 if j == 0:
                     shape_model = self._build_shape_model(
-                        scale_shapes, j)
+                        scale_shapes, self.use_procrustes)
                     self.shape_models.append(shape_model)
                 else:
                     self.shape_models.append(deepcopy(shape_model))
             else:
                 self._increment_shape_model(
                     scale_shapes,  self.shape_models[j],
+                    align=self.use_procrustes,
                     forgetting_factor=shape_forgetting_factor)
 
             # Obtain warped images - we use a scaled version of the
@@ -238,8 +236,8 @@ class AAM(object):
                            appearance_forgetting_factor=aff,
                            batch_size=batch_size)
 
-    def _build_shape_model(self, shapes, scale_index):
-        return build_shape_model(shapes)
+    def _build_shape_model(self, shapes, align):
+        return build_shape_model(shapes, align=align)
 
     def _increment_shape_model(self, shapes, shape_model,
                                forgetting_factor=1.0):
@@ -357,8 +355,8 @@ class AAM(object):
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the shape models of the AAM object using an interactive
-        widget.
+        Visualizes the shape models of the AAM object using the
+        `menpo.visualize.widgets.visualize_shape_model` widget.
 
         Parameters
         -----------
@@ -379,22 +377,17 @@ class AAM(object):
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
-        try:
-            from menpowidgets import visualize_shape_model
-            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                                  parameters_bounds=parameters_bounds,
-                                  figure_size=figure_size, mode=mode)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
+        from menpofit.visualize import visualize_shape_model
+        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
+                              parameters_bounds=parameters_bounds,
+                              figure_size=figure_size, mode=mode)
 
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
                                       mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the appearance models of the AAM object using an
-        interactive widget.
-
+        Visualizes the appearance models of the AAM object using the
+        `menpo.visualize.widgets.visualize_appearance_model` widget.
         Parameters
         -----------
         n_parameters : `int` or `list` of `int` or ``None``, optional
@@ -414,23 +407,18 @@ class AAM(object):
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
-        try:
-            from menpowidgets import visualize_appearance_model
-            visualize_appearance_model(self.appearance_models,
-                                       n_parameters=n_parameters,
-                                       parameters_bounds=parameters_bounds,
-                                       figure_size=figure_size, mode=mode)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
+        from menpofit.visualize import visualize_appearance_model
+        visualize_appearance_model(self.appearance_models,
+                                   n_parameters=n_parameters,
+                                   parameters_bounds=parameters_bounds,
+                                   figure_size=figure_size, mode=mode)
 
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
         r"""
         Visualizes both the shape and appearance models of the AAM object using
-        an interactive widget.
-
+        the `menpo.visualize.widgets.visualize_aam` widget.
         Parameters
         -----------
         n_shape_parameters : `int` or `list` of `int` or None, optional
@@ -458,333 +446,11 @@ class AAM(object):
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
         """
-        try:
-            from menpowidgets import visualize_aam
-            visualize_aam(self, n_shape_parameters=n_shape_parameters,
-                          n_appearance_parameters=n_appearance_parameters,
-                          parameters_bounds=parameters_bounds,
-                          figure_size=figure_size, mode=mode)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
+        from menpofit.visualize import visualize_aam
+        visualize_aam(self, n_shape_parameters=n_shape_parameters,
+                      n_appearance_parameters=n_appearance_parameters,
+                      parameters_bounds=parameters_bounds,
+                      figure_size=figure_size, mode=mode)
 
     def __str__(self):
         return _aam_str(self)
-
-
-# TODO: document me!
-class MaskedAAM(AAM):
-    r"""
-    Masked Active Appearance Model class.
-    """
-
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
-        n_scales = len(checks.check_scales(scales))
-        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-
-        super(MaskedAAM, self).__init__(
-            images, group=group, verbose=verbose,
-            reference_shape=reference_shape,
-            holistic_features=holistic_features,
-            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales,  max_shape_components=max_shape_components,
-            max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
-
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        reference_frame = build_patch_reference_frame(
-            reference_shape, patch_shape=self.patch_shape[scale_index])
-        return warp_images(images, shapes, reference_frame, self.transform,
-                           prefix=prefix, verbose=verbose)
-
-    @property
-    def _str_title(self):
-        return 'Masked Active Appearance Model'
-
-    def _instance(self, scale_index, shape_instance, appearance_instance):
-        template = self.appearance_models[scale_index].mean()
-        landmarks = template.landmarks['source'].lms
-
-        reference_frame = build_patch_reference_frame(
-            shape_instance, patch_shape=self.patch_shape[scale_index])
-
-        transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
-
-        return appearance_instance.as_unmasked().warp_to_mask(
-            reference_frame.mask, transform, warp_landmarks=True)
-
-    def __str__(self):
-        return _aam_str(self)
-
-
-# TODO: document me!
-class LinearAAM(AAM):
-    r"""
-    Linear Active Appearance Model class.
-    """
-
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op,
-                 transform=DifferentiableThinPlateSplines, diagonal=None,
-                 scales=(0.5, 1.0), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
-
-        super(LinearAAM, self).__init__(
-            images, group=group, verbose=verbose,
-            reference_shape=reference_shape,
-            holistic_features=holistic_features, transform=transform,
-            diagonal=diagonal, scales=scales,
-            max_shape_components=max_shape_components,
-            max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
-
-    @property
-    def _str_title(self):
-        r"""
-        Returns a string containing name of the model.
-        :type: `string`
-        """
-        return 'Linear Active Appearance Model'
-
-    def _build_shape_model(self, shapes, scale_index):
-        mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
-        self.n_landmarks = mean_aligned_shape.n_points
-        self.reference_frame = build_reference_frame(mean_aligned_shape)
-        dense_shapes = densify_shapes(shapes, self.reference_frame,
-                                      self.transform)
-        # build dense shape model
-        shape_model = build_shape_model(dense_shapes)
-        return shape_model
-
-    def _increment_shape_model(self, shapes, shape_model,
-                               forgetting_factor=1.0):
-        aligned_shapes = align_shapes(shapes)
-        dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
-                                      self.transform)
-        # Increment shape model
-        shape_model.increment(dense_shapes,
-                              forgetting_factor=forgetting_factor)
-
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        return warp_images(images, shapes, self.reference_frame,
-                           self.transform, prefix=prefix,
-                           verbose=verbose)
-
-    # TODO: implement me!
-    def _instance(self, scale_index, shape_instance, appearance_instance):
-        raise NotImplemented
-
-    # TODO: implement me!
-    def view_appearance_models_widget(self, n_parameters=5,
-                                      parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
-        raise NotImplemented
-
-    # TODO: implement me!
-    def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
-        raise NotImplemented
-
-    def __str__(self):
-        return _aam_str(self)
-
-
-# TODO: document me!
-class LinearMaskedAAM(AAM):
-    r"""
-    Linear Masked Active Appearance Model class.
-    """
-
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
-        n_scales = len(checks.check_scales(scales))
-        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-
-        super(LinearMaskedAAM, self).__init__(
-            images, group=group, verbose=verbose,
-            reference_shape=reference_shape,
-            holistic_features=holistic_features,
-            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales,  max_shape_components=max_shape_components,
-            max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
-
-    @property
-    def _str_title(self):
-        r"""
-        Returns a string containing name of the model.
-        :type: `string`
-        """
-        return 'Linear Masked Active Appearance Model'
-
-    def _build_shape_model(self, shapes, scale_index):
-        mean_aligned_shape = mean_pointcloud(align_shapes(shapes))
-        self.n_landmarks = mean_aligned_shape.n_points
-        self.reference_frame = build_patch_reference_frame(
-            mean_aligned_shape, patch_shape=self.patch_shape[scale_index])
-        dense_shapes = densify_shapes(shapes, self.reference_frame,
-                                      self.transform)
-        # build dense shape model
-        shape_model = build_shape_model(dense_shapes)
-        return shape_model
-
-    def _increment_shape_model(self, shapes, shape_model,
-                               forgetting_factor=1.0):
-        aligned_shapes = align_shapes(shapes)
-        dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
-                                      self.transform)
-        # Increment shape model
-        shape_model.increment(dense_shapes,
-                              forgetting_factor=forgetting_factor)
-
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        return warp_images(images, shapes, self.reference_frame,
-                           self.transform, prefix=prefix,
-                           verbose=verbose)
-
-    # TODO: implement me!
-    def _instance(self, scale_index, shape_instance, appearance_instance):
-        raise NotImplemented
-
-    # TODO: implement me!
-    def view_appearance_models_widget(self, n_parameters=5,
-                                      parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
-        raise NotImplemented
-
-    # TODO: implement me!
-    def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
-        raise NotImplemented
-
-    def __str__(self):
-        return _aam_str(self)
-
-
-# TODO: document me!
-# TODO: implement offsets support?
-class PatchAAM(AAM):
-    r"""
-    Patch-based Active Appearance Model class.
-    """
-
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op, patch_normalisation=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
-        n_scales = len(checks.check_scales(scales))
-        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-        self.patch_normalisation = patch_normalisation
-
-        super(PatchAAM, self).__init__(
-            images, group=group, verbose=verbose,
-            reference_shape=reference_shape,
-            holistic_features=holistic_features, transform=None,
-            diagonal=diagonal, scales=scales,
-            max_shape_components=max_shape_components,
-            max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
-
-    @property
-    def _str_title(self):
-        r"""
-        Returns a string containing name of the model.
-        :type: `string`
-        """
-        return 'Patch-based Active Appearance Model'
-
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        return extract_patches(images, shapes, self.patch_shape[scale_index],
-                               normalise_function=self.patch_normalisation,
-                               prefix=prefix, verbose=verbose)
-
-    def _instance(self, scale_index, shape_instance, appearance_instance):
-        return shape_instance, appearance_instance
-
-    def view_appearance_models_widget(self, n_parameters=5,
-                                      parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
-        try:
-            from menpowidgets import visualize_patch_appearance_model
-            centers = [sp.mean() for sp in self.shape_models]
-            visualize_patch_appearance_model(self.appearance_models, centers,
-                                             n_parameters=n_parameters,
-                                             parameters_bounds=parameters_bounds,
-                                             figure_size=figure_size, mode=mode)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
-
-    def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
-        try:
-            from menpowidgets import visualize_patch_aam
-            visualize_patch_aam(self, n_shape_parameters=n_shape_parameters,
-                                n_appearance_parameters=n_appearance_parameters,
-                                parameters_bounds=parameters_bounds,
-                                figure_size=figure_size, mode=mode)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
-
-    def __str__(self):
-        return _aam_str(self)
-
-
-def _aam_str(aam):
-    if aam.diagonal is not None:
-        diagonal = aam.diagonal
-    else:
-        y, x = aam.reference_shape.range()
-        diagonal = np.sqrt(x ** 2 + y ** 2)
-
-    # Compute scale info strings
-    scales_info = []
-    lvl_str_tmplt = r"""  - Scale {}
-   - Holistic feature: {}
-   - {} appearance components
-   - {} shape components"""
-    for k, s in enumerate(aam.scales):
-        scales_info.append(lvl_str_tmplt.format(
-            s, name_of_callable(aam.holistic_features[k]),
-            aam.appearance_models[k].n_components,
-            aam.shape_models[k].n_components))
-    # Patch based AAM
-    if hasattr(aam, 'patch_shape'):
-        for k in range(len(scales_info)):
-            scales_info[k] += '\n   - Patch shape: {}'.format(
-                aam.patch_shape[k])
-    scales_info = '\n'.join(scales_info)
-
-    if aam.transform is not None:
-        transform_str = 'Images warped with {transform} transform'
-    else:
-        transform_str = 'No image warping performed'
-
-    cls_str = r"""{class_title}
- - Images scaled to diagonal: {diagonal:.2f}
- - {transform}
- - Scales: {scales}
-{scales_info}
-""".format(class_title=aam._str_title,
-           transform=transform_str,
-           diagonal=diagonal,
-           scales=aam.scales,
-           scales_info=scales_info)
-    return cls_str
-
-HolisticAAM = AAM
