@@ -48,8 +48,8 @@ class SupervisedDescentStandardInterface(object):
         return self.appearance_model.n_active_components
 
     def warp(self, image):
-        return image.warp_to_mask(self.template.mask,
-                                  self.transform)
+        return image.warp_to_mask(self.template.mask, self.transform,
+                                  warp_landmarks=False)
 
     def algorithm_result(self, image, shape_parameters,
                          appearance_parameters=None, gt_shape=None):
