@@ -75,7 +75,8 @@ class LucasKanadeBaseInterface(object):
                                                dW_dp.shape[2]))
 
     def warp(self, image):
-        return image.warp_to_mask(self.template.mask, self.transform)
+        return image.warp_to_mask(self.template.mask, self.transform,
+                                  warp_landmarks=False)
 
     def gradient(self, img):
         nabla = fast_gradient(img)
