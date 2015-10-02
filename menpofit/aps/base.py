@@ -2,23 +2,20 @@ from __future__ import division
 from copy import deepcopy
 import warnings
 import numpy as np
+from scipy.stats import multivariate_normal
 
 from menpo.feature import no_op
-from menpo.visualize import print_dynamic
-from menpo.model import PCAModel
-from menpo.transform import Scale
-from menpo.shape import mean_pointcloud
-from menpo.shape import DirectedGraph, UndirectedGraph, Tree
+from menpo.visualize import print_dynamic, print_progress
+from menpo.model import PCAInstanceModel, GMRFInstanceModel
+from menpo.shape import (DirectedGraph, UndirectedGraph, Tree, PointTree,
+                         PointDirectedGraph, PointUndirectedGraph)
 
 from menpofit import checks
-from menpofit.transform import (DifferentiableThinPlateSplines,
-                                DifferentiablePiecewiseAffine)
-from menpofit.base import name_of_callable, batch
-from menpofit.builder import (
-    build_reference_frame, build_patch_reference_frame,
-    compute_features, scale_images, build_shape_model, warp_images,
-    align_shapes, rescale_images_to_reference_shape, densify_shapes,
-    extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
+from menpofit.base import batch
+from menpofit.builder import (compute_features, scale_images, align_shapes,
+                              rescale_images_to_reference_shape,
+                              extract_patches, MenpoFitBuilderWarning,
+                              compute_reference_shape)
 
 # TODO: document me!
 class APS(object):
@@ -31,13 +28,8 @@ class APS(object):
                  diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
                  use_procrustes=True, covariance_precision='single',
                  max_shape_components=None, n_appearance_parameters=None,
-                 batch_size=None):
+                 can_be_incremented=False, batch_size=None):
         # Check arguments
-        checks.check_graph(appearance_graph, UndirectedGraph,
-                           'appearance_graph')
-        checks.check_graph(shape_graph, UndirectedGraph, 'shape_graph')
-        checks.check_graph(deformation_graph, [DirectedGraph, Tree],
-                           'deformation_graph')
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
@@ -48,7 +40,17 @@ class APS(object):
             max_shape_components, n_scales, 'max_shape_components')
         n_appearance_parameters = checks.check_max_components(
             n_appearance_parameters, n_scales, 'n_appearance_parameters')
+        self.appearance_graph = checks.check_graph(appearance_graph,
+                                                   UndirectedGraph,
+                                                   'appearance_graph', n_scales)
+        self.shape_graph = checks.check_graph(shape_graph, UndirectedGraph,
+                                              'shape_graph', n_scales)
+        self.deformation_graph = checks.check_graph(deformation_graph,
+                                                    [DirectedGraph, Tree],
+                                                    'deformation_graph',
+                                                    n_scales)
 
+        self.is_incremental = can_be_incremented
         self.reference_shape = reference_shape
         self.holistic_features = holistic_features
         self.patch_shape = patch_shape
@@ -59,9 +61,6 @@ class APS(object):
         self.use_procrustes = use_procrustes
         self.covariance_precision = covariance_precision
         self.patch_normalisation = patch_normalisation
-
-        self.gaussian_per_patch = gaussian_per_patch
-
         self.shape_models = []
         self.appearance_models = []
         self.deformation_models = []
@@ -70,9 +69,8 @@ class APS(object):
         self._train(images, increment=False, group=group, verbose=verbose,
                     batch_size=batch_size)
 
-    def _train(self, images, increment=False, group=None,
-               shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
-               verbose=False, batch_size=None):
+    def _train(self, images, increment=False, group=None, verbose=False,
+               batch_size=None):
         r"""
         """
         # If batch_size is not None, then we may have a generator, else we
@@ -111,17 +109,22 @@ class APS(object):
 
             # Train each batch
             self._train_batch(
-                image_batch, increment=increment, group=group,
-                shape_forgetting_factor=shape_forgetting_factor,
-                appearance_forgetting_factor=appearance_forgetting_factor,
-                verbose=verbose)
+                image_batch, increment=increment, group=group, verbose=verbose)
 
     def _train_batch(self, image_batch, increment=False, group=None,
-                     verbose=False, shape_forgetting_factor=1.0,
-                     appearance_forgetting_factor=1.0):
+                     verbose=False):
         # Rescale to existing reference shape
         image_batch = rescale_images_to_reference_shape(
             image_batch, group, self.reference_shape, verbose=verbose)
+
+        # if the deformation graph was not provided (None given), then compute
+        # the MST
+        if None in self.deformation_graph:
+            graph_shapes = [i.landmarks[group].lms for i in image_batch]
+            deformation_mst = _compute_minimum_spanning_tree(
+                graph_shapes, root_vertex=0, prefix='- ', verbose=verbose)
+            self.deformation_graph = [deformation_mst if g is None else g
+                                      for g in self.deformation_graph]
 
         # build models at each scale
         if verbose:
@@ -163,55 +166,56 @@ class APS(object):
             # Extract potentially rescaled shapes
             scale_shapes = [i.landmarks[group].lms for i in scaled_images]
 
+            # Apply procrustes to align the shapes if asked
+            if self.use_procrustes:
+                aligned_shapes = align_shapes(scale_shapes)
+            else:
+                aligned_shapes = scale_shapes
+
             # Build the shape model
             if verbose:
                 print_dynamic('{}Building shape model'.format(scale_prefix))
-
             if not increment:
                 if j == 0:
                     shape_model = self._build_shape_model(
-                        scale_shapes, self.use_procrustes)
+                        aligned_shapes, self.shape_graph[j], verbose=verbose)
                     self.shape_models.append(shape_model)
                 else:
                     self.shape_models.append(deepcopy(shape_model))
             else:
-                self._increment_shape_model(
-                    scale_shapes,  self.shape_models[j],
-                    align=self.use_procrustes,
-                    forgetting_factor=shape_forgetting_factor)
+                self.shape_models[j].increment(aligned_shapes, verbose=verbose)
 
-            # Obtain warped images - we use a scaled version of the
-            # reference shape, computed here. This is because the mean
-            # moves when we are incrementing, and we need a consistent
-            # reference frame.
-            scaled_reference_shape = Scale(self.scales[j], n_dims=2).apply(
-                self.reference_shape)
+            # Build the deformation model
+            if verbose:
+                print_dynamic('{}Building deformation model'.format(
+                    scale_prefix))
+            if not increment:
+                if j == 0:
+                    deformation_model = self._build_deformation_model(
+                        aligned_shapes, self.deformation_graph[j],
+                        verbose=verbose)
+                    self.deformation_models.append(deformation_model)
+                else:
+                    self.deformation_models.append(deepcopy(deformation_model))
+            else:
+                self.deformation_models[j].increment(aligned_shapes,
+                                                     verbose=verbose)
+
+            # Obtain warped images
             warped_images = self._warp_images(scaled_images, scale_shapes,
-                                              scaled_reference_shape,
                                               j, scale_prefix, verbose)
 
-            # obtain appearance model
+            # Build the appearance model
             if verbose:
                 print_dynamic('{}Building appearance model'.format(
                     scale_prefix))
-
             if not increment:
-                appearance_model = PCAModel(warped_images)
-                # trim appearance model if required
-                if self.max_appearance_components is not None:
-                    appearance_model.trim_components(
-                        self.max_appearance_components[j])
-                # add appearance model to the list
-                self.appearance_models.append(appearance_model)
+                self.appearance_models.append(self._build_appearance_model(
+                    warped_images, self.appearance_graph[j], verbose=verbose))
             else:
-                # increment appearance model
-                self.appearance_models[j].increment(
-                    warped_images,
-                    forgetting_factor=appearance_forgetting_factor)
-                # trim appearance model if required
-                if self.max_appearance_components is not None:
-                    self.appearance_models[j].trim_components(
-                        self.max_appearance_components[j])
+                self._increment_appearance_model(
+                    warped_images, self.appearance_graph[j],
+                    self.appearance_models[j], verbose=verbose)
 
             if verbose:
                 print_dynamic('{}Done\n'.format(scale_prefix))
@@ -224,34 +228,52 @@ class APS(object):
             if max_sc is not None:
                 sm.trim_components(max_sc)
 
-    def increment(self, images, group=None, verbose=False,
-                  shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
-                  batch_size=None):
-        # Literally just to fit under 80 characters, but maintain the sensible
-        # parameter name
-        aff = appearance_forgetting_factor
+    def increment(self, images, group=None, verbose=False, batch_size=None):
         return self._train(images, increment=True, group=group,
-                           verbose=verbose,
-                           shape_forgetting_factor=shape_forgetting_factor,
-                           appearance_forgetting_factor=aff,
-                           batch_size=batch_size)
+                           verbose=verbose, batch_size=batch_size)
 
-    def _build_shape_model(self, shapes, align):
-        return build_shape_model(shapes, align=align)
+    def _build_shape_model(self, shapes, shape_graph, verbose=False):
+        # if the provided graph is None, then apply PCA, else use the GMRF
+        if shape_graph is not None:
+            return GMRFInstanceModel(
+                shapes, shape_graph, mode='concatenation', n_components=None,
+                single_precision=False, sparse=False,
+                incremental=self.is_incremental,
+                verbose=verbose).principal_components_analysis(
+                apply_on_precision=False)
+        else:
+            return PCAInstanceModel(shapes)
 
-    def _increment_shape_model(self, shapes, shape_model,
-                               forgetting_factor=1.0):
-        # Compute aligned shapes
-        aligned_shapes = align_shapes(shapes)
-        # Increment shape model
-        shape_model.increment(aligned_shapes,
-                              forgetting_factor=forgetting_factor)
+    def _build_deformation_model(self, shapes, deformation_graph,
+                                 verbose=False):
+        return GMRFInstanceModel(
+            shapes, deformation_graph, mode='subtraction', n_components=None,
+            single_precision=False, sparse=False,
+            incremental=self.is_incremental, verbose=verbose)
 
-    def _warp_images(self, images, shapes, reference_shape, scale_index,
-                     prefix, verbose):
-        reference_frame = build_reference_frame(reference_shape)
-        return warp_images(images, shapes, reference_frame, self.transform,
-                           prefix=prefix, verbose=verbose)
+    def _build_appearance_model(self, images, appearance_graph, verbose=False):
+        if appearance_graph is not None:
+            return GMRFInstanceModel(
+                images, appearance_graph, mode='concatenation',
+                n_components=self.n_appearance_parameters,
+                single_precision=self.covariance_precision, sparse=True,
+                incremental=self.is_incremental, verbose=verbose)
+        else:
+            raise NotImplementedError('The full appearance model is not '
+                                      'implemented yet.')
+
+    def _increment_appearance_model(self, images, appearance_graph,
+                                    appearance_model, verbose=False):
+        if appearance_graph is not None:
+            appearance_model.increment(images, verbose=verbose)
+        else:
+            raise NotImplementedError('The full appearance model is not '
+                                      'implemented yet.')
+
+    def _warp_images(self, images, shapes, scale_index, prefix, verbose):
+        return extract_patches(images, shapes, self.patch_shape[scale_index],
+                               normalise_function=self.patch_normalisation,
+                               prefix=prefix, verbose=verbose)
 
     @property
     def n_scales(self):
@@ -268,189 +290,238 @@ class APS(object):
         Returns a string containing name of the model.
         :type: `string`
         """
-        return 'Holistic Active Appearance Model'
+        return 'Generative Active Pictorial Structures'
 
-    def instance(self, shape_weights=None, appearance_weights=None,
-                 scale_index=-1):
+    def instance(self, shape_weights=None, scale_index=-1, as_graph=False):
         r"""
-        Generates a novel AAM instance given a set of shape and appearance
-        weights. If no weights are provided, the mean AAM instance is
-        returned.
-
-        Parameters
-        -----------
-        shape_weights : ``(n_weights,)`` `ndarray` or `float` list
-            Weights of the shape model that will be used to create
-            a novel shape instance. If ``None``, the mean shape
-            ``(shape_weights = [0, 0, ..., 0])`` is used.
-        appearance_weights : ``(n_weights,)`` `ndarray` or `float` list
-            Weights of the appearance model that will be used to create
-            a novel appearance instance. If ``None``, the mean appearance
-            ``(appearance_weights = [0, 0, ..., 0])`` is used.
-        scale_index : `int`, optional
-            The scale to be used.
-
-        Returns
-        -------
-        image : :map:`Image`
-            The novel AAM instance.
         """
         sm = self.shape_models[scale_index]
-        am = self.appearance_models[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
         if shape_weights is None:
             shape_weights = [0]
-        if appearance_weights is None:
-            appearance_weights = [0]
         n_shape_weights = len(shape_weights)
         shape_weights *= sm.eigenvalues[:n_shape_weights] ** 0.5
         shape_instance = sm.instance(shape_weights)
-        n_appearance_weights = len(appearance_weights)
-        appearance_weights *= am.eigenvalues[:n_appearance_weights] ** 0.5
-        appearance_instance = am.instance(appearance_weights)
 
-        return self._instance(scale_index, shape_instance, appearance_instance)
+        if as_graph:
+            if isinstance(self.deformation_graph[scale_index], Tree):
+                shape_instance = PointTree(
+                    shape_instance.points,
+                    self.deformation_graph[scale_index].adjacency_matrix,
+                    self.deformation_graph[scale_index].root_vertex)
+            else:
+                shape_instance = PointDirectedGraph(
+                    shape_instance.points,
+                    self.deformation_graph[scale_index].adjacency_matrix)
+        return shape_instance
 
-    def random_instance(self, scale_index=-1):
+    def random_instance(self, scale_index=-1, as_graph=False):
         r"""
-        Generates a novel random instance of the AAM.
-
-        Parameters
-        -----------
-        scale_index : `int`, optional
-            The scale to be used.
-
-        Returns
-        -------
-        image : :map:`Image`
-            The novel AAM instance.
         """
         sm = self.shape_models[scale_index]
-        am = self.appearance_models[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
         shape_weights = (np.random.randn(sm.n_active_components) *
                          sm.eigenvalues[:sm.n_active_components]**0.5)
         shape_instance = sm.instance(shape_weights)
-        appearance_weights = (np.random.randn(am.n_active_components) *
-                              am.eigenvalues[:am.n_active_components]**0.5)
-        appearance_instance = am.instance(appearance_weights)
 
-        return self._instance(scale_index, shape_instance, appearance_instance)
-
-    def _instance(self, scale_index, shape_instance, appearance_instance):
-        template = self.appearance_models[scale_index].mean()
-        landmarks = template.landmarks['source'].lms
-
-        reference_frame = build_reference_frame(shape_instance)
-
-        transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
-
-        return appearance_instance.as_unmasked(copy=False).warp_to_mask(
-            reference_frame.mask, transform, warp_landmarks=True)
+        if as_graph:
+            if isinstance(self.deformation_graph[scale_index], Tree):
+                shape_instance = PointTree(
+                    shape_instance.points,
+                    self.deformation_graph[scale_index].adjacency_matrix,
+                    self.deformation_graph[scale_index].root_vertex)
+            else:
+                shape_instance = PointDirectedGraph(
+                    shape_instance.points,
+                    self.deformation_graph[scale_index].adjacency_matrix)
+        return shape_instance
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the shape models of the AAM object using the
-        `menpo.visualize.widgets.visualize_shape_model` widget.
-
-        Parameters
-        -----------
-        n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
-        parameters_bounds : (`float`, `float`), optional
-            The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
         """
-        from menpofit.visualize import visualize_shape_model
-        visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                              parameters_bounds=parameters_bounds,
-                              figure_size=figure_size, mode=mode)
+        try:
+            from menpowidgets import visualize_shape_model
+            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
+                                  parameters_bounds=parameters_bounds,
+                                  figure_size=figure_size, mode=mode)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
-    def view_appearance_models_widget(self, n_parameters=5,
-                                      parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
-        r"""
-        Visualizes the appearance models of the AAM object using the
-        `menpo.visualize.widgets.visualize_appearance_model` widget.
-        Parameters
-        -----------
-        n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of appearance principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        parameters_bounds : (`float`, `float`), optional
-            The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
-        """
-        from menpofit.visualize import visualize_appearance_model
-        visualize_appearance_model(self.appearance_models,
-                                   n_parameters=n_parameters,
-                                   parameters_bounds=parameters_bounds,
-                                   figure_size=figure_size, mode=mode)
+    def view_shape_graph_widget(self, scale_index=-1, figure_size=(10, 8)):
+        if self.shape_graph[scale_index] is not None:
+            PointUndirectedGraph(
+                self.shape_models[scale_index].mean().points,
+                self.shape_graph[scale_index].adjacency_matrix).view_widget(
+                figure_size=figure_size)
+        else:
+            raise ValueError("Scale level {} uses a PCA shape model, so there "
+                             "is no graph".format(scale_index))
 
-    def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
-        r"""
-        Visualizes both the shape and appearance models of the AAM object using
-        the `menpo.visualize.widgets.visualize_aam` widget.
-        Parameters
-        -----------
-        n_shape_parameters : `int` or `list` of `int` or None, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        n_appearance_parameters : `int` or `list` of `int` or None, optional
-            The number of appearance principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        parameters_bounds : (`float`, `float`), optional
-            The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
-        """
-        from menpofit.visualize import visualize_aam
-        visualize_aam(self, n_shape_parameters=n_shape_parameters,
-                      n_appearance_parameters=n_appearance_parameters,
-                      parameters_bounds=parameters_bounds,
-                      figure_size=figure_size, mode=mode)
+    def view_deformation_graph_widget(self, scale_index=-1,
+                                      figure_size=(10, 8)):
+        if isinstance(self.deformation_graph[scale_index], Tree):
+            PointTree(
+                self.shape_models[scale_index].mean().points,
+                self.shape_graph[scale_index].adjacency_matrix,
+                self.shape_graph[scale_index].root_vertex).view_widget(
+                figure_size=figure_size)
+        else:
+            PointDirectedGraph(
+                self.shape_models[scale_index].mean().points,
+                self.shape_graph[scale_index].adjacency_matrix).view_widget(
+                figure_size=figure_size)
+
+    def view_appearance_graph_widget(self, scale_index=-1, figure_size=(10, 8)):
+        if self.appearance_graph[scale_index] is not None:
+            PointUndirectedGraph(
+                self.shape_models[scale_index].mean().points,
+                self.appearance_graph[scale_index].adjacency_matrix).\
+                view_widget(figure_size=figure_size)
+        else:
+            raise ValueError("Scale level {} uses a PCA model, so there is "
+                             "no graph".format(scale_index))
+
+    def view_deformation_model(self, scale_index=-1, n_std=2,
+                               render_colour_bar=False, colour_map='jet',
+                               image_view=True,
+                               figure_id=None, new_figure=False,
+                               render_graph_lines=True, graph_line_colour='b',
+                               graph_line_style='-', graph_line_width=1.,
+                               ellipse_line_colour='r', ellipse_line_style='-',
+                               ellipse_line_width=1., render_markers=True,
+                               marker_style='o', marker_size=20,
+                               marker_face_colour='k', marker_edge_colour='k',
+                               marker_edge_width=1., render_axes=False,
+                               axes_font_name='sans-serif', axes_font_size=10,
+                               axes_font_style='normal',
+                               axes_font_weight='normal', crop_proportion=0.1,
+                               figure_size=(10, 8)):
+        from menpo.visualize import plot_gaussian_ellipses
+
+        mean_shape = self.shape_models[scale_index].mean().points
+        deformation_graph = self.deformation_graph[scale_index]
+
+        # get covariance matrices
+        covariances = [np.zeros((2, 2))]
+        means = [mean_shape[deformation_graph.root_vertex, :]]
+        for e in range(deformation_graph.n_edges):
+            # find vertices
+            parent = deformation_graph.edges[e, 0]
+            child = deformation_graph.edges[e, 1]
+
+            # relative location mean
+            means.append(mean_shape[child, :])
+
+            # relative location cov
+            s1 = -self.deformation_models[scale_index].precision[2 * child,
+                                                                 2 * parent]
+            s2 = -self.deformation_models[scale_index].precision[2 * child + 1,
+                                                                 2 * parent + 1]
+            s3 = -self.deformation_models[scale_index].precision[2 * child,
+                                                                 2 * parent + 1]
+            covariances.append(np.linalg.inv(np.array([[s1, s3], [s3, s2]])))
+
+        # plot deformation graph
+        if isinstance(deformation_graph, Tree):
+            renderer = PointTree(
+                mean_shape,
+                deformation_graph.adjacency_matrix,
+                deformation_graph.root_vertex).view(
+                figure_id=figure_id, new_figure=new_figure,
+                image_view=image_view, render_lines=render_graph_lines,
+                line_colour=graph_line_colour, line_style=graph_line_style,
+                line_width=graph_line_width, render_markers=render_markers,
+                marker_style=marker_style, marker_size=marker_size,
+                marker_face_colour=marker_face_colour,
+                marker_edge_colour=marker_edge_colour,
+                marker_edge_width=marker_edge_width, render_axes=render_axes,
+                axes_font_name=axes_font_name, axes_font_size=axes_font_size,
+                axes_font_style=axes_font_style,
+                axes_font_weight=axes_font_weight, figure_size=figure_size)
+        else:
+            renderer = PointDirectedGraph(
+                mean_shape,
+                deformation_graph.adjacency_matrix).view(
+                figure_id=figure_id, new_figure=new_figure,
+                image_view=image_view, render_lines=render_graph_lines,
+                line_colour=graph_line_colour, line_style=graph_line_style,
+                line_width=graph_line_width, render_markers=render_markers,
+                marker_style=marker_style, marker_size=marker_size,
+                marker_face_colour=marker_face_colour,
+                marker_edge_colour=marker_edge_colour,
+                marker_edge_width=marker_edge_width, render_axes=render_axes,
+                axes_font_name=axes_font_name, axes_font_size=axes_font_size,
+                axes_font_style=axes_font_style,
+                axes_font_weight=axes_font_weight, figure_size=figure_size)
+
+        # plot ellipses
+        renderer = plot_gaussian_ellipses(
+            covariances, means, n_std=n_std,
+            render_colour_bar=render_colour_bar,
+            colour_bar_label='Normalized Standard Deviation',
+            colour_map=colour_map, figure_id=renderer.figure_id,
+            new_figure=False, image_view=image_view,
+            line_colour=ellipse_line_colour, line_style=ellipse_line_style,
+            line_width=ellipse_line_width, render_markers=render_markers,
+            marker_edge_colour=marker_edge_colour,
+            marker_face_colour=marker_face_colour,
+            marker_edge_width=marker_edge_width, marker_size=marker_size,
+            marker_style=marker_style, render_axes=render_axes,
+            axes_font_name=axes_font_name, axes_font_size=axes_font_size,
+            axes_font_style=axes_font_style, axes_font_weight=axes_font_weight,
+            crop_proportion=crop_proportion, figure_size=figure_size)
+
+        return renderer
 
     def __str__(self):
-        return _aam_str(self)
+        r"""
+        """
+        return self._str_title
+
+
+def _compute_minimum_spanning_tree(shapes, root_vertex=0, prefix='',
+                                   verbose=False):
+    # initialize weights matrix
+    n_vertices = shapes[0].n_points
+    weights = np.zeros((n_vertices, n_vertices))
+
+    # print progress if requested
+    range1 = range(n_vertices-1)
+    if verbose:
+        range1 = print_progress(
+            range1, end_with_newline=False,
+            prefix='{}Deformation graph - Computing complete graph`s '
+                   'weights'.format(prefix))
+
+    # compute weights
+    for i in range1:
+        for j in range(i+1, n_vertices, 1):
+            # create data matrix of edge
+            diffs_x = [s.points[i, 0] - s.points[j, 0] for s in shapes]
+            diffs_y = [s.points[i, 1] - s.points[j, 1] for s in shapes]
+            coords = np.array([diffs_x, diffs_y])
+
+            # compute mean and covariance
+            m = np.mean(coords, axis=1)
+            c = np.cov(coords)
+
+            # get weight
+            for im in range(len(shapes)):
+                weights[i, j] += -np.log(multivariate_normal.pdf(coords[:, im],
+                                                                 mean=m, cov=c))
+            weights[j, i] = weights[i, j]
+
+    # create undirected graph
+    complete_graph = UndirectedGraph(weights)
+
+    if verbose:
+        print_dynamic('{}Deformation graph - Minimum spanning graph '
+                      'computed.\n'.format(prefix))
+
+    # compute minimum spanning graph
+    return complete_graph.minimum_spanning_tree(root_vertex)

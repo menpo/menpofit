@@ -233,11 +233,27 @@ def check_precision(precision):
         raise ValueError('precision can be either ''single or ''double''')
 
 
-def check_graph(graph, graph_types, var_name):
+def check_graph(graph, graph_types, var_name, n_scales):
+    # check if the provided graph is a list
+    if not isinstance(graph, list):
+        graphs = [graph] * n_scales
+    elif len(graph) == 1:
+        graphs = graph * n_scales
+    elif len(graph) == n_scales:
+        graphs = graph
+    else:
+        raise ValueError('{} must be a list of length equal to the number of '
+                         'scales.'.format(var_name))
+    # check if the provided graph_types is a list
     if not isinstance(graph_types, list):
         graph_types = [graph_types]
-    if type(graph) not in graph_types:
-        graph_types_str = ' or '.join(g.__name__ for g in graph_types)
-        raise ValueError('{} must be {}. {} given instead.'.format(
-            var_name, graph_types_str, type(graph).__name__))
-    return graph
+
+    # check each member of the graphs list
+    for g in graphs:
+        if g is not None:
+            if type(g) not in graph_types:
+                graph_types_str = ' or '.join(gt.__name__ for gt in graph_types)
+                raise ValueError('{} must be a list of {}. {} given '
+                                 'instead.'.format(var_name, graph_types_str,
+                                                   type(g).__name__))
+    return graphs
