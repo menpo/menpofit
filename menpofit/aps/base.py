@@ -407,8 +407,8 @@ class APS(object):
         deformation_graph = self.deformation_graph[scale_index]
 
         # get covariance matrices
-        covariances = [np.zeros((2, 2))]
-        means = [mean_shape[deformation_graph.root_vertex, :]]
+        covariances = []
+        means = []
         for e in range(deformation_graph.n_edges):
             # find vertices
             parent = deformation_graph.edges[e, 0]
