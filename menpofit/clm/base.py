@@ -34,8 +34,8 @@ class CLM(object):
                  shape_forgetting_factor=1.0):
         self.diagonal = checks.check_diagonal(diagonal)
         self.scales = checks.check_scales(scales)
-        self.holistic_features = checks.check_features(holistic_features,
-                                                       self.n_scales)
+        self.holistic_features = checks.check_features(
+            holistic_features, self.n_scales, 'holistic_features')
         # self.shape_model_cls = checks.check_algorithm_cls(
         #     shape_model_cls, self.n_scales, ShapeModel)
         self.expert_ensemble_cls = checks.check_algorithm_cls(

@@ -32,8 +32,10 @@ class SupervisedDescentFitter(MultiFitter):
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
-        patch_features = checks.check_features(patch_features, n_scales)
-        holistic_features = checks.check_features(holistic_features, n_scales)
+        patch_features = checks.check_features(
+            patch_features, n_scales, 'patch_features')
+        holistic_features = checks.check_features(
+            holistic_features, n_scales, 'holistic_features')
         patch_shape = checks.check_patch_shape(patch_shape, n_scales)
         # set parameters
         self.algorithms = []

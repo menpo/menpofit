@@ -34,7 +34,8 @@ class AAM(object):
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
-        holistic_features = checks.check_features(holistic_features, n_scales)
+        holistic_features = checks.check_features(
+            holistic_features, n_scales, 'holistic_features')
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
         max_appearance_components = checks.check_max_components(

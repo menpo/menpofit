@@ -20,8 +20,8 @@ class LucasKanadeFitter(MultiFitter):
 
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
-        holistic_features = checks.check_features(holistic_features,
-                                                  len(scales))
+        holistic_features = checks.check_features(
+            holistic_features, len(scales), 'holistic_features')
 
         self.holistic_features = holistic_features
         self.transform_cls = transform_cls

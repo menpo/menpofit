@@ -31,7 +31,8 @@ class ATM(object):
         checks.check_diagonal(diagonal)
         n_scales = len(scales)
         scales = checks.check_scales(scales)
-        holistic_features = checks.check_features(holistic_features, n_scales)
+        holistic_features = checks.check_features(
+            holistic_features, n_scales, 'holistic_features')
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
 
