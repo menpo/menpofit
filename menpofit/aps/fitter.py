@@ -72,7 +72,7 @@ class GaussNewtonAPSFitter(APSFitter):
             # create the interface object
             interface = GaussNewtonBaseInterface(
                 am, dm, pdm, use_deformation_cost, template, s,
-                self.aps.patch_shape[j], self.aps.patch_normalisation)
+                self.aps.patch_shape[j], self.aps.patch_normalisation[j])
 
             # create the algorithm object and append it
             self.algorithms.append(gn_algorithm_cls(interface))

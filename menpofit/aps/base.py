@@ -115,7 +115,8 @@ class GenerativeAPS(object):
         self.precision_dtype = checks.check_precision(precision_dtype)
         self.holistic_features = checks.check_features(
             holistic_features, n_scales, 'holistic_features')
-        self.patch_normalisation = patch_normalisation
+        self.patch_normalisation = checks.check_features(
+            patch_normalisation, n_scales, 'patch_normalisation')
         self.max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
         self.n_appearance_components = checks.check_max_components(
@@ -359,9 +360,10 @@ class GenerativeAPS(object):
                                       'implemented yet.')
 
     def _warp_images(self, images, shapes, scale_index, prefix, verbose):
-        return extract_patches(images, shapes, self.patch_shape[scale_index],
-                               normalise_function=self.patch_normalisation,
-                               prefix=prefix, verbose=verbose)
+        return extract_patches(
+            images, shapes, self.patch_shape[scale_index],
+            normalise_function=self.patch_normalisation[scale_index],
+            prefix=prefix, verbose=verbose)
 
     @property
     def n_scales(self):
