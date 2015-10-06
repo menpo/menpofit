@@ -1,1 +1,1 @@
-from .gn import Inverse
+from .gn import Inverse, Forward

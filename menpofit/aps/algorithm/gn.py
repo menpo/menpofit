@@ -362,7 +362,7 @@ class Inverse(GaussNewton):
         k = 0
         eps = np.Inf
 
-        # Compositional Gauss-Newton loop -------------------------------------
+        # Inverse Gauss-Newton loop -------------------------------------
 
         # warp image
         self.i = self.interface.warp(image)
@@ -395,6 +395,115 @@ class Inverse(GaussNewton):
             self.i = self.interface.warp(image)
             # vectorize it and mask it
             i_m = self.i.as_vector()[self.interface.i_mask]
+
+            # compute masked error
+            self.e_m = bsr_matrix(i_m - self.a_bar_m).T
+
+            # update cost
+            #cost_functions.append(cost_closure(self.e_m, self.project_out))
+
+            # test convergence
+            eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
+
+            # increase iteration counter
+            k += 1
+
+        # return fitting result
+        return self.interface.algorithm_result(
+            image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
+
+
+class Forward(GaussNewton):
+    r"""
+    Forward Gauss-Newton optimization of APS.
+    """
+    def _precompute(self):
+        # call super method
+        super(Forward, self)._precompute()
+        # compute shape jacobian
+        self._ds_dp = self.interface.ds_dp()
+        # compute shape hessian
+        self._H_s = None
+        if self.interface.use_deformation_cost:
+            self._H_s = self.interface.H_s()
+
+    def _algorithm_str(self):
+        return 'Forward Gauss-Newton'
+
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20):
+        r"""
+        Run the optimization.
+
+        Parameters
+        ----------
+        image : :map:`Image`
+            The test image.
+        initial_shape : :map:`PointCloud`
+            The shape to start from.
+        gt_shape : :map:`PointCloud` or ``None``
+            The ground truth shape of the image. If ``None``, then the
+            fitting errors are not computed.
+        max_iters : `int` or `list` of `int`
+            The maximum number of iterations. If `list`, then a value is
+            specified per level. If `int`, then this value will be used for
+            all levels.
+        """
+        # initialize transform
+        self.transform.set_target(initial_shape)
+        p_list = [self.transform.as_vector()]
+
+        # initialize iteration counter and epsilon
+        k = 0
+        eps = np.Inf
+
+        # Forward Gauss-Newton loop -------------------------------------
+
+        # warp image
+        i = self.interface.warp(image)
+        # vectorize it and mask it
+        i_m = i.as_vector()[self.interface.i_mask]
+
+        # compute masked error
+        self.e_m = bsr_matrix(i_m - self.a_bar_m).T
+
+        # update cost_functions
+        #cost_functions = [cost_closure(self.e_m, self.project_out)]
+        cost_functions = []
+
+        while k < max_iters and eps > self.eps:
+
+            # compute image gradient
+            nabla_i = self.interface.gradient(i)
+
+            # compute appearance jacobian
+            Ja = self.interface.steepest_descent_images(nabla_i, self._ds_dp)
+
+            # transposed jacobian and precision dot product
+            J_a_T_Q_a = self.interface.J_a_T_Q_a(Ja, self.Q_a)
+
+            # compute hessian
+            H = J_a_T_Q_a.dot(Ja)
+            if self.interface.use_deformation_cost:
+                H += self._H_s
+
+            # compute gauss-newton parameter updates
+            b = J_a_T_Q_a.dot(self.e_m).toarray().ravel()
+            p = p_list[-1].copy()
+            if self._H_s is not None:
+                if isinstance(self.transform, OrthoPDM):
+                    p[0:4] = 0
+                b += self._H_s.dot(p)
+            dp = -np.linalg.solve(H, b)
+
+            # update warp
+            s_k = self.transform.target.points
+            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
+            p_list.append(self.transform.as_vector())
+
+            # warp image
+            i = self.interface.warp(image)
+            # vectorize it and mask it
+            i_m = i.as_vector()[self.interface.i_mask]
 
             # compute masked error
             self.e_m = bsr_matrix(i_m - self.a_bar_m).T
