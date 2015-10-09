@@ -23,13 +23,11 @@ def similarity_2d_instance_model(shape):
 
     """
     shape_vector = shape.as_vector()
-    components = np.zeros((4, shape_vector.shape[0]))
+    components = np.zeros((4, shape_vector.shape[0]), dtype=np.complex)
     components[0, :] = shape_vector  # Comp. 1 - just the shape
-    rotated_ccw = shape.points[:, ::-1].copy()  # flip x,y -> y,x
-    rotated_ccw[:, 0] = -rotated_ccw[:, 0]  # negate (old) y
-    components[1, :] = rotated_ccw.flatten()  # C2 - the shape rotated 90 degs
-    components[2, ::2] = 1  # Tx
-    components[3, 1::2] = 1  # Ty
+    components[1, :] = - np.imag(shape_vector) + 1j * np.real(shape_vector)
+    components[2, :] = 1
+    components[3, :] = 1j
     return MeanInstanceLinearModel(components, shape_vector, shape)
 
 
