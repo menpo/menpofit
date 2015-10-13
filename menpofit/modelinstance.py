@@ -8,16 +8,18 @@ def similarity_2d_instance_model(shape):
     r"""
     A MeanInstanceLinearModel that encodes all possible 2D similarity
     transforms of a 2D shape (of n_points).
-        Parameters
-        ----------
-        shape : 2D :class:`menpo.shape.Shape`
-        Returns
-        -------
-        model : `menpo.model.linear.MeanInstanceLinearModel`
-            Model with four components, linear combinations of which
-            represent the original shape under a similarity transform. The
-            model is exhaustive (that is, all possible similarity transforms
-            can be expressed in the model).
+
+    Parameters
+    ----------
+    shape : 2D :class:`menpo.shape.Shape`
+
+    Returns
+    -------
+    model : `menpo.model.linear.MeanInstanceLinearModel`
+        Model with four components, linear combinations of which
+        represent the original shape under a similarity transform. The
+        model is exhaustive (that is, all possible similarity transforms
+        can be expressed in the model).
     """
     shape_vector = shape.as_vector()
     components = np.zeros((4, shape_vector.shape[0]))
@@ -42,11 +44,8 @@ class ModelInstance(Targetable, Vectorizable, DP):
 
     Parameters
     ----------
-
     model : :map:`InstanceBackedModel`
         The generative model that instances will be taken from
-
-
     """
     def __init__(self, model):
         self.model = model
