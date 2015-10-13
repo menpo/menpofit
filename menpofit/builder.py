@@ -5,7 +5,7 @@ from menpo.shape import mean_pointcloud, PointCloud, TriMesh
 from menpo.image import Image, MaskedImage
 from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
-from menpo.model.pca import PCAModel
+from menpo.model.pca import PCAInstanceModel
 from menpo.visualize import print_dynamic
 from menpofit.visualize import print_progress
 
@@ -306,7 +306,7 @@ def build_shape_model(shapes, max_components=None, prefix='', verbose=False):
     # compute aligned shapes
     aligned_shapes = align_shapes(shapes)
     # build shape model
-    shape_model = PCAModel(aligned_shapes)
+    shape_model = PCAInstanceModel(aligned_shapes)
     if max_components is not None:
         # trim shape model if required
         shape_model.trim_components(max_components)

@@ -5,7 +5,7 @@ import numpy as np
 
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
-from menpo.model import PCAModel
+from menpo.model import PCAInstanceModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 
@@ -199,7 +199,7 @@ class AAM(object):
                     scale_prefix))
 
             if not increment:
-                appearance_model = PCAModel(warped_images)
+                appearance_model = PCAInstanceModel(warped_images)
                 # trim appearance model if required
                 if self.max_appearance_components is not None:
                     appearance_model.trim_components(
