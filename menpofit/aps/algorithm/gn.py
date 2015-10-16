@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.sparse import bsr_matrix
 
 from menpo.feature import gradient as fast_gradient
 from menpo.image import Image
@@ -170,7 +169,7 @@ class GaussNewtonBaseInterface(object):
 
         Returns
         -------
-        steepest_descent_images : `scipy.sparse.bsr_matrix`
+        steepest_descent_images : `ndarray`
             The computed steepest descent images.
         """
         # reshape nabla
@@ -187,7 +186,7 @@ class GaussNewtonBaseInterface(object):
 
         # reshape steepest descent images
         # sdi: (parts x offsets x ch x w x h) x params
-        return bsr_matrix(sdi.reshape((-1, sdi.shape[-1])))
+        return sdi.reshape((-1, sdi.shape[-1]))
 
     def J_a_T_Q_a(self, J_a, Q_a):
         r"""
@@ -202,7 +201,7 @@ class GaussNewtonBaseInterface(object):
 
         Parameters
         ----------
-        J_a : `scipy.sparse.bsr_matrix`
+        J_a : `ndarray`
             The appearance jacobian (steepest descent images).
         Q_a : `scipy.sparse.bsr_matrix`
             The appearance precision matrix.
@@ -216,7 +215,7 @@ class GaussNewtonBaseInterface(object):
         # the precision matrix (Q_a)
         # J_a: (parts x offsets x ch x w x h) x params
         # Q_a: (parts x offsets x ch x w x h) x (parts x offsets x ch x w x h)
-        return J_a.T.dot(Q_a)
+        return Q_a.dot(J_a).T
 
     def algorithm_result(self, image, shape_parameters, cost_functions=None,
                          gt_shape=None):
@@ -327,7 +326,7 @@ class Inverse(GaussNewton):
         self._J_a_T_Q_a = self.interface.J_a_T_Q_a(J_a, self.Q_a)
         # compute hessian inverse
         self._H_S = None
-        H = self._J_a_T_Q_a.dot(J_a).toarray()
+        H = self._J_a_T_Q_a.dot(J_a)
         if self.interface.use_deformation_cost:
             self._H_s = self.interface.H_s()
             H += self._H_s
@@ -370,7 +369,7 @@ class Inverse(GaussNewton):
         i_m = self.i.as_vector()[self.interface.i_mask]
 
         # compute masked error
-        self.e_m = bsr_matrix(i_m - self.a_bar_m).T
+        self.e_m = i_m - self.a_bar_m
 
         # update cost_functions
         #cost_functions = [cost_closure(self.e_m, self.project_out)]
@@ -378,7 +377,7 @@ class Inverse(GaussNewton):
 
         while k < max_iters and eps > self.eps:
             # compute gauss-newton parameter updates
-            b = self._J_a_T_Q_a.dot(self.e_m).toarray().ravel()
+            b = self._J_a_T_Q_a.dot(self.e_m)
             p = p_list[-1].copy()
             if self._H_s is not None:
                 if isinstance(self.transform, OrthoPDM):
@@ -397,7 +396,7 @@ class Inverse(GaussNewton):
             i_m = self.i.as_vector()[self.interface.i_mask]
 
             # compute masked error
-            self.e_m = bsr_matrix(i_m - self.a_bar_m).T
+            self.e_m = i_m - self.a_bar_m
 
             # update cost
             #cost_functions.append(cost_closure(self.e_m, self.project_out))
@@ -464,7 +463,7 @@ class Forward(GaussNewton):
         i_m = i.as_vector()[self.interface.i_mask]
 
         # compute masked error
-        self.e_m = bsr_matrix(i_m - self.a_bar_m).T
+        self.e_m = i_m - self.a_bar_m
 
         # update cost_functions
         #cost_functions = [cost_closure(self.e_m, self.project_out)]
@@ -487,7 +486,7 @@ class Forward(GaussNewton):
                 H += self._H_s
 
             # compute gauss-newton parameter updates
-            b = J_a_T_Q_a.dot(self.e_m).toarray().ravel()
+            b = J_a_T_Q_a.dot(self.e_m)
             p = p_list[-1].copy()
             if self._H_s is not None:
                 if isinstance(self.transform, OrthoPDM):
@@ -506,7 +505,7 @@ class Forward(GaussNewton):
             i_m = i.as_vector()[self.interface.i_mask]
 
             # compute masked error
-            self.e_m = bsr_matrix(i_m - self.a_bar_m).T
+            self.e_m = i_m - self.a_bar_m
 
             # update cost
             #cost_functions.append(cost_closure(self.e_m, self.project_out))
