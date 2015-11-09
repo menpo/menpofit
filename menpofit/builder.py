@@ -151,7 +151,8 @@ def warp_images(images, shapes, reference_frame, transform, prefix='',
         # Update Transform Target
         warp_transform.set_target(s)
         # warp images
-        warped_i = i.warp_to_mask(reference_frame.mask, warp_transform)
+        warped_i = i.warp_to_mask(reference_frame.mask, warp_transform,
+                                  warp_landmarks=False)
         # attach reference frame landmarks to images
         warped_i.landmarks['source'] = reference_frame.landmarks['source']
         warped_images.append(warped_i)
