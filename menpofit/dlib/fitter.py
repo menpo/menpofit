@@ -113,7 +113,8 @@ class DlibERT(MultiFitter):
         r"""
         """
         # Dlib does not support incremental builds, so we must be passed a list
-        original_images = list(original_images)
+        if not isinstance(original_images, list):
+            original_images = list(original_images)
         # We use temporary landmark groups - so we need the group key to not be
         # None
         if group is None:
