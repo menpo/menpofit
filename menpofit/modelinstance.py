@@ -1,6 +1,8 @@
 import numpy as np
 from menpo.base import Targetable, Vectorizable
-from menpo.model import MeanInstanceLinearModel
+from menpo.model import MeanInstanceLinearModel, PCAInstanceModel
+from menpo.shape import mean_pointcloud
+from menpofit.builder import align_shapes
 from menpofit.differentiable import DP
 
 
@@ -20,7 +22,6 @@ def similarity_2d_instance_model(shape):
             represent the original shape under a similarity transform. The
             model is exhaustive (that is, all possible similarity transforms
             can be expressed in the model).
-
     """
     shape_vector = shape.as_vector()
     components = np.zeros((4, shape_vector.shape[0]))
@@ -45,11 +46,8 @@ class ModelInstance(Targetable, Vectorizable, DP):
 
     Parameters
     ----------
-
     model : :map:`InstanceBackedModel`
         The generative model that instances will be taken from
-
-
     """
     def __init__(self, model):
         self.model = model
@@ -57,7 +55,6 @@ class ModelInstance(Targetable, Vectorizable, DP):
         # set all weights to 0 (yielding the mean, first call to
         # from_vector_inplace() or set_target() will update this)
         self._weights = np.zeros(self.model.n_active_components)
-        self._sync_target_from_state()
 
     @property
     def n_weights(self):
@@ -95,8 +92,7 @@ class ModelInstance(Targetable, Vectorizable, DP):
 
         Returns
         -------
-
-        new_target: model instance
+        new_target : model instance
         """
         return self.model.instance(self.weights)
 
@@ -148,9 +144,117 @@ class ModelInstance(Targetable, Vectorizable, DP):
         self._sync_target_from_state()
 
 
-class PDM(ModelInstance, DP):
+class GlobalSimilarityModel(Targetable, Vectorizable):
+
+    def __init__(self, data, **kwargs):
+        from menpofit.transform import DifferentiableAlignmentSimilarity
+
+        aligned_shapes = align_shapes(data)
+        self.mean = mean_pointcloud(aligned_shapes)
+        # Default target is the mean
+        self._target = self.mean
+        self.transform = DifferentiableAlignmentSimilarity(self.target,
+                                                           self.target)
+
+    @property
+    def n_weights(self):
+        r"""
+        The number of parameters in the linear model.
+
+        :type: int
+        """
+        return 4
+
+    @property
+    def weights(self):
+        r"""
+        In this simple :map:`ModelInstance` the weights are just the weights
+        of the model.
+        """
+        return self.transform.as_vector()
+
+    @property
+    def target(self):
+        return self._target
+
+    def set_target(self, new_target):
+        self.transform.set_target(new_target)
+        self._target = self.transform.apply(self.mean)
+        return self
+
+    def _as_vector(self):
+        r"""
+        Return the current parameters of this transform - this is the
+        just the linear model's weights
+
+        Returns
+        -------
+        params : (`n_parameters`,) ndarray
+            The vector of parameters
+        """
+        return self.transform.as_vector()
+
+    def from_vector_inplace(self, vector):
+        self.transform.from_vector_inplace(vector)
+        self._target = self.transform.apply(self.mean)
+
+    @property
+    def n_dims(self):
+        r"""
+        The number of dimensions of the spatial instance of the model
+
+        :type: int
+        """
+        return self.mean.n_dims
+
+    def d_dp(self, _):
+        """
+        Returns the Jacobian of the similarity model reshaped to have the
+        standard Jacobian shape:
+
+            n_points    x  n_params      x  n_dims
+
+            which maps to
+
+            n_features  x  n_components  x  n_dims
+
+            on the linear model
+
+        Returns
+        -------
+        jacobian : (n_features, n_components, n_dims) ndarray
+            The Jacobian of the model in the standard Jacobian shape.
+        """
+        # Always evaluated at the mean shape
+        return self.transform.d_dp(self.mean.points)
+
+
+class PDM(ModelInstance):
     r"""Specialization of :map:`ModelInstance` for use with spatial data.
+    TODO: update docs
     """
+
+    def __init__(self, data, max_n_components=None):
+        if isinstance(data, PCAInstanceModel):
+            shape_model = data
+        else:
+            aligned_shapes = align_shapes(data)
+            shape_model = PCAInstanceModel(aligned_shapes)
+
+        if max_n_components is not None:
+            shape_model.trim_components(max_n_components)
+        super(PDM, self).__init__(shape_model)
+        # Default target is the mean
+        self._target = self.model.mean()
+
+    @property
+    def n_active_components(self):
+        return self.model.n_active_components
+
+    @n_active_components.setter
+    def n_active_components(self, value):
+        self.model.n_active_components = value
+        self._sync_state_from_target()
 
     @property
     def n_dims(self):
@@ -183,17 +287,29 @@ class PDM(ModelInstance, DP):
                                              -1, self.n_dims)
         return d_dp.swapaxes(0, 1)
 
+    def increment(self, shapes, n_shapes=None, forgetting_factor=1.0,
+                  max_n_components=None, verbose=False):
+        old_target = self.target
+        aligned_shapes = align_shapes(shapes)
+        self.model.increment(aligned_shapes, n_samples=n_shapes,
+                             forgetting_factor=forgetting_factor,
+                             verbose=verbose)
+        if max_n_components is not None:
+            self.model.trim_components(max_n_components)
+        # Reset the target given the new model
+        self.set_target(old_target)
+
 
 # TODO: document me!
 class GlobalPDM(PDM):
     r"""
     """
-    def __init__(self, model, global_transform_cls):
+    def __init__(self, data, global_transform_cls, max_n_components=None):
+        super(GlobalPDM, self).__init__(data, max_n_components=max_n_components)
         # Start the global_transform as an identity (first call to
         # from_vector_inplace() or set_target() will update this)
-        mean = model.mean()
+        mean = self.model.mean()
         self.global_transform = global_transform_cls(mean, mean)
-        super(GlobalPDM, self).__init__(model)
 
     @property
     def n_global_parameters(self):
@@ -218,10 +334,8 @@ class GlobalPDM(PDM):
         Return the appropriate target for the model weights provided,
         accounting for the effect of the global transform
 
-
         Returns
         -------
-
         new_target: :class:`menpo.shape.PointCloud`
             A new target for the weights provided
         """
@@ -235,13 +349,11 @@ class GlobalPDM(PDM):
 
         Parameters
         ----------
-
         target: :class:`menpo.shape.PointCloud`
             The target that the statistical model will try to reproduce
 
         Returns
         -------
-
         weights: (P,) ndarray
             Weights of the statistical model that generate the closest
             PointCloud to the requested target
@@ -321,17 +433,25 @@ class GlobalPDM(PDM):
 class OrthoPDM(GlobalPDM):
     r"""
     """
-    def __init__(self, model):
-        # 1. Construct similarity model from the mean of the model
-        self.similarity_model = similarity_2d_instance_model(model.mean())
-        # 2. Orthonormalize model and similarity model
-        model_cpy = model.copy()
-        model_cpy.orthonormalize_against_inplace(self.similarity_model)
-        self.similarity_weights = self.similarity_model.project(
-            model_cpy.mean())
+    def __init__(self, data, max_n_components=None):
         from menpofit.transform import DifferentiableAlignmentSimilarity
-        super(OrthoPDM, self).__init__(model_cpy,
-                                       DifferentiableAlignmentSimilarity)
+        super(OrthoPDM, self).__init__(
+            data,  DifferentiableAlignmentSimilarity,
+            max_n_components=max_n_components)
+        self._construct_similarity_model()
+        # Set target from state (after orthonormalizing)
+        self._sync_target_from_state()
+
+    def _construct_similarity_model(self):
+        # 1. Construct similarity model from the mean of the model
+        model_mean = self.model.mean()
+        self.similarity_model = similarity_2d_instance_model(model_mean)
+        # 2. Orthonormalize model and similarity model
+        self.model.orthonormalize_against_inplace(self.similarity_model)
+        # The number of components may have changed. So re-create the weights
+        # from the new number of active components
+        self._weights = np.zeros(self.model.n_active_components)
+        self.similarity_weights = self.similarity_model.project(model_mean)
 
     @property
     def global_parameters(self):
@@ -355,3 +475,16 @@ class OrthoPDM(GlobalPDM):
         return self.similarity_model.components.reshape(
             self.n_global_parameters, -1, self.n_dims).swapaxes(0, 1)
 
+    def increment(self, shapes, n_shapes=None, forgetting_factor=1.0,
+                  max_n_components=None, verbose=False):
+        old_target = self.target
+        aligned_shapes = align_shapes(shapes)
+        self.model.increment(aligned_shapes, n_samples=n_shapes,
+                             forgetting_factor=forgetting_factor,
+                             verbose=verbose)
+        if max_n_components is not None:
+            self.model.trim_components(max_n_components)
+        # Re-orthonormalize
+        self._construct_similarity_model()
+        # Reset the target given the new models
+        self.set_target(old_target)

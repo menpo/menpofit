@@ -35,7 +35,7 @@ class DlibERT(MultiFitter):
 
         self.diagonal = diagonal
         self.scales = checks.check_scales(scales)
-        self.holistic_features = checks.check_features(no_op, self.n_scales)
+        self.holistic_features = checks.check_callable(no_op, self.n_scales)
         self.reference_shape = reference_shape
         self.n_perturbations = n_perturbations
         self.n_iterations = checks.check_max_iters(n_iterations, self.n_scales)

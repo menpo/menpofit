@@ -6,10 +6,139 @@ from menpo.transform import (
     scale_about_centre, rotate_ccw_about_centre, Translation,
     Scale, AlignmentAffine, AlignmentSimilarity)
 import menpofit.checks as checks
-
-
-# TODO: document me!
 from menpofit.visualize import print_progress
+
+
+def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
+                                         noise_percentage=0.1, rotation=False):
+    r"""
+    Constructs and perturbs the optimal similarity transform between source
+    and target by adding noise to its parameters.
+
+    Parameters
+    ----------
+    source: :class:`menpo.shape.PointCloud`
+        The source pointcloud instance used in the alignment
+    target: :class:`menpo.shape.PointCloud`
+        The target pointcloud instance used in the alignment
+    noise_type: str, optional
+        The type of noise to be added, 'uniform' or 'gaussian'.
+    noise_percentage: 0 < float < 1 or triplet of 0 < float < 1, optional
+        The standard percentage of noise to be added. If float the same amount
+        of noise is applied to the scale, rotation and translation
+        parameters of the true similarity transform. If triplet of
+        floats, the first, second and third elements denote the amount of
+        noise to be applied to the scale, rotation and translation
+        parameters respectively.
+    rotation: boolean, optional
+        If False rotation is not considered when computing the optimal
+        similarity transform between source and target.
+
+    Returns
+    -------
+    noisy_alignment_similarity_transform : :class: `menpo.transform.Similarity`
+        The noisy Similarity Transform between source and target.
+    """
+    if isinstance(noise_percentage, float):
+        noise_percentage = [noise_percentage] * 3
+    elif len(noise_percentage) == 1:
+        noise_percentage *= 3
+
+    similarity = AlignmentSimilarity(source, target, rotation=rotation)
+
+    if noise_type is 'gaussian':
+        s = noise_percentage[0] * (0.5 / 3) * np.asscalar(np.random.randn(1))
+        r = noise_percentage[1] * (180 / 3) * np.asscalar(np.random.randn(1))
+        t = noise_percentage[2] * (target.range() / 3) * np.random.randn(2)
+
+        s = scale_about_centre(target, 1 + s)
+        r = rotate_ccw_about_centre(target, r)
+        t = Translation(t, source.n_dims)
+    elif noise_type is 'uniform':
+        s = noise_percentage[0] * 0.5 * (2 * np.asscalar(np.random.randn(1)) - 1)
+        r = noise_percentage[1] * 180 * (2 * np.asscalar(np.random.rand(1)) - 1)
+        t = noise_percentage[2] * target.range() * (2 * np.random.rand(2) - 1)
+
+        s = scale_about_centre(target, 1. + s)
+        r = rotate_ccw_about_centre(target, r)
+        t = Translation(t, source.n_dims)
+    else:
+        raise ValueError('Unexpected noise type. '
+                         'Supported values are {gaussian, uniform}')
+
+    return similarity.compose_after(t.compose_after(s.compose_after(r)))
+
+
+def noisy_target_alignment_transform(source, target,
+                                     alignment_transform_cls=AlignmentAffine,
+                                     noise_std=0.1, **kwargs):
+    r"""
+    Constructs and the optimal alignment transform between the source and
+    a noisy version of the target obtained by adding white noise to each of
+    its points.
+
+    Parameters
+    ----------
+    source: :class:`menpo.shape.PointCloud`
+        The source pointcloud instance used in the alignment
+    target: :class:`menpo.shape.PointCloud`
+        The target pointcloud instance used in the alignment
+    alignment_transform_cls: :class:`menpo.transform.Alignment`, optional
+        The alignment transform class used to perform the alignment.
+    noise_std: float or triplet of floats, optional
+        The standard deviation of the white noise to be added to each one of
+        the target points.
+
+    Returns
+    -------
+    noisy_transform : :class: `menpo.transform.Alignment`
+        The noisy Similarity Transform
+    """
+    noise = noise_std * target.range() * np.random.randn(target.n_points,
+                                                         target.n_dims)
+    noisy_target = PointCloud(target.points + noise)
+    return alignment_transform_cls(source, noisy_target, **kwargs)
+
+
+def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
+                                  noise_percentage=0.05, rotation=False):
+    transform = noisy_alignment_similarity_transform(
+        shape.bounding_box(), bounding_box, noise_type=noise_type,
+        noise_percentage=noise_percentage, rotation=rotation)
+    return transform.apply(shape)
+
+
+def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
+                           noise_percentage=0.05, rotation=False):
+    transform = noisy_alignment_similarity_transform(
+        reference_shape, shape, noise_type=noise_type,
+        noise_percentage=noise_percentage, rotation=rotation)
+    return transform.apply(reference_shape)
+
+
+def align_shape_with_bounding_box(shape, bounding_box,
+                                  alignment_transform_cls=AlignmentSimilarity,
+                                  **kwargs):
+    r"""
+    Aligns the shape with the bounding box using a particular ali .
+
+    Parameters
+    ----------
+    source: :class:`menpo.shape.PointCloud`
+        The shape instance used in the alignment.
+    bounding_box: :class:`menpo.shape.PointCloud`
+        The bounding box instance used in the alignment.
+    alignment_transform_cls: :class:`menpo.transform.Alignment`, optional
+        The class of the alignment transform used to perform the alignment.
+
+    Returns
+    -------
+    noisy_transform : :class: `menpo.transform.Alignment`
+        The noisy Alignment Transform
+    """
+    shape_bb = shape.bounding_box()
+    transform = alignment_transform_cls(shape_bb, bounding_box, **kwargs)
+    return transform.apply(shape)
 
 
 class MultiFitter(object):
@@ -261,149 +390,13 @@ class ModelFitter(MultiFitter):
     def _check_n_shape(self, n_shape):
         checks.set_models_components(self._model.shape_models, n_shape)
 
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_type='uniform',
-                                      noise_percentage=0.1, rotation=False):
-        return noisy_shape_from_bounding_box(
-            self.reference_shape, bounding_box, noise_type=noise_type,
-            noise_percentage=noise_percentage, rotation=rotation)
+    def perturb_from_bb(self, gt_shape, bb,
+                        perturb_func=noisy_shape_from_bounding_box):
+        return perturb_func(gt_shape, bb)
 
-    def noisy_shape_from_shape(self, shape, noise_type='uniform',
-                               noise_percentage=0.1, rotation=False):
-        return noisy_shape_from_shape(
-            self.reference_shape, shape, noise_type=noise_type,
-            noise_percentage=noise_percentage, rotation=rotation)
-
-
-def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
-                                         noise_percentage=0.1, rotation=False):
-    r"""
-    Constructs and perturbs the optimal similarity transform between source
-    and target by adding noise to its parameters.
-
-    Parameters
-    ----------
-    source: :class:`menpo.shape.PointCloud`
-        The source pointcloud instance used in the alignment
-    target: :class:`menpo.shape.PointCloud`
-        The target pointcloud instance used in the alignment
-    noise_type: str, optional
-        The type of noise to be added, 'uniform' or 'gaussian'.
-    noise_percentage: 0 < float < 1 or triplet of 0 < float < 1, optional
-        The standard percentage of noise to be added. If float the same amount
-        of noise is applied to the scale, rotation and translation
-        parameters of the true similarity transform. If triplet of
-        floats, the first, second and third elements denote the amount of
-        noise to be applied to the scale, rotation and translation
-        parameters respectively.
-    rotation: boolean, optional
-        If False rotation is not considered when computing the optimal
-        similarity transform between source and target.
-
-    Returns
-    -------
-    noisy_alignment_similarity_transform : :class: `menpo.transform.Similarity`
-        The noisy Similarity Transform between source and target.
-    """
-    if isinstance(noise_percentage, float):
-        noise_percentage = [noise_percentage] * 3
-    elif len(noise_percentage) == 1:
-        noise_percentage *= 3
-
-    similarity = AlignmentSimilarity(source, target, rotation=rotation)
-
-    if noise_type is 'gaussian':
-        s = noise_percentage[0] * (0.5 / 3) * np.asscalar(np.random.randn(1))
-        r = noise_percentage[1] * (180 / 3) * np.asscalar(np.random.randn(1))
-        t = noise_percentage[2] * (target.range() / 3) * np.random.randn(2)
-
-        s = scale_about_centre(target, 1 + s)
-        r = rotate_ccw_about_centre(target, r)
-        t = Translation(t, source.n_dims)
-    elif noise_type is 'uniform':
-        s = noise_percentage[0] * 0.5 * (2 * np.asscalar(np.random.randn(1)) - 1)
-        r = noise_percentage[1] * 180 * (2 * np.asscalar(np.random.rand(1)) - 1)
-        t = noise_percentage[2] * target.range() * (2 * np.random.rand(2) - 1)
-
-        s = scale_about_centre(target, 1. + s)
-        r = rotate_ccw_about_centre(target, r)
-        t = Translation(t, source.n_dims)
-    else:
-        raise ValueError('Unexpected noise type. '
-                         'Supported values are {gaussian, uniform}')
-
-    return similarity.compose_after(t.compose_after(s.compose_after(r)))
-
-
-def noisy_target_alignment_transform(source, target,
-                                     alignment_transform_cls=AlignmentAffine,
-                                     noise_std=0.1, **kwargs):
-    r"""
-    Constructs and the optimal alignment transform between the source and
-    a noisy version of the target obtained by adding white noise to each of
-    its points.
-
-    Parameters
-    ----------
-    source: :class:`menpo.shape.PointCloud`
-        The source pointcloud instance used in the alignment
-    target: :class:`menpo.shape.PointCloud`
-        The target pointcloud instance used in the alignment
-    alignment_transform_cls: :class:`menpo.transform.Alignment`, optional
-        The alignment transform class used to perform the alignment.
-    noise_std: float or triplet of floats, optional
-        The standard deviation of the white noise to be added to each one of
-        the target points.
-
-    Returns
-    -------
-    noisy_transform : :class: `menpo.transform.Alignment`
-        The noisy Similarity Transform
-    """
-    noise = noise_std * target.range() * np.random.randn(target.n_points,
-                                                         target.n_dims)
-    noisy_target = PointCloud(target.points + noise)
-    return alignment_transform_cls(source, noisy_target, **kwargs)
-
-
-def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
-                                  noise_percentage=0.05, rotation=False):
-    transform = noisy_alignment_similarity_transform(
-        shape.bounding_box(), bounding_box, noise_type=noise_type,
-        noise_percentage=noise_percentage, rotation=rotation)
-    return transform.apply(shape)
-
-
-def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
-                           noise_percentage=0.05, rotation=False):
-    transform = noisy_alignment_similarity_transform(
-        reference_shape, shape, noise_type=noise_type,
-        noise_percentage=noise_percentage, rotation=rotation)
-    return transform.apply(reference_shape)
-
-
-def align_shape_with_bounding_box(shape, bounding_box,
-                                  alignment_transform_cls=AlignmentSimilarity,
-                                  **kwargs):
-    r"""
-    Aligns the shape with the bounding box using a particular ali .
-
-    Parameters
-    ----------
-    source: :class:`menpo.shape.PointCloud`
-        The shape instance used in the alignment.
-    bounding_box: :class:`menpo.shape.PointCloud`
-        The bounding box instance used in the alignment.
-    alignment_transform_cls: :class:`menpo.transform.Alignment`, optional
-        The class of the alignment transform used to perform the alignment.
-
-    Returns
-    -------
-    noisy_transform : :class: `menpo.transform.Alignment`
-        The noisy Alignment Transform
-    """
-    shape_bb = shape.bounding_box()
-    transform = alignment_transform_cls(shape_bb, bounding_box, **kwargs)
-    return transform.apply(shape)
+    def perturb_from_gt_bb(self, gt_bb,
+                           perturb_func=noisy_shape_from_bounding_box):
+        return perturb_func(gt_bb, gt_bb)
 
 
 def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
