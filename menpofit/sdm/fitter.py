@@ -2,8 +2,11 @@ from __future__ import division
 import numpy as np
 from functools import partial
 import warnings
+
 from menpo.transform import Scale
 from menpo.feature import no_op
+from menpo.visualize import print_dynamic
+
 from menpofit.visualize import print_progress
 from menpofit.base import batch, name_of_callable
 from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
@@ -14,7 +17,6 @@ from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
                              generate_perturbations_from_gt)
 from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
-from .algorithm import Newton
 
 
 # TODO: document me!
@@ -22,7 +24,7 @@ class SupervisedDescentFitter(MultiFitter):
     r"""
     """
     def __init__(self, images, group=None, bounding_box_group_glob=None,
-                 reference_shape=None, sd_algorithm_cls=Newton,
+                 reference_shape=None, sd_algorithm_cls=None,
                  holistic_features=no_op, patch_features=no_op,
                  patch_shape=(17, 17), diagonal=None, scales=(0.5, 1.0),
                  n_iterations=6, n_perturbations=30,
@@ -32,8 +34,9 @@ class SupervisedDescentFitter(MultiFitter):
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
-        patch_features = checks.check_features(patch_features, n_scales)
-        holistic_features = checks.check_features(holistic_features, n_scales)
+        patch_features = checks.check_callable(patch_features, n_scales)
+        sd_algorithm_cls = checks.check_callable(sd_algorithm_cls, n_scales)
+        holistic_features = checks.check_callable(holistic_features, n_scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_scales)
         # set parameters
         self.algorithms = []
@@ -51,13 +54,13 @@ class SupervisedDescentFitter(MultiFitter):
         self._setup_algorithms()
 
         # Now, train the model!
-        self._train(images,increment=False,  group=group,
+        self._train(images, increment=False,  group=group,
                     bounding_box_group_glob=bounding_box_group_glob,
                     verbose=verbose, batch_size=batch_size)
 
     def _setup_algorithms(self):
         for j in range(self.n_scales):
-            self.algorithms.append(self._sd_algorithm_cls(
+            self.algorithms.append(self._sd_algorithm_cls[j](
                 patch_features=self.patch_features[j],
                 patch_shape=self.patch_shape[j],
                 n_iterations=self.n_iterations[j]))
@@ -252,12 +255,16 @@ class SupervisedDescentFitter(MultiFitter):
             scales_info=scales_info)
         return cls_str
 
+# *
+# ************************* Non-Parametric Fitters *****************************
+# *
+from .algorithm import NonParametricNewton
 
 # Aliases for common combinations of supervised descent fitting
-SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=Newton)
+SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=NonParametricNewton)
+
 
 class RegularizedSDM(SupervisedDescentFitter):
-
     def __init__(self, images, group=None, bounding_box_group_glob=None,
                  alpha=0.0001, reference_shape=None,
                  holistic_features=no_op, patch_features=no_op,
@@ -269,7 +276,7 @@ class RegularizedSDM(SupervisedDescentFitter):
             images, group=group,
             bounding_box_group_glob=bounding_box_group_glob,
             reference_shape=reference_shape,
-            sd_algorithm_cls=partial(Newton, alpha=alpha),
+            sd_algorithm_cls=partial(NonParametricNewton, alpha=alpha),
             holistic_features=holistic_features, patch_features=patch_features,
             patch_shape=patch_shape, diagonal=diagonal, scales=scales,
             n_iterations=n_iterations, n_perturbations=n_perturbations,
