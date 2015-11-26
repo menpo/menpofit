@@ -1,22 +1,27 @@
 from __future__ import division
-from copy import deepcopy
 import warnings
 import numpy as np
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
-from menpo.model import PCAModel
+from menpo.model import PCAInstanceModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 from menpofit import checks
+from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface, \
+    LucasKanadePatchInterface, LucasKanadeLinearInterface
+from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import (DifferentiableThinPlateSplines,
-                                DifferentiablePiecewiseAffine)
+                                DifferentiablePiecewiseAffine, OrthoMDTransform,
+                                LinearOrthoMDTransform)
 from menpofit.base import name_of_callable, batch
 from menpofit.builder import (
     build_reference_frame, build_patch_reference_frame,
-    compute_features, scale_images, build_shape_model, warp_images,
+    compute_features, scale_images, warp_images,
     align_shapes, rescale_images_to_reference_shape, densify_shapes,
     extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
+
+build_shape_model = None
 
 # TODO: document me!
 class AAM(object):
@@ -26,13 +31,15 @@ class AAM(object):
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op,
                  transform=DifferentiablePiecewiseAffine, diagonal=None,
-                 scales=(0.5, 1.0), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
+                 scales=(0.5, 1.0), shape_model_cls=OrthoPDM,
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
 
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
-        holistic_features = checks.check_features(holistic_features, n_scales)
+        holistic_features = checks.check_callable(holistic_features, n_scales)
+        shape_model_cls = checks.check_callable(shape_model_cls, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
@@ -45,6 +52,7 @@ class AAM(object):
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
         self.reference_shape = reference_shape
+        self._shape_model_cls = shape_model_cls
         self.shape_models = []
         self.appearance_models = []
 
@@ -171,16 +179,11 @@ class AAM(object):
                 print_dynamic('{}Building shape model'.format(scale_prefix))
 
             if not increment:
-                if j == 0:
-                    shape_model = self._build_shape_model(
-                        scale_shapes, j)
-                    self.shape_models.append(shape_model)
-                else:
-                    self.shape_models.append(deepcopy(shape_model))
+                shape_model = self._build_shape_model(scale_shapes, j)
+                self.shape_models.append(shape_model)
             else:
                 self._increment_shape_model(
-                    scale_shapes,  self.shape_models[j],
-                    forgetting_factor=shape_forgetting_factor)
+                    scale_shapes, j, forgetting_factor=shape_forgetting_factor)
 
             # Obtain warped images - we use a scaled version of the
             # reference shape, computed here. This is because the mean
@@ -198,7 +201,7 @@ class AAM(object):
                     scale_prefix))
 
             if not increment:
-                appearance_model = PCAModel(warped_images)
+                appearance_model = PCAInstanceModel(warped_images)
                 # trim appearance model if required
                 if self.max_appearance_components is not None:
                     appearance_model.trim_components(
@@ -218,14 +221,6 @@ class AAM(object):
             if verbose:
                 print_dynamic('{}Done\n'.format(scale_prefix))
 
-        # Because we just copy the shape model, we need to wait to trim
-        # it after building each model. This ensures we can have a different
-        # number of components per level
-        for j, sm in enumerate(self.shape_models):
-            max_sc = self.max_shape_components[j]
-            if max_sc is not None:
-                sm.trim_components(max_sc)
-
     def increment(self, images, group=None, verbose=False,
                   shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
                   batch_size=None):
@@ -239,15 +234,14 @@ class AAM(object):
                            batch_size=batch_size)
 
     def _build_shape_model(self, shapes, scale_index):
-        return build_shape_model(shapes)
+        return self._shape_model_cls[scale_index](
+            shapes, max_n_components=self.max_shape_components[scale_index])
 
-    def _increment_shape_model(self, shapes, shape_model,
-                               forgetting_factor=1.0):
-        # Compute aligned shapes
-        aligned_shapes = align_shapes(shapes)
-        # Increment shape model
-        shape_model.increment(aligned_shapes,
-                              forgetting_factor=forgetting_factor)
+    def _increment_shape_model(self, shapes, scale_index,
+                               forgetting_factor=None):
+        self.shape_models[scale_index].increment(
+            shapes, forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index])
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
@@ -297,20 +291,12 @@ class AAM(object):
         image : :map:`Image`
             The novel AAM instance.
         """
-        sm = self.shape_models[scale_index]
+        sm = self.shape_models[scale_index].model
         am = self.appearance_models[scale_index]
 
-        # TODO: this bit of logic should to be transferred down to PCAModel
-        if shape_weights is None:
-            shape_weights = [0]
-        if appearance_weights is None:
-            appearance_weights = [0]
-        n_shape_weights = len(shape_weights)
-        shape_weights *= sm.eigenvalues[:n_shape_weights] ** 0.5
-        shape_instance = sm.instance(shape_weights)
-        n_appearance_weights = len(appearance_weights)
-        appearance_weights *= am.eigenvalues[:n_appearance_weights] ** 0.5
-        appearance_instance = am.instance(appearance_weights)
+        shape_instance = sm.instance(shape_weights, normalized_weights=True)
+        appearance_instance = am.instance(appearance_weights,
+                                          normalized_weights=True)
 
         return self._instance(scale_index, shape_instance, appearance_instance)
 
@@ -328,16 +314,15 @@ class AAM(object):
         image : :map:`Image`
             The novel AAM instance.
         """
-        sm = self.shape_models[scale_index]
+        sm = self.shape_models[scale_index].model
         am = self.appearance_models[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
-        shape_weights = (np.random.randn(sm.n_active_components) *
-                         sm.eigenvalues[:sm.n_active_components]**0.5)
-        shape_instance = sm.instance(shape_weights)
-        appearance_weights = (np.random.randn(am.n_active_components) *
-                              am.eigenvalues[:am.n_active_components]**0.5)
-        appearance_instance = am.instance(appearance_weights)
+        shape_weights = np.random.randn(sm.n_active_components)
+        shape_instance = sm.instance(shape_weights, normalized_weights=True)
+        appearance_weights = np.random.randn(sm.n_active_components)
+        appearance_instance = am.instance(appearance_weights,
+                                          normalized_weights=True)
 
         return self._instance(scale_index, shape_instance, appearance_instance)
 
@@ -384,7 +369,7 @@ class AAM(object):
             visualize_shape_model(self.shape_models, n_parameters=n_parameters,
                                   parameters_bounds=parameters_bounds,
                                   figure_size=figure_size, mode=mode)
-        except:
+        except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
@@ -420,7 +405,7 @@ class AAM(object):
                                        n_parameters=n_parameters,
                                        parameters_bounds=parameters_bounds,
                                        figure_size=figure_size, mode=mode)
-        except:
+        except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
@@ -464,9 +449,22 @@ class AAM(object):
                           n_appearance_parameters=n_appearance_parameters,
                           parameters_bounds=parameters_bounds,
                           figure_size=figure_size, mode=mode)
-        except:
+        except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
+
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for am, sm, s in zip(self.appearance_models, self.shape_models,
+                             sampling):
+            template = am.mean()
+            md_transform = OrthoMDTransform(
+                sm, self.transform,
+                source=template.landmarks['source'].lms)
+            interface = LucasKanadeStandardInterface(
+                am, md_transform, template, sampling=s)
+            interfaces.append(interface)
+        return interfaces
 
     def __str__(self):
         return _aam_str(self)
@@ -480,8 +478,9 @@ class MaskedAAM(AAM):
 
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
+                 patch_shape=(17, 17), shape_model_cls=OrthoPDM,
+                 max_shape_components=None, max_appearance_components=None,
+                 batch_size=None):
         n_scales = len(checks.check_scales(scales))
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
 
@@ -492,7 +491,7 @@ class MaskedAAM(AAM):
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
+            shape_model_cls=shape_model_cls, batch_size=batch_size)
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
@@ -515,7 +514,7 @@ class MaskedAAM(AAM):
         transform = self.transform(
             reference_frame.landmarks['source'].lms, landmarks)
 
-        return appearance_instance.as_unmasked().warp_to_mask(
+        return appearance_instance.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
 
     def __str__(self):
@@ -529,7 +528,7 @@ class LinearAAM(AAM):
     """
 
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op,
+                 holistic_features=no_op, shape_model_cls=OrthoPDM,
                  transform=DifferentiableThinPlateSplines, diagonal=None,
                  scales=(0.5, 1.0), max_shape_components=None,
                  max_appearance_components=None, batch_size=None):
@@ -541,7 +540,7 @@ class LinearAAM(AAM):
             diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
+            shape_model_cls=shape_model_cls, batch_size=batch_size)
 
     @property
     def _str_title(self):
@@ -557,18 +556,21 @@ class LinearAAM(AAM):
         self.reference_frame = build_reference_frame(mean_aligned_shape)
         dense_shapes = densify_shapes(shapes, self.reference_frame,
                                       self.transform)
-        # build dense shape model
-        shape_model = build_shape_model(dense_shapes)
-        return shape_model
 
-    def _increment_shape_model(self, shapes, shape_model,
+        # Build dense shape model
+        max_sc = self.max_shape_components[scale_index]
+        return self._shape_model_cls[scale_index](dense_shapes,
+                                                  max_n_components=max_sc)
+
+    def _increment_shape_model(self, shapes, scale_index,
                                forgetting_factor=1.0):
         aligned_shapes = align_shapes(shapes)
         dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
                                       self.transform)
         # Increment shape model
-        shape_model.increment(dense_shapes,
-                              forgetting_factor=forgetting_factor)
+        self.shape_models[scale_index].increment(
+            dense_shapes, forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index])
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
@@ -592,6 +594,19 @@ class LinearAAM(AAM):
                         figure_size=(10, 8)):
         raise NotImplemented
 
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for am, sm, s in zip(self.appearance_models, self.shape_models,
+                             sampling):
+            template = am.mean()
+            # This is pretty hacky as we just steal the OrthoPDM's PCAModel
+            md_transform = LinearOrthoMDTransform(
+                sm.model, self.reference_shape)
+            interface = LucasKanadeLinearInterface(am, md_transform,
+                                                   template, sampling=s)
+            interfaces.append(interface)
+        return interfaces
+
     def __str__(self):
         return _aam_str(self)
 
@@ -605,7 +620,8 @@ class LinearMaskedAAM(AAM):
     def __init__(self, images, group=None, verbose=False, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
+                 max_appearance_components=None,
+                 shape_model_cls=OrthoPDM, batch_size=None):
         n_scales = len(checks.check_scales(scales))
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
 
@@ -616,7 +632,7 @@ class LinearMaskedAAM(AAM):
             transform=DifferentiableThinPlateSplines, diagonal=diagonal,
             scales=scales,  max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
+            shape_model_cls=shape_model_cls, batch_size=batch_size)
 
     @property
     def _str_title(self):
@@ -633,18 +649,20 @@ class LinearMaskedAAM(AAM):
             mean_aligned_shape, patch_shape=self.patch_shape[scale_index])
         dense_shapes = densify_shapes(shapes, self.reference_frame,
                                       self.transform)
-        # build dense shape model
-        shape_model = build_shape_model(dense_shapes)
-        return shape_model
+        # Build dense shape model
+        max_sc = self.max_shape_components[scale_index]
+        return self._shape_model_cls[scale_index](dense_shapes,
+                                                  max_n_components=max_sc)
 
-    def _increment_shape_model(self, shapes, shape_model,
+    def _increment_shape_model(self, shapes, scale_index,
                                forgetting_factor=1.0):
         aligned_shapes = align_shapes(shapes)
         dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
                                       self.transform)
         # Increment shape model
-        shape_model.increment(dense_shapes,
-                              forgetting_factor=forgetting_factor)
+        self.shape_models[scale_index].increment(
+            dense_shapes, forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index])
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
@@ -668,6 +686,19 @@ class LinearMaskedAAM(AAM):
                         figure_size=(10, 8)):
         raise NotImplemented
 
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for am, sm, s in zip(self.appearance_models, self.shape_models,
+                             sampling):
+            template = am.mean()
+            # This is pretty hacky as we just steal the OrthoPDM's PCAModel
+            md_transform = LinearOrthoMDTransform(
+                sm.model, self.reference_shape)
+            interface = LucasKanadeLinearInterface(am, md_transform,
+                                                   template, sampling=s)
+            interfaces.append(interface)
+        return interfaces
+
     def __str__(self):
         return _aam_str(self)
 
@@ -683,7 +714,7 @@ class PatchAAM(AAM):
                  holistic_features=no_op, patch_normalisation=no_op,
                  diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
                  max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+                 shape_model_cls=OrthoPDM, batch_size=None):
         n_scales = len(checks.check_scales(scales))
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
         self.patch_normalisation = patch_normalisation
@@ -695,7 +726,7 @@ class PatchAAM(AAM):
             diagonal=diagonal, scales=scales,
             max_shape_components=max_shape_components,
             max_appearance_components=max_appearance_components,
-            batch_size=batch_size)
+            shape_model_cls=shape_model_cls, batch_size=batch_size)
 
     @property
     def _str_title(self):
@@ -724,7 +755,7 @@ class PatchAAM(AAM):
                                              n_parameters=n_parameters,
                                              parameters_bounds=parameters_bounds,
                                              figure_size=figure_size, mode=mode)
-        except:
+        except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
@@ -737,9 +768,22 @@ class PatchAAM(AAM):
                                 n_appearance_parameters=n_appearance_parameters,
                                 parameters_bounds=parameters_bounds,
                                 figure_size=figure_size, mode=mode)
-        except:
+        except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
+
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for j, (am, sm, s) in enumerate(zip(self.appearance_models,
+                                            self.shape_models,
+                                            sampling)):
+            template = am.mean()
+            interface = LucasKanadePatchInterface(
+                am, sm, template, sampling=s,
+                patch_shape=self.patch_shape[j],
+                patch_normalisation=self.patch_normalisation)
+            interfaces.append(interface)
+        return interfaces
 
     def __str__(self):
         return _aam_str(self)
