@@ -1,6 +1,6 @@
 import numpy as np
 from menpo.base import Targetable, Vectorizable
-from menpo.model import MeanInstanceLinearModel, PCAInstanceModel
+from menpo.model import MeanLinearModel, PCAModel
 from menpo.shape import mean_pointcloud
 from menpofit.builder import align_shapes
 from menpofit.differentiable import DP
@@ -31,7 +31,7 @@ def similarity_2d_instance_model(shape):
     components[1, :] = rotated_ccw.flatten()  # C2 - the shape rotated 90 degs
     components[2, ::2] = 1  # Tx
     components[3, 1::2] = 1  # Ty
-    return MeanInstanceLinearModel(components, shape_vector, shape)
+    return MeanLinearModel(components, shape_vector, shape)
 
 
 class ModelInstance(Targetable, Vectorizable, DP):
@@ -235,11 +235,11 @@ class PDM(ModelInstance):
     """
 
     def __init__(self, data, max_n_components=None):
-        if isinstance(data, PCAInstanceModel):
+        if isinstance(data, PCAModel):
             shape_model = data
         else:
             aligned_shapes = align_shapes(data)
-            shape_model = PCAInstanceModel(aligned_shapes)
+            shape_model = PCAModel(aligned_shapes)
 
         if max_n_components is not None:
             shape_model.trim_components(max_n_components)
