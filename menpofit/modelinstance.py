@@ -1,6 +1,6 @@
 import numpy as np
 from menpo.base import Targetable, Vectorizable
-from menpo.model import MeanInstanceLinearModel
+from menpo.model import MeanLinearModel
 from menpofit.differentiable import DP
 
 
