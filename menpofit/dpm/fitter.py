@@ -1,14 +1,56 @@
 from menpo.shape import Tree
 import numpy as np
 
-class DPM_fit():
-    def __init__(self, tree, filters, distance_coef, bias):
-        assert(isinstance(tree, Tree))
-        self.tree = tree
 
+def compute_unary_scores(feature_pyramid, filters):
+    from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it
+    unary_scores = []
+    for feat in feature_pyramid: # for each level in the pyramid
+        resp = convolve_python_f(feat, filters)
+        unary_scores.append(resp)
+    return unary_scores
+
+
+def compute_pairwise_scores(scores, tree, def_coef, anchor):
+    from menpo.feature.gradient import call_shiftdt   # TODO: define a more proper file for it.
+    Iy, Ix = {}, {}
+    for depth in range(tree.maximum_depth - 1, 0, -1):
+        for curr_vert in tree.vertices_at_depth(depth):
+            (Ny, Nx) = scores[tree.parent(curr_vert)].shape
+            w = def_coef[curr_vert]
+            cy = anchor[curr_vert][0]
+            cx = anchor[curr_vert][1]
+            msg, Ix1, Iy1 = call_shiftdt(scores[curr_vert], cx, cy, Nx, Ny, 1)
+            scores[tree.parent(curr_vert)] += msg
+            Ix[curr_vert] = np.copy(Ix1)
+            Iy[curr_vert] = np.copy(Iy1)
+    return scores
+
+
+class DPM_fit():
+    def __init__(self, tree, filters, def_coef, anchor):
+        assert(isinstance(tree, Tree))
+        assert(len(filters) == len(tree.vertices) == len(def_coef))
+        self.tree = tree
+        self.filters = filters
+        self.def_coef = def_coef
+        self.anchor = anchor
+        
+    def fit(self, image):
+        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
+        feats, scales = featpyramid(image, 5, 4, (3, 3))
+        
+        for feat in feats:  # for each level in the pyramid
+            unary_scores = convolve_python_f(feat, self.filters)
+            
+            scores = compute_pairwise_scores(np.copy(unary_scores), 
+                                             self.tree, self.def_coef, self.anchor)
+            
+
+        
 def featpyramid(im, m_inter, sbin, pyra_pad):
-    # construct the featpyramid. For the time being, it has similar conventions as in Ramanan's code. In the
-    # future, use menpo's gaussian pyramid.
+    # construct the featpyramid. For the time being, it has similar conventions as in 
+    # Ramanan's code. TODO: In the future, use menpo's gaussian pyramid.
     from math import log as log_m
     from menpo.feature import hog
     sc = 2 ** (1. / m_inter)
@@ -35,6 +77,34 @@ def featpyramid(im, m_inter, sbin, pyra_pad):
                                                (pyra_pad[0] + 1, pyra_pad[0] + 1)), 'constant')
 
     return feats_np, scales
+
+
+def get_components(model, pyra_pad):
+    # implementation of the modelcomponents to return the components
+    components = []
+    comp_m = model['components'][0][0][0] # *_m = * in matlab
+    for c in range(len(comp_m)):
+        cm = comp_m[c][0]
+        comp_parts = []
+        for k in range(len(cm)):
+            p = {} 
+            p['defid'] = cm[k]['defid'][0][0]
+            p['filterid'] = cm[k]['filterid'][0][0]
+            p['parent'] = cm[k]['parent'][0][0] - 1
+            _shape = model['filters'][0][0][0][p['filterid'] - 1][0].shape  # -1 due to python numbering
+            p['sizy'] = _shape[0] 
+            p['sizx'] = _shape[1]
+            p['filterI'] = model['filters'][0][0][0][p['filterid'] - 1][1][0][0]  # -1 due to python numbering
+
+            x = model['defs'][0][0][0][p['defid'] - 1]  # -1 due to python numbering
+            p['w'] = 1 * x['w'][0]  # http://stackoverflow.com/a/6435446
+            (ax, ay, ds) = np.copy(x['anchor'][0])
+            p['starty'] = ay
+            p['startx'] = ax
+
+            comp_parts.append(dict(p))
+        components.append(list(comp_parts)) # in outer loop 
+    return components
 
 
 def copy_to_new_array(arr):
@@ -66,6 +136,7 @@ def debugging():
     from os.path import isdir
     import scipy.io
     from scipy.sparse import csr_matrix
+    import menpo.io as mio
     m = csr_matrix(([1] * 67, (
                            [0,  0,  0,  0,  1,  3,  5,  6,  7,  8,  8,  9,  9, 10, 12, 13, 14,
                             15, 16, 17, 18, 20, 20, 21, 23, 24, 25, 26, 27, 28, 29, 31, 31, 31,
@@ -84,4 +155,26 @@ def debugging():
     mat = scipy.io.loadmat(file1)
 
     model = mat['model']
-    filters= get_filters(model)
+    filters_all = get_filters(model)
+    _ms = model['maxsize'][0][0][0]
+    sbin = model['sbin'][0][0][0][0]
+    pyra_pad = (max(_ms[1] - 2, 0), max(_ms[0] - 2, 0))  # (padx, pady)
+    components = get_components(model, pyra_pad)
+    
+    # random component, chosen for debugging
+    parts = components[3]
+    def_coef = []  # deformation coefficients
+    filters = []  # filters for the component chosen
+    anchor = []
+    for c, pk in enumerate(parts):
+        filters.append(filters_all[pk['filterid'] - 1])
+        if c == 0:  # root is on 0 by default in Ramanan
+            (w1, w2, w3, w4) = (0., 0., 0., 0.)
+        else:
+            (w1, w2, w3, w4) = pk['w']
+        def_coef.append((w1, w2, w3, w4))
+        anchor.append((p['starty'], p['startx']))
+        
+    im = mio.import_builtin_asset.einstein_jpg()
+
+    
