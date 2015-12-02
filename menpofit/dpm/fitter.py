@@ -20,36 +20,15 @@ def compute_pairwise_scores(scores, tree, def_coef, anchor):
             w = def_coef[curr_vert]
             cy = anchor[curr_vert][0]
             cx = anchor[curr_vert][1]
-            msg, Ix1, Iy1 = call_shiftdt(scores[curr_vert], cx, cy, Nx, Ny, 1)
+            msg, Ix1, Iy1 = call_shiftdt(scores[curr_vert], np.array(w), cx, cy, Nx, Ny, 1)
             scores[tree.parent(curr_vert)] += msg
             Ix[curr_vert] = np.copy(Ix1)
             Iy[curr_vert] = np.copy(Iy1)
-    return scores
+    return scores, Ix, Iy
 
 
-class DPM_fit():
-    def __init__(self, tree, filters, def_coef, anchor):
-        assert(isinstance(tree, Tree))
-        assert(len(filters) == len(tree.vertices) == len(def_coef))
-        self.tree = tree
-        self.filters = filters
-        self.def_coef = def_coef
-        self.anchor = anchor
-        
-    def fit(self, image):
-        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
-        feats, scales = featpyramid(image, 5, 4, (3, 3))
-        
-        for feat in feats:  # for each level in the pyramid
-            unary_scores = convolve_python_f(feat, self.filters)
-            
-            scores = compute_pairwise_scores(np.copy(unary_scores), 
-                                             self.tree, self.def_coef, self.anchor)
-            
-
-        
 def featpyramid(im, m_inter, sbin, pyra_pad):
-    # construct the featpyramid. For the time being, it has similar conventions as in 
+    # construct the featpyramid. For the time being, it has similar conventions as in
     # Ramanan's code. TODO: In the future, use menpo's gaussian pyramid.
     from math import log as log_m
     from menpo.feature import hog
@@ -77,6 +56,70 @@ def featpyramid(im, m_inter, sbin, pyra_pad):
                                                (pyra_pad[0] + 1, pyra_pad[0] + 1)), 'constant')
 
     return feats_np, scales
+
+
+def backtrack(x, y, tree, fsz, scale, pyra_pad):
+    # fsz = filter_size -> [y, x]
+    # ASSUMPTION: All filters at this level have the same size. Otherwise,
+    # modify the code for a list of filter sizes.
+    numparts = len(tree.vertices)
+    ptr = np.empty((numparts, 2, x.shape[0]), dtype=np.int64)
+    box = np.empty((numparts, 4, x.shape[0]))
+    k = tree.root_vertex
+    p = parts[k]
+    ptr[k, 0, :] = np.copy(x)
+    ptr[k, 1, :] = np.copy(y)
+    box[k, 0, :] = (ptr[k, 0, :] - pyra_pad[0]) * scale + 1
+    box[k, 1, :] = (ptr[k, 1, :] - pyra_pad[1]) * scale + 1
+    box[k, 2, :] = box[k, 0, :] + fsz[1] * scale - 1
+    box[k, 3, :] = box[k, 1, :] + fsz[0] * scale - 1
+
+    for depth in range(tree.maximum_depth - 1, 0, -1):
+        for cv in tree.vertices_at_depth(depth):  # for each vertex in that level
+            par = tree.parent(cv)
+            x = ptr[par, 0, :]
+            y = ptr[par, 1, :]
+            idx = np.ravel_multi_index((y, x), dims=Ix[cv].shape, order='C')
+            ptr[k, 0, :] = Ix[cv].ravel()[idx]
+            ptr[k, 1, :] = Iy[cv].ravel()[idx]
+
+            # exactly the same as bove:
+            box[k, 0, :] = (ptr[k, 0, :] - pyra_pad[0]) * scale + 1
+            box[k, 1, :] = (ptr[k, 1, :] - pyra_pad[1]) * scale + 1
+            box[k, 2, :] = box[k, 0, :] + fsz[1] * scale - 1
+            box[k, 3, :] = box[k, 1, :] + fsz[0] * scale - 1
+    return box
+
+
+class DPM_fit():
+    def __init__(self, tree, filters, def_coef, anchor, bias=0):
+        assert(isinstance(tree, Tree))
+        assert(len(filters) == len(tree.vertices) == len(def_coef))
+        self.tree = tree
+        self.filters = filters
+        self.def_coef = def_coef
+        self.anchor = anchor
+        self.bias = bias
+
+    def fit(self, image):
+        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
+        padding = (3, 3)  # TODO: param in the future maybe?
+        # define filter size in [y, x] format. Assumption: All filters
+        # have the same size, otherwise pass a list in backtrack.
+        fsz = [filters[0].shape[1], filters[0].shape[2]]
+        feats, scales = featpyramid(image, 5, 4, padding)
+
+        boxes = []  # list with detection boxes (as dictionaries)
+
+        for level, feat in feats.iteritems(): # for each level in the pyramid
+            unary_scores = convolve_python_f(feat, filters)
+
+            scores, Ix, Iy = compute_pairwise_scores(np.copy(unary_scores),
+                                             self.tree, self.def_coef, self.anchor)
+
+            scale = scales[level]
+            fsz = [filters[0].shape[1], filters[0].shape[2]]  # required: [y, x] format
+            box = backtrack(x, y, tree, fsz, scale, padding)
 
 
 def get_components(model, pyra_pad):
