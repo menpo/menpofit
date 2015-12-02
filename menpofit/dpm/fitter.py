@@ -12,6 +12,30 @@ def compute_unary_scores(feature_pyramid, filters):
 
 
 def compute_pairwise_scores(scores, tree, def_coef, anchor):
+    r"""
+    Given the (unary) scores it computes the pairwise scores by utilising the Generalised Distance
+    Transform.
+
+    Parameters
+    ----------
+    scores: `list`
+        The (unary) scores to which the pairwise score will be added.
+    tree: `:map:`Tree``
+        Tree with the parent/child connections.
+    def_coef: `list`
+        Each element contains a 4-tuple with the deformation coefficients for that part.
+    anchor:
+        Contains the anchor position in relation to the parent of each part.
+
+    Returns
+    -------
+    scores: `ndarray`
+        The (unary + pairwise) scores.
+    Ix: `dict`
+        Contains the coordinates of x for each part from the Generalised Distance Transform.
+    Iy: `dict`
+        Contains the coordinates of y for each part from the Generalised Distance Transform.
+    """
     from menpo.feature.gradient import call_shiftdt   # TODO: define a more proper file for it.
     Iy, Ix = {}, {}
     for depth in range(tree.maximum_depth, 0, -1):
@@ -59,9 +83,45 @@ def featpyramid(im, m_inter, sbin, pyra_pad):
 
 
 def backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
-    # fsz = filter_size -> [y, x]
-    # ASSUMPTION: All filters at this level have the same size. Otherwise,
-    # modify the code for a list of filter sizes.
+    r"""
+    Backtrack the solution from the root to the children and return the detection coordinates for each part.
+
+    algorithm:
+    (for all points that are greater than the threshold -> vectorised)
+    start from the root
+    save location of the ln point
+    for depth in range(1, max_depth_graph): # traverse tree from the root to the leaves
+        curr_ch_vertext = [vertices in current depth]
+        for each vertex in curr_ch_vertext:
+            find from Ix, Iy the position of the child
+            save ideal location of the ln point
+
+    Parameters
+    ----------
+    x: `list`
+        The x coordinates of the detections in the root level.
+    y: `list`
+        The y coordinates of the detections in the root level.
+    tree: `:map:`Tree``
+        Tree with the parent/child connections.
+    Ix: `dict`
+        Contains the coordinates of x for each part from the Generalised Distance Transform.
+    Iy: `dict`
+        Contains the coordinates of y for each part from the Generalised Distance Transform.
+    fsz: `list`
+        The size of the filter in the format of [y, x].
+        ASSUMPTION: All filters at this level have the same size. Otherwise,
+        modify the code for a list of filter sizes.
+    scale: `int`
+        The scale of the detections in the feature pyramid.
+    pyra_pad: `list`
+        Padding in the form of [x, y] in the feature pyramid.
+
+    Returns
+    -------
+    box: `ndarray`
+        The x, y coordinates of the detection(s).
+    """
     numparts = len(tree.vertices)
     ptr = np.empty((numparts, 2, x.shape[0]), dtype=np.int64)
     box = np.empty((numparts, 4, x.shape[0]))
