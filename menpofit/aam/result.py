@@ -21,7 +21,7 @@ class AAMAlgorithmResult(ParametricAlgorithmResult):
         if self._warped_images is None:
             self._warped_images = []
             for p in self.shape_parameters:
-                self.algorithm.transform.from_vector_inplace(p)
+                self.algorithm.transform._from_vector_inplace(p)
                 self._warped_images.append(
                     self.algorithm.interface.warp(self.image))
         return self._warped_images

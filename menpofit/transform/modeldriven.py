@@ -126,12 +126,12 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         """
         return self.pdm.as_vector()
 
-    def from_vector_inplace(self, vector):
+    def _from_vector_inplace(self, vector):
         r"""
         Updates the ModelDrivenTransform's state from it's
         vectorized form.
         """
-        self.pdm.from_vector_inplace(vector)
+        self.pdm._from_vector_inplace(vector)
         # By here the pdm has updated our target state, we just need to
         # update the transform
         self.transform.set_target(self.target)
@@ -182,7 +182,7 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
-        self.from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
+        self._from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
 
     @property
     def has_true_inverse(self):
@@ -413,7 +413,7 @@ class GlobalMDTransform(ModelDrivenTransform):
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
 
-        self.from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
+        self._from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
 
     def Jp(self):
         r"""

@@ -135,7 +135,7 @@ class ModelInstance(Targetable, Vectorizable, DP):
         """
         return self.weights
 
-    def from_vector_inplace(self, vector):
+    def _from_vector_inplace(self, vector):
         r"""
         Updates this :map:`ModelInstance` from it's
         vectorized form (in this case, simply the weights on the linear model)
@@ -194,8 +194,8 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
         """
         return self.transform.as_vector()
 
-    def from_vector_inplace(self, vector):
-        self.transform.from_vector_inplace(vector)
+    def _from_vector_inplace(self, vector):
+        self.transform._from_vector_inplace(vector)
         self._target = self.transform.apply(self.mean)
 
     @property
@@ -385,13 +385,13 @@ class GlobalPDM(PDM):
         """
         return np.hstack([self.global_parameters, self.weights])
 
-    def from_vector_inplace(self, vector):
+    def _from_vector_inplace(self, vector):
         # First, update the global transform
         global_parameters = vector[:self.n_global_parameters]
         self._update_global_weights(global_parameters)
         # Now extract the weights, and let super handle the update
         weights = vector[self.n_global_parameters:]
-        PDM.from_vector_inplace(self, weights)
+        PDM._from_vector_inplace(self, weights)
 
     def _update_global_weights(self, global_weights):
         r"""
@@ -399,7 +399,7 @@ class GlobalPDM(PDM):
         set. Default implementation simply asks global_transform to
         update itself from vector.
         """
-        self.global_transform.from_vector_inplace(global_weights)
+        self.global_transform._from_vector_inplace(global_weights)
 
     def d_dp(self, points):
         # d_dp is always evaluated at the mean shape
