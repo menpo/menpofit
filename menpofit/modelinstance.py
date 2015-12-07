@@ -1,9 +1,32 @@
 import numpy as np
 from menpo.base import Targetable, Vectorizable
 from menpo.model import MeanLinearModel, PCAModel
+from menpo.model.vectorizable import VectorizableBackedModel
 from menpo.shape import mean_pointcloud
 from menpofit.builder import align_shapes
 from menpofit.differentiable import DP
+
+
+class _SimilarityModel(VectorizableBackedModel, MeanLinearModel):
+
+    def project_vector(self, instance_vector):
+        return MeanLinearModel.project(self, instance_vector)
+
+    def reconstruct_vector(self, instance_vector):
+        return MeanLinearModel.reconstruct(self, instance_vector)
+
+    def instance_vector(self, weights):
+        return MeanLinearModel.instance(self, weights)
+
+    def component_vector(self, index):
+        return MeanLinearModel.component(self, index)
+
+    def project_out_vector(self, instance_vector):
+        return MeanLinearModel.project_out(self, instance_vector)
+
+    def __init__(self, components, mean):
+        MeanLinearModel.__init__(self, components, mean.as_vector())
+        VectorizableBackedModel.__init__(self, mean)
 
 
 def similarity_2d_instance_model(shape):
@@ -17,7 +40,7 @@ def similarity_2d_instance_model(shape):
 
         Returns
         -------
-        model : `menpo.model.linear.MeanInstanceLinearModel`
+        model : `_SimilarityModel`
             Model with four components, linear combinations of which
             represent the original shape under a similarity transform. The
             model is exhaustive (that is, all possible similarity transforms
@@ -31,7 +54,7 @@ def similarity_2d_instance_model(shape):
     components[1, :] = rotated_ccw.flatten()  # C2 - the shape rotated 90 degs
     components[2, ::2] = 1  # Tx
     components[3, 1::2] = 1  # Ty
-    return MeanLinearModel(components, shape_vector, shape)
+    return _SimilarityModel(components, shape)
 
 
 class ModelInstance(Targetable, Vectorizable, DP):
