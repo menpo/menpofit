@@ -1,5 +1,6 @@
 from __future__ import division
 from functools import partial
+import warnings
 import numpy as np
 from menpo.shape import mean_pointcloud, PointCloud, TriMesh
 from menpo.image import Image, MaskedImage
@@ -7,6 +8,14 @@ from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
 from menpo.visualize import print_dynamic
 from menpofit.visualize import print_progress
+
+
+class MenpoFitModelBuilderWarning(Warning):
+    r"""
+    A warning that the parameters chosen to build a given model may cause
+    unexpected behaviour.
+    """
+    pass
 
 
 def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
@@ -172,6 +181,7 @@ def extract_patches(images, shapes, patch_shape, normalise_function=no_op,
         parts_images.append(Image(parts, copy=False))
     return parts_images
 
+
 def build_reference_frame(landmarks, boundary=3, group='source'):
     r"""
     Builds a reference frame from a particular set of landmarks.
@@ -196,12 +206,14 @@ def build_reference_frame(landmarks, boundary=3, group='source'):
     reference_frame = _build_reference_frame(landmarks, boundary=boundary,
                                              group=group)
     source_landmarks = reference_frame.landmarks['source'].lms
-    if isinstance(source_landmarks, TriMesh):
-        trilist = source_landmarks.trilist
-    else:
-        trilist = None
+    if not isinstance(source_landmarks, TriMesh):
+        warnings.warn('The reference shape passed is not a TriMesh or '
+                      'subclass and therefore the reference frame (mask) will '
+                      'be calculated via a Delaunay triangulation. This may '
+                      'cause small triangles and thus suboptimal warps.',
+                      MenpoFitModelBuilderWarning)
 
-    reference_frame.constrain_mask_to_landmarks(group=group, trilist=trilist)
+    reference_frame.constrain_mask_to_landmarks(group=group)
     return reference_frame
 
 

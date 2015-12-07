@@ -21,8 +21,6 @@ from menpofit.builder import (
     extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
 
-build_shape_model = None
-
 # TODO: document me!
 class AAM(object):
     r"""
