@@ -92,7 +92,7 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
             # We need to update the transform to set the state for the warping
             # of the image above.
             new_x = p_list[-1] + dx
-            self.transform.from_vector_inplace(new_x)
+            self.transform._from_vector_inplace(new_x)
             p_list.append(new_x)
 
         # return algorithm result

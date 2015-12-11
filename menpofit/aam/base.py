@@ -6,6 +6,7 @@ from menpo.visualize import print_dynamic
 from menpo.model import PCAModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
+from menpo.base import name_of_callable
 from menpofit import checks
 from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface, \
     LucasKanadePatchInterface, LucasKanadeLinearInterface
@@ -13,7 +14,7 @@ from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import (DifferentiableThinPlateSplines,
                                 DifferentiablePiecewiseAffine, OrthoMDTransform,
                                 LinearOrthoMDTransform)
-from menpofit.base import name_of_callable, batch
+from menpofit.base import batch
 from menpofit.builder import (
     build_reference_frame, build_patch_reference_frame,
     compute_features, scale_images, warp_images,
