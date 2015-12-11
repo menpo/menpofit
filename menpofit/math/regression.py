@@ -7,9 +7,10 @@ class IRLRegression(object):
     r"""
     Incremental Regularized Linear Regression
     """
-    def __init__(self, alpha=0, bias=True):
+    def __init__(self, alpha=0, bias=True, incrementable=False):
         self.alpha = alpha
         self.bias = bias
+        self.incrementable = incrementable
         self.V = None
         self.W = None
 
@@ -22,18 +23,24 @@ class IRLRegression(object):
         XX = X.T.dot(X)
         # ensure covariance is perfectly symmetric for inversion
         XX = (XX + XX.T) / 2.0
-        np.fill_diagonal(XX, self.alpha + np.diag(XX))
-        # self.V = np.linalg.inv(XX)
+        if self.alpha:
+            np.fill_diagonal(XX, self.alpha + np.diag(XX))
+        if self.incrementable:
+            self.V = np.linalg.inv(XX)
         self.W = np.linalg.solve(XX, X.T.dot(Y))
 
     def increment(self, X, Y):
+        if not self.incrementable:
+            raise ValueError('Model is not incrementable')
+
         if self.bias:
             # add bias
             X = np.hstack((X, np.ones((X.shape[0], 1))))
 
         # incremental regularized linear regression
         U = X.dot(self.V).dot(X.T)
-        np.fill_diagonal(U, 1 + np.diag(U))
+        if self.alpha:
+            np.fill_diagonal(U, self.alpha + np.diag(U))
         U = np.linalg.inv(U)
         Q = self.V.dot(X.T).dot(U).dot(X)
         self.V = self.V - Q.dot(self.V)
@@ -66,9 +73,9 @@ class IIRLRegression(IRLRegression):
         # previous solution
         # Note that everything is transposed from the above exchanging of roles
         H = J.dot(J.T)
-        np.fill_diagonal(H, self.alpha2 + np.diag(H))
+        if self.alpha2:
+            np.fill_diagonal(H, self.alpha2 + np.diag(H))
         self.W = np.linalg.solve(H, J).T
-        # self.W = np.linalg.pinv(J)
 
     def increment(self, X, Y):
         # incremental least squares exchanging the roles of X and Y
@@ -78,7 +85,8 @@ class IIRLRegression(IRLRegression):
         # previous solution
         # Note that everything is transposed from the above exchanging of roles
         H = J.dot(J.T)
-        np.fill_diagonal(H, self.alpha2 + np.diag(H))
+        if self.alpha2:
+            np.fill_diagonal(H, self.alpha2 + np.diag(H))
         self.W = np.linalg.solve(H, J)
 
     def predict(self, x):
@@ -104,7 +112,7 @@ class PCRRegression(object):
     ValueError
         variance must be set to a number between 0 and 1
     """
-    def __init__(self, variance=None, bias=True,eps=1e-10):
+    def __init__(self, variance=None, bias=True, eps=1e-10):
         self.variance = variance
         self.bias = bias
         self.R = None
@@ -117,7 +125,7 @@ class PCRRegression(object):
 
         # Reduce variance
         U, s, self.V = np.linalg.svd(X, full_matrices=False)
-        if self.variance is not None:
+        if self.variance:
             variation = np.cumsum(s) / np.sum(s)
             # Inverted for easier parameter semantics
             k = np.sum(variation < self.variance)
