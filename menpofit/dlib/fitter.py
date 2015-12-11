@@ -182,8 +182,8 @@ class DlibERT(MultiFitter):
                 transform = Scale(self.scales[j + 1] / self.scales[j],
                                   n_dims=2)
                 for bboxes in current_bounding_boxes:
-                    for bb in bboxes:
-                        transform.apply_inplace(bb)
+                    for bb in enumerate(bboxes):
+                        bboxes[k] = transform.apply(bb)
 
     @property
     def n_scales(self):
