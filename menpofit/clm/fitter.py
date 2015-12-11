@@ -34,9 +34,9 @@ class GradientDescentCLMFitter(CLMFitter):
 
         self.algorithms = []
         for i in range(self.clm.n_scales):
-            pdm = OrthoPDM(self.clm.shape_models[i])
             algorithm = self._gd_algorithms_cls[i](
-                self.clm.expert_ensembles[i], pdm)
+                self.clm.expert_ensembles[i],
+                self.clm.shape_models[i])
             self.algorithms.append(algorithm)
 
 

@@ -115,7 +115,7 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
 
             # Update pdm
             s_k = self.transform.target.points
-            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
+            self.transform._from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
 
             # Test convergence
@@ -225,7 +225,7 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
 
             # Update pdm
             s_k = self.transform.target.points
-            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
+            self.transform._from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
 
             # Test convergence
