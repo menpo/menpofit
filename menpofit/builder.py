@@ -51,7 +51,8 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
     if normalization_diagonal:
         x, y = reference_shape.range()
         scale = normalization_diagonal / np.sqrt(x**2 + y**2)
-        Scale(scale, reference_shape.n_dims).apply_inplace(reference_shape)
+        reference_shape = Scale(scale, reference_shape.n_dims).apply(
+            reference_shape)
 
     return reference_shape
 
