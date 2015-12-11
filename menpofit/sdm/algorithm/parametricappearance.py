@@ -7,7 +7,7 @@ from .base import (BaseSupervisedDescentAlgorithm,
                    features_per_patch, update_non_parametric_estimates,
                    compute_non_parametric_delta_x, print_non_parametric_info,
                    build_appearance_model, fit_non_parametric_shape)
-from menpo.model import PCAModel
+from menpo.model import PCAVectorModel
 from menpofit.math import IIRLRegression, IRLRegression
 from menpofit.visualize import print_progress
 
@@ -16,7 +16,7 @@ class ParametricAppearanceSDAlgorithm(BaseSupervisedDescentAlgorithm):
     r"""
     """
 
-    def __init__(self, appearance_model_cls=PCAModel):
+    def __init__(self, appearance_model_cls=PCAVectorModel):
         super(ParametricAppearanceSDAlgorithm, self).__init__()
         self.regressors = []
         self.appearance_model_cls = appearance_model_cls
@@ -75,7 +75,7 @@ class ParametricAppearanceNewton(ParametricAppearanceSDAlgorithm):
     """
 
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
-                 n_iterations=3, appearance_model_cls=PCAModel,
+                 n_iterations=3, appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
                  eps=10 ** -5, alpha=0, bias=True):
         super(ParametricAppearanceNewton, self).__init__(
@@ -94,7 +94,7 @@ class ParametricAppearanceGaussNewton(ParametricAppearanceSDAlgorithm):
     """
 
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
-                 n_iterations=3, appearance_model_cls=PCAModel,
+                 n_iterations=3, appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
                  eps=10 ** -5, alpha=0, bias=True, alpha2=0):
         super(ParametricAppearanceGaussNewton, self).__init__(

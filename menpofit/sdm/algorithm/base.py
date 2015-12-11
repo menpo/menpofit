@@ -164,7 +164,7 @@ def update_non_parametric_estimates(estimated_delta_x, delta_x, gt_x,
             # update current x
             current_x = s.as_vector() + estimated_delta_x[j]
             # update current shape inplace
-            s.from_vector_inplace(current_x)
+            s._from_vector_inplace(current_x)
             # update delta_x
             delta_x[j] = gt_x[j] - current_x
             # increase index
@@ -197,9 +197,9 @@ def print_parametric_info(model, gt_shapes, n_perturbations,
         prefix, level_index))
     errors = []
     for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
-        model.from_vector_inplace(dx)
+        model._from_vector_inplace(dx)
         s1 = model.target
-        model.from_vector_inplace(edx)
+        model._from_vector_inplace(edx)
         s2 = model.target
 
         gt_s = gt_shapes[np.floor_divide(j, n_perturbations)]
@@ -221,11 +221,13 @@ def compute_parametric_delta_x(gt_shapes, current_shapes, model):
     k = 0
     for gt_s, c_s in zip(gt_shapes, current_shapes):
         # Compute and cache ground truth parameters
-        c_gt_params = model.set_target(gt_s).as_vector()
+        model.set_target(gt_s)
+        c_gt_params = model.as_vector()
         for s in c_s:
             gt_params[k] = c_gt_params
 
-            current_params = model.set_target(s).as_vector()
+            model.set_target(s)
+            current_params = model.as_vector()
             delta_params[k] = c_gt_params - current_params
 
             k += 1
@@ -241,11 +243,12 @@ def update_parametric_estimates(estimated_delta_x, delta_x, gt_x,
             # Estimate parameters
             edx = estimated_delta_x[j]
             # Current parameters
-            cx = model.set_target(s).as_vector() + edx
-            model.from_vector_inplace(cx)
+            model.set_target(s)
+            cx = model.as_vector() + edx
+            model._from_vector_inplace(cx)
 
             # Update current shape inplace
-            s.from_vector_inplace(model.target.as_vector().copy())
+            s._from_vector_inplace(model.target.as_vector().copy())
 
             delta_x[j] = gt_x[j] - cx
             j += 1
@@ -285,7 +288,7 @@ def fit_parametric_shape(image, initial_shape, parametric_algo, gt_shape=None):
 
         # update current shape
         p = parametric_algo.shape_model.as_vector() + dx
-        parametric_algo.shape_model.from_vector_inplace(p)
+        parametric_algo.shape_model._from_vector_inplace(p)
         current_shape = current_shape.from_vector(
             parametric_algo.shape_model.target.as_vector().copy())
         shapes.append(current_shape)

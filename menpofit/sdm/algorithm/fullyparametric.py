@@ -7,7 +7,7 @@ from .base import (BaseSupervisedDescentAlgorithm,
                    compute_parametric_delta_x, features_per_patch,
                    update_parametric_estimates, print_parametric_info,
                    build_appearance_model, fit_parametric_shape)
-from menpo.model import PCAModel
+from menpo.model import PCAVectorModel
 from menpofit.math import IIRLRegression, IRLRegression, OPPRegression
 from menpofit.modelinstance import OrthoPDM
 from menpofit.visualize import print_progress
@@ -17,7 +17,8 @@ class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
     r"""
     """
 
-    def __init__(self, shape_model_cls=OrthoPDM, appearance_model_cls=PCAModel):
+    def __init__(self, shape_model_cls=OrthoPDM,
+                 appearance_model_cls=PCAVectorModel):
         super(FullyParametricSDAlgorithm, self).__init__()
         self.regressors = []
         self.shape_model_cls = shape_model_cls
@@ -80,13 +81,13 @@ class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
 class ParametricAppearanceProjectOut(FullyParametricSDAlgorithm):
 
     def _compute_parametric_features(self, patch):
-        return self.appearance_model.project_out_vector(patch.ravel())
+        return self.appearance_model.project_out(patch.ravel())
 
 
 class ParametricAppearanceWeights(FullyParametricSDAlgorithm):
 
     def _compute_parametric_features(self, patch):
-        return self.appearance_model.project_vector(patch.ravel())
+        return self.appearance_model.project(patch.ravel())
 
 
 class ParametricAppearanceMeanTemplate(FullyParametricSDAlgorithm):
@@ -101,7 +102,7 @@ class FullyParametricWeightsNewton(ParametricAppearanceWeights):
 
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
-                 appearance_model_cls=PCAModel,
+                 appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
                  eps=10 ** -5, alpha=0, bias=True):
         super(FullyParametricWeightsNewton, self).__init__(
@@ -122,7 +123,7 @@ class FullyParametricMeanTemplateNewton(ParametricAppearanceMeanTemplate):
 
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
-                 appearance_model_cls=PCAModel,
+                 appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
                  eps=10 ** -5, alpha=0, bias=True):
         super(FullyParametricMeanTemplateNewton, self).__init__(
@@ -143,7 +144,7 @@ class FullyParametricProjectOutNewton(ParametricAppearanceProjectOut):
 
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
-                 appearance_model_cls=PCAModel,
+                 appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
                  eps=10 ** -5, alpha=0, bias=True):
         super(FullyParametricProjectOutNewton, self).__init__(
@@ -165,7 +166,7 @@ class FullyParametricProjectOutGaussNewton(ParametricAppearanceProjectOut):
 
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
-                 appearance_model_cls=PCAModel,
+                 appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
                  eps=10 ** -5, alpha=0, bias=True, alpha2=0):
         super(FullyParametricProjectOutGaussNewton, self).__init__(
@@ -187,7 +188,7 @@ class FullyParametricProjectOutOPP(ParametricAppearanceProjectOut):
 
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
-                 appearance_model_cls=PCAModel,
+                 appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
                  eps=10 ** -5, bias=True):
         super(FullyParametricProjectOutOPP, self).__init__(

@@ -5,10 +5,10 @@ import warnings
 
 from menpo.transform import Scale
 from menpo.feature import no_op
-from menpo.visualize import print_dynamic
+from menpo.base import name_of_callable
 
 from menpofit.visualize import print_progress
-from menpofit.base import batch, name_of_callable
+from menpofit.base import batch
 from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
                               compute_reference_shape, MenpoFitBuilderWarning,
                               compute_features)
@@ -27,9 +27,13 @@ class SupervisedDescentFitter(MultiFitter):
                  reference_shape=None, sd_algorithm_cls=None,
                  holistic_features=no_op, patch_features=no_op,
                  patch_shape=(17, 17), diagonal=None, scales=(0.5, 1.0),
-                 n_iterations=6, n_perturbations=30,
+                 n_iterations=3, n_perturbations=30,
                  perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
+
+        if batch_size is not None:
+            raise NotImplementedError('Training an SDM with a batch size '
+                                      '(incrementally) is not implemented yet.')
         # check parameters
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
@@ -192,15 +196,15 @@ class SupervisedDescentFitter(MultiFitter):
                 transform = Scale(self.scales[j + 1] / self.scales[j],
                                   n_dims=2)
                 for image_shapes in current_shapes:
-                    for shape in image_shapes:
-                        transform.apply_inplace(shape)
+                    for k, shape in enumerate(image_shapes):
+                        image_shapes[k] = transform.apply(shape)
 
     def increment(self, images, group=None, bounding_box_group=None,
                   verbose=False, batch_size=None):
-        return self._train(images, group=group,
-                           bounding_box_group_glob=bounding_box_group,
-                           verbose=verbose,
-                           increment=True, batch_size=batch_size)
+        raise NotImplementedError('Incrementing SDM methods is not yet '
+                                  'implemented as careful attention must '
+                                  'be taken when considering the relationships '
+                                  'between cascade levels.')
 
     def perturb_from_bb(self, gt_shape, bb):
         return self._perturb_from_gt_bounding_box(gt_shape, bb)
