@@ -165,7 +165,7 @@ class ForwardCompositional(Compositional):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
@@ -197,5 +197,5 @@ class InverseCompositional(Compositional):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)

@@ -1,13 +1,21 @@
 from __future__ import division
 from functools import partial
+import warnings
 import numpy as np
 from menpo.shape import mean_pointcloud, PointCloud, TriMesh
 from menpo.image import Image, MaskedImage
 from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
-from menpo.model.pca import PCAModel
 from menpo.visualize import print_dynamic
 from menpofit.visualize import print_progress
+
+
+class MenpoFitModelBuilderWarning(Warning):
+    r"""
+    A warning that the parameters chosen to build a given model may cause
+    unexpected behaviour.
+    """
+    pass
 
 
 def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
@@ -43,7 +51,8 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
     if normalization_diagonal:
         x, y = reference_shape.range()
         scale = normalization_diagonal / np.sqrt(x**2 + y**2)
-        Scale(scale, reference_shape.n_dims).apply_inplace(reference_shape)
+        reference_shape = Scale(scale, reference_shape.n_dims).apply(
+            reference_shape)
 
     return reference_shape
 
@@ -173,6 +182,7 @@ def extract_patches(images, shapes, patch_shape, normalise_function=no_op,
         parts_images.append(Image(parts, copy=False))
     return parts_images
 
+
 def build_reference_frame(landmarks, boundary=3, group='source'):
     r"""
     Builds a reference frame from a particular set of landmarks.
@@ -197,12 +207,14 @@ def build_reference_frame(landmarks, boundary=3, group='source'):
     reference_frame = _build_reference_frame(landmarks, boundary=boundary,
                                              group=group)
     source_landmarks = reference_frame.landmarks['source'].lms
-    if isinstance(source_landmarks, TriMesh):
-        trilist = source_landmarks.trilist
-    else:
-        trilist = None
+    if not isinstance(source_landmarks, TriMesh):
+        warnings.warn('The reference shape passed is not a TriMesh or '
+                      'subclass and therefore the reference frame (mask) will '
+                      'be calculated via a Delaunay triangulation. This may '
+                      'cause small triangles and thus suboptimal warps.',
+                      MenpoFitModelBuilderWarning)
 
-    reference_frame.constrain_mask_to_landmarks(group=group, trilist=trilist)
+    reference_frame.constrain_mask_to_landmarks(group=group)
     return reference_frame
 
 
@@ -279,53 +291,6 @@ def align_shapes(shapes):
     # align centralized shape using Procrustes Analysis
     gpa = GeneralizedProcrustesAnalysis(centered_shapes)
     return [s.aligned_source() for s in gpa.transforms]
-
-
-# TODO: rethink OrthoPDM, should this function be its constructor?
-def build_shape_model(shapes, max_components=None, prefix='', verbose=False):
-    r"""
-    Builds a shape model given a set of shapes.
-
-    Parameters
-    ----------
-    shapes: list of :map:`PointCloud`
-        The set of shapes from which to build the model.
-    max_components: None or int or float
-        Specifies the number of components of the trained shape model.
-        If int, it specifies the exact number of components to be retained.
-        If float, it specifies the percentage of variance to be retained.
-        If None, all the available components are kept (100% of variance).
-
-    Returns
-    -------
-    shape_model: :class:`menpo.model.pca`
-        The PCA shape model.
-    """
-    if verbose:
-        print_dynamic('{}Building shape model'.format(prefix))
-    # compute aligned shapes
-    aligned_shapes = align_shapes(shapes)
-    # build shape model
-    shape_model = PCAModel(aligned_shapes)
-    if max_components is not None:
-        # trim shape model if required
-        shape_model.trim_components(max_components)
-    return shape_model
-
-
-def increment_shape_model(shape_model, shapes, forgetting_factor=None,
-                          max_components=None, prefix='', verbose=False):
-    r"""
-    """
-    if verbose:
-        print_dynamic('{}Incrementing shape model'.format(prefix))
-    # compute aligned shapes
-    aligned_shapes = align_shapes(shapes)
-    # increment shape model
-    shape_model.increment(aligned_shapes, forgetting_factor=forgetting_factor)
-    if max_components is not None:
-        shape_model.trim_components(max_components)
-    return shape_model
 
 
 class MenpoFitBuilderWarning(Warning):

@@ -5,9 +5,9 @@ from menpo.visualize import print_dynamic
 from menpofit import checks
 from menpofit.base import batch
 from menpofit.builder import (
-    compute_features, scale_images, build_shape_model, increment_shape_model,
-    MenpoFitBuilderWarning, compute_reference_shape,
-    rescale_images_to_reference_shape)
+    compute_features, scale_images, MenpoFitBuilderWarning,
+    compute_reference_shape, rescale_images_to_reference_shape)
+from menpofit.modelinstance import OrthoPDM
 from .expert import ExpertEnsemble, CorrelationFilterExpertEnsemble
 
 
@@ -28,24 +28,24 @@ class CLM(object):
     """
     def __init__(self, images, group=None, verbose=False, batch_size=None,
                  diagonal=None, scales=(0.5, 1), holistic_features=no_op,
-                 # shape_model_cls=build_normalised_pca_shape_model,
+                 shape_model_cls=OrthoPDM,
                  expert_ensemble_cls=CorrelationFilterExpertEnsemble,
-                 max_shape_components=None, reference_shape=None,
-                 shape_forgetting_factor=1.0):
+                 max_shape_components=None, reference_shape=None):
+        scales = checks.check_scales(scales)
+        n_scales = len(scales)
         self.diagonal = checks.check_diagonal(diagonal)
-        self.scales = checks.check_scales(scales)
-        self.holistic_features = checks.check_features(holistic_features,
+        self.scales = scales
+        self.holistic_features = checks.check_callable(holistic_features,
                                                        self.n_scales)
-        # self.shape_model_cls = checks.check_algorithm_cls(
-        #     shape_model_cls, self.n_scales, ShapeModel)
         self.expert_ensemble_cls = checks.check_algorithm_cls(
             expert_ensemble_cls, self.n_scales, ExpertEnsemble)
+        shape_model_cls = checks.check_callable(shape_model_cls, n_scales)
 
         self.max_shape_components = checks.check_max_components(
             max_shape_components, self.n_scales, 'max_shape_components')
-        self.shape_forgetting_factor = shape_forgetting_factor
         self.reference_shape = reference_shape
         self.shape_models = []
+        self._shape_model_cls = shape_model_cls
         self.expert_ensembles = []
 
         # Train CLM
@@ -62,7 +62,7 @@ class CLM(object):
         return len(self.scales)
 
     def _train(self, images, increment=False, group=None, verbose=False,
-               batch_size=None):
+               shape_forgetting_factor=1.0, batch_size=None):
         r"""
         """
         # If batch_size is not None, then we may have a generator, else we
@@ -101,10 +101,11 @@ class CLM(object):
 
             # Train each batch
             self._train_batch(image_batch, increment=increment, group=group,
+                              shape_forgetting_factor=shape_forgetting_factor,
                               verbose=verbose)
 
     def _train_batch(self, image_batch, increment=False, group=None,
-                     verbose=False):
+                     shape_forgetting_factor=1.0, verbose=False):
         r"""
         """
         # normalize images
@@ -155,19 +156,12 @@ class CLM(object):
             if verbose:
                 print_dynamic('{}Training shape model'.format(prefix))
 
-            # TODO: This should be cleaned up by defining shape model classes
-            if increment:
-                increment_shape_model(
-                    self.shape_models[i], scaled_shapes,
-                    max_components=self.max_shape_components[i],
-                    forgetting_factor=self.shape_forgetting_factor,
-                    prefix=prefix, verbose=verbose)
-
-            else:
-                shape_model = build_shape_model(
-                    scaled_shapes, max_components=self.max_shape_components[i],
-                    prefix=prefix, verbose=verbose)
+            if not increment:
+                shape_model = self._build_shape_model(scaled_shapes, i)
                 self.shape_models.append(shape_model)
+            else:
+                self._increment_shape_model(
+                    scaled_shapes, i, forgetting_factor=shape_forgetting_factor)
 
             # train expert ensemble
             if verbose:
@@ -187,6 +181,16 @@ class CLM(object):
 
             if verbose:
                 print_dynamic('{}Done\n'.format(prefix))
+
+    def _build_shape_model(self, shapes, scale_index):
+        return self._shape_model_cls[scale_index](
+            shapes, max_n_components=self.max_shape_components[scale_index])
+
+    def _increment_shape_model(self, shapes, scale_index,
+                               forgetting_factor=None):
+        self.shape_models[scale_index].increment(
+            shapes, forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index])
 
     def increment(self, images, group=None, verbose=False, batch_size=None):
         r"""

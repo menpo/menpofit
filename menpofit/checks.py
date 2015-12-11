@@ -66,31 +66,31 @@ def check_multi_scale_param(n_scales, types, param_name, param):
         raise ValueError(error_msg)
 
 
-def check_features(features, n_scales):
+def check_callable(callables, n_scales):
     r"""
-    Checks the feature type per level.
+    Checks the callable type per level.
 
     Parameters
     ----------
-    features : callable or list of callables
-        The features to apply to the images.
+    callables : callable or list of callables
+        The callable to be used per scale.
     n_scales : int
-        The number of pyramid levels.
+        The number of scales.
 
     Returns
     -------
-    feature_list : list
-        A list of feature function.
+    callable_list : list
+        A list of callables.
     """
-    if callable(features):
-        return [features] * n_scales
-    elif len(features) == 1 and np.alltrue([callable(f) for f in features]):
-        return list(features) * n_scales
-    elif len(features) == n_scales and np.alltrue([callable(f)
-                                                   for f in features]):
-        return list(features)
+    if callable(callables):
+        return [callables] * n_scales
+    elif len(callables) == 1 and np.alltrue([callable(f) for f in callables]):
+        return list(callables) * n_scales
+    elif len(callables) == n_scales and np.alltrue([callable(f)
+                                                   for f in callables]):
+        return list(callables)
     else:
-        raise ValueError("features must be a callable or a list/tuple of "
+        raise ValueError("callables must be a callable or a list/tuple of "
                          "callables with the same length as the number "
                          "of scales")
 

@@ -55,10 +55,12 @@ def probability_map(x, axes=(-2, -1)):
     total = np.sum(x, axis=axes, keepdims=True)
     nonzero = total > 0
     if np.any(~nonzero):
-       warnings.warn("some of x axes have 0 variance - uniform probability "
-                     "maps are used them.")
-    x[nonzero] /= total[nonzero]
-    x[~nonzero] = 1 / np.prod(axes)
+        warnings.warn("some of x axes have 0 variance - uniform probability "
+                      "maps are used them.")
+        x[nonzero] /= total[nonzero]
+        x[~nonzero] = 1 / np.prod(axes)
+    else:
+        x /= total
     return x
 
 
@@ -68,7 +70,9 @@ def handle_div_by_zero(x, normalizer):
     """
     nonzero = normalizer > 0
     if np.any(~nonzero):
-        warnings.warn("some of x axes have 0 variance - they cannot be "
-                      "normalized.")
-    x[nonzero] /= normalizer[nonzero]
+        warnings.warn("some of the denominators have 0 variance - they cannot "
+                      "be normalized.")
+        x[nonzero] /= normalizer[nonzero]
+    else:
+        x /= normalizer
     return x

@@ -69,7 +69,7 @@ class DlibAlgorithm(object):
                 pred = dlib_full_object_detection_to_pointcloud(
                     self.dlib_model(pix, fo_det.rect))
                 # Update bounding box in place
-                bb.from_vector_inplace(pred.bounding_box().as_vector())
+                bb._from_vector_inplace(pred.bounding_box().as_vector())
 
         if verbose:
             print_dynamic('{}Training Dlib done.\n'.format(prefix))
