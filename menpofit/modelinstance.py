@@ -9,6 +9,10 @@ from menpofit.differentiable import DP
 
 class _SimilarityModel(VectorizableBackedModel, MeanLinearModel):
 
+    def __init__(self, components, mean):
+        MeanLinearModel.__init__(self, components, mean.as_vector())
+        VectorizableBackedModel.__init__(self, mean)
+
     def project_vector(self, instance_vector):
         return MeanLinearModel.project(self, instance_vector)
 
@@ -23,10 +27,6 @@ class _SimilarityModel(VectorizableBackedModel, MeanLinearModel):
 
     def project_out_vector(self, instance_vector):
         return MeanLinearModel.project_out(self, instance_vector)
-
-    def __init__(self, components, mean):
-        MeanLinearModel.__init__(self, components, mean.as_vector())
-        VectorizableBackedModel.__init__(self, mean)
 
 
 def similarity_2d_instance_model(shape):
@@ -58,19 +58,7 @@ def similarity_2d_instance_model(shape):
 
 
 class ModelInstance(Targetable, Vectorizable, DP):
-    r"""A instance of a :map:`InstanceBackedModel`.
-
-    This class describes an instance produced from one of Menpo's
-    :map:`InstanceBackedModel`. The actual instance provided by the model can
-    be found at self.target. This class is targetable, and so
-    :meth:`set_target` can be used to update the target - this will produce the
-    closest possible instance the Model can produce to the target and set the
-    weights accordingly.
-
-    Parameters
-    ----------
-    model : :map:`InstanceBackedModel`
-        The generative model that instances will be taken from
+    r"""
     """
     def __init__(self, model):
         self.model = model
