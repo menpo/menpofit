@@ -1,18 +1,22 @@
 from __future__ import division
-from copy import deepcopy
 import warnings
 import numpy as np
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
+from menpo.base import name_of_callable
 from menpofit import checks
+from menpofit.atm.algorithm import (ATMLKStandardInterface,
+                                    ATMLKLinearInterface, ATMLKPatchInterface)
+from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import (DifferentiableThinPlateSplines,
-                                DifferentiablePiecewiseAffine)
-from menpofit.base import name_of_callable, batch
+                                DifferentiablePiecewiseAffine, OrthoMDTransform,
+                                LinearOrthoMDTransform)
+from menpofit.base import batch
 from menpofit.builder import (
     build_reference_frame, build_patch_reference_frame,
-    compute_features, scale_images, build_shape_model, warp_images,
+    compute_features, scale_images, warp_images,
     align_shapes, densify_shapes,
     extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
@@ -24,6 +28,7 @@ class ATM(object):
     """
     def __init__(self, template, shapes, group=None, verbose=False,
                  reference_shape=None, holistic_features=no_op,
+                 shape_model_cls=OrthoPDM,
                  transform=DifferentiablePiecewiseAffine, diagonal=None,
                  scales=(0.5, 1.0), max_shape_components=None,
                  batch_size=None):
@@ -34,6 +39,7 @@ class ATM(object):
         holistic_features = checks.check_callable(holistic_features, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
+        shape_model_cls = checks.check_callable(shape_model_cls, n_scales)
 
         self.holistic_features = holistic_features
         self.transform = transform
@@ -43,6 +49,7 @@ class ATM(object):
         self.reference_shape = reference_shape
         self.shape_models = []
         self.warped_templates = []
+        self._shape_model_cls = shape_model_cls
 
         # Train ATM
         self._train(template, shapes, increment=False, group=group,
@@ -146,15 +153,11 @@ class ATM(object):
                 print_dynamic('{}Building shape model'.format(scale_prefix))
 
             if not increment:
-                if j == 0:
-                    shape_model = self._build_shape_model(scale_shapes, j)
-                    self.shape_models.append(shape_model)
-                else:
-                    self.shape_models.append(deepcopy(shape_model))
+                shape_model = self._build_shape_model(scale_shapes, j)
+                self.shape_models.append(shape_model)
             else:
                 self._increment_shape_model(
-                    scale_shapes,  self.shape_models[j],
-                    forgetting_factor=shape_forgetting_factor)
+                    scale_shapes, j, forgetting_factor=shape_forgetting_factor)
 
             # Obtain warped images - we use a scaled version of the
             # reference shape, computed here. This is because the mean
@@ -170,14 +173,6 @@ class ATM(object):
             if verbose:
                 print_dynamic('{}Done\n'.format(scale_prefix))
 
-        # Because we just copy the shape model, we need to wait to trim
-        # it after building each model. This ensures we can have a different
-        # number of components per level
-        for j, sm in enumerate(self.shape_models):
-            max_sc = self.max_shape_components[j]
-            if max_sc is not None:
-                sm.trim_components(max_sc)
-
     def increment(self, template, shapes, group=None, verbose=False,
                   shape_forgetting_factor=1.0, batch_size=None):
         return self._train(template, shapes, group=group,
@@ -186,15 +181,14 @@ class ATM(object):
                            increment=True, batch_size=batch_size)
 
     def _build_shape_model(self, shapes, scale_index):
-        return build_shape_model(shapes)
+        return self._shape_model_cls[scale_index](
+            shapes, max_n_components=self.max_shape_components[scale_index])
 
-    def _increment_shape_model(self, shapes, shape_model,
-                               forgetting_factor=1.0):
-        # Compute aligned shapes
-        aligned_shapes = align_shapes(shapes)
-        # Increment shape model
-        shape_model.increment(aligned_shapes,
-                              forgetting_factor=forgetting_factor)
+    def _increment_shape_model(self, shapes, scale_index,
+                               forgetting_factor=None):
+        self.shape_models[scale_index].increment(
+            shapes, forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index])
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
@@ -351,6 +345,18 @@ class ATM(object):
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for wt, sm, s in zip(self.warped_templates, self.shape_models,
+                             sampling):
+            md_transform = OrthoMDTransform(
+                sm, self.transform,
+                source=wt.landmarks['source'].lms)
+            interface = ATMLKStandardInterface(
+                md_transform, wt, sampling=s)
+            interfaces.append(interface)
+        return interfaces
+
     def __str__(self):
         return _atm_str(self)
 
@@ -433,18 +439,21 @@ class LinearATM(ATM):
         self.reference_frame = build_reference_frame(mean_aligned_shape)
         dense_shapes = densify_shapes(shapes, self.reference_frame,
                                       self.transform)
-        # build dense shape model
-        shape_model = build_shape_model(dense_shapes)
-        return shape_model
 
-    def _increment_shape_model(self, shapes, shape_model,
+        # Build dense shape model
+        max_sc = self.max_shape_components[scale_index]
+        return self._shape_model_cls[scale_index](dense_shapes,
+                                                  max_n_components=max_sc)
+
+    def _increment_shape_model(self, shapes, scale_index,
                                forgetting_factor=1.0):
         aligned_shapes = align_shapes(shapes)
         dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
                                       self.transform)
         # Increment shape model
-        shape_model.increment(dense_shapes,
-                              forgetting_factor=forgetting_factor)
+        self.shape_models[scale_index].increment(
+            dense_shapes, forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index])
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
@@ -462,6 +471,18 @@ class LinearATM(ATM):
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
         raise NotImplemented
+
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for wt, sm, s in zip(self.warped_templates, self.shape_models,
+                             sampling):
+            # This is pretty hacky as we just steal the OrthoPDM's PCAModel
+            md_transform = LinearOrthoMDTransform(
+                sm.model, self.reference_shape)
+            interface = ATMLKLinearInterface(md_transform, wt,
+                                             sampling=s)
+            interfaces.append(interface)
+        return interfaces
 
     def __str__(self):
         return _atm_str(self)
@@ -501,18 +522,20 @@ class LinearMaskedATM(ATM):
             mean_aligned_shape, patch_shape=self.patch_shape[scale_index])
         dense_shapes = densify_shapes(shapes, self.reference_frame,
                                       self.transform)
-        # build dense shape model
-        shape_model = build_shape_model(dense_shapes)
-        return shape_model
+        # Build dense shape model
+        max_sc = self.max_shape_components[scale_index]
+        return self._shape_model_cls[scale_index](dense_shapes,
+                                                  max_n_components=max_sc)
 
-    def _increment_shape_model(self, shapes, shape_model,
+    def _increment_shape_model(self, shapes, scale_index,
                                forgetting_factor=1.0):
         aligned_shapes = align_shapes(shapes)
         dense_shapes = densify_shapes(aligned_shapes, self.reference_frame,
                                       self.transform)
         # Increment shape model
-        shape_model.increment(dense_shapes,
-                              forgetting_factor=forgetting_factor)
+        self.shape_models[scale_index].increment(
+            dense_shapes, forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index])
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
@@ -530,6 +553,18 @@ class LinearMaskedATM(ATM):
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
         raise NotImplemented
+
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for wt, sm, s in zip(self.warped_templates, self.shape_models,
+                             sampling):
+            # This is pretty hacky as we just steal the OrthoPDM's PCAModel
+            md_transform = LinearOrthoMDTransform(
+                sm.model, self.reference_shape)
+            interface = ATMLKLinearInterface(md_transform, wt,
+                                             sampling=s)
+            interfaces.append(interface)
+        return interfaces
 
     def __str__(self):
         return _atm_str(self)
@@ -586,6 +621,18 @@ class PatchATM(ATM):
         except:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
+
+    def build_fitter_interfaces(self, sampling):
+        interfaces = []
+        for j, (wt, sm, s) in enumerate(zip(self.warped_templates,
+                                            self.shape_models,
+                                            sampling)):
+            interface = ATMLKPatchInterface(
+                sm, wt, sampling=s,
+                patch_shape=self.patch_shape[j],
+                patch_normalisation=self.patch_normalisation)
+            interfaces.append(interface)
+        return interfaces
 
     def __str__(self):
         return _atm_str(self)
