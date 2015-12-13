@@ -580,19 +580,19 @@ class LinearAAM(AAM):
 
     # TODO: implement me!
     def _instance(self, scale_index, shape_instance, appearance_instance):
-        raise NotImplemented
+        raise NotImplementedError()
 
     # TODO: implement me!
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
                                       mode='multiple', figure_size=(10, 8)):
-        raise NotImplemented
+        raise NotImplementedError()
 
     # TODO: implement me!
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
         interfaces = []
@@ -672,19 +672,19 @@ class LinearMaskedAAM(AAM):
 
     # TODO: implement me!
     def _instance(self, scale_index, shape_instance, appearance_instance):
-        raise NotImplemented
+        raise NotImplementedError()
 
     # TODO: implement me!
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
                                       mode='multiple', figure_size=(10, 8)):
-        raise NotImplemented
+        raise NotImplementedError()
 
     # TODO: implement me!
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
         interfaces = []

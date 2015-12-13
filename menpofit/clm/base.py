@@ -240,16 +240,16 @@ class CLM(object):
     def view_expert_ensemble_widget(self):
         r"""
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     # TODO: Implement me!
     def view_clm_widget(self):
         r"""
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     # TODO: Implement me!
     def __str__(self):
         r"""
         """
-        raise NotImplementedError
+        raise NotImplementedError()

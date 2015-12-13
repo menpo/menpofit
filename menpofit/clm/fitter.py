@@ -46,4 +46,4 @@ class SupervisedDescentCLMFitter(CLMFitter):
     r"""
     """
     def __init__(self):
-        raise NotImplementedError
+        raise NotImplementedError()

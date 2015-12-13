@@ -459,13 +459,13 @@ class LinearATM(ATM):
 
     # TODO: implement me!
     def _instance(self, shape_instance, template):
-        raise NotImplemented
+        raise NotImplementedError()
 
     # TODO: implement me!
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
         interfaces = []
@@ -541,13 +541,13 @@ class LinearMaskedATM(ATM):
 
     # TODO: implement me!
     def _instance(self, shape_instance, template):
-        raise NotImplemented
+        raise NotImplementedError()
 
     # TODO: implement me!
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
-        raise NotImplemented
+        raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
         interfaces = []
