@@ -244,13 +244,12 @@ class ATM(object):
         image : :map:`Image`
             The novel AAM instance.
         """
-        sm = self.shape_models[scale_index]
+        sm = self.shape_models[scale_index].model
         template = self.warped_templates[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
-        shape_weights = (np.random.randn(sm.n_active_components) *
-                         sm.eigenvalues[:sm.n_active_components]**0.5)
-        shape_instance = sm.instance(shape_weights)
+        shape_weights = np.random.randn(sm.n_active_components)
+        shape_instance = sm.instance(shape_weights, normalized_weights=True)
 
         return self._instance(shape_instance, template)
 
