@@ -23,7 +23,7 @@ class AAMAlgorithmResult(ParametricAlgorithmResult):
             for p in self.shape_parameters:
                 self.algorithm.transform._from_vector_inplace(p)
                 self._warped_images.append(
-                    self.algorithm.interface.warp(self.image))
+                    self.algorithm.warp(self.image))
         return self._warped_images
 
     @property
@@ -89,7 +89,7 @@ class AAMFitterResult(MultiFitterResult):
             for s in self.shapes:
                 algorithm.transform.set_target(s)
                 self._warped_images.append(
-                    algorithm.interface.warp(self.image))
+                    algorithm.warp(self.image))
         return self._warped_images
 
     @property
