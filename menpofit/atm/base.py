@@ -221,6 +221,9 @@ class ATM(object):
         image : :map:`Image`
             The novel AAM instance.
         """
+        if shape_weights is None:
+            shape_weights = [0]
+
         sm = self.shape_models[scale_index].model
         template = self.warped_templates[scale_index]
 

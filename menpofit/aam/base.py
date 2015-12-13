@@ -290,6 +290,10 @@ class AAM(object):
         image : :map:`Image`
             The novel AAM instance.
         """
+        if shape_weights is None:
+            shape_weights = [0]
+        if appearance_weights is None:
+            appearance_weights = [0]
         sm = self.shape_models[scale_index].model
         am = self.appearance_models[scale_index]
 
