@@ -221,16 +221,10 @@ class ATM(object):
         image : :map:`Image`
             The novel AAM instance.
         """
-        sm = self.shape_models[scale_index]
+        sm = self.shape_models[scale_index].model
         template = self.warped_templates[scale_index]
 
-        # TODO: this bit of logic should to be transferred down to PCAModel
-        if shape_weights is None:
-            shape_weights = [0]
-        n_shape_weights = len(shape_weights)
-        shape_weights *= sm.eigenvalues[:n_shape_weights] ** 0.5
-        shape_instance = sm.instance(shape_weights)
-
+        shape_instance = sm.instance(shape_weights, normalized_weights=True)
         return self._instance(shape_instance, template)
 
     def random_instance(self, scale_index=-1):
@@ -296,9 +290,10 @@ class ATM(object):
         """
         try:
             from menpowidgets import visualize_shape_model
-            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                                  parameters_bounds=parameters_bounds,
-                                  figure_size=figure_size, mode=mode)
+            visualize_shape_model(
+                [sm.model for sm in self.shape_models],
+                n_parameters=n_parameters, parameters_bounds=parameters_bounds,
+                figure_size=figure_size, mode=mode)
         except:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
