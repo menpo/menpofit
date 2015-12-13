@@ -750,8 +750,9 @@ def plot_cumulative_error_distribution(
         legend_rounded_corners=False, render_axes=True,
         axes_font_name='sans-serif', axes_font_size=10,
         axes_font_style='normal', axes_font_weight='normal', axes_x_limits=None,
-        axes_y_limits=None, figure_size=(10, 8),  render_grid=True,
-        grid_line_style='--', grid_line_width=0.5):
+        axes_y_limits=None, axes_x_ticks=None, axes_y_ticks=None,
+        figure_size=(10, 8), render_grid=True, grid_line_style='--',
+        grid_line_width=0.5):
     r"""
     Plot the cumulative error distribution (CED) of the provided fitting errors.
 
@@ -905,6 +906,10 @@ def plot_cumulative_error_distribution(
         ``(0., 'errors_max')``.
     axes_y_limits : (`float`, `float`) or ``None``, optional
         The limits of the y axis. If ``None``, it is set to ``(0., 1.)``.
+    axes_x_ticks : `list` or `tuple` or ``None``, optional
+        The ticks of the x axis.
+    axes_y_ticks : `list` or `tuple` or ``None``, optional
+        The ticks of the y axis.
     figure_size : (`float`, `float`) or ``None``, optional
         The size of the figure in inches.
     render_grid : `bool`, optional
@@ -924,7 +929,7 @@ def plot_cumulative_error_distribution(
     viewer : :map:`GraphPlotter`
         The viewer object.
     """
-    from menpo.visualize import GraphPlotter
+    from menpo.visualize import plot_curve
 
     # make sure that errors is a list even with one list member
     if not isinstance(errors[0], list):
@@ -946,13 +951,13 @@ def plot_cumulative_error_distribution(
         axes_y_limits = (0., 1.)
 
     # render
-    return GraphPlotter(figure_id=figure_id, new_figure=new_figure,
-                        x_axis=x_axis, y_axis=ceds, title=title,
-                        legend_entries=legend_entries, x_label=x_label,
-                        y_label=y_label, x_axis_limits=axes_x_limits,
-                        y_axis_limits=axes_y_limits).render(
-        render_lines=render_lines, line_colour=line_colour,
-        line_style=line_style, line_width=line_width,
+    return plot_curve(
+        x_axis=x_axis, y_axis=ceds, figure_id=figure_id, new_figure=new_figure,
+        legend_entries=legend_entries, title=title, x_label=x_label,
+        y_label=y_label, axes_x_limits=axes_x_limits,
+        axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
+        axes_y_ticks=axes_y_ticks, render_lines=render_lines,
+        line_colour=line_colour, line_style=line_style, line_width=line_width,
         render_markers=render_markers, marker_style=marker_style,
         marker_size=marker_size, marker_face_colour=marker_face_colour,
         marker_edge_colour=marker_edge_colour,
@@ -970,7 +975,8 @@ def plot_cumulative_error_distribution(
         legend_border=legend_border,
         legend_border_padding=legend_border_padding,
         legend_shadow=legend_shadow,
-        legend_rounded_corners=legend_rounded_corners, render_axes=render_axes,
+        legend_rounded_corners=legend_rounded_corners,
+        render_axes=render_axes,
         axes_font_name=axes_font_name, axes_font_size=axes_font_size,
         axes_font_style=axes_font_style, axes_font_weight=axes_font_weight,
         figure_size=figure_size, render_grid=render_grid,

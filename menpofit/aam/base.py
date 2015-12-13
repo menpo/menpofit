@@ -365,9 +365,10 @@ class AAM(object):
         """
         try:
             from menpowidgets import visualize_shape_model
-            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                                  parameters_bounds=parameters_bounds,
-                                  figure_size=figure_size, mode=mode)
+            visualize_shape_model(
+                [sm.model for sm in self.shape_models],
+                n_parameters=n_parameters, parameters_bounds=parameters_bounds,
+                figure_size=figure_size, mode=mode)
         except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
@@ -749,7 +750,7 @@ class PatchAAM(AAM):
                                       mode='multiple', figure_size=(10, 8)):
         try:
             from menpowidgets import visualize_patch_appearance_model
-            centers = [sp.mean() for sp in self.shape_models]
+            centers = [sp.model.mean() for sp in self.shape_models]
             visualize_patch_appearance_model(self.appearance_models, centers,
                                              n_parameters=n_parameters,
                                              parameters_bounds=parameters_bounds,
