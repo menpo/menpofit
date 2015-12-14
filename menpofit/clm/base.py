@@ -1,19 +1,22 @@
 from __future__ import division
 import warnings
+import numpy as np
+
+from menpo.base import name_of_callable
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
+
 from menpofit import checks
 from menpofit.base import batch
 from menpofit.builder import (
     compute_features, scale_images, MenpoFitBuilderWarning,
     compute_reference_shape, rescale_images_to_reference_shape)
 from menpofit.modelinstance import OrthoPDM
+
 from .expert import ExpertEnsemble, CorrelationFilterExpertEnsemble
 
 
 # TODO: Document me!
-# TODO: Introduce shape_model_cls
-# TODO: Get rid of max_shape_components and shape_forgetting_factor
 class CLM(object):
     r"""
     Constrained Local Model (CLM) class.
@@ -51,6 +54,10 @@ class CLM(object):
         # Train CLM
         self._train(images, increment=False, group=group, verbose=verbose,
                     batch_size=batch_size)
+
+    @property
+    def _str_title(self):
+        return "Constrained Local Model"
 
     @property
     def n_scales(self):
@@ -252,4 +259,38 @@ class CLM(object):
     def __str__(self):
         r"""
         """
-        raise NotImplementedError()
+        if self.diagonal is not None:
+            diagonal = self.diagonal
+        else:
+            y, x = self.reference_shape.range()
+            diagonal = np.sqrt(x ** 2 + y ** 2)
+
+        # Compute scale info strings
+        scales_info = []
+        lvl_str_tmplt = r"""  - Scale {}
+   - Holistic feature: {}
+   - Shape model class: {}
+   - {} shape components
+   - Expert ensemble class: {}
+    - {} experts
+    - Patch shape: {}"""
+        for k, s in enumerate(self.scales):
+            scales_info.append(lvl_str_tmplt.format(
+                s, name_of_callable(self.holistic_features[k]),
+                name_of_callable(self.shape_models[k]),
+                self.shape_models[k].model.n_components,
+                name_of_callable(self.expert_ensembles[k]),
+                self.expert_ensembles[k].n_experts,
+                self.expert_ensembles[k].patch_shape,
+            ))
+        scales_info = '\n'.join(scales_info)
+
+        cls_str = r"""{class_title}
+ - Images scaled to diagonal: {diagonal:.2f}
+ - Scales: {scales}
+{scales_info}
+        """.format(class_title=self._str_title,
+                   diagonal=diagonal,
+                   scales=self.scales,
+                   scales_info=scales_info)
+        return cls_str
