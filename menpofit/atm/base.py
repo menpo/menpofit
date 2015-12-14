@@ -647,12 +647,14 @@ def _atm_str(atm):
     lvl_str_tmplt = r"""  - Scale {}
    - Holistic feature: {}
    - Template shape: {}
+   - Shape model class: {}
    - {} shape components"""
     for k, s in enumerate(atm.scales):
         scales_info.append(lvl_str_tmplt.format(
             s, name_of_callable(atm.holistic_features[k]),
             atm.warped_templates[k].shape,
-            atm.shape_models[k].n_components))
+            name_of_callable(atm.shape_models[k]),
+            atm.shape_models[k].model.n_components))
     # Patch based ATM
     if hasattr(atm, 'patch_shape'):
         for k in range(len(scales_info)):
