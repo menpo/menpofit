@@ -199,10 +199,10 @@ class CLM(object):
             shapes, forgetting_factor=forgetting_factor,
             max_n_components=self.max_shape_components[scale_index])
 
-    def increment(self, images, group=None, verbose=False, batch_size=None):
-        r"""
-        """
+    def increment(self, images, group=None, verbose=False,
+                  shape_forgetting_factor=1.0, batch_size=None):
         return self._train(images, increment=True, group=group, verbose=verbose,
+                           shape_forgetting_factor=shape_forgetting_factor,
                            batch_size=batch_size)
 
     def view_shape_models_widget(self, n_parameters=5,
