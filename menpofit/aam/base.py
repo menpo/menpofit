@@ -804,13 +804,17 @@ def _aam_str(aam):
     scales_info = []
     lvl_str_tmplt = r"""  - Scale {}
    - Holistic feature: {}
+   - Appearance model class: {}
    - {} appearance components
+   - Shape model class: {}
    - {} shape components"""
     for k, s in enumerate(aam.scales):
         scales_info.append(lvl_str_tmplt.format(
             s, name_of_callable(aam.holistic_features[k]),
+            name_of_callable(aam.appearance_models[k]),
             aam.appearance_models[k].n_components,
-            aam.shape_models[k].n_components))
+            name_of_callable(aam.shape_models[k]),
+            aam.shape_models[k].model.n_components))
     # Patch based AAM
     if hasattr(aam, 'patch_shape'):
         for k in range(len(scales_info)):
@@ -819,7 +823,8 @@ def _aam_str(aam):
     scales_info = '\n'.join(scales_info)
 
     if aam.transform is not None:
-        transform_str = 'Images warped with {transform} transform'
+        transform_str = 'Images warped with {} transform'.format(
+            name_of_callable(aam.transform))
     else:
         transform_str = 'No image warping performed'
 
