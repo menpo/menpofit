@@ -1,19 +1,6 @@
 from __future__ import division
-from functools import partial
 import itertools
 import numpy as np
-
-
-def name_of_callable(c):
-    try:
-        if isinstance(c, partial):  # partial
-            # Recursively call as partial may be wrapping either a callable
-            # or a function (or another partial for some reason!)
-            return name_of_callable(c.func)
-        else:
-            return c.__name__  # function
-    except AttributeError:
-        return c.__class__.__name__  # callable class
 
 
 def batch(iterable, n):
