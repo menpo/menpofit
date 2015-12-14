@@ -53,17 +53,9 @@ class LucasKanadeFitter(MultiFitter):
                                                     gt_shape=gt_shape)
         return templates, sources
 
-    def noisy_shape_from_bounding_box(self, bounding_box, noise_type='uniform',
-                                      noise_percentage=0.1, rotation=False):
-        return noisy_shape_from_bounding_box(
-            self.reference_shape, bounding_box, noise_type=noise_type,
-            noise_percentage=noise_percentage, rotation=rotation)
-
-    def noisy_shape_from_shape(self, shape, noise_type='uniform',
-                               noise_percentage=0.1, rotation=False):
-        return noisy_shape_from_shape(
-            self.reference_shape, shape, noise_type=noise_type,
-            noise_percentage=noise_percentage, rotation=rotation)
+    def perturb_from_gt_bb(self, gt_bb,
+                           perturb_func=noisy_shape_from_bounding_box):
+        return perturb_func(gt_bb, gt_bb)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
