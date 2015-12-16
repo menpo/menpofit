@@ -156,7 +156,7 @@ def warp_images(images, shapes, reference_frame, transform, prefix='',
     # Build a dummy transform, use set_target for efficiency
     warp_transform = transform(reference_frame.landmarks['source'].lms,
                                reference_frame.landmarks['source'].lms)
-    for i, s in wrap(zip(images, shapes)):
+    for i, s in wrap(list(zip(images, shapes))):
         # Update Transform Target
         warp_transform.set_target(s)
         # warp images
@@ -175,7 +175,7 @@ def extract_patches(images, shapes, patch_shape, normalise_function=no_op,
                    end_with_newline=not prefix, verbose=verbose)
 
     parts_images = []
-    for i, s in wrap(zip(images, shapes)):
+    for i, s in wrap(list(zip(images, shapes))):
         parts = i.extract_patches(s, patch_shape=patch_shape,
                                   as_single_array=True)
         parts = normalise_function(parts)
