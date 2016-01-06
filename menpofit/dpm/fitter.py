@@ -1,8 +1,59 @@
-from menpo.shape import Tree
 import numpy as np
+from menpofit.fitter import ModelFitter
 
 
-def compute_unary_scores(feature_pyramid, filters):
+class DPMFitter(ModelFitter):
+    r"""
+    """
+
+    def __init__(self, dpm):
+        self._model = dpm
+
+    @property
+    def dpm(self):
+        return self._model
+
+    def fit(self, image, threshold=-1):
+        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
+        padding = (3, 3)  # TODO: param in the future maybe?
+        # define filter size in [y, x] format. Assumption: All filters
+        # have the same size, otherwise pass a list in backtrack.
+        fsz = [self._model.filters[0].shape[1], self._model.filters[0].shape[2]]
+        feats, scales = _featpyramid(image, 5, 4, padding)
+
+        boxes = []  # list with detection boxes (as dictionaries)
+        tree = self._model.tree
+        filters = self._model.filters
+
+        for level, feat in feats.iteritems():  # for each level in the pyramid
+            unary_scores = convolve_python_f(feat, filters)
+
+            scores, Ix, Iy = _compute_pairwise_scores(np.copy(unary_scores),
+                                                     tree, self._model.def_coef, self._model.anchor)
+
+            scale = scales[level]
+            rscore = scores[tree.root_vertex] + self._model.bias
+
+            [Y, X] = np.where(rscore > threshold)
+
+            if X.shape[0] > 0:
+                XY = _backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding)
+
+            for i in range(X.shape[0]):
+                x, y = X[i], Y[i]
+                detection_info = {}
+                detection_info['level'] = level
+                detection_info['s'] = np.copy(rscore[y, x])
+                detection_info['xy'] = XY[:, :, i]
+
+                boxes.append(dict(detection_info))
+
+        #cc, pick = non_max_suppression_fast(clip_boxes(boxes), 0.3)
+        #lns = bb_to_lns(boxes, pick)
+        return boxes
+
+
+def _compute_unary_scores(feature_pyramid, filters):
     from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it
     unary_scores = []
     for feat in feature_pyramid:  # for each level in the pyramid
@@ -11,7 +62,7 @@ def compute_unary_scores(feature_pyramid, filters):
     return unary_scores
 
 
-def compute_pairwise_scores(scores, tree, def_coef, anchor):
+def _compute_pairwise_scores(scores, tree, def_coef, anchor):
     r"""
     Given the (unary) scores it computes the pairwise scores by utilising the Generalised Distance
     Transform.
@@ -51,7 +102,7 @@ def compute_pairwise_scores(scores, tree, def_coef, anchor):
     return scores, Ix, Iy
 
 
-def featpyramid(im, m_inter, sbin, pyra_pad):
+def _featpyramid(im, m_inter, sbin, pyra_pad):
     # construct the featpyramid. For the time being, it has similar conventions as in
     # Ramanan's code. TODO: In the future, use menpo's gaussian pyramid.
     from math import log as log_m
@@ -82,7 +133,7 @@ def featpyramid(im, m_inter, sbin, pyra_pad):
     return feats_np, scales
 
 
-def backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
+def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
     r"""
     Backtrack the solution from the root to the children and return the detection coordinates for each part.
 
@@ -151,49 +202,84 @@ def backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
     return box
 
 
-class DPM_fit():
-    def __init__(self, tree, filters, def_coef, anchor, bias=0):
-        assert(isinstance(tree, Tree))
-        assert(len(filters) == len(tree.vertices) == len(def_coef))
-        self.tree = tree
-        self.filters = filters
-        self.def_coef = def_coef
-        self.anchor = anchor
-        self.bias = bias
+def non_max_suppression_fast(boxes, overlapThresh):
+    # Malisiewicz et al. method.
+    # if there are no boxes, return an empty list
+    if len(boxes) == 0:
+        return [], []
 
-    def fit(self, image, threshold=-1):
-        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
-        padding = (3, 3)  # TODO: param in the future maybe?
-        # define filter size in [y, x] format. Assumption: All filters
-        # have the same size, otherwise pass a list in backtrack.
-        fsz = [self.filters[0].shape[1], self.filters[0].shape[2]]
-        feats, scales = featpyramid(image, 5, 4, padding)
+    # if the bounding boxes integers, convert them to floats --
+    # this is important since we'll be doing a bunch of divisions
+    if boxes.dtype.kind == "i":
+        boxes = boxes.astype("float")
 
-        boxes = []  # list with detection boxes (as dictionaries)
-        tree = self.tree
-        filters = self.filters
+    # initialize the list of picked indexes
+    pick = []
 
-        for level, feat in feats.iteritems():  # for each level in the pyramid
-            unary_scores = convolve_python_f(feat, filters)
+    # grab the coordinates of the bounding boxes
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    sc = boxes[:, 4]  # score confidence
 
-            scores, Ix, Iy = compute_pairwise_scores(np.copy(unary_scores),
-                                                     tree, self.def_coef, self.anchor)
+    # compute the area of the bounding boxes and sort the bounding
+    # boxes by the bottom-right y-coordinate of the bounding box
+    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+    idxs = np.argsort(sc)
 
-            scale = scales[level]
-            rscore = scores[tree.root_vertex] + self.bias
+    # keep looping while some indexes still remain in the indexes
+    # list
+    while len(idxs) > 0:
+        # grab the last index in the indexes list and add the
+        # index value to the list of picked indexes
+        last = len(idxs) - 1
+        i = idxs[last]
+        pick.append(i)
 
-            [Y, X] = np.where(rscore > threshold)
+        # find the largest (x, y) coordinates for the start of
+        # the bounding box and the smallest (x, y) coordinates
+        # for the end of the bounding box
+        xx1 = np.maximum(x1[i], x1[idxs[:last]])
+        yy1 = np.maximum(y1[i], y1[idxs[:last]])
+        xx2 = np.minimum(x2[i], x2[idxs[:last]])
+        yy2 = np.minimum(y2[i], y2[idxs[:last]])
 
-            if X.shape[0] > 0:
-                XY = backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding)
+        # compute the width and height of the bounding box
+        w = np.maximum(0, xx2 - xx1 + 1)
+        h = np.maximum(0, yy2 - yy1 + 1)
 
-            for i in range(X.shape[0]):
-                x, y = X[i], Y[i]
-                detection_info = {}
-                detection_info['level'] = level
-                detection_info['s'] = np.copy(rscore[y, x])
-                detection_info['xy'] = XY[:, :, i]
+        # compute the ratio of overlap
+        overlap = (w * h) / area[idxs[:last]]
 
-                boxes.append(dict(detection_info))
+        # delete all indexes from the index list that have
+        idxs = np.delete(idxs, np.concatenate(([last],
+                                               np.where(overlap > overlapThresh)[0])))
 
-        return boxes
+    # return only the bounding boxes that were picked using the
+    # integer data type
+    return boxes[pick].astype("int"), pick
+
+
+def clip_boxes(boxes):
+    # convert the boxes in a format suitable for non_maximum_suppression
+    bb = np.empty((len(boxes), 5))
+    for i, bb_s in enumerate(boxes):
+        bb[i, 0] = np.min(bb_s['xy'][:, 0])
+        bb[i, 1] = np.min(bb_s['xy'][:, 1])
+        bb[i, 2] = np.max(bb_s['xy'][:, 2])
+        bb[i, 3] = np.max(bb_s['xy'][:, 3])
+        bb[i, 4] = np.max(bb_s['s'])
+    return bb
+
+
+def bb_to_lns(boxes, pick):
+    # convert the selected boxes into lns (the centre of each bbox).
+    lns1 = []
+    for cnt, p in enumerate(pick):
+        b = boxes[p]['xy']
+        pts = np.empty((b.shape[0], 2))
+        pts[:, 1] = np.int32((b[:, 0] + b[:, 2])/2)  # !!! reverse x, y due to menpo convention (first y axis!)
+        pts[:, 0] = np.int32((b[:, 1] + b[:, 3])/2)
+        lns1.append(pts)
+    return lns1
