@@ -1,5 +1,6 @@
 from menpo.shape import PointCloud, Tree
 from menpofit.dpm import DPM, DPMFitter, non_max_suppression_fast, clip_boxes, bb_to_lns
+from scipy.sparse import csr_matrix
 import getopt
 import numpy as np
 import sys
@@ -32,24 +33,56 @@ def get_components(model, pyra_pad):
     # implementation of the modelcomponents to return the components
     components = []
     comp_m = model['components'][0][0][0] # *_m = * in matlab
-    for c in range(len(comp_m)):
+    for c in range(len(comp_m)):    # 13 components
         cm = comp_m[c][0]
-        comp_parts = []
-        for k in range(len(cm)):
-            p = {}
-            p['defid'] = cm[k]['defid'][0][0]
-            p['filterid'] = cm[k]['filterid'][0][0]
-            p['parent'] = cm[k]['parent'][0][0] - 1
-            p['filterI'] = model['filters'][0][0][0][p['filterid'] - 1][1][0][0]  # -1 due to python numbering
-
-            x = model['defs'][0][0][0][p['defid'] - 1]  # -1 due to python numbering
-            p['w'] = 1 * x['w'][0]  # http://stackoverflow.com/a/6435446
+        def_ids = []
+        filter_ids = []
+        parents = []
+        filter_index = []
+        bias = 0
+        anchors = []
+        num_parts = len(cm)
+        for k in range(num_parts):    # 68 parts
+            def_id = cm[k]['defid'][0][0]
+            def_ids.append(def_id)
+            filter_id = cm[k]['filterid'][0][0]
+            filter_ids.append(filter_id)
+            parents.append(cm[k]['parent'][0][0] - 1)
+            filter_index.append(model['filters'][0][0][0][filter_id - 1][1][0][0])  # -1 due to python numbering
+            x = model['defs'][0][0][0][def_id - 1]  # -1 due to python numbering
             (ax, ay, ds) = np.copy(x['anchor'][0])
-            p['starty'] = ay
-            p['startx'] = ax
-
-            comp_parts.append(dict(p))
-        components.append(list(comp_parts)) # in outer loop
+            if k == 0:
+                bias = 1*x['w'][0][0]
+            anchors.append((ay, ax))
+        pairs = zip(parents, range(num_parts))
+        tree_matrix = csr_matrix(([1] * (num_parts-1), (zip(*pairs[1:]))), shape=(num_parts, num_parts))
+        tree = Tree(tree_matrix, root_vertex=0, skip_checks=True)
+        component = dict()
+        component['def_ids'] = def_ids
+        component['filter_ids'] = filter_ids
+        component['tree'] = tree
+        component['filter_index'] = filter_index
+        component['bias'] = bias
+        component['anchors'] = anchors
+        components.append(component)
+    # for c in range(len(comp_m)):
+    #     cm = comp_m[c][0]
+    #     comp_parts = []
+    #     for k in range(len(cm)):
+    #         p = {}
+    #         p['defid'] = cm[k]['defid'][0][0]
+    #         p['filterid'] = cm[k]['filterid'][0][0]
+    #         p['parent'] = cm[k]['parent'][0][0] - 1
+    #         p['filterI'] = model['filters'][0][0][0][p['filterid'] - 1][1][0][0]  # -1 due to python numbering
+    #
+    #         x = model['defs'][0][0][0][p['defid'] - 1]  # -1 due to python numbering
+    #         p['w'] = 1 * x['w'][0]  # http://stackoverflow.com/a/6435446
+    #         (ax, ay, ds) = np.copy(x['anchor'][0])
+    #         p['starty'] = ay
+    #         p['startx'] = ax
+    #
+    #         comp_parts.append(dict(p))
+    #     components.append(list(comp_parts)) # in outer loop
     return components
 
 
@@ -74,6 +107,15 @@ def get_filters(model):
         tt2 = copy_to_new_array(tt)
         filters.append(tt2)
     return filters
+
+
+def get_defs(model):
+    model_defs_all = model['defs'][0][0][0]
+    defs_all = []
+    for i in range(len(model_defs_all)):
+        defs = model_defs_all[i]['w'][0]
+        defs_all.append(defs)
+    return defs_all
 
 
 def debugging():
@@ -102,40 +144,37 @@ def debugging():
 
     model = mat['model']
     filters_all = get_filters(model)
+    defs_all = get_defs(model)
     _ms = model['maxsize'][0][0][0]
     sbin = model['sbin'][0][0][0][0]
     thresh = min(-0.55, model['thresh'][0][0][0][0])
+    #thresh = min(-50, model['thresh'][0][0][0][0])
     pyra_pad = (max(_ms[1] - 2, 0), max(_ms[0] - 2, 0))  # (padx, pady)
     components = get_components(model, pyra_pad)
-    trees = []
-    for mix_id, component in enumerate(components):
-        num_parts = len(component)
-        parents = map(lambda x: x['parent'], component)
-        pairs = zip(parents, range(num_parts))
-        tree_matrix = csr_matrix(([1] * (num_parts-1), (zip(*pairs[1:]))), shape=(num_parts, num_parts))
-        trees.append(Tree(tree_matrix, root_vertex=0, skip_checks=True))
-
 
 
     # random component, chosen for debugging
-    parts = components[6]
-    def_coef = []  # deformation coefficients
-    filters = []  # filters for the component chosen
-    anchor = []
-    bias = parts[tree.root_vertex]['w'][0]
-    for c, pk in enumerate(parts):
-        filters.append(filters_all[pk['filterid'] - 1])
-        if c == 0:  # root is on 0 by default in Ramanan
-            (w1, w2, w3, w4) = (0., 0., 0., 0.)
-        else:
-            (w1, w2, w3, w4) = -pk['w']
-        def_coef.append((w1, w2, w3, w4))
-        anchor.append((pk['starty'], pk['startx']))
+    # parts = components[6]
+    # def_coef = []  # deformation coefficients
+    # filters = []  # filters for the component chosen
+    # anchor = []
+    # bias = parts[tree.root_vertex]['w'][0]
+    # for c, pk in enumerate(parts):
+    #     filters.append(filters_all[pk['filterid'] - 1])
+    #     if c == 0:  # root is on 0 by default in Ramanan
+    #         (w1, w2, w3, w4) = (0., 0., 0., 0.)
+    #     else:
+    #         (w1, w2, w3, w4) = -pk['w']
+    #     def_coef.append((w1, w2, w3, w4))
+    #     anchor.append((pk['starty'], pk['startx']))
+    #
+    # print filters
 
     im = mio.import_builtin_asset.takeo_ppm()
 
-    dpm = DPM(tree, filters, def_coef, anchor, bias)    # todo: this actually should have been learnt from the images
+    dpm = DPM(filters_all, defs_all, components)    # todo: this actually should have been learnt from the images
     boxes = DPMFitter(dpm).fit(im, thresh)
+    boxes.sort(key=lambda item: item['s'], reverse=True)
     cc, pick = non_max_suppression_fast(clip_boxes(boxes), 0.3)
     lns = bb_to_lns(boxes, pick)
     return lns, im

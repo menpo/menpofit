@@ -14,25 +14,45 @@ class DPMFitter(ModelFitter):
         return self._model
 
     def fit(self, image, threshold=-1):
-        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
         padding = (3, 3)  # TODO: param in the future maybe?
-        # define filter size in [y, x] format. Assumption: All filters
-        # have the same size, otherwise pass a list in backtrack.
-        fsz = [self._model.filters[0].shape[1], self._model.filters[0].shape[2]]
         feats, scales = _featpyramid(image, 5, 4, padding)
 
         boxes = []  # list with detection boxes (as dictionaries)
-        tree = self._model.tree
-        filters = self._model.filters
+        filters_all = self._model.filters_all
+        defs_all = self._model.defs_all
+        components = self._model.components
+        for c, component in enumerate(components):
+            tree = component['tree']
+            anchors = component['anchors']
+            bias = component['bias']
+            filter_ids = component['filter_ids'];
+            def_ids = component['def_ids'];
+            filters = []
+            defs = []
+            for node in tree.vertices:
+                filters.append(filters_all[filter_ids[node] - 1])
+                if node == tree.root_vertex:  # root is on 0 by default in Ramanan
+                    (w1, w2, w3, w4) = (0., 0., 0., 0.)
+                else:
+                    (w1, w2, w3, w4) = -defs_all[def_ids[node] - 1]
+                defs.append((w1, w2, w3, w4))
+            boxes.extend(self._fit(feats, scales, padding, threshold, filters, defs, anchors, bias, tree))
+        return boxes
 
+    def _fit(self, feats, scales, padding, threshold=-1, filters=None, defs=None, anchors=None, bias=None, tree=None):
+        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
+
+        # define filter size in [y, x] format. Assumption: All filters
+        # have the same size, otherwise pass a list in backtrack.
+        fsz = [filters[0].shape[1], filters[0].shape[2]]
+        boxes = []  # list with detection boxes (as dictionaries)
         for level, feat in feats.iteritems():  # for each level in the pyramid
             unary_scores = convolve_python_f(feat, filters)
 
-            scores, Ix, Iy = _compute_pairwise_scores(np.copy(unary_scores),
-                                                     tree, self._model.def_coef, self._model.anchor)
+            scores, Ix, Iy = _compute_pairwise_scores(np.copy(unary_scores), tree, defs, anchors)
 
             scale = scales[level]
-            rscore = scores[tree.root_vertex] + self._model.bias
+            rscore = scores[tree.root_vertex] + bias
 
             [Y, X] = np.where(rscore > threshold)
 
@@ -48,8 +68,6 @@ class DPMFitter(ModelFitter):
 
                 boxes.append(dict(detection_info))
 
-        #cc, pick = non_max_suppression_fast(clip_boxes(boxes), 0.3)
-        #lns = bb_to_lns(boxes, pick)
         return boxes
 
 

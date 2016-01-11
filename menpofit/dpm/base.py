@@ -9,15 +9,12 @@ from menpo.shape import Tree
 
 
 class DPM(object):
-    def __init__(self, tree, filters, def_coef, anchor, bias=0, config=None):
-        assert(isinstance(tree, Tree))
-        assert(len(filters) == len(tree.vertices) == len(def_coef))
-        self.components = None
-        self.tree = tree
-        self.filters = filters
-        self.def_coef = def_coef
-        self.anchor = anchor
-        self.bias = bias
+    def __init__(self, filters_all, defs_all, components=None, config=None):
+        # assert(isinstance(tree, Tree))
+        # assert(len(filters) == len(tree.vertices) == len(def_coef))
+        self.components = components
+        self.filters_all = filters_all
+        self.defs_all = defs_all
         self.config = config
 
         # remove when config is passed properly or can be learned from the example.
