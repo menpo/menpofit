@@ -1,10 +1,14 @@
 import menpo.io as mio
 import multiprocessing as mp
 import numpy as np
+#import scipy.linalg
 import scipy.io
 import os
 from menpo.feature import hog
+from menpo.feature.gradient import score
 from menpo.image import Image
+from numpy import size, nonzero
+from scipy.linalg import norm
 from menpo.shape import Tree
 
 
@@ -26,13 +30,17 @@ class DPM(object):
     def _get_config(self):
         # function with configurations for the mixture and number of points.
         conf = {}  # used instead of the opts struct in the original code
-        conf['viewpoint'] = [-30, -15, -15, 0, 15, 15, 30] # range(90, -90, -15)
-        conf['partpoolsize'] =  68 + 68 + 68
+        # conf['viewpoint'] = [-30, -15, -15, 0, 15, 15, 30] # range(90, -90, -15)
+        # conf['partpoolsize'] =  68 + 68 + 68
         # 39 + 68 + 39  (original code)
+        conf['viewpoint'] = range(90, -90, -15)
+        conf['partpoolsize'] = 39+68+39
 
         conf['sbin'] = 4
-        conf['mixture_poolid'] = [range(0, 68), range(0, 68), range(68, 136), range(68, 136),
-                                  range(68, 136), range(136, 204), range(136, 204)]
+        conf['mixture_poolid'] = [range(0, 39), range(0, 39), range(39, 107), range(39, 107),
+                                  range(39, 107), range(107, 146), range(107, 146)]
+        # conf['mixture_poolid'] = [range(0, 68), range(0, 68), range(68, 136), range(68, 136),
+        #                           range(68, 136), range(136, 204), range(136, 204)]
         conf['parents'] = [0, 0, 0, 0, 0, 0, 0]  # value to call the get_parents_lns().
 
         return conf
@@ -62,7 +70,7 @@ class DPM(object):
 
         pos = self._ln2box(pos)
         spos = self._split(pos)
-        k= min(len(neg), 200) - 1
+        k = min(len(neg), 200) - 1
         kneg = neg[0:k]
 
         #todo : come back to make it work in parallel
@@ -73,8 +81,9 @@ class DPM(object):
 
         parts_models = []
         for i in xrange(self.config['partpoolsize']):
+            print i
             init_model = self._init_model(spos[i], self.config['sbin'])
-            parts_models[i] = self._train(init_model, spos[i], kneg, iter=4)
+            parts_models.append(self._train(init_model, spos[i], kneg, iter=4))
 
     def _get_image_info(self, pos_data, pos_data_im, pos_data_anno, neg_data_im):
         # load info for the data.
@@ -189,13 +198,14 @@ class DPM(object):
         f['w'] = np.empty(size)
         f['i'] = 1
 
-        c = {}
-        c['filterid'] = 0
-        c['defid'] = 0
-        c['parent'] = -1
+        c1 = {}
+        c1['filterid'] = 0
+        c1['defid'] = 0
+        c1['parent'] = -1
+        c = [c1]
 
         _d, _f, _c = [], [], []  # list of the respective dictionaries above
-        _d.append(dict(d)), _f.append(dict(f)), _c.append(dict(c))
+        _d.append(dict(d)), _f.append(dict(f)), _c.append(c)
         model = {}
         model['defs'] = _d
         model['filters'] = _f
@@ -228,7 +238,7 @@ class DPM(object):
 
     def _warppos(self, model, pos):
         # Load the images, crop and resize them to predefined shape.
-        f = model['components'][0]['filterid']  # potentially redundant, f == 0 (but check the rest first.)
+        f = model['components'][0][0]['filterid']  # potentially redundant, f == 0 (but check the rest first.)
         siz = model['filters'][f]['w'].shape[1:3]
         sbin = model['sbin']
         pixels = [sbin * siz[0], sbin * siz[1]]
@@ -258,41 +268,139 @@ class DPM(object):
 
     def _train(self, model, pos, neg, iter, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.6):
         # the size of vectorized model
-        len = self._sparselen(model)
+        length = self._sparselen(model)
         # Maximum number of model that fitted into the cache
-        nmax = round(maxsize*0.25*10**9/len)
-
-        return x
+        nmax = round(maxsize*0.25*10**9/length)
+        num_id = 5 #5 = [label, id, level, posX, poY]
+        qp = Qp(length, nmax, num_id)
+        (w, qp.wreg, qp.w0, qp.noneg) = self._model2vec(model)
+        qp.cpos = c * wpos
+        qp.cneg = c
+        qp.w = (w - qp.w0) * qp.wreg
+        for t in range(iter):
+            model['delta'] = self._poslatent(t, model, qp, pos, overlap)
+            if model['delta'] < 0.001:
+                break
+        return model
 
     def _sparselen(self, model):
         # check if it can be incorporated to the model (length of filters, deformations)
         len1 = -1
-        print model
         for tempcnt, comp in enumerate(model['components']):
             numblocks = 0
             feats = np.zeros((model['len'],))
-            print comp
             for p in comp:
-                print p
                 if p == {}:  # dump part for 'root filter'.
                     continue
                 x = model['filters'][p['filterid']]
                 i1 = x['i']
-                i2 = i1 + x['w'].size - 1
+                i2 = i1 + size(x['w']) - 1
                 feats[i1:i2+1] = 1
                 numblocks += 1
 
                 x = model['defs'][p['defid']]
                 i1 = x['i']
-                i2 = i1 + x['w'].size - 1
+                i2 = i1 + size(x['w']) - 1
                 feats[i1:i2+1] = 1
                 numblocks += 1
             # Number of entries needed to encode a block-scarce representation
+            # 1 maybe used to encode the length itself
             n = 1 + 2 * numblocks + int(np.sum(feats))
             len1 = max(len1, n)
         return len1
 
+    def _model2vec(self, model):
+        w = np.zeros((model['len'] + 1,))  # note: +1, otherwise it crashes trying to access the last element. -> check !!!!!!!!!!!!!!!!!!!!
+        w0 = np.zeros_like(w)
+        wreg = np.ones_like(w0)
+        noneg = []
+
+        for x in model['defs']:
+            l = size(x['w'])
+            j = np.array(range(x['i'], x['i'] + l))
+            w[j] = np.copy(x['w'])
+
+            if l == 1:
+                wreg[j] = 0.01
+            else:
+                wreg[j] = 0.1
+                j = np.array([j[0], j[2]])
+                w0[j] = 0.01
+                noneg.append(j)
+
+        for x in model['filters']:
+            if x['i'] >= 0:
+                l = size(x['w'])
+                j = np.array(range(x['i'], x['i'] + l))
+                w[j] = np.copy(x['w'])
+
+        return w, wreg, w0, noneg
+
+    def _poslatent(self, t, model, qp, poses, overlap):
+        num_pos = size(poses)
+        model['interval'] = 5
+        num_positives = np.zeros(size(model['components'], ), dtype=int)
+        score0 = qp.score_pos()
+        qp.n = 0
+        w = (self._model2vec(model)[0] - qp.w0) * qp.wreg
+        assert(norm(w - qp.w) < 10**-5)
+
+        for i, pos in enumerate(poses):
+            num_parts = size(pos)
+            bbox = dict()
+            bbox['box'] = np.zeros((num_parts, 4))
+            bbox['c'] = pos['gmixid']
+            for p in range(num_parts):
+                bbox['box'][p, :] = [pos['box_x1'], pos['box_y1'], pos['box_x2'], pos['box_y2']]        #todo : bbox values are weird fixit
+            im = mio.import_image(pos['im'])
+            im, bbox['box'] = self._croppos(im, bbox['box'])
+
+        return 0
+
+    def _croppos(self, im, box):
+        x1 = np.min(box[:, 0])
+        y1 = np.min(box[:, 1])
+        x2 = np.max(box[:, 2])
+        y2 = np.max(box[:, 3])
+        print x1, y1, x2, y2
+        pad = 0.5 * ((x2 - x1 + 1) + (y2 - y1 + 1))
+        print pad
+        x1 = max(0, x1 - pad)
+        y1 = max(0, y1 - pad)
+        x2 = min(im.shape[1] - 1, x2 + pad)
+        y2 = min(im.shape[0] - 1, y2 + pad)
+        cropped_im = im.crop([y1, x1], [y2, x2])
+        print x1, y1, x2, y2
+        box[:, 0] -= x1
+        box[:, 1] -= y1
+        box[:, 2] -= x1
+        box[:, 3] -= y1
+        print box
+        return cropped_im, box
+
 
 class Qp(object):
-    def __init__(self):
-        return
+    def __init__(self, length, nmax, num_id):
+        self.x = np.zeros((length, nmax), dtype=np.float32)
+        self.i = np.zeros((num_id, nmax), dtype=np.int)
+        self.b = np.zeros((nmax,), dtype=np.float32)
+        self.d = np.zeros((nmax,))
+        self.a = np.zeros((nmax,))
+        self.sv = np.zeros((nmax,), dtype=np.bool)
+        self.w = np.zeros((length,))
+        self.l = 0
+        self.n = 0
+        self.ub = 0.0
+        self.lb = 0.0
+        self.svfix = []
+
+    def score_pos(self):
+        y = self.i[0, 0:self.n]
+        i = np.array(nonzero(y > 1)[0], dtype=np.intc)
+        w = self.w + self.w0 * self.wreg
+        scores = score(w, self.x, i)/self.cpos
+        return scores
+
+
+
+

@@ -70,6 +70,15 @@ class DPMFitter(ModelFitter):
 
         return boxes
 
+    def fit_with_bb(self, image, model, threshold=-1, box=[], overlap=0, id=0, label=0):
+        ex = dict()
+        ex['blocks'] = []
+        ex['id'] = np.array([label, id, 0, 0, 0])
+        padding = (3, 3)  # TODO: param in the future maybe?
+        feats, scales = _featpyramid(image, 5, 4, padding)
+
+        return
+
 
 def _compute_unary_scores(feature_pyramid, filters):
     from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it
