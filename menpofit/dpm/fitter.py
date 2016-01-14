@@ -30,11 +30,11 @@ class DPMFitter(ModelFitter):
             filters = []
             defs = []
             for node in tree.vertices:
-                filters.append(filters_all[filter_ids[node] - 1])
+                filters.append(filters_all[filter_ids[node]])
                 if node == tree.root_vertex:  # root is on 0 by default in Ramanan
                     (w1, w2, w3, w4) = (0., 0., 0., 0.)
                 else:
-                    (w1, w2, w3, w4) = -defs_all[def_ids[node] - 1]
+                    (w1, w2, w3, w4) = -defs_all[def_ids[node]]
                 defs.append((w1, w2, w3, w4))
             boxes.extend(self._fit(feats, scales, padding, threshold, filters, defs, anchors, bias, tree))
         return boxes
@@ -67,6 +67,45 @@ class DPMFitter(ModelFitter):
                 detection_info['xy'] = XY[:, :, i]
 
                 boxes.append(dict(detection_info))
+
+        return boxes
+
+    def fast_fit(self, image, threshold=-1):
+        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
+        padding = (3, 3)  # TODO: param in the future maybe?
+        feats, scales = _featpyramid(image, 5, 4, padding)
+
+        boxes = []  # list with detection boxes (as dictionaries)
+        filters_all = self._model.filters_all
+        defs_all = self._model.defs_all
+        components = self._model.components
+        fsz = [filters_all[0].shape[1], filters_all[0].shape[2]]
+        for level, feat in feats.iteritems():  # for each level in the pyramid
+            unary_scores_all = convolve_python_f(feat, filters_all)
+            for c, component in enumerate(components):
+                tree = component['tree']
+                anchors = component['anchors']
+                bias = component['bias']
+                filter_ids = component['filter_ids']
+                def_ids = component['def_ids']
+                scores, Ix, Iy = _fast_compute_pairwise_scores(np.copy(unary_scores_all), defs_all, tree, filter_ids,
+                                                               def_ids, anchors)
+                scale = scales[level]
+                root_id = filter_ids[tree.root_vertex]
+                rscore = scores[root_id] + bias
+                [Y, X] = np.where(rscore > threshold)
+
+                if X.shape[0] > 0:
+                    XY = _backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding)
+
+                for i in range(X.shape[0]):
+                    x, y = X[i], Y[i]
+                    detection_info = {}
+                    detection_info['level'] = level
+                    detection_info['s'] = np.copy(rscore[y, x])
+                    detection_info['xy'] = XY[:, :, i]
+
+                    boxes.append(dict(detection_info))
 
         return boxes
 
@@ -124,6 +163,49 @@ def _compute_pairwise_scores(scores, tree, def_coef, anchor):
             cx = anchor[curr_vert][1]
             msg, Ix1, Iy1 = call_shiftdt(scores[curr_vert], np.array(w), cx, cy, Nx, Ny, 1)
             scores[tree.parent(curr_vert)] += msg
+            Ix[curr_vert] = np.copy(Ix1)
+            Iy[curr_vert] = np.copy(Iy1)
+    return scores, Ix, Iy
+
+
+def _fast_compute_pairwise_scores(scores, def_coefs, tree, filter_ids, def_ids, anchors):
+    r"""
+    Given the (unary) scores it computes the pairwise scores by utilising the Generalised Distance
+    Transform.
+
+    Parameters
+    ----------
+    scores: `list`
+        The (unary) scores to which the pairwise score will be added.
+    tree: `:map:`Tree``
+        Tree with the parent/child connections.
+    def_coef: `list`
+        Each element contains a 4-tuple with the deformation coefficients for that part.
+    anchors:
+        Contains the anchor position in relation to the parent of each part.
+
+    Returns
+    -------
+    scores: `ndarray`
+        The (unary + pairwise) scores.
+    Ix: `dict`
+        Contains the coordinates of x for each part from the Generalised Distance Transform.
+    Iy: `dict`
+        Contains the coordinates of y for each part from the Generalised Distance Transform.
+    """
+    from menpo.feature.gradient import call_shiftdt   # TODO: define a more proper file for it.
+    Iy, Ix = {}, {}
+    for depth in range(tree.maximum_depth, 0, -1):
+        for curr_vert in tree.vertices_at_depth(depth):
+            curr_filter_id = filter_ids[curr_vert]
+            parent_filter_id = filter_ids[tree.parent(curr_vert)]
+            (Ny, Nx) = scores[parent_filter_id].shape
+            curr_def_id = def_ids[curr_vert]
+            w = def_coefs[curr_def_id] * -1
+            cy = anchors[curr_vert][0]
+            cx = anchors[curr_vert][1]
+            msg, Ix1, Iy1 = call_shiftdt(scores[curr_filter_id], np.array(w), cx, cy, Nx, Ny, 1)
+            scores[parent_filter_id] += msg
             Ix[curr_vert] = np.copy(Ix1)
             Iy[curr_vert] = np.copy(Iy1)
     return scores, Ix, Iy

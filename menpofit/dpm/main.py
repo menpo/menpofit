@@ -44,9 +44,9 @@ def get_components(model, pyra_pad):
         num_parts = len(cm)
         for k in range(num_parts):    # 68 parts
             def_id = cm[k]['defid'][0][0]
-            def_ids.append(def_id)
+            def_ids.append(def_id - 1)
             filter_id = cm[k]['filterid'][0][0]
-            filter_ids.append(filter_id)
+            filter_ids.append(filter_id - 1)
             parents.append(cm[k]['parent'][0][0] - 1)
             filter_index.append(model['filters'][0][0][0][filter_id - 1][1][0][0])  # -1 due to python numbering
             x = model['defs'][0][0][0][def_id - 1]  # -1 due to python numbering
@@ -125,7 +125,6 @@ def debugging():
     import scipy.io
     from scipy.sparse import csr_matrix
     import menpo.io as mio
-    import time
     m68 = csr_matrix(([1] * 67, (
         [0,  0,  0,  0,  1,  3,  5,  6,  7,  8,  8,  9,  9, 10, 12, 13, 14,
          15, 16, 17, 18, 20, 20, 21, 23, 24, 25, 26, 27, 28, 29, 31, 31, 31,
@@ -179,7 +178,7 @@ def debugging():
     dpm = DPM(filters_all, defs_all, components)    # todo: this actually should have been learnt from the images
     # return
     #
-    boxes = DPMFitter(dpm).fit(im, thresh)
+    boxes = DPMFitter(dpm).fast_fit(im, thresh)
     boxes.sort(key=lambda item: item['s'], reverse=True)
     cc, pick = non_max_suppression_fast(clip_boxes(boxes), 0.3)
     lns = bb_to_lns(boxes, pick)
