@@ -1,4 +1,7 @@
+import numpy as np
+
 from menpo.image import Image
+from menpofit.visualize import view_image_multiple_landmarks
 
 from .error import euclidean_bb_normalised_error
 
@@ -32,26 +35,6 @@ class Result(object):
         self.image = None
         if image is not None:
             self.image = Image(image.pixels)
-
-    @property
-    def fitted_image(self):
-        r"""
-        Returns a copy of the fitted image with the following landmark
-        groups attached to it:
-            - ``initial``, containing the initial fitted shape .
-            - ``final``, containing the final shape.
-            - ``ground``, containing the ground truth shape. Only returned if
-            the ground truth shape was provided.
-
-        :type: :map:`Image`
-        """
-        image = Image(self.image.pixels)
-
-        image.landmarks['initial'] = self.initial_shape
-        image.landmarks['final'] = self.final_shape
-        if self.gt_shape is not None:
-            image.landmarks['ground'] = self.gt_shape
-        return image
 
     def final_error(self, compute_error=None):
         r"""
@@ -122,7 +105,7 @@ class Result(object):
     def view(self, figure_id=None, new_figure=False, render_image=True,
              render_final_shape=True, render_initial_shape=False,
              render_gt_shape=False, subplots_enabled=True, channels=None,
-             interpolation='bilinear', cmap_name=None, alpha=1.,
+             interpolation='bilinear', cmap_name=None, alpha=1., masked=True,
              render_markers=True, final_markers_colour='r',
              initial_markers_colour='b', gt_markers_colour='y',
              marker_style='o', marker_size=20, marker_edge_colour='k',
@@ -145,8 +128,9 @@ class Result(object):
              axes_x_limits=None, axes_y_limits=None, axes_x_ticks=None,
              axes_y_ticks=None, figure_size=(10, 8)):
         """
-        Visualize the landmarks. This method will appear on the Image as
-        ``view_landmarks`` if the Image is 2D.
+        Visualize the fitting result. The method renders the final fitted
+        shape and optionally the initial shape, ground truth shape and the
+        image, id they were provided.
 
         Parameters
         ----------
@@ -186,6 +170,8 @@ class Result(object):
             to greyscale and rgb colormaps respectively.
         alpha : `float`, optional
             The alpha blending value, between 0 (transparent) and 1 (opaque).
+        masked : `bool`, optional
+            If ``True``, then the image is rendered as masked.
         render_markers : `bool`, optional
             If ``True``, the markers will be rendered.
         final_markers_colour : See Below, optional
@@ -249,7 +235,7 @@ class Result(object):
             Example options ::
 
                 {ultralight, light, normal, regular, book, medium, roman,
-                semibold, demibold, demi, bold, heavy, extra bold, black}
+                 semibold, demibold, demi, bold, heavy, extra bold, black}
 
         numbers_font_colour : See Below, optional
             The font colour of the numbers.
@@ -277,7 +263,7 @@ class Result(object):
             Example options ::
 
                 {ultralight, light, normal, regular, book, medium, roman,
-                semibold, demibold, demi, bold, heavy, extra bold, black}
+                 semibold, demibold, demi, bold, heavy, extra bold, black}
 
         legend_marker_scale : `float`, optional
             The relative size of the legend markers with respect to the original
@@ -332,7 +318,7 @@ class Result(object):
             Example options ::
 
                 {ultralight, light, normal, regular, book, medium, roman,
-                semibold,demibold, demi, bold, heavy, extra bold, black}
+                 semibold,demibold, demi, bold, heavy, extra bold, black}
 
         axes_x_limits : `float` or (`float`, `float`) or ``None``, optional
             The limits of the x axis. If `float`, then it sets padding on the
@@ -351,152 +337,105 @@ class Result(object):
         figure_size : (`float`, `float`) `tuple` or ``None`` optional
             The size of the figure in inches.
         """
-        import matplotlib.pyplot as plt
-        from menpo.visualize.viewmatplotlib import MatplotlibRenderer
-
-        # Parse options
+        # Create image instance
         if self.image is None:
+            image = Image(np.zeros((10, 10)))
             render_image = False
-        if self.initial_shape is None:
-            render_initial_shape = False
-        if self.gt_shape is None:
-            render_gt_shape = False
-        if axes_x_limits is None:
-            axes_x_limits = [0, self.image.width - 1]
-        if axes_y_limits is None:
-            axes_y_limits = [0, self.image.height - 1]
-
-        # Get number of subplots, list of pointclouds and legend entries
-        n_subplots = 0
-        pointclouds = []
-        legend_entries = []
-        colours = []
-        if render_final_shape:
-            n_subplots += 1
-            pointclouds.append(self.final_shape)
-            legend_entries.append('Final')
-            colours.append(final_markers_colour)
-        if render_initial_shape:
-            n_subplots += 1
-            pointclouds.append(self.initial_shape)
-            legend_entries.append('Initial')
-            colours.append(initial_markers_colour)
-        if render_gt_shape:
-            n_subplots += 1
-            pointclouds.append(self.gt_shape)
-            legend_entries.append('Ground truth')
-            colours.append(gt_markers_colour)
-
-        # Initialize renderer
-        renderer = MatplotlibRenderer(figure_id=figure_id,
-                                      new_figure=new_figure)
-
-        # Render
-        if subplots_enabled:
-            for i, pc in enumerate(pointclouds):
-                # Create subplot and set its title
-                plt.subplot(1, n_subplots, i + 1)
-                # set subplot's title
-                if render_legend:
-                    plt.title(legend_entries[i],
-                              fontname=legend_font_name,
-                              fontstyle=legend_font_style,
-                              fontweight=legend_font_weight,
-                              fontsize=legend_font_size)
-
-                # Render image
-                if render_image:
-                    renderer = self.image.view(
-                            figure_id=renderer.figure_id, new_figure=False,
-                            channels=channels, interpolation=interpolation,
-                            cmap_name=cmap_name, alpha=alpha,
-                            render_axes=render_axes,
-                            axes_x_limits=axes_x_limits,
-                            axes_y_limits=axes_y_limits)
-
-                # Render pointcloud
-                renderer = pc.view(
-                        figure_id=renderer.figure_id, new_figure=False,
-                        image_view=True, render_markers=render_markers,
-                        marker_style=marker_style, marker_size=marker_size,
-                        marker_face_colour=colours[i],
-                        marker_edge_colour=marker_edge_colour,
-                        marker_edge_width=marker_edge_width,
-                        render_numbering=render_numbering,
-                        numbers_horizontal_align=numbers_horizontal_align,
-                        numbers_vertical_align=numbers_vertical_align,
-                        numbers_font_name=numbers_font_name,
-                        numbers_font_size=numbers_font_size,
-                        numbers_font_style=numbers_font_style,
-                        numbers_font_weight=numbers_font_weight,
-                        numbers_font_colour=numbers_font_colour,
-                        render_axes=render_axes, axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-                        axes_y_ticks=axes_y_ticks, figure_size=figure_size,
-                        label=None)
         else:
-            # Render image
-            if render_image:
-                renderer = self.image.view(
-                        figure_id=renderer.figure_id, new_figure=False,
-                        channels=channels, interpolation=interpolation,
-                        cmap_name=cmap_name, alpha=alpha,
-                        render_axes=render_axes,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits)
+            image = Image(self.image.pixels)
+        # Assign pointclouds to image
+        groups = []
+        colours = []
+        subplots_titles = {}
+        if render_final_shape:
+            image.landmarks['final'] = self.final_shape
+            groups.append('final')
+            colours.append(final_markers_colour)
+            subplots_titles['final'] = 'Final'
+        if self.initial_shape is not None and render_initial_shape:
+            image.landmarks['initial'] = self.initial_shape
+            groups.append('initial')
+            colours.append(initial_markers_colour)
+            subplots_titles['initial'] = 'Initial'
+        if self.gt_shape is not None and render_gt_shape:
+            image.landmarks['groundtruth'] = self.gt_shape
+            groups.append('groundtruth')
+            colours.append(gt_markers_colour)
+            subplots_titles['groundtruth'] = 'Groundtruth'
+        # Render
+        view_image_multiple_landmarks(
+                image, groups, with_labels=None, figure_id=figure_id,
+                new_figure=new_figure, subplots_enabled=subplots_enabled,
+                subplots_titles=subplots_titles, render_image=render_image,
+                render_landmarks=True, masked=masked,
+                channels=channels, interpolation=interpolation,
+                cmap_name=cmap_name, alpha=alpha, image_view=True,
+                render_lines=False, line_style='-', line_width=2,
+                line_colour='k', render_markers=render_markers,
+                marker_style=marker_style, marker_size=marker_size,
+                marker_edge_width=marker_edge_width,
+                marker_edge_colour=marker_edge_colour,
+                marker_face_colour=colours,
+                render_numbering=render_numbering,
+                numbers_horizontal_align=numbers_horizontal_align,
+                numbers_vertical_align=numbers_vertical_align,
+                numbers_font_name=numbers_font_name,
+                numbers_font_size=numbers_font_size,
+                numbers_font_style=numbers_font_style,
+                numbers_font_weight=numbers_font_weight,
+                numbers_font_colour=numbers_font_colour,
+                render_legend=render_legend, legend_title=legend_title,
+                legend_font_name=legend_font_name,
+                legend_font_style=legend_font_style,
+                legend_font_size=legend_font_size,
+                legend_font_weight=legend_font_weight,
+                legend_marker_scale=legend_marker_scale,
+                legend_location=legend_location,
+                legend_bbox_to_anchor=legend_bbox_to_anchor,
+                legend_border_axes_pad=legend_border_axes_pad,
+                legend_n_columns=legend_n_columns,
+                legend_horizontal_spacing=legend_horizontal_spacing,
+                legend_vertical_spacing=legend_vertical_spacing,
+                legend_border=legend_border,
+                legend_border_padding=legend_border_padding,
+                legend_shadow=legend_shadow,
+                legend_rounded_corners=legend_rounded_corners,
+                render_axes=render_axes, axes_font_name=axes_font_name,
+                axes_font_size=axes_font_size, axes_font_style=axes_font_style,
+                axes_font_weight=axes_font_weight, axes_x_limits=axes_x_limits,
+                axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
+                axes_y_ticks=axes_y_ticks, figure_size=figure_size)
 
-            # Render pointclouds
-            for pc, c in zip(pointclouds, colours):
-                renderer = pc.view(
-                        figure_id=renderer.figure_id, new_figure=False,
-                        image_view=True, render_markers=render_markers,
-                        marker_style=marker_style, marker_size=marker_size,
-                        marker_face_colour=c,
-                        marker_edge_colour=marker_edge_colour,
-                        marker_edge_width=marker_edge_width,
-                        render_numbering=render_numbering,
-                        numbers_horizontal_align=numbers_horizontal_align,
-                        numbers_vertical_align=numbers_vertical_align,
-                        numbers_font_name=numbers_font_name,
-                        numbers_font_size=numbers_font_size,
-                        numbers_font_style=numbers_font_style,
-                        numbers_font_weight=numbers_font_weight,
-                        numbers_font_colour=numbers_font_colour,
-                        render_axes=render_axes, axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-                        axes_y_ticks=axes_y_ticks, figure_size=figure_size,
-                        label=None)
+    def view_widget(self, figure_size=(10, 8), style='coloured'):
+        r"""
+        Visualizes the result object using an interactive widget.
 
-            # Render legend
-            if render_legend:
-                # Options related to legend's font
-                prop = {'family': legend_font_name, 'size': legend_font_size,
-                        'style': legend_font_style, 'weight':
-                            legend_font_weight}
-
-                # Render legend
-                plt.legend(
-                        legend_entries, title=legend_title, prop=prop,
-                        loc=legend_location,
-                        bbox_to_anchor=legend_bbox_to_anchor,
-                        borderaxespad=legend_border_axes_pad,
-                        ncol=legend_n_columns,
-                        columnspacing=legend_horizontal_spacing,
-                        labelspacing=legend_vertical_spacing,
-                        frameon=legend_border,
-                        borderpad=legend_border_padding, shadow=legend_shadow,
-                        fancybox=legend_rounded_corners,
-                        markerscale=legend_marker_scale)
-
-        return renderer
+        Parameters
+        ----------
+        figure_size : (`int`, `int`), optional
+            The initial size of the rendered figure.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
+        """
+        if self.image is not None:
+            from menpowidgets import visualize_images
+            image = Image(self.image.pixels)
+            image.landmarks['final'] = self.final_shape
+            if self.initial_shape is not None:
+                image.landmarks['initial'] = self.initial_shape
+            if self.gt_shape is not None:
+                image.landmarks['groundtruth'] = self.gt_shape
+            visualize_images(image, figure_size=figure_size, style=style)
+        else:
+            from menpowidgets import visualize_pointclouds
+            pointclouds = [self.final_shape]
+            if self.initial_shape is not None:
+                pointclouds.append(self.initial_shape)
+            if self.gt_shape is not None:
+                pointclouds.append(self.gt_shape)
+            visualize_pointclouds(pointclouds, figure_size=figure_size,
+                                  style=style, browser_style='slider')
 
     def __str__(self):
         out = "Fitting result of {} landmark points.".format(
@@ -506,3 +445,318 @@ class Result(object):
                 out += "\nInitial error: {:.4f}".format(self.initial_error())
             out += "\nFinal error: {:.4f}".format(self.final_error())
         return out
+
+
+# class IterativeResult(Result):
+#     def __init__(self, final_shape, image=None, initial_shape=None,
+#                  gt_shape=None):
+#         self.final_shape = final_shape
+#         self.initial_shape = initial_shape
+#         self.gt_shape = gt_shape
+#         self.image = None
+#         if image is not None:
+#             self.image = Image(image.pixels)
+#
+#     @abc.abstractproperty
+#     def n_iters(self):
+#         r"""
+#         Returns the number of iterations.
+#         """
+#
+#     @abc.abstractproperty
+#     def shapes(self):
+#         r"""
+#         Generates a list containing the shapes obtained at each fitting
+#         iteration.
+#
+#         Returns
+#         -------
+#         shapes : :map:`PointCloud`s or ndarray list
+#             A list containing the shapes obtained at each fitting iteration.
+#         """
+#
+#     @property
+#     def iter_image(self):
+#         r"""
+#         Returns a copy of the fitted image with a as many landmark groups as
+#         iteration run by fitting procedure:
+#             - ``iter_0``, containing the initial shape.
+#             - ``iter_1``, containing the the fitted shape at the first
+#             iteration.
+#             - ``...``
+#             - ``iter_n``, containing the final fitted shape.
+#
+#         :type: :map:`Image`
+#         """
+#         image = Image(self.image.pixels)
+#         for j, s in enumerate(self.shapes):
+#             image.landmarks['iter_'+str(j)] = s
+#         return image
+#
+#     def errors(self, compute_error=None):
+#         r"""
+#         Returns a list containing the error at each fitting iteration.
+#
+#         Parameters
+#         -----------
+#         compute_error: `callable`, optional
+#             Callable that computes the error between the fitted and
+#             ground truth shapes.
+#
+#         Returns
+#         -------
+#         errors : `list` of `float`
+#             The errors at each iteration of the fitting process.
+#         """
+#         if compute_error is None:
+#             compute_error = euclidean_bb_normalised_error
+#         if self.gt_shape is not None:
+#             return [compute_error(t, self.gt_shape)
+#                     for t in self.shapes]
+#         else:
+#             raise ValueError('Ground truth has not been set, errors cannot '
+#                              'be computed')
+#
+#     def plot_errors(self, error_type=None, figure_id=None,
+#                     new_figure=False, render_lines=True, line_colour='b',
+#                     line_style='-', line_width=2, render_markers=True,
+#                     marker_style='o', marker_size=4, marker_face_colour='b',
+#                     marker_edge_colour='k', marker_edge_width=1.,
+#                     render_axes=True, axes_font_name='sans-serif',
+#                     axes_font_size=10, axes_font_style='normal',
+#                     axes_font_weight='normal', figure_size=(10, 6),
+#                     render_grid=True, grid_line_style='--',
+#                     grid_line_width=0.5):
+#         r"""
+#         Plot of the error evolution at each fitting iteration.
+#         Parameters
+#         ----------
+#         error_type : {``me_norm``, ``me``, ``rmse``}, optional
+#             Specifies the way in which the error between the fitted and
+#             ground truth shapes is to be computed.
+#         figure_id : `object`, optional
+#             The id of the figure to be used.
+#         new_figure : `bool`, optional
+#             If ``True``, a new figure is created.
+#         render_lines : `bool`, optional
+#             If ``True``, the line will be rendered.
+#         line_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``} or
+#                       ``(3, )`` `ndarray`, optional
+#             The colour of the lines.
+#         line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+#             The style of the lines.
+#         line_width : `float`, optional
+#             The width of the lines.
+#         render_markers : `bool`, optional
+#             If ``True``, the markers will be rendered.
+#         marker_style : {``.``, ``,``, ``o``, ``v``, ``^``, ``<``, ``>``, ``+``,
+#                         ``x``, ``D``, ``d``, ``s``, ``p``, ``*``, ``h``, ``H``,
+#                         ``1``, ``2``, ``3``, ``4``, ``8``}, optional
+#             The style of the markers.
+#         marker_size : `int`, optional
+#             The size of the markers in points^2.
+#         marker_face_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+#                              or ``(3, )`` `ndarray`, optional
+#             The face (filling) colour of the markers.
+#         marker_edge_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+#                              or ``(3, )`` `ndarray`, optional
+#             The edge colour of the markers.
+#         marker_edge_width : `float`, optional
+#             The width of the markers' edge.
+#         render_axes : `bool`, optional
+#             If ``True``, the axes will be rendered.
+#         axes_font_name : {``serif``, ``sans-serif``, ``cursive``, ``fantasy``,
+#                           ``monospace``}, optional
+#             The font of the axes.
+#         axes_font_size : `int`, optional
+#             The font size of the axes.
+#         axes_font_style : {``normal``, ``italic``, ``oblique``}, optional
+#             The font style of the axes.
+#         axes_font_weight : {``ultralight``, ``light``, ``normal``, ``regular``,
+#                             ``book``, ``medium``, ``roman``, ``semibold``,
+#                             ``demibold``, ``demi``, ``bold``, ``heavy``,
+#                             ``extra bold``, ``black``}, optional
+#             The font weight of the axes.
+#         figure_size : (`float`, `float`) or `None`, optional
+#             The size of the figure in inches.
+#         render_grid : `bool`, optional
+#             If ``True``, the grid will be rendered.
+#         grid_line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+#             The style of the grid lines.
+#         grid_line_width : `float`, optional
+#             The width of the grid lines.
+#         Returns
+#         -------
+#         viewer : :map:`GraphPlotter`
+#             The viewer object.
+#         """
+#         from menpo.visualize import GraphPlotter
+#         errors_list = self.errors(compute_error=error_type)
+#         return GraphPlotter(figure_id=figure_id, new_figure=new_figure,
+#                             x_axis=range(len(errors_list)),
+#                             y_axis=[errors_list],
+#                             title='Fitting Errors per Iteration',
+#                             x_label='Iteration', y_label='Fitting Error',
+#                             x_axis_limits=(0, len(errors_list)-1),
+#                             y_axis_limits=None).render(
+#                 render_lines=render_lines, line_colour=line_colour,
+#                 line_style=line_style, line_width=line_width,
+#                 render_markers=render_markers, marker_style=marker_style,
+#                 marker_size=marker_size, marker_face_colour=marker_face_colour,
+#                 marker_edge_colour=marker_edge_colour,
+#                 marker_edge_width=marker_edge_width, render_legend=False,
+#                 render_axes=render_axes, axes_font_name=axes_font_name,
+#                 axes_font_size=axes_font_size, axes_font_style=axes_font_style,
+#                 axes_font_weight=axes_font_weight, render_grid=render_grid,
+#                 grid_line_style=grid_line_style, grid_line_width=grid_line_width,
+#                 figure_size=figure_size)
+#
+#     def displacements(self):
+#         r"""
+#         A list containing the displacement between the shape of each iteration
+#         and the shape of the previous one.
+#         :type: `list` of ndarray
+#         """
+#         return [np.linalg.norm(s1.points - s2.points, axis=1)
+#                 for s1, s2 in zip(self.shapes, self.shapes[1:])]
+#
+#     def displacements_stats(self, stat_type='mean'):
+#         r"""
+#         A list containing the a statistical metric on the displacement between
+#         the shape of each iteration and the shape of the previous one.
+#         Parameters
+#         -----------
+#         stat_type : `str` ``{'mean', 'median', 'min', 'max'}``, optional
+#             Specifies a statistic metric to be extracted from the displacements.
+#         Returns
+#         -------
+#         :type: `list` of `float`
+#             The statistical metric on the points displacements for each
+#             iteration.
+#         """
+#         if stat_type == 'mean':
+#             return [np.mean(d) for d in self.displacements()]
+#         elif stat_type == 'median':
+#             return [np.median(d) for d in self.displacements()]
+#         elif stat_type == 'max':
+#             return [np.max(d) for d in self.displacements()]
+#         elif stat_type == 'min':
+#             return [np.min(d) for d in self.displacements()]
+#         else:
+#             raise ValueError("type must be 'mean', 'median', 'min' or 'max'")
+#
+#     def plot_displacements(self, stat_type='mean', figure_id=None,
+#                            new_figure=False, render_lines=True, line_colour='b',
+#                            line_style='-', line_width=2, render_markers=True,
+#                            marker_style='o', marker_size=4,
+#                            marker_face_colour='b', marker_edge_colour='k',
+#                            marker_edge_width=1., render_axes=True,
+#                            axes_font_name='sans-serif', axes_font_size=10,
+#                            axes_font_style='normal', axes_font_weight='normal',
+#                            figure_size=(10, 6), render_grid=True,
+#                            grid_line_style='--', grid_line_width=0.5):
+#         r"""
+#         Plot of a statistical metric of the displacement between the shape of
+#         each iteration and the shape of the previous one.
+#         Parameters
+#         ----------
+#         stat_type : {``mean``, ``median``, ``min``, ``max``}, optional
+#             Specifies a statistic metric to be extracted from the displacements
+#             (see also `displacements_stats()` method).
+#         figure_id : `object`, optional
+#             The id of the figure to be used.
+#         new_figure : `bool`, optional
+#             If ``True``, a new figure is created.
+#         render_lines : `bool`, optional
+#             If ``True``, the line will be rendered.
+#         line_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``} or
+#                       ``(3, )`` `ndarray`, optional
+#             The colour of the lines.
+#         line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+#             The style of the lines.
+#         line_width : `float`, optional
+#             The width of the lines.
+#         render_markers : `bool`, optional
+#             If ``True``, the markers will be rendered.
+#         marker_style : {``.``, ``,``, ``o``, ``v``, ``^``, ``<``, ``>``, ``+``,
+#                         ``x``, ``D``, ``d``, ``s``, ``p``, ``*``, ``h``, ``H``,
+#                         ``1``, ``2``, ``3``, ``4``, ``8``}, optional
+#             The style of the markers.
+#         marker_size : `int`, optional
+#             The size of the markers in points^2.
+#         marker_face_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+#                              or ``(3, )`` `ndarray`, optional
+#             The face (filling) colour of the markers.
+#         marker_edge_colour : {``r``, ``g``, ``b``, ``c``, ``m``, ``k``, ``w``}
+#                              or ``(3, )`` `ndarray`, optional
+#             The edge colour of the markers.
+#         marker_edge_width : `float`, optional
+#             The width of the markers' edge.
+#         render_axes : `bool`, optional
+#             If ``True``, the axes will be rendered.
+#         axes_font_name : {``serif``, ``sans-serif``, ``cursive``, ``fantasy``,
+#                           ``monospace``}, optional
+#             The font of the axes.
+#         axes_font_size : `int`, optional
+#             The font size of the axes.
+#         axes_font_style : {``normal``, ``italic``, ``oblique``}, optional
+#             The font style of the axes.
+#         axes_font_weight : {``ultralight``, ``light``, ``normal``, ``regular``,
+#                             ``book``, ``medium``, ``roman``, ``semibold``,
+#                             ``demibold``, ``demi``, ``bold``, ``heavy``,
+#                             ``extra bold``, ``black``}, optional
+#             The font weight of the axes.
+#         figure_size : (`float`, `float`) or `None`, optional
+#             The size of the figure in inches.
+#         render_grid : `bool`, optional
+#             If ``True``, the grid will be rendered.
+#         grid_line_style : {``-``, ``--``, ``-.``, ``:``}, optional
+#             The style of the grid lines.
+#         grid_line_width : `float`, optional
+#             The width of the grid lines.
+#         Returns
+#         -------
+#         viewer : :map:`GraphPlotter`
+#             The viewer object.
+#         """
+#         from menpo.visualize import GraphPlotter
+#         # set labels
+#         if stat_type == 'max':
+#             ylabel = 'Maximum Displacement'
+#             title = 'Maximum displacement per Iteration'
+#         elif stat_type == 'min':
+#             ylabel = 'Minimum Displacement'
+#             title = 'Minimum displacement per Iteration'
+#         elif stat_type == 'mean':
+#             ylabel = 'Mean Displacement'
+#             title = 'Mean displacement per Iteration'
+#         elif stat_type == 'median':
+#             ylabel = 'Median Displacement'
+#             title = 'Median displacement per Iteration'
+#         else:
+#             raise ValueError('stat_type must be one of {max, min, mean, '
+#                              'median}.')
+#         # plot
+#         displacements_list = self.displacements_stats(stat_type=stat_type)
+#         return GraphPlotter(figure_id=figure_id, new_figure=new_figure,
+#                             x_axis=range(len(displacements_list)),
+#                             y_axis=[displacements_list],
+#                             title=title,
+#                             x_label='Iteration', y_label=ylabel,
+#                             x_axis_limits=(0, len(displacements_list)-1),
+#                             y_axis_limits=None).render(
+#                 render_lines=render_lines, line_colour=line_colour,
+#                 line_style=line_style, line_width=line_width,
+#                 render_markers=render_markers, marker_style=marker_style,
+#                 marker_size=marker_size, marker_face_colour=marker_face_colour,
+#                 marker_edge_colour=marker_edge_colour,
+#                 marker_edge_width=marker_edge_width, render_legend=False,
+#                 render_axes=render_axes, axes_font_name=axes_font_name,
+#                 axes_font_size=axes_font_size, axes_font_style=axes_font_style,
+#                 axes_font_weight=axes_font_weight, render_grid=render_grid,
+#                 grid_line_style=grid_line_style, grid_line_width=grid_line_width,
+#                 figure_size=figure_size)
+#
+#     def as_serializableresult(self):
+#         return SerializableIterativeResult(
+#                 self.image, self.shapes, self.n_iters, gt_shape=self.gt_shape)
