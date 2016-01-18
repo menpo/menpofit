@@ -425,6 +425,27 @@ def view_image_multiple_landmarks(
                         interpolation=interpolation, alpha=alpha,
                         cmap_name=cmap_name, figure_size=figure_size,
                         **mask_arguments)
+            if not subplots_enabled:
+                if render_legend:
+                    # Options related to legend's font
+                    prop = {'family': legend_font_name,
+                            'size': legend_font_size,
+                            'style': legend_font_style,
+                            'weight': legend_font_weight}
+
+                    # display legend on side
+                    plt.gca().legend(groups, title=legend_title, prop=prop,
+                                     loc=legend_location,
+                                     bbox_to_anchor=legend_bbox_to_anchor,
+                                     borderaxespad=legend_border_axes_pad,
+                                     ncol=legend_n_columns,
+                                     columnspacing=legend_horizontal_spacing,
+                                     labelspacing=legend_vertical_spacing,
+                                     frameon=legend_border,
+                                     borderpad=legend_border_padding,
+                                     shadow=legend_shadow,
+                                     fancybox=legend_rounded_corners,
+                                     markerscale=legend_marker_scale)
         else:
             # either there are not any landmark groups selected or they won't
             # be displayed
