@@ -13,7 +13,7 @@ from menpofit import checks
 from menpofit.compatibility import STRING_TYPES
 from menpofit.fitter import noisy_shape_from_bounding_box, MultiFitter, \
     generate_perturbations_from_gt
-from menpofit.result import MultiFitterResult
+from menpofit.result_old import MultiFitterResult
 from menpofit.builder import (
     scale_images, rescale_images_to_reference_shape,
     compute_reference_shape)

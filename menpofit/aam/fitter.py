@@ -1,22 +1,30 @@
 from __future__ import division
 import numpy as np
 from copy import deepcopy
+
 from menpo.transform import AlignmentUniformScale
 from menpo.image import BooleanImage
+
 from menpofit.fitter import ModelFitter, noisy_shape_from_bounding_box
 from menpofit.sdm import SupervisedDescentFitter
 import menpofit.checks as checks
+
 from .algorithm.lk import WibergInverseCompositional
 from .algorithm.sd import ProjectOutNewton
-from .result import AAMFitterResult
+from .result import AAMResult
 
 
-# TODO: document me!
 class AAMFitter(ModelFitter):
     r"""
+    Abstract class for defining an AAM fitter.
     """
     @property
     def aam(self):
+        r"""
+        The trained AAM model.
+
+        :type: `menpofit.aam.base.AAM` or subclass
+        """
         return self._model
 
     def _check_n_appearance(self, n_appearance):
@@ -24,13 +32,32 @@ class AAMFitter(ModelFitter):
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
-        return AAMFitterResult(image, self, algorithm_results,
-                               affine_correction, gt_shape=gt_shape)
+        return AAMResult(results=algorithm_results, scales=self.aam.scales,
+                         affine_correction=affine_correction, image=image,
+                         gt_shape=gt_shape)
 
 
-# TODO: document me!
 class LucasKanadeAAMFitter(AAMFitter):
     r"""
+    Class for defining an AAM fitter using the Lucas-Kanade optimization.
+
+    Parameters
+    ----------
+    aam : `menpofit.aam.base.AAM` or subclass
+        The trained AAM model.
+    lk_algorithm_cls : `menpofit.aam.algorithm.lk.LucasKanade` or subclass, optional
+        The Lukas-Kanade optimization algorithm that will get applied. All
+        possible algorithms are stored in `menpofit.aam.algorithm.lk`.
+    n_shape : `int` or `list` or ``None``, optional
+        The number of shape components that will be used. If `int`, then the
+        provided value will be applied on all scales. If `list`, then it
+        defines a value per scale. If ``None``, then all the components will
+        be used.
+    n_appearance : `int` or `list` or ``None``, optional
+        The number of appearance components that will be used. If `int`,
+        then the provided value will be applied on all scales. If `list`, then
+        it defines a value per scale. If ``None``, then all the components will
+        be used.
     """
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
                  n_shape=None, n_appearance=None, sampling=None):

@@ -15,7 +15,7 @@ from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
 from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
                              align_shape_with_bounding_box,
                              generate_perturbations_from_gt)
-from menpofit.result import MultiFitterResult
+from menpofit.result_old import MultiFitterResult
 import menpofit.checks as checks
 
 

@@ -1,4 +1,4 @@
-from menpofit.result import ParametricAlgorithmResult, MultiFitterResult
+from menpofit.result_old import ParametricAlgorithmResult, MultiFitterResult
 
 
 # TODO: document me!

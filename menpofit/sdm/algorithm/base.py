@@ -1,6 +1,6 @@
 from __future__ import division
 from functools import partial
-from menpofit.result import NonParametricAlgorithmResult
+from menpofit.result_old import NonParametricAlgorithmResult
 import numpy as np
 from menpo.visualize import print_dynamic
 from menpofit.visualize import print_progress

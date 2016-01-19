@@ -1,8 +1,10 @@
 from __future__ import division
 import numpy as np
+
 from menpo.image import Image
 from menpo.feature import gradient as fast_gradient, no_op
-from ..result import AAMAlgorithmResult, LinearAAMAlgorithmResult
+
+from ..result import AAMOptimizationResult
 
 
 def _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p, m, n):
@@ -134,12 +136,13 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
     def solve_all_ml(self, H, J, e):
         return _solve_all_ml(H, J, e, self.m)
 
-    def algorithm_result(self, image, shape_parameters, cost_functions=None,
-                         appearance_parameters=None, gt_shape=None):
-        return AAMAlgorithmResult(
-            image, self, shape_parameters,
-            cost_functions=cost_functions,
-            appearance_parameters=appearance_parameters, gt_shape=gt_shape)
+    def algorithm_result(self, image, shapes, shape_parameters,
+                         appearance_parameters=None, cost_functions=None,
+                         gt_shape=None):
+        return AAMOptimizationResult(
+                shapes=shapes, shape_parameters=shape_parameters,
+                appearance_parameters=appearance_parameters,
+                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
 
 
 # TODO document me!
@@ -150,12 +153,16 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
     def shape_model(self):
         return self.transform.model
 
-    def algorithm_result(self, image, shape_parameters, cost_functions=None,
-                         appearance_parameters=None, gt_shape=None):
-        return LinearAAMAlgorithmResult(
-            image, self, shape_parameters,
-            cost_functions=cost_functions,
-            appearance_parameters=appearance_parameters, gt_shape=gt_shape)
+    def algorithm_result(self, image, shapes, shape_parameters,
+                         appearance_parameters=None, cost_functions=None,
+                         gt_shape=None):
+        # This means that the linear AAM will only store the sparse shapes
+        shapes = [self.transform.from_vector(p).sparse_target
+                  for p in shape_parameters]
+        return AAMOptimizationResult(
+                shapes=shapes, shape_parameters=shape_parameters,
+                appearance_parameters=appearance_parameters,
+                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
 
 
 # TODO document me!
@@ -246,12 +253,13 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     def solve_all_ml(self, H, J, e):
         return _solve_all_ml(H, J, e, self.m)
 
-    def algorithm_result(self, image, shape_parameters, cost_functions=None,
-                         appearance_parameters=None, gt_shape=None):
-        return AAMAlgorithmResult(
-            image, self, shape_parameters,
-            cost_functions=cost_functions,
-            appearance_parameters=appearance_parameters, gt_shape=gt_shape)
+    def algorithm_result(self, image, shapes, shape_parameters,
+                         appearance_parameters=None, cost_functions=None,
+                         gt_shape=None):
+        return AAMOptimizationResult(
+                shapes=shapes, shape_parameters=shape_parameters,
+                appearance_parameters=appearance_parameters,
+                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
 
 
 # TODO document me!
@@ -324,6 +332,7 @@ class ProjectOut(LucasKanade):
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # initialize iteration counter and epsilon
         k = 0
@@ -350,6 +359,7 @@ class ProjectOut(LucasKanade):
             s_k = self.transform.target.points
             self._update_warp()
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # warp image
             self.i = self.interface.warp(image)
@@ -370,7 +380,8 @@ class ProjectOut(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 # TODO: Document me!
@@ -449,6 +460,7 @@ class Simultaneous(LucasKanade):
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # initialize iteration counter and epsilon
         k = 0
@@ -489,6 +501,7 @@ class Simultaneous(LucasKanade):
             s_k = self.transform.target.points
             self._update_warp()
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # warp image
             self.i = self.interface.warp(image)
@@ -509,8 +522,9 @@ class Simultaneous(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, cost_functions=cost_functions,
-            appearance_parameters=c_list, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            appearance_parameters=c_list, cost_functions=cost_functions,
+            gt_shape=gt_shape)
 
     def _solve(self, map_inference):
         # compute masked Jacobian
@@ -583,6 +597,7 @@ class Alternating(LucasKanade):
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # initialize iteration counter and epsilon
         k = 0
@@ -640,6 +655,7 @@ class Alternating(LucasKanade):
             s_k = self.transform.target.points
             self._update_warp()
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # warp image
             self.i = self.interface.warp(image)
@@ -663,8 +679,9 @@ class Alternating(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, cost_functions=cost_functions,
-            appearance_parameters=c_list, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            cost_functions=cost_functions, appearance_parameters=c_list,
+            gt_shape=gt_shape)
 
 
 # TODO: Document me!
@@ -715,6 +732,7 @@ class ModifiedAlternating(Alternating):
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # initialize iteration counter and epsilon
         a_m = self.a_bar_m
@@ -758,6 +776,7 @@ class ModifiedAlternating(Alternating):
             s_k = self.transform.target.points
             self._update_warp()
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # warp image
             self.i = self.interface.warp(image)
@@ -784,8 +803,9 @@ class ModifiedAlternating(Alternating):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, cost_functions=cost_functions,
-            appearance_parameters=c_list, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            cost_functions=cost_functions, appearance_parameters=c_list,
+            gt_shape=gt_shape)
 
 
 # TODO: Document me!
@@ -840,6 +860,7 @@ class Wiberg(LucasKanade):
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # initialize iteration counter and epsilon
         k = 0
@@ -884,6 +905,7 @@ class Wiberg(LucasKanade):
             s_k = self.transform.target.points
             self._update_warp()
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # warp image
             self.i = self.interface.warp(image)
@@ -911,8 +933,9 @@ class Wiberg(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, cost_functions=cost_functions,
-            appearance_parameters=c_list, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            cost_functions=cost_functions, appearance_parameters=c_list,
+            gt_shape=gt_shape)
 
 
 # TODO: Document me!

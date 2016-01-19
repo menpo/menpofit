@@ -1,7 +1,7 @@
 import numpy as np
 from functools import partial
 from menpo.feature import no_op
-from menpofit.result import euclidean_bb_normalised_error
+from menpofit.result_old import euclidean_bb_normalised_error
 
 from .base import (BaseSupervisedDescentAlgorithm,
                    compute_parametric_delta_x, features_per_patch,

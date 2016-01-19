@@ -7,7 +7,7 @@ from .conversion import (copy_dlib_options, pointcloud_to_dlib_rect,
                          image_to_dlib_pixels)
 from menpo.visualize import print_dynamic
 
-from menpofit.result import NonParametricAlgorithmResult
+from menpofit.result_old import NonParametricAlgorithmResult
 
 
 # TODO: document me!

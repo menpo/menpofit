@@ -1,6 +1,8 @@
 import numpy as np
+from collections import Iterable
 
 from menpo.image import Image
+from menpo.transform import Scale
 from menpofit.visualize import view_image_multiple_landmarks
 
 from .error import euclidean_bb_normalised_error
@@ -447,11 +449,12 @@ class Result(object):
         return out
 
 
-class IterativeResult(Result):
+class NonParametricIterativeResult(Result):
     r"""
-    Class for storing an iterative fitting result. It holds the shapes of
-    all the iterations of the fitting procedure. It can optionally store the
-    image on which the fitting was applied.
+    Class for storing a non-parametric iterative fitting result, i.e. the
+    result of a method that does not optimize over a parametric shape model. It
+    holds the shapes of all the iterations of the fitting procedure. It can
+    optionally store the image on which the fitting was applied.
 
     Parameters
     ----------
@@ -467,7 +470,7 @@ class IterativeResult(Result):
         ground truth shape is assigned.
     """
     def __init__(self, shapes, image=None, gt_shape=None):
-        super(IterativeResult, self).__init__(
+        super(NonParametricIterativeResult, self).__init__(
                 final_shape=shapes[-1], image=image, initial_shape=shapes[0],
                 gt_shape=gt_shape)
         self.shapes = shapes
@@ -1149,3 +1152,89 @@ class IterativeResult(Result):
                 axes_font_weight=axes_font_weight, axes_x_limits=axes_x_limits,
                 axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
                 axes_y_ticks=axes_y_ticks, figure_size=figure_size)
+
+
+class ParametricIterativeResult(NonParametricIterativeResult):
+    r"""
+    Class for storing a parametric iterative fitting result, i.e. the result
+    of a method that optimizes the parameters of a shape model. It holds the
+    shapes and shape parameters of all the iterations of the fitting
+    procedure. It can optionally store the image on which the fitting was
+    applied.
+
+    Parameters
+    ----------
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of shapes per iteration. The first member is the initial
+        shape and the last member is the final shape.
+    shape_parameters : `list` of `ndarray`
+        The `list` of shape parameters per iteration.
+    image : `menpo.image.Image` or subclass or ``None``, optional
+        The image on which the fitting process was applied. Note that a copy
+        of the image will be assigned as an attribute. If ``None``, then no
+        image is assigned.
+    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The ground truth shape associated with the image. If ``None``, then no
+        ground truth shape is assigned.
+    """
+    def __init__(self, shapes, shape_parameters, image=None, gt_shape=None):
+        super(ParametricIterativeResult, self).__init__(
+                shapes=shapes, image=image, gt_shape=gt_shape)
+        self.shape_parameters = shape_parameters
+
+
+class MultiLevelNonParametricIterativeResult(NonParametricIterativeResult):
+    r"""
+    """
+    def __init__(self, results, scales, affine_correction, image=None,
+                 gt_shape=None):
+        # Make sure results and scales are iterable
+        if not isinstance(results, Iterable):
+            results = [results]
+        if not isinstance(scales, Iterable):
+            scales = [scales]
+        # Check that results and scales have the same length
+        if len(results) != len(scales):
+            raise ValueError('results and scales must have equal length ({} '
+                             '!= {})'.format(len(results), len(scales)))
+        # Create shapes list
+        shapes = _rescale_shapes_to_reference(
+                shapes=results[0].shapes, scale=scales[0], max_scale=scales[-1],
+                affine_correction=affine_correction)
+        for (r, scale) in zip(results[1:], scales[1:]):
+            shapes += _rescale_shapes_to_reference(
+                    shapes=r.shapes[1:], scale=scale, max_scale=scales[-1],
+                    affine_correction=affine_correction)
+        # Call superclass
+        super(MultiLevelNonParametricIterativeResult, self).__init__(
+            shapes=shapes, image=image, gt_shape=gt_shape)
+        # Get attributes
+        self.n_scales = len(scales)
+        self._affine_correction = affine_correction
+
+
+class MultiLevelParametricIterativeResult(MultiLevelNonParametricIterativeResult):
+    r"""
+    """
+    def __init__(self, results, scales, affine_correction, image=None,
+                 gt_shape=None):
+        # Create shape parameters list
+        self.shape_parameters = results[0].shape_parameters
+        for r in results[1:]:
+            self.shape_parameters += r.shape_parameters[1:]
+        # Call superclass
+        super(MultiLevelParametricIterativeResult, self).__init__(
+                results=results, scales=scales,
+                affine_correction=affine_correction, image=image,
+                gt_shape=gt_shape)
+
+
+def _rescale_shapes_to_reference(shapes, scale, max_scale, affine_correction):
+    r"""
+    """
+    rescaled_shapes = []
+    transform = Scale(max_scale / scale, shapes[0].n_dims)
+    for shape in shapes:
+        shape = transform.apply(shape)
+        rescaled_shapes.append(affine_correction.apply(shape))
+    return rescaled_shapes
