@@ -194,6 +194,7 @@ class ProjectOutGaussNewton(ProjectOut):
         self._regressor_cls = partial(IIRLRegression, alpha=alpha,
                                       alpha2=alpha2, bias=bias)
 
+
 # TODO: document me!
 class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
     r"""

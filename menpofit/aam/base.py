@@ -1,15 +1,18 @@
 from __future__ import division
 import warnings
 import numpy as np
+
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
 from menpo.model import PCAModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 from menpo.base import name_of_callable
+
 from menpofit import checks
-from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface, \
-    LucasKanadePatchInterface, LucasKanadeLinearInterface
+from menpofit.aam.algorithm.lk import (LucasKanadeStandardInterface,
+                                       LucasKanadePatchInterface,
+                                       LucasKanadeLinearInterface)
 from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import (DifferentiableThinPlateSplines,
                                 DifferentiablePiecewiseAffine, OrthoMDTransform,
@@ -22,18 +25,67 @@ from menpofit.builder import (
     extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
 
-# TODO: document me!
 class AAM(object):
     r"""
-    Active Appearance Model class.
-    """
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op,
-                 transform=DifferentiablePiecewiseAffine, diagonal=None,
-                 scales=(0.5, 1.0), shape_model_cls=OrthoPDM,
-                 max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+    Class for training a multi-level holistic Active Appearance Model.
 
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the AAM. Note that all
+        the training images need to have the specified landmark group.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. If
+        ``None``, then the mean shape will be used.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    transform : `menpofit.transform.DifferentiablePiecewiseAffine`, optional
+        A differential warp transform object.
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
+        The class to be used for building the shape model.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of appearance components to keep. If `int`, then it sets the
+        exact number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should define a value
+        per level. If a single number, then this will be applied to all
+        scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the AAM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
+    def __init__(self, images, group=None, reference_shape=None,
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 transform=DifferentiablePiecewiseAffine,
+                 shape_model_cls=OrthoPDM, max_shape_components=None,
+                 max_appearance_components=None, verbose=False,
+                 batch_size=None):
+        # Check parameters
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
@@ -43,7 +95,7 @@ class AAM(object):
             max_shape_components, n_scales, 'max_shape_components')
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_scales, 'max_appearance_components')
-
+        # Assign attributes
         self.holistic_features = holistic_features
         self.transform = transform
         self.diagonal = diagonal
@@ -54,7 +106,6 @@ class AAM(object):
         self._shape_model_cls = shape_model_cls
         self.shape_models = []
         self.appearance_models = []
-
         # Train AAM
         self._train(images, increment=False, group=group, verbose=verbose,
                     batch_size=batch_size)
@@ -62,10 +113,6 @@ class AAM(object):
     def _train(self, images, increment=False, group=None,
                shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
                verbose=False, batch_size=None):
-        r"""
-        """
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -110,25 +157,6 @@ class AAM(object):
     def _train_batch(self, image_batch, increment=False, group=None,
                      verbose=False, shape_forgetting_factor=1.0,
                      appearance_forgetting_factor=1.0):
-        r"""
-        Builds an Active Appearance Model from a list of landmarked images.
-
-        Parameters
-        ----------
-        images : list of :map:`MaskedImage`
-            The set of landmarked images from which to build the AAM.
-        group : `string`, optional
-            The key of the landmark set that should be used. If ``None``,
-            and if there is only one set of landmarks, this set will be used.
-        verbose : `boolean`, optional
-            Flag that controls information and progress printing.
-
-        Returns
-        -------
-        aam : :map:`AAM`
-            The AAM object. Shape and appearance models are stored from
-            lowest to highest scale
-        """
         # Rescale to existing reference shape
         image_batch = rescale_images_to_reference_shape(
             image_batch, group, self.reference_shape,
@@ -220,17 +248,45 @@ class AAM(object):
             if verbose:
                 print_dynamic('{}Done\n'.format(scale_prefix))
 
-    def increment(self, images, group=None, verbose=False,
-                  shape_forgetting_factor=1.0, appearance_forgetting_factor=1.0,
+    def increment(self, images, group=None, shape_forgetting_factor=1.0,
+                  appearance_forgetting_factor=1.0, verbose=False,
                   batch_size=None):
-        # Literally just to fit under 80 characters, but maintain the sensible
-        # parameter name
-        aff = appearance_forgetting_factor
-        return self._train(images, increment=True, group=group,
-                           verbose=verbose,
-                           shape_forgetting_factor=shape_forgetting_factor,
-                           appearance_forgetting_factor=aff,
-                           batch_size=batch_size)
+        r"""
+        Method to increment the trained AAM with a new set of training images.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        group : `str` or ``None``, optional
+            The landmark group that will be used to train the AAM. Note that all
+            the training images need to have the specified landmark group.
+        shape_forgetting_factor : ``[0.0, 1.0]`` `float`, optional
+            Forgetting factor that weights the relative contribution of new
+            samples vs old samples for the shape model. If ``1.0``, all samples
+            are weighted equally and, hence, the result is the exact same as
+            performing batch PCA on the concatenated list of old and new
+            simples. If ``<1.0``, more emphasis is put on the new samples.
+        appearance_forgetting_factor : ``[0.0, 1.0]`` `float`, optional
+            Forgetting factor that weights the relative contribution of new
+            samples vs old samples for the appearance model. If ``1.0``,
+            all samples are weighted equally and, hence, the result is the
+            exact same as performing batch PCA on the concatenated list of
+            old and new simples. If ``<1.0``, more emphasis is put on the new
+            samples.
+        verbose : `bool`, optional
+            If ``True``, then the progress of building the AAM will be printed.
+        batch_size : `int` or ``None``, optional
+            If an `int` is provided, then the training is performed in an
+            incremental fashion on image batches of size equal to the provided
+            value. If ``None``, then the training is performed directly on the
+            all the images.
+        """
+        return self._train(
+                images, increment=True, group=group, verbose=verbose,
+                shape_forgetting_factor=shape_forgetting_factor,
+                appearance_forgetting_factor=appearance_forgetting_factor,
+                batch_size=batch_size)
 
     def _build_shape_model(self, shapes, scale_index):
         return self._shape_model_cls[scale_index](
@@ -251,7 +307,7 @@ class AAM(object):
     @property
     def n_scales(self):
         """
-        The number of scales of the AAM.
+        Returns the number of scales.
 
         :type: `int`
         """
@@ -259,10 +315,6 @@ class AAM(object):
 
     @property
     def _str_title(self):
-        r"""
-        Returns a string containing name of the model.
-        :type: `string`
-        """
         return 'Holistic Active Appearance Model'
 
     def instance(self, shape_weights=None, appearance_weights=None,
@@ -273,21 +325,21 @@ class AAM(object):
         returned.
 
         Parameters
-        -----------
-        shape_weights : ``(n_weights,)`` `ndarray` or `float` list
-            Weights of the shape model that will be used to create
-            a novel shape instance. If ``None``, the mean shape
-            ``(shape_weights = [0, 0, ..., 0])`` is used.
-        appearance_weights : ``(n_weights,)`` `ndarray` or `float` list
-            Weights of the appearance model that will be used to create
-            a novel appearance instance. If ``None``, the mean appearance
-            ``(appearance_weights = [0, 0, ..., 0])`` is used.
+        ----------
+        shape_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the shape model that will be used to create a novel
+            shape instance. If ``None``, the weights are assumed to be zero,
+            thus the mean shape is used.
+        appearance_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the appearance model that will be used to create a
+            novel appearance instance. If ``None``, the weights are assumed
+            to be zero, thus the mean appearance is used.
         scale_index : `int`, optional
             The scale to be used.
 
         Returns
         -------
-        image : :map:`Image`
+        image : `menpo.image.Image`
             The novel AAM instance.
         """
         if shape_weights is None:
@@ -308,13 +360,13 @@ class AAM(object):
         Generates a novel random instance of the AAM.
 
         Parameters
-        -----------
+        ----------
         scale_index : `int`, optional
             The scale to be used.
 
         Returns
         -------
-        image : :map:`Image`
+        image : `menpo.image.Image`
             The novel AAM instance.
         """
         sm = self.shape_models[scale_index].model
@@ -349,23 +401,22 @@ class AAM(object):
         widget.
 
         Parameters
-        -----------
+        ----------
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
-        parameters_bounds : (`float`, `float`), optional
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
             If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
         """
         try:
             from menpowidgets import visualize_shape_model
@@ -385,23 +436,22 @@ class AAM(object):
         interactive widget.
 
         Parameters
-        -----------
+        ----------
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of appearance principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        parameters_bounds : (`float`, `float`), optional
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
             If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
         """
         try:
             from menpowidgets import visualize_appearance_model
@@ -417,35 +467,32 @@ class AAM(object):
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
         r"""
-        Visualizes both the shape and appearance models of the AAM object using
-        an interactive widget.
+        Visualizes the AAM using an interactive widget.
 
         Parameters
-        -----------
-        n_shape_parameters : `int` or `list` of `int` or None, optional
+        ----------
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        n_appearance_parameters : `int` or `list` of `int` or None, optional
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        n_appearance_parameters : `int` or `list` of `int` or ``None``, optional
             The number of appearance principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        parameters_bounds : (`float`, `float`), optional
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
             If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
         """
         try:
             from menpowidgets import visualize_aam
@@ -458,6 +505,17 @@ class AAM(object):
             raise MenpowidgetsMissingError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the AAM with a Lucas-Kanade
+        algorithm
+
+        Parameters
+        ----------
+        sampling : `int` or ``None``, optional
+            The sub-sampling step of the sampling mask. If ``None``, then no
+            sampling is applied on the template.
+        """
         interfaces = []
         for am, sm, s in zip(self.appearance_models, self.shape_models,
                              sampling):
@@ -474,20 +532,72 @@ class AAM(object):
         return _aam_str(self)
 
 
-# TODO: document me!
 class MaskedAAM(AAM):
     r"""
-    Masked Active Appearance Model class.
-    """
+    Class for training a multi-level patch-based Masked Active Appearance Model.
+    The appearance of this model is formulated by simply masking an image
+    with a patch-based mask.
 
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the AAM. Note that all
+        the training images need to have the specified landmark group.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. If
+        ``None``, then the mean shape will be used.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    patch_shape : ``(int, int)``, optional
+        The size of the patches of the mask that is used to sample the
+        appearance vectors.
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
+        The class to be used for building the shape model.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of appearance components to keep. If `int`, then it sets the
+        exact number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should define a value
+        per level. If a single number, then this will be applied to all
+        scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the AAM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
+    def __init__(self, images, group=None, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), shape_model_cls=OrthoPDM,
                  max_shape_components=None, max_appearance_components=None,
-                 batch_size=None):
+                 verbose=False, batch_size=None):
+        # Check arguments
         n_scales = len(checks.check_scales(scales))
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-
+        # Call superclass
         super(MaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
             reference_shape=reference_shape,
@@ -525,18 +635,66 @@ class MaskedAAM(AAM):
         return _aam_str(self)
 
 
-# TODO: document me!
 class LinearAAM(AAM):
     r"""
-    Linear Active Appearance Model class.
+    Class for training a multi-level Linear Active Appearance Model.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the AAM. Note that all
+        the training images need to have the specified landmark group.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. If
+        ``None``, then the mean shape will be used.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    transform : `menpofit.transform.DifferentiableThinPlateSplines`, optional
+        A differential warp transform object.
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
+        The class to be used for building the shape model.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of appearance components to keep. If `int`, then it sets the
+        exact number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should define a value
+        per level. If a single number, then this will be applied to all
+        scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the AAM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
     """
-
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op, shape_model_cls=OrthoPDM,
-                 transform=DifferentiableThinPlateSplines, diagonal=None,
-                 scales=(0.5, 1.0), max_shape_components=None,
-                 max_appearance_components=None, batch_size=None):
-
+    def __init__(self, images, group=None, reference_shape=None,
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 transform=DifferentiableThinPlateSplines,
+                 shape_model_cls=OrthoPDM,  max_shape_components=None,
+                 max_appearance_components=None, verbose=False,
+                 batch_size=None):
         super(LinearAAM, self).__init__(
             images, group=group, verbose=verbose,
             reference_shape=reference_shape,
@@ -599,6 +757,17 @@ class LinearAAM(AAM):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the AAM with a Lucas-Kanade
+        algorithm
+
+        Parameters
+        ----------
+        sampling : `int` or ``None``, optional
+            The sub-sampling step of the sampling mask. If ``None``, then no
+            sampling is applied on the template.
+        """
         interfaces = []
         for am, sm, s in zip(self.appearance_models, self.shape_models,
                              sampling):
@@ -615,20 +784,70 @@ class LinearAAM(AAM):
         return _aam_str(self)
 
 
-# TODO: document me!
 class LinearMaskedAAM(AAM):
     r"""
-    Linear Masked Active Appearance Model class.
-    """
+    Class for training a multi-level Linear Masked Active Appearance Model.
 
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the AAM. Note that all
+        the training images need to have the specified landmark group.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. If
+        ``None``, then the mean shape will be used.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    patch_shape : ``(int, int)``, optional
+        The size of the patches of the mask that is used to sample the
+        appearance vectors.
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
+        The class to be used for building the shape model.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of appearance components to keep. If `int`, then it sets the
+        exact number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should define a value
+        per level. If a single number, then this will be applied to all
+        scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the AAM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
+    def __init__(self, images, group=None, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), max_shape_components=None,
-                 max_appearance_components=None,
-                 shape_model_cls=OrthoPDM, batch_size=None):
+                 patch_shape=(17, 17), shape_model_cls=OrthoPDM,
+                 max_shape_components=None, max_appearance_components=None,
+                 verbose=False, batch_size=None):
+        # Check arguments
         n_scales = len(checks.check_scales(scales))
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-
+        # Call superclass
         super(LinearMaskedAAM, self).__init__(
             images, group=group, verbose=verbose,
             reference_shape=reference_shape,
@@ -707,18 +926,68 @@ class LinearMaskedAAM(AAM):
         return _aam_str(self)
 
 
-# TODO: document me!
 # TODO: implement offsets support?
 class PatchAAM(AAM):
     r"""
-    Patch-based Active Appearance Model class.
-    """
+    Class for training a multi-level Patch-Based Active Appearance Model.
 
-    def __init__(self, images, group=None, verbose=False, reference_shape=None,
-                 holistic_features=no_op, patch_normalisation=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 max_shape_components=None, max_appearance_components=None,
-                 shape_model_cls=OrthoPDM, batch_size=None):
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the AAM. Note that all
+        the training images need to have the specified landmark group.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. If
+        ``None``, then the mean shape will be used.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before extracting the patches. Please
+        refer to `menpo.feature` for a list of potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+        The shape of the patches to be extracted. If a list is provided,
+        then it defines a patch shape per level.
+
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
+        The class to be used for building the shape model.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of appearance components to keep. If `int`, then it sets the
+        exact number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should define a value
+        per level. If a single number, then this will be applied to all
+        scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the AAM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
+    def __init__(self, images, group=None, reference_shape=None,
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 patch_shape=(17, 17), patch_normalisation=no_op,
+                 shape_model_cls=OrthoPDM, max_shape_components=None,
+                 max_appearance_components=None, verbose=False,
+                 batch_size=None):
         n_scales = len(checks.check_scales(scales))
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
         self.patch_normalisation = patch_normalisation
@@ -752,6 +1021,28 @@ class PatchAAM(AAM):
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
                                       mode='multiple', figure_size=(10, 8)):
+        r"""
+        Visualizes the appearance models of the AAM object using an
+        interactive widget.
+
+        Parameters
+        ----------
+        n_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of appearance principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
+        """
         try:
             from menpowidgets import visualize_patch_appearance_model
             centers = [sp.model.mean() for sp in self.shape_models]
@@ -766,6 +1057,34 @@ class PatchAAM(AAM):
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
+        r"""
+        Visualizes the AAM using an interactive widget.
+
+        Parameters
+        ----------
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        n_appearance_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of appearance principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
+        """
         try:
             from menpowidgets import visualize_patch_aam
             visualize_patch_aam(self, n_shape_parameters=n_shape_parameters,
@@ -777,6 +1096,17 @@ class PatchAAM(AAM):
             raise MenpowidgetsMissingError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the AAM with a Lucas-Kanade
+        algorithm
+
+        Parameters
+        ----------
+        sampling : `int` or ``None``, optional
+            The sub-sampling step of the sampling mask. If ``None``, then no
+            sampling is applied on the template.
+        """
         interfaces = []
         for j, (am, sm, s) in enumerate(zip(self.appearance_models,
                                             self.shape_models,
