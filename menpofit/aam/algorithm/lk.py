@@ -4,7 +4,7 @@ import numpy as np
 from menpo.image import Image
 from menpo.feature import gradient as fast_gradient, no_op
 
-from ..result import AAMOptimizationResult
+from ..result import AAMAlgorithmResult
 
 
 def _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p, m, n):
@@ -339,10 +339,10 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
 
         Returns
         -------
-        result : `menpofit.aam.result.AAMOptimizationResult`
+        result : `menpofit.aam.result.AAMAlgorithmResult`
             The optimization result object.
         """
-        return AAMOptimizationResult(
+        return AAMAlgorithmResult(
                 shapes=shapes, shape_parameters=shape_parameters,
                 appearance_parameters=appearance_parameters,
                 cost_functions=cost_functions, image=image, gt_shape=gt_shape)
@@ -389,15 +389,15 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
 
         Returns
         -------
-        result : `menpofit.aam.result.AAMOptimizationResult`
+        result : `menpofit.aam.result.AAMAlgorithmResult`
             The optimization result object.
         """
         # TODO: Separate result for linear AAMs that stores both the sparse
-        #       and dense shapes per iteration.
+        #       and dense shapes per iteration (@patricksnape will fix this)
         # This means that the linear AAM will only store the sparse shapes
         shapes = [self.transform.from_vector(p).sparse_target
                   for p in shape_parameters]
-        return AAMOptimizationResult(
+        return AAMAlgorithmResult(
                 shapes=shapes, shape_parameters=shape_parameters,
                 appearance_parameters=appearance_parameters,
                 cost_functions=cost_functions, image=image, gt_shape=gt_shape)
@@ -652,10 +652,10 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
 
         Returns
         -------
-        result : `menpofit.aam.result.AAMOptimizationResult`
+        result : `menpofit.aam.result.AAMAlgorithmResult`
             The optimization result object.
         """
-        return AAMOptimizationResult(
+        return AAMAlgorithmResult(
                 shapes=shapes, shape_parameters=shape_parameters,
                 appearance_parameters=appearance_parameters,
                 cost_functions=cost_functions, image=image, gt_shape=gt_shape)

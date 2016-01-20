@@ -1,5 +1,5 @@
 from .base import (Result, NonParametricIterativeResult,
                    ParametricIterativeResult,
-                   MultiLevelNonParametricIterativeResult,
-                   MultiLevelParametricIterativeResult)
+                   MultiScaleNonParametricIterativeResult,
+                   MultiScaleParametricIterativeResult)
 from .error import euclidean_bb_normalised_error

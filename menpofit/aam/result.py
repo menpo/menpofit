@@ -1,10 +1,10 @@
 from __future__ import division
 
 from menpofit.result import (ParametricIterativeResult,
-                             MultiLevelParametricIterativeResult)
+                             MultiScaleParametricIterativeResult)
 
 
-class AAMOptimizationResult(ParametricIterativeResult):
+class AAMAlgorithmResult(ParametricIterativeResult):
     r"""
     Class for storing the iterative result of an AAM optimization algorithm.
 
@@ -31,7 +31,7 @@ class AAMOptimizationResult(ParametricIterativeResult):
     """
     def __init__(self, shapes, shape_parameters, appearance_parameters,
                  cost_functions=None, image=None, gt_shape=None):
-        super(AAMOptimizationResult, self).__init__(
+        super(AAMAlgorithmResult, self).__init__(
                 shapes=shapes, shape_parameters=shape_parameters, image=image,
                 gt_shape=gt_shape)
         self.appearance_parameters = appearance_parameters
@@ -190,7 +190,7 @@ class AAMOptimizationResult(ParametricIterativeResult):
                              'algorithm')
 
 
-class AAMResult(MultiLevelParametricIterativeResult):
+class AAMResult(MultiScaleParametricIterativeResult):
     r"""
     Class for storing the multi-level iterative fitting result of an AAM. It
     holds the shapes, shape parameters, appearance parameters and costs per
@@ -371,3 +371,11 @@ class AAMResult(MultiLevelParametricIterativeResult):
         else:
             raise ValueError('costs is not well defined for the chosen AAM '
                              'algorithm')
+
+    def __str__(self):
+        out = "AAM fitting result of {} landmark points.".format(
+                self.final_shape.n_points)
+        if self.gt_shape is not None:
+            out += "\nInitial error: {:.4f}".format(self.initial_error())
+            out += "\nFinal error: {:.4f}".format(self.final_error())
+        return out

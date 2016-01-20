@@ -1183,7 +1183,7 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         self.shape_parameters = shape_parameters
 
 
-class MultiLevelNonParametricIterativeResult(NonParametricIterativeResult):
+class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
     r"""
     """
     def __init__(self, results, scales, affine_correction, image=None,
@@ -1206,14 +1206,14 @@ class MultiLevelNonParametricIterativeResult(NonParametricIterativeResult):
                     shapes=r.shapes[1:], scale=scale, max_scale=scales[-1],
                     affine_correction=affine_correction)
         # Call superclass
-        super(MultiLevelNonParametricIterativeResult, self).__init__(
+        super(MultiScaleNonParametricIterativeResult, self).__init__(
             shapes=shapes, image=image, gt_shape=gt_shape)
         # Get attributes
         self.n_scales = len(scales)
         self._affine_correction = affine_correction
 
 
-class MultiLevelParametricIterativeResult(MultiLevelNonParametricIterativeResult):
+class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult):
     r"""
     """
     def __init__(self, results, scales, affine_correction, image=None,
@@ -1223,7 +1223,7 @@ class MultiLevelParametricIterativeResult(MultiLevelNonParametricIterativeResult
         for r in results[1:]:
             self.shape_parameters += r.shape_parameters[1:]
         # Call superclass
-        super(MultiLevelParametricIterativeResult, self).__init__(
+        super(MultiScaleParametricIterativeResult, self).__init__(
                 results=results, scales=scales,
                 affine_correction=affine_correction, image=image,
                 gt_shape=gt_shape)

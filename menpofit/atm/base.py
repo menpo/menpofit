@@ -1,14 +1,14 @@
 from __future__ import division
 import warnings
 import numpy as np
+
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 from menpo.base import name_of_callable
+
 from menpofit import checks
-from menpofit.atm.algorithm import (ATMLKStandardInterface,
-                                    ATMLKLinearInterface, ATMLKPatchInterface)
 from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import (DifferentiableThinPlateSplines,
                                 DifferentiablePiecewiseAffine, OrthoMDTransform,
@@ -20,19 +20,66 @@ from menpofit.builder import (
     align_shapes, densify_shapes,
     extract_patches, MenpoFitBuilderWarning, compute_reference_shape)
 
+from .algorithm import (ATMLucasKanadeStandardInterface, ATMLucasKanadeLinearInterface,
+                        ATMLucasKanadePatchInterface)
 
-# TODO: document me!
+
 class ATM(object):
     r"""
-    Active Template Model class.
-    """
-    def __init__(self, template, shapes, group=None, verbose=False,
-                 reference_shape=None, holistic_features=no_op,
-                 shape_model_cls=OrthoPDM,
-                 transform=DifferentiablePiecewiseAffine, diagonal=None,
-                 scales=(0.5, 1.0), max_shape_components=None,
-                 batch_size=None):
+    Class for training a multi-level holistic Active Template Model.
 
+    Parameters
+    ----------
+    template : `menpo.image.Image`
+        The template image.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of training shapes.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the ATM. Note that all
+        the training images need to have the specified landmark group.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ATM. If
+        ``None``, then the mean shape will be used.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    transform : `menpofit.transform.DifferentiablePiecewiseAffine`, optional
+        A differential warp transform object.
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
+        The class to be used for building the shape model.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the ATM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
+    def __init__(self, template, shapes, group=None, reference_shape=None,
+                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+                 transform=DifferentiablePiecewiseAffine,
+                 shape_model_cls=OrthoPDM, max_shape_components=None,
+                 verbose=False, batch_size=None):
+        # Check arguments
         checks.check_diagonal(diagonal)
         n_scales = len(scales)
         scales = checks.check_scales(scales)
@@ -40,7 +87,7 @@ class ATM(object):
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
         shape_model_cls = checks.check_callable(shape_model_cls, n_scales)
-
+        # Assign attributes
         self.holistic_features = holistic_features
         self.transform = transform
         self.diagonal = diagonal
@@ -50,17 +97,12 @@ class ATM(object):
         self.shape_models = []
         self.warped_templates = []
         self._shape_model_cls = shape_model_cls
-
         # Train ATM
         self._train(template, shapes, increment=False, group=group,
                     verbose=verbose, batch_size=batch_size)
 
     def _train(self, template, shapes, increment=False, group=None,
                shape_forgetting_factor=1.0, verbose=False, batch_size=None):
-        r"""
-        """
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -106,9 +148,6 @@ class ATM(object):
 
     def _train_batch(self, template, shape_batch, increment=False, group=None,
                      shape_forgetting_factor=1.0, verbose=False):
-        r"""
-        Builds an Active Template Model from a list of landmarked images.
-        """
         # build models at each scale
         if verbose:
             print_dynamic('- Building models\n')
@@ -173,8 +212,35 @@ class ATM(object):
             if verbose:
                 print_dynamic('{}Done\n'.format(scale_prefix))
 
-    def increment(self, template, shapes, group=None, verbose=False,
-                  shape_forgetting_factor=1.0, batch_size=None):
+    def increment(self, template, shapes, group=None,
+                  shape_forgetting_factor=1.0, verbose=False, batch_size=None):
+        r"""
+        Method to increment the trained ATM with a new set of training shapes
+        and a new template.
+
+        Parameters
+        ----------
+        template : `menpo.image.Image`
+            The template image.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of training shapes.
+        group : `str` or ``None``, optional
+            The landmark group that will be used to train the ATM. Note that all
+            the training images need to have the specified landmark group.
+        shape_forgetting_factor : ``[0.0, 1.0]`` `float`, optional
+            Forgetting factor that weights the relative contribution of new
+            samples vs old samples for the shape model. If ``1.0``, all samples
+            are weighted equally and, hence, the result is the exact same as
+            performing batch PCA on the concatenated list of old and new
+            simples. If ``<1.0``, more emphasis is put on the new samples.
+        verbose : `bool`, optional
+            If ``True``, then the progress of building the ATM will be printed.
+        batch_size : `int` or ``None``, optional
+            If an `int` is provided, then the training is performed in an
+            incremental fashion on image batches of size equal to the provided
+            value. If ``None``, then the training is performed directly on the
+            all the images.
+        """
         return self._train(template, shapes, group=group,
                            verbose=verbose,
                            shape_forgetting_factor=shape_forgetting_factor,
@@ -200,7 +266,7 @@ class ATM(object):
     @property
     def n_scales(self):
         """
-        The number of scales of the AAM.
+        Returns the number of scales.
 
         :type: `int`
         """
@@ -208,18 +274,27 @@ class ATM(object):
 
     @property
     def _str_title(self):
-        r"""
-        Returns a string containing name of the model.
-        :type: `string`
-        """
         return 'Holistic Active Template Model'
 
     def instance(self, shape_weights=None, scale_index=-1):
         r"""
+        Generates a novel ATM instance given a set of shape and appearance
+        weights. If no weights are provided, the mean ATM instance is
+        returned.
+
+        Parameters
+        ----------
+        shape_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the shape model that will be used to create a novel
+            shape instance. If ``None``, the weights are assumed to be zero,
+            thus the mean shape is used.
+        scale_index : `int`, optional
+            The scale to be used.
+
         Returns
         -------
-        image : :map:`Image`
-            The novel AAM instance.
+        image : `menpo.image.Image`
+            The novel ATM instance.
         """
         if shape_weights is None:
             shape_weights = [0]
@@ -235,14 +310,14 @@ class ATM(object):
         Generates a novel random instance of the ATM.
 
         Parameters
-        -----------
+        ----------
         scale_index : `int`, optional
             The scale to be used.
 
         Returns
         -------
-        image : :map:`Image`
-            The novel AAM instance.
+        image : `menpo.image.Image`
+            The novel ATM instance.
         """
         sm = self.shape_models[scale_index].model
         template = self.warped_templates[scale_index]
@@ -268,27 +343,26 @@ class ATM(object):
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the shape models of the AAM object using an interactive
+        Visualizes the shape models of the ATM object using an interactive
         widget.
 
         Parameters
-        -----------
+        ----------
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
-        parameters_bounds : (`float`, `float`), optional
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
             If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
         """
         try:
             from menpowidgets import visualize_shape_model
@@ -304,34 +378,25 @@ class ATM(object):
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
         r"""
-        Visualizes both the shape and appearance models of the AAM object using
-        an interactive widget.
+        Visualizes the ATM using an interactive widget.
+
         Parameters
-        -----------
-        n_shape_parameters : `int` or `list` of `int` or None, optional
+        ----------
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        n_appearance_parameters : `int` or `list` of `int` or None, optional
-            The number of appearance principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per scale is the minimum
-            between `n_parameters` and the number of active components per
-            scale.
-            If `list` of `int`, then a number of sliders is defined per scale.
-            If ``None``, all the active components per scale will have a slider.
-        parameters_bounds : (`float`, `float`), optional
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
             If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
         """
         try:
             from menpowidgets import visualize_atm
@@ -343,13 +408,24 @@ class ATM(object):
             raise MenpowidgetsMissingError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the ATM with a Lucas-Kanade
+        algorithm
+
+        Parameters
+        ----------
+        sampling : `int` or ``None``, optional
+            The sub-sampling step of the sampling mask. If ``None``, then no
+            sampling is applied on the template.
+        """
         interfaces = []
         for wt, sm, s in zip(self.warped_templates, self.shape_models,
                              sampling):
             md_transform = OrthoMDTransform(
                 sm, self.transform,
                 source=wt.landmarks['source'].lms)
-            interface = ATMLKStandardInterface(
+            interface = ATMLucasKanadeStandardInterface(
                 md_transform, wt, sampling=s)
             interfaces.append(interface)
         return interfaces
@@ -358,18 +434,60 @@ class ATM(object):
         return _atm_str(self)
 
 
-# TODO: document me!
 class MaskedATM(ATM):
     r"""
-    Masked Based Active Appearance Model class.
+    Class for training a multi-level patch-based Masked Active Template Model.
+    The appearance of this model is formulated by simply masking an image
+    with a patch-based mask.
+
+    Parameters
+    ----------
+    template : `menpo.image.Image`
+        The template image.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of training shapes.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the ATM. Note that all
+        the training images need to have the specified landmark group.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    patch_shape : ``(int, int)``, optional
+        The size of the patches of the mask that is used to sample the
+        appearance vectors.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the ATM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
     """
-
-    def __init__(self, template, shapes, group=None, verbose=False,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
-                 patch_shape=(17, 17), max_shape_components=None,
-                 batch_size=None):
+    def __init__(self, template, shapes, group=None, holistic_features=no_op,
+                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
+                 max_shape_components=None, verbose=False, batch_size=None):
+        # Check arguments
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
-
+        # Call superclass
         super(MaskedATM, self).__init__(
             template, shapes, group=group, verbose=verbose,
             holistic_features=holistic_features,
@@ -405,17 +523,55 @@ class MaskedATM(ATM):
         return _atm_str(self)
 
 
-# TODO: document me!
 class LinearATM(ATM):
     r"""
-    Linear Active Template Model class.
-    """
+    Class for training a multi-level Linear Active Template Model.
 
+    Parameters
+    ----------
+    template : `menpo.image.Image`
+        The template image.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of training shapes.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the ATM. Note that all
+        the training images need to have the specified landmark group.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    transform : `menpofit.transform.DifferentiableThinPlateSplines`, optional
+        A differential warp transform object.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the ATM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
     def __init__(self, template, shapes, group=None, verbose=False,
                  holistic_features=no_op,
                  transform=DifferentiableThinPlateSplines, diagonal=None,
                  scales=(0.5, 1.0), max_shape_components=None, batch_size=None):
-
         super(LinearATM, self).__init__(
             template, shapes, group=group, verbose=verbose,
             holistic_features=holistic_features, transform=transform,
@@ -470,14 +626,25 @@ class LinearATM(ATM):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the ATM with a Lucas-Kanade
+        algorithm
+
+        Parameters
+        ----------
+        sampling : `int` or ``None``, optional
+            The sub-sampling step of the sampling mask. If ``None``, then no
+            sampling is applied on the template.
+        """
         interfaces = []
         for wt, sm, s in zip(self.warped_templates, self.shape_models,
                              sampling):
             # This is pretty hacky as we just steal the OrthoPDM's PCAModel
             md_transform = LinearOrthoMDTransform(
                 sm.model, self.reference_shape)
-            interface = ATMLKLinearInterface(md_transform, wt,
-                                             sampling=s)
+            interface = ATMLucasKanadeLinearInterface(md_transform, wt,
+                                                      sampling=s)
             interfaces.append(interface)
         return interfaces
 
@@ -485,18 +652,59 @@ class LinearATM(ATM):
         return _atm_str(self)
 
 
-# TODO: document me!
 class LinearMaskedATM(ATM):
     r"""
-    Linear Masked Active Template Model class.
-    """
+    Class for training a multi-level Linear Masked Active Template Model.
 
+    Parameters
+    ----------
+    template : `menpo.image.Image`
+        The template image.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of training shapes.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the ATM. Note that all
+        the training images need to have the specified landmark group.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. Please refer to `menpo.feature` for a list of
+        potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    patch_shape : ``(int, int)``, optional
+        The size of the patches of the mask that is used to sample the
+        appearance vectors.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the ATM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
     def __init__(self, template, shapes, group=None, verbose=False,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), max_shape_components=None,
                  batch_size=None):
+        # Check arguments
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
-
+        # Call superclass
         super(LinearMaskedATM, self).__init__(
             template, shapes, group=group, verbose=verbose,
             holistic_features=holistic_features,
@@ -552,14 +760,25 @@ class LinearMaskedATM(ATM):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the ATM with a Lucas-Kanade
+        algorithm
+
+        Parameters
+        ----------
+        sampling : `int` or ``None``, optional
+            The sub-sampling step of the sampling mask. If ``None``, then no
+            sampling is applied on the template.
+        """
         interfaces = []
         for wt, sm, s in zip(self.warped_templates, self.shape_models,
                              sampling):
             # This is pretty hacky as we just steal the OrthoPDM's PCAModel
             md_transform = LinearOrthoMDTransform(
                 sm.model, self.reference_shape)
-            interface = ATMLKLinearInterface(md_transform, wt,
-                                             sampling=s)
+            interface = ATMLucasKanadeLinearInterface(md_transform, wt,
+                                                      sampling=s)
             interfaces.append(interface)
         return interfaces
 
@@ -567,20 +786,60 @@ class LinearMaskedATM(ATM):
         return _atm_str(self)
 
 
-# TODO: document me!
 # TODO: implement offsets support?
 class PatchATM(ATM):
     r"""
-    Patch-based Active Template Model class.
-    """
+    Class for training a multi-level Patch-Based Active Template Model.
 
-    def __init__(self, template, shapes, group=None, verbose=False,
-                 holistic_features=no_op, patch_normalisation=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 max_shape_components=None, batch_size=None):
+    Parameters
+    ----------
+    template : `menpo.image.Image`
+        The template image.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of training shapes.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the ATM. Note that all
+        the training images need to have the specified landmark group.
+    holistic_features : `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before extracting the patches. Please
+        refer to `menpo.feature` for a list of potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their groundtruth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each level. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+        The shape of the patches to be extracted. If a list is provided,
+        then it defines a patch shape per level.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per level. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the ATM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    """
+    def __init__(self, template, shapes, group=None, holistic_features=no_op,
+                 patch_shape=(17, 17), patch_normalisation=no_op,
+                 diagonal=None, scales=(0.5, 1.0), max_shape_components=None,
+                 verbose=False, batch_size=None):
+        # Check arguments
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.patch_normalisation = patch_normalisation
-
+        # Call superclass
         super(PatchATM, self).__init__(
             template, shapes, group=group, verbose=verbose,
             holistic_features=holistic_features,
@@ -610,6 +869,27 @@ class PatchATM(ATM):
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
                         figure_size=(10, 8)):
+        r"""
+        Visualizes the ATM using an interactive widget.
+
+        Parameters
+        ----------
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            level is the minimum between `n_parameters` and the number of
+            active components per level. If `list` of `int`, then a number of
+            sliders is defined per level. If ``None``, all the active
+            components per level will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
+        """
         try:
             from menpowidgets import visualize_patch_atm
             visualize_patch_atm(self, n_shape_parameters=n_shape_parameters,
@@ -620,11 +900,22 @@ class PatchATM(ATM):
             raise MenpowidgetsMissingError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the ATM with a Lucas-Kanade
+        algorithm
+
+        Parameters
+        ----------
+        sampling : `int` or ``None``, optional
+            The sub-sampling step of the sampling mask. If ``None``, then no
+            sampling is applied on the template.
+        """
         interfaces = []
         for j, (wt, sm, s) in enumerate(zip(self.warped_templates,
                                             self.shape_models,
                                             sampling)):
-            interface = ATMLKPatchInterface(
+            interface = ATMLucasKanadePatchInterface(
                 sm, wt, sampling=s,
                 patch_shape=self.patch_shape[j],
                 patch_normalisation=self.patch_normalisation)

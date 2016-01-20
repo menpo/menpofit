@@ -23,7 +23,7 @@ class AAMFitter(ModelFitter):
         r"""
         The trained AAM model.
 
-        :type: `menpofit.aam.base.AAM` or subclass
+        :type: `menpofit.aam.AAM` or subclass
         """
         return self._model
 
@@ -58,6 +58,9 @@ class LucasKanadeAAMFitter(AAMFitter):
         then the provided value will be applied on all scales. If `list`, then
         it defines a value per scale. If ``None``, then all the components will
         be used.
+    sampling : `int` or ``None``, optional
+        The sub-sampling step of the sampling mask. If ``None``, then no
+        sampling is applied on the template.
     """
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
                  n_shape=None, n_appearance=None, sampling=None):

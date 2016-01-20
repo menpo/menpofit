@@ -959,7 +959,6 @@ class PatchAAM(AAM):
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches to be extracted. If a list is provided,
         then it defines a patch shape per level.
-
     shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
         The class to be used for building the shape model.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
