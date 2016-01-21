@@ -26,7 +26,7 @@ from .algorithm import (ATMLucasKanadeStandardInterface, ATMLucasKanadeLinearInt
 
 class ATM(object):
     r"""
-    Class for training a multi-level holistic Active Template Model.
+    Class for training a multi-scale holistic Active Template Model.
 
     Parameters
     ----------
@@ -54,7 +54,7 @@ class ATM(object):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     transform : `menpofit.transform.DifferentiablePiecewiseAffine`, optional
         A differential warp transform object.
@@ -64,7 +64,7 @@ class ATM(object):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the ATM will be printed.
@@ -73,6 +73,12 @@ class ATM(object):
         incremental fashion on image batches of size equal to the provided
         value. If ``None``, then the training is performed directly on the
         all the images.
+
+    References
+    ----------
+    .. [1] S. Baker, and I. Matthews. "Lucas-Kanade 20 years on: A unifying
+        framework", International Journal of Computer Vision, 56(3): 221-255,
+        2004.
     """
     def __init__(self, template, shapes, group=None, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
@@ -351,10 +357,10 @@ class ATM(object):
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -385,10 +391,10 @@ class ATM(object):
         n_shape_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -436,7 +442,7 @@ class ATM(object):
 
 class MaskedATM(ATM):
     r"""
-    Class for training a multi-level patch-based Masked Active Template Model.
+    Class for training a multi-scale patch-based Masked Active Template Model.
     The appearance of this model is formulated by simply masking an image
     with a patch-based mask.
 
@@ -463,7 +469,7 @@ class MaskedATM(ATM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
@@ -472,7 +478,7 @@ class MaskedATM(ATM):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the ATM will be printed.
@@ -525,7 +531,7 @@ class MaskedATM(ATM):
 
 class LinearATM(ATM):
     r"""
-    Class for training a multi-level Linear Active Template Model.
+    Class for training a multi-scale Linear Active Template Model.
 
     Parameters
     ----------
@@ -550,7 +556,7 @@ class LinearATM(ATM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     transform : `menpofit.transform.DifferentiableThinPlateSplines`, optional
         A differential warp transform object.
@@ -558,7 +564,7 @@ class LinearATM(ATM):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the ATM will be printed.
@@ -654,7 +660,7 @@ class LinearATM(ATM):
 
 class LinearMaskedATM(ATM):
     r"""
-    Class for training a multi-level Linear Masked Active Template Model.
+    Class for training a multi-scale Linear Masked Active Template Model.
 
     Parameters
     ----------
@@ -679,7 +685,7 @@ class LinearMaskedATM(ATM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
@@ -688,7 +694,7 @@ class LinearMaskedATM(ATM):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the ATM will be printed.
@@ -789,7 +795,7 @@ class LinearMaskedATM(ATM):
 # TODO: implement offsets support?
 class PatchATM(ATM):
     r"""
-    Class for training a multi-level Patch-Based Active Template Model.
+    Class for training a multi-scale Patch-Based Active Template Model.
 
     Parameters
     ----------
@@ -813,16 +819,16 @@ class PatchATM(ATM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches to be extracted. If a list is provided,
-        then it defines a patch shape per level.
+        then it defines a patch shape per scale.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the ATM will be printed.
@@ -877,10 +883,10 @@ class PatchATM(ATM):
         n_shape_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional

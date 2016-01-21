@@ -3,6 +3,7 @@ import abc
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2
 import scipy.linalg
+
 from menpo.feature import gradient
 
 
@@ -25,13 +26,11 @@ class Residual(object):
 
         Parameters
         ----------
-        image : :class:`menpo.image.base.Image`
+        image : `menpo.image.Image`
             The image to calculate the gradients for
-        forward : (:map:`Image`, :map:`AlignableTransform>`), optional
+        forward : (`menpo.image.Image`, `menpo.transform.AlignableTransform>`) or ``None``, optional
             A tuple containing the extra weights required for the function
             `warp` (which should be passed as a function handle).
-
-            Default: `None`
         """
         if forward:
             # Calculate the gradient over the image
@@ -66,16 +65,16 @@ class Residual(object):
 
         Parameters
         ----------
-        image : :class:`menpo.image.base.Image`
+        image : `menpo.image.Image`
             The image to calculate the steepest descent images from, could be
             either the template or input image depending on which framework is
             used.
-        dW_dp : ndarray
+        dW_dp : `ndarray`
             The Jacobian of the warp.
 
         Returns
         -------
-        VT_dW_dp : (N, n_params) ndarray
+        VT_dW_dp : ``(N, n_params)`` `ndarray`
             The steepest descent images
         """
         pass
@@ -94,12 +93,12 @@ class Residual(object):
 
         Parameters
         ----------
-        J : (N, n_params) ndarray
+        J : ``(N, n_params)`` `ndarray`
             The steepest descent images.
 
         Returns
         -------
-        H : (n_params, n_params) ndarray
+        H : ``(n_params, n_params)`` `ndarray`
             The approximation to the Hessian
         """
         pass
@@ -116,29 +115,37 @@ class Residual(object):
 
         Parameters
         ----------
-        J : (N, n_params) ndarray
+        J : ``(N, n_params)`` `ndarray`
             The steepest descent images.
-        image : :class:`menpo.image.base.Image`
-            Either the warped image or the template
-            (depending on the framework)
-        template : :class:`menpo.image.base.Image`
-            Either the warped image or the template
-            (depending on the framework)
+        image : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+        template : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
 
         Returns
         -------
-        sd_delta_p : (n_params,) ndarray
+        sd_delta_p : ``(n_params,)`` `ndarray`
             The steepest descent parameter updates.
         """
         pass
 
     @abc.abstractmethod
     def cost_closure(self):
+        r"""
+        Method to compute the optimization cost.
+        """
         pass
 
 
 class SSD(Residual):
     r"""
+    Class for Sum of Squared Differences residual.
+
+    References
+    ----------
+    .. [1] B.D. Lucas, and T. Kanade, "An iterative image registration
+        technique with an application to stereo vision", International Joint
+        Conference on Artificial Intelligence, pp. 674-679, 1981.
     """
     def __init__(self, kernel=None):
         self._kernel = kernel
@@ -209,6 +216,13 @@ class SSD(Residual):
 # TODO: Does not support masked templates at the moment
 class FourierSSD(Residual):
     r"""
+    Class for Sum of Squared Differences on the Fourier domain residual.
+
+    References
+    ----------
+    .. [1] A.B. Ashraf, S. Lucey, and T. Chen. "Fast Image Alignment in the
+        Fourier Domain", IEEE Proceedings of International Conference on
+        Computer Vision and Pattern Recognition, pp. 2480-2487, 2010.
     """
     def __init__(self, kernel=None):
         self._kernel = kernel
@@ -285,6 +299,13 @@ class FourierSSD(Residual):
 
 class ECC(Residual):
     r"""
+    Class for Enhanced Correlation Coefficient residual.
+
+    References
+    ----------
+    .. [1] G.D. Evangelidis, and E.Z. Psarakis. "Parametric Image Alignment
+        Using Enhanced Correlation Coefficient Maximization", IEEE Transactions
+        on Pattern Analysis and Machine Intelligence, 30(10): 1858-1865, 2008.
     """
     def _normalise_images(self, image):
         # TODO: do we need to copy the image?
@@ -371,6 +392,13 @@ class ECC(Residual):
 
 class GradientImages(Residual):
     r"""
+    Class for Gradient Images redisual.
+
+    References
+    ----------
+    .. [1] G. Tzimiropoulos, S. Zafeiriou, and M. Pantic. "Robust and
+        Efficient Parametric Face Alignment", IEEE Proceedings of International
+        Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
     def _regularise_gradients(self, grad):
         pixels = grad.pixels
@@ -447,6 +475,13 @@ class GradientImages(Residual):
 
 class GradientCorrelation(Residual):
     r"""
+    Class for Gradient Correlation redisual.
+
+    References
+    ----------
+    .. [1] G. Tzimiropoulos, S. Zafeiriou, and M. Pantic. "Robust and
+        Efficient Parametric Face Alignment", IEEE Proceedings of International
+        Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
     def steepest_descent_images(self, image, dW_dp, forward=None):
         n_dims = image.n_dims

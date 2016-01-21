@@ -1,30 +1,73 @@
 from __future__ import division
+
 from menpo.feature import no_op
+
 from menpofit.transform import DifferentiableAlignmentAffine
-from menpofit.fitter import (MultiFitter, noisy_shape_from_shape,
-                             noisy_shape_from_bounding_box)
+from menpofit.fitter import MultiFitter, noisy_shape_from_bounding_box
 from menpofit import checks
+
 from .algorithm import InverseCompositional
 from .residual import SSD
-from .result import LucasKanadeFitterResult
+from .result import LucasKanadeResult
 
 
-# TODO: document me!
 class LucasKanadeFitter(MultiFitter):
     r"""
+    Class for defining a multi-scale Lucas-Kanade fitter with repect to an
+    affine transform. Please see the references for a basic list of relevant
+    papers.
+
+    Parameters
+    ----------
+    template : `menpo.image.Image`
+        The template image.
+    group : `str` or ``None``, optional
+        The landmark group that will be used.
+    holistic_features : `closure`, optional
+        The features that will be extracted. Please refer to `menpo.feature`
+        for a list of potential features.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to define the scale of the template. It
+        defines the diagonal of the template's landmark group.
+    scales : `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    transform : `menpofit.transform.DifferentiableAlignmentAffine`, optional
+        A differential affine transform object.
+    algorithm_cls : `menpofit.lk.algorithm.LucasKanade` subclass, optional
+        The Lukas-Kanade optimization algorithm that will get applied. All
+        possible algorithms are stored in `menpofit.lk.algorithm`.
+    residual_cls : `menpofit.lk.residual.Residual` subclass, optional
+        The residual that will get applied. All possible residuals are
+        stored in `menpofit.lk.residual`.
+
+    References
+    ----------
+    .. [1] B.D. Lucas, and T. Kanade, "An iterative image registration
+        technique with an application to stereo vision", International Joint
+        Conference on Artificial Intelligence, pp. 674-679, 1981.
+    .. [2] G.D. Evangelidis, and E.Z. Psarakis. "Parametric Image Alignment
+        Using Enhanced Correlation Coefficient Maximization", IEEE Transactions
+        on Pattern Analysis and Machine Intelligence, 30(10): 1858-1865, 2008.
+    .. [3] A.B. Ashraf, S. Lucey, and T. Chen. "Fast Image Alignment in the
+        Fourier Domain", IEEE Proceedings of International Conference on
+        Computer Vision and Pattern Recognition, pp. 2480-2487, 2010.
+    .. [4] G. Tzimiropoulos, S. Zafeiriou, and M. Pantic. "Robust and
+        Efficient Parametric Face Alignment", IEEE Proceedings of International
+        Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
     def __init__(self, template, group=None, holistic_features=no_op,
-                 transform_cls=DifferentiableAlignmentAffine, diagonal=None,
+                 diagonal=None, transform=DifferentiableAlignmentAffine,
                  scales=(0.5, 1.0), algorithm_cls=InverseCompositional,
                  residual_cls=SSD):
-
+        # Check arguments
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         holistic_features = checks.check_callable(holistic_features,
                                                   len(scales))
-
+        # Assign attributes
         self.holistic_features = holistic_features
-        self.transform_cls = transform_cls
+        self.transform_cls = transform
         self.diagonal = diagonal
         self.scales = list(scales)
         # Make template masked for warping
@@ -55,9 +98,49 @@ class LucasKanadeFitter(MultiFitter):
 
     def perturb_from_gt_bb(self, gt_bb,
                            perturb_func=noisy_shape_from_bounding_box):
+        r"""
+        Method for adding noise to the ground truth bounding box. This is
+        useful for obtaining the initial bounding box of the fitting.
+
+        Parameters
+        ----------
+        gt_bb : `menpo.shape.PointCloud`
+            The ground truth bounding box.
+        perturb_func : `closure`, optional
+            The method to be used for adding noise to the ground truth
+            bounding box.
+
+        Returns
+        -------
+        perturbed_bb : `menpo.shape.PointCloud`
+            The perturbed bounding box.
+        """
         return perturb_func(gt_bb, gt_bb)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
-        return LucasKanadeFitterResult(image, self, algorithm_results,
-                                       affine_correction, gt_shape=gt_shape)
+        return LucasKanadeResult(
+                results=algorithm_results, scales=self.scales,
+                affine_correction=affine_correction, image=image,
+                gt_shape=gt_shape)
+
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
+            The warped images.
+        """
+        return self.algorithms[-1].warped_images(image=image, shapes=shapes)

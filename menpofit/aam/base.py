@@ -27,7 +27,7 @@ from menpofit.builder import (
 
 class AAM(object):
     r"""
-    Class for training a multi-level holistic Active Appearance Model. Please
+    Class for training a multi-scale holistic Active Appearance Model. Please
     see the references for a basic list of relevant papers.
 
     Parameters
@@ -54,7 +54,7 @@ class AAM(object):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     transform : `menpofit.transform.DifferentiablePiecewiseAffine`, optional
         A differential warp transform object.
@@ -64,13 +64,13 @@ class AAM(object):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
-        per level. If a single number, then this will be applied to all
+        per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
@@ -423,10 +423,10 @@ class AAM(object):
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -458,10 +458,10 @@ class AAM(object):
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of appearance principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -492,17 +492,17 @@ class AAM(object):
         n_shape_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         n_appearance_parameters : `int` or `list` of `int` or ``None``, optional
             The number of appearance principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -586,7 +586,7 @@ class AAM(object):
 
 class MaskedAAM(AAM):
     r"""
-    Class for training a multi-level patch-based Masked Active Appearance Model.
+    Class for training a multi-scale patch-based Masked Active Appearance Model.
     The appearance of this model is formulated by simply masking an image
     with a patch-based mask.
 
@@ -614,7 +614,7 @@ class MaskedAAM(AAM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
@@ -625,13 +625,13 @@ class MaskedAAM(AAM):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
-        per level. If a single number, then this will be applied to all
+        per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
@@ -689,7 +689,7 @@ class MaskedAAM(AAM):
 
 class LinearAAM(AAM):
     r"""
-    Class for training a multi-level Linear Active Appearance Model.
+    Class for training a multi-scale Linear Active Appearance Model.
 
     Parameters
     ----------
@@ -715,7 +715,7 @@ class LinearAAM(AAM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     transform : `menpofit.transform.DifferentiableThinPlateSplines`, optional
         A differential warp transform object.
@@ -725,13 +725,13 @@ class LinearAAM(AAM):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
-        per level. If a single number, then this will be applied to all
+        per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
@@ -838,7 +838,7 @@ class LinearAAM(AAM):
 
 class LinearMaskedAAM(AAM):
     r"""
-    Class for training a multi-level Linear Masked Active Appearance Model.
+    Class for training a multi-scale Linear Masked Active Appearance Model.
 
     Parameters
     ----------
@@ -864,7 +864,7 @@ class LinearMaskedAAM(AAM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
@@ -875,13 +875,13 @@ class LinearMaskedAAM(AAM):
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
-        per level. If a single number, then this will be applied to all
+        per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
@@ -981,7 +981,7 @@ class LinearMaskedAAM(AAM):
 # TODO: implement offsets support?
 class PatchAAM(AAM):
     r"""
-    Class for training a multi-level Patch-Based Active Appearance Model.
+    Class for training a multi-scale Patch-Based Active Appearance Model.
 
     Parameters
     ----------
@@ -1006,24 +1006,24 @@ class PatchAAM(AAM):
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.
     scales : `tuple` of `float`, optional
-        The scale value of each level. They must provided in ascending order,
+        The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches to be extracted. If a list is provided,
-        then it defines a patch shape per level.
+        then it defines a patch shape per scale.
     shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
         The class to be used for building the shape model.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should
-        define a value per level. If a single number, then this will be
+        define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
-        per level. If a single number, then this will be applied to all
+        per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
@@ -1081,10 +1081,10 @@ class PatchAAM(AAM):
         n_parameters : `int` or `list` of `int` or ``None``, optional
             The number of appearance principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
@@ -1116,17 +1116,17 @@ class PatchAAM(AAM):
         n_shape_parameters : `int` or `list` of `int` or ``None``, optional
             The number of shape principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         n_appearance_parameters : `int` or `list` of `int` or ``None``, optional
             The number of appearance principal components to be used for the
             parameters sliders. If `int`, then the number of sliders per
-            level is the minimum between `n_parameters` and the number of
-            active components per level. If `list` of `int`, then a number of
-            sliders is defined per level. If ``None``, all the active
-            components per level will have a slider.
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
         parameters_bounds : ``(float, float)``, optional
             The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional

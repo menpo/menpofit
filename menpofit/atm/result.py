@@ -188,7 +188,7 @@ class ATMAlgorithmResult(ParametricIterativeResult):
 
 class ATMResult(MultiScaleParametricIterativeResult):
     r"""
-    Class for storing the multi-level iterative fitting result of an ATM. It
+    Class for storing the multi-scale iterative fitting result of an ATM. It
     holds the shapes, shape parameters and costs per iteration.
 
     Parameters
@@ -196,7 +196,7 @@ class ATMResult(MultiScaleParametricIterativeResult):
     results : `list` of :map:`ATMOptimizationResult`
         The `list` of optimization results per scale.
     scales : `list` or `tuple`
-        The `list` of scale values per level (low to high).
+        The `list` of scale values per scale (low to high).
     affine_correction : `menpo.transform.homogeneous.affine.AlignmentAffine`
         The affine transform that transfers the per-scale shapes to the image
         scale.

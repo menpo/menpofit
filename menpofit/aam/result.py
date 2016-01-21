@@ -192,7 +192,7 @@ class AAMAlgorithmResult(ParametricIterativeResult):
 
 class AAMResult(MultiScaleParametricIterativeResult):
     r"""
-    Class for storing the multi-level iterative fitting result of an AAM. It
+    Class for storing the multi-scale iterative fitting result of an AAM. It
     holds the shapes, shape parameters, appearance parameters and costs per
     iteration.
 
@@ -201,7 +201,7 @@ class AAMResult(MultiScaleParametricIterativeResult):
     results : `list` of :map:`AAMOptimizationResult`
         The `list` of optimization results per scale.
     scales : `list` or `tuple`
-        The `list` of scale values per level (low to high).
+        The `list` of scale values per scale (low to high).
     affine_correction : `menpo.transform.homogeneous.affine.AlignmentAffine`
         The affine transform that transfers the per-scale shapes to the image
         scale.
