@@ -53,3 +53,25 @@ class LucasKanadeATMFitter(ModelFitter):
         return ATMResult(results=algorithm_results, scales=self.atm.scales,
                          affine_correction=affine_correction, image=image,
                          gt_shape=gt_shape)
+
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
+            The warped images.
+        """
+        return self.algorithms[-1].interface.warped_images(image=image,
+                                                           shapes=shapes)

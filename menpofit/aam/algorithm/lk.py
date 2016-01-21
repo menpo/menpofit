@@ -123,6 +123,31 @@ class LucasKanadeBaseInterface(object):
         return image.warp_to_mask(self.template.mask, self.transform,
                                   warp_landmarks=False)
 
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `menpo.image.MaskedImage`
+            The warped images.
+        """
+        warped_images = []
+        for s in shapes:
+            self.transform.set_target(s)
+            warped_images.append(self.warp(image))
+        return warped_images
+
     def gradient(self, image):
         r"""
         Computes the gradient of an image and vectorizes it.
@@ -479,6 +504,31 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
                                       as_single_array=True)
         parts = self.patch_normalisation(parts)
         return Image(parts, copy=False)
+
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `ndarray`
+            The warped images.
+        """
+        warped_images = []
+        for s in shapes:
+            self.transform.set_target(s)
+            warped_images.append(self.warp(image).pixels)
+        return warped_images
 
     def gradient(self, image):
         r"""

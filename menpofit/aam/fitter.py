@@ -75,6 +75,57 @@ class LucasKanadeAAMFitter(AAMFitter):
         self.algorithms = [lk_algorithm_cls(interface)
                            for interface in interfaces]
 
+    def appearance_reconstructions(self, appearance_parameters,
+                                   n_iters_per_scale):
+        r"""
+        Method that generates the appearance reconstructions given a set of
+        appearance parameters. This is to be combined with a
+        `menpofit.aam.result.AAMResult` object, in order to generate the
+        appearance reconstructions of a fitting procedure.
+
+        Parameters
+        ----------
+        appearance_parameters : `list` of `ndarray`
+            A set of appearance parameters per fitting iteration. It can be
+            retrieved as a property of a `menpofit.aam.result.AAMResult` object.
+        n_iters_per_scale : `list` of `int`
+            The number of iterations per scale. This is necessary in order to
+            figure out which appearance parameters correspond to the model of
+            each scale. It can be retrieved as a property of a
+            `menpofit.aam.result.AAMResult` object.
+
+        Returns
+        -------
+        appearance_reconstructions : `list` of `menpo.image.Image`
+            List of the appearance reconstructions that correspond to the
+            provided parameters.
+        """
+        return self.aam.appearance_reconstructions(
+                appearance_parameters=appearance_parameters,
+                n_iters_per_scale=n_iters_per_scale)
+
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
+            The warped images.
+        """
+        return self.algorithms[-1].interface.warped_images(image=image,
+                                                           shapes=shapes)
+
 
 # # TODO: document me!
 class SupervisedDescentAAMFitter(SupervisedDescentFitter):

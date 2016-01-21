@@ -1197,7 +1197,8 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         if len(results) != len(scales):
             raise ValueError('results and scales must have equal length ({} '
                              '!= {})'.format(len(results), len(scales)))
-        # Create shapes list
+        # Create shapes list and n_iters_per_scale
+        n_iters_per_scale = [results[0].n_iters]
         shapes = _rescale_shapes_to_reference(
                 shapes=results[0].shapes, scale=scales[0], max_scale=scales[-1],
                 affine_correction=affine_correction)
@@ -1205,10 +1206,12 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
             shapes += _rescale_shapes_to_reference(
                     shapes=r.shapes[1:], scale=scale, max_scale=scales[-1],
                     affine_correction=affine_correction)
+            n_iters_per_scale.append(r.n_iters)
         # Call superclass
         super(MultiScaleNonParametricIterativeResult, self).__init__(
             shapes=shapes, image=image, gt_shape=gt_shape)
         # Get attributes
+        self.n_iters_per_scale = n_iters_per_scale
         self.n_scales = len(scales)
         self._affine_correction = affine_correction
 

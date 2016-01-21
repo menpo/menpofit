@@ -27,7 +27,8 @@ from menpofit.builder import (
 
 class AAM(object):
     r"""
-    Class for training a multi-level holistic Active Appearance Model.
+    Class for training a multi-level holistic Active Appearance Model. Please
+    see the references for a basic list of relevant papers.
 
     Parameters
     ----------
@@ -78,6 +79,23 @@ class AAM(object):
         incremental fashion on image batches of size equal to the provided
         value. If ``None``, then the training is performed directly on the
         all the images.
+
+    References
+    ----------
+    .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
+        Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
+    .. [2] T.F. Cootes, G.J. Edwards, and C.J. Taylor. "Active Appearance
+        Models", IEEE Transactions on Pattern Analysis & Machine Intelligence
+        6 (2001): 681-685.
+    .. [3] I. Matthews, and S. Baker. "Active Appearance Models Revisited",
+        International Journal of Computer Vision, 60(2): 135-164, 2004.
+    .. [4] G. Papandreou, and P. Maragos. "Adaptive and constrained algorithms
+        for inverse compositional Active Appearance Model fitting", IEEE
+        Proceedings of International Conference on Computer Vision and
+        Pattern Recognition (CVPR), pp. 1-8, June 2008.
+    .. [5] E. Antonakos, J. Alabort-i-Medina, G. Tzimiropoulos, and S.
+        Zafeiriou. "Feature-Based Lucas-Kanade and Active Appearance Models",
+        IEEE Transactions on Image Processing, 24(9): 2617-2632, 2015.
     """
     def __init__(self, images, group=None, reference_shape=None,
                  holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
@@ -508,7 +526,7 @@ class AAM(object):
         r"""
         Method that builds the correct Lucas-Kanade fitting interface. It
         only applies in case you wish to fit the AAM with a Lucas-Kanade
-        algorithm
+        algorithm.
 
         Parameters
         ----------
@@ -527,6 +545,40 @@ class AAM(object):
                 am, md_transform, template, sampling=s)
             interfaces.append(interface)
         return interfaces
+
+    def appearance_reconstructions(self, appearance_parameters,
+                                   n_iters_per_scale):
+        r"""
+        Method that generates the appearance reconstructions given a set of
+        appearance parameters. This is to be combined with a
+        `menpofit.aam.result.AAMResult` object, in order to generate the
+        appearance reconstructions of a fitting procedure.
+
+        Parameters
+        ----------
+        appearance_parameters : `list` of `ndarray`
+            A set of appearance parameters per fitting iteration. It can be
+            retrieved as a property of a `menpofit.aam.result.AAMResult` object.
+        n_iters_per_scale : `list` of `int`
+            The number of iterations per scale. This is necessary in order to
+            figure out which appearance parameters correspond to the model of
+            each scale. It can be retrieved as a property of a
+            `menpofit.aam.result.AAMResult` object.
+
+        Returns
+        -------
+        appearance_reconstructions : `list` of `menpo.image.Image`
+            List of the appearance reconstructions that correspond to the
+            provided parameters.
+        """
+        appearance_reconstructions = []
+        previous = 0
+        for scale, n_iters in enumerate(n_iters_per_scale):
+            for c in appearance_parameters[previous:previous+n_iters+1]:
+                instance = self.appearance_models[scale].instance(c)
+                appearance_reconstructions.append(instance)
+            previous = n_iters + 1
+        return appearance_reconstructions
 
     def __str__(self):
         return _aam_str(self)
@@ -1117,6 +1169,40 @@ class PatchAAM(AAM):
                 patch_normalisation=self.patch_normalisation)
             interfaces.append(interface)
         return interfaces
+
+    def appearance_reconstructions(self, appearance_parameters,
+                                   n_iters_per_scale):
+        r"""
+        Method that generates the appearance reconstructions given a set of
+        appearance parameters. This is to be combined with a
+        `menpofit.aam.result.AAMResult` object, in order to generate the
+        appearance reconstructions of a fitting procedure.
+
+        Parameters
+        ----------
+        appearance_parameters : `list` of `ndarray`
+            A set of appearance parameters per fitting iteration. It can be
+            retrieved as a property of a `menpofit.aam.result.AAMResult` object.
+        n_iters_per_scale : `list` of `int`
+            The number of iterations per scale. This is necessary in order to
+            figure out which appearance parameters correspond to the model of
+            each scale. It can be retrieved as a property of a
+            `menpofit.aam.result.AAMResult` object.
+
+        Returns
+        -------
+        appearance_reconstructions : `list` of `ndarray`
+            List of the appearance reconstructions that correspond to the
+            provided parameters.
+        """
+        appearance_reconstructions = []
+        previous = 0
+        for scale, n_iters in enumerate(n_iters_per_scale):
+            for c in appearance_parameters[previous:previous+n_iters+1]:
+                instance = self.appearance_models[scale].instance(c).pixels
+                appearance_reconstructions.append(instance)
+            previous = n_iters + 1
+        return appearance_reconstructions
 
     def __str__(self):
         return _aam_str(self)
