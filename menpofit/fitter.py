@@ -259,15 +259,16 @@ class MultiFitter(object):
         if gt_shape:
             image.landmarks['__gt_shape'] = gt_shape
 
+        tmp_image = image
         if crop_image:
             # If specified, crop the image
-            image = image.crop_to_landmarks_proportion(crop_image,
-                                                       group='__initial_shape')
+            tmp_image = image.crop_to_landmarks_proportion(
+                    crop_image, group='__initial_shape')
 
         # Rescale image wrt the scale factor between reference_shape and
         # initial_shape
-        image = image.rescale_to_pointcloud(self.reference_shape,
-                                            group='__initial_shape')
+        tmp_image = tmp_image.rescale_to_pointcloud(
+                self.reference_shape, group='__initial_shape')
 
         # Compute image representation
         images = []
@@ -277,7 +278,7 @@ class MultiFitter(object):
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
-                feature_image = self.holistic_features[i](image)
+                feature_image = self.holistic_features[i](tmp_image)
 
             # Handle scales
             if self.scales[i] != 1:

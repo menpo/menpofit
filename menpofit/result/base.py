@@ -1200,11 +1200,11 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         # Create shapes list and n_iters_per_scale
         n_iters_per_scale = [results[0].n_iters]
         shapes = _rescale_shapes_to_reference(
-                shapes=results[0].shapes, scale=scales[0], max_scale=scales[-1],
+                shapes=results[0].shapes, scale=scales[0],
                 affine_correction=affine_correction)
         for (r, scale) in zip(results[1:], scales[1:]):
             shapes += _rescale_shapes_to_reference(
-                    shapes=r.shapes[1:], scale=scale, max_scale=scales[-1],
+                    shapes=r.shapes[1:], scale=scale,
                     affine_correction=affine_correction)
             n_iters_per_scale.append(r.n_iters)
         # Call superclass
@@ -1232,11 +1232,11 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
                 gt_shape=gt_shape)
 
 
-def _rescale_shapes_to_reference(shapes, scale, max_scale, affine_correction):
+def _rescale_shapes_to_reference(shapes, scale, affine_correction):
     r"""
     """
     rescaled_shapes = []
-    transform = Scale(max_scale / scale, shapes[0].n_dims)
+    transform = Scale(1. / scale, shapes[0].n_dims)
     for shape in shapes:
         shape = transform.apply(shape)
         rescaled_shapes.append(affine_correction.apply(shape))
