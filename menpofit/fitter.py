@@ -159,7 +159,7 @@ class MultiFitter(object):
         Fits the multilevel fitter to an image.
 
         Parameters
-        -----------
+        ----------
         image: :map:`Image` or subclass
             The image to be fitted.
         initial_shape: :map:`PointCloud`

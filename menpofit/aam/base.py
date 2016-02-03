@@ -49,7 +49,7 @@ class AAM(object):
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
         normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
+        that the diagonal of their ground truth shapes' bounding boxes
         equals to the provided value. The reference scale gets rescaled as
         well. If ``None``, then the images are rescaled with respect to the
         reference shape's diagonal.

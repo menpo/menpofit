@@ -32,7 +32,8 @@ class AAMAlgorithmResult(ParametricIterativeResult):
     def __init__(self, shapes, shape_parameters, appearance_parameters,
                  cost_functions=None, image=None, gt_shape=None):
         super(AAMAlgorithmResult, self).__init__(
-                shapes=shapes, shape_parameters=shape_parameters, image=image,
+                shapes=shapes[1:], initial_shape=shapes[0],
+                shape_parameters=shape_parameters,  image=image,
                 gt_shape=gt_shape)
         self.appearance_parameters = appearance_parameters
         self._cost_functions = cost_functions
@@ -371,11 +372,3 @@ class AAMResult(MultiScaleParametricIterativeResult):
         else:
             raise ValueError('costs is not well defined for the chosen AAM '
                              'algorithm')
-
-    def __str__(self):
-        out = "AAM fitting result of {} landmark points.".format(
-                self.final_shape.n_points)
-        if self.gt_shape is not None:
-            out += "\nInitial error: {:.4f}".format(self.initial_error())
-            out += "\nFinal error: {:.4f}".format(self.final_error())
-        return out

@@ -1,26 +1,26 @@
 from __future__ import division
 import dlib
 
+from menpo.visualize import print_dynamic
+
+from menpofit.result import NonParametricIterativeResult
+
 from .conversion import (copy_dlib_options, pointcloud_to_dlib_rect,
                          bounding_box_pointcloud_to_dlib_fo_detection,
                          dlib_full_object_detection_to_pointcloud,
                          image_to_dlib_pixels)
-from menpo.visualize import print_dynamic
-
-from menpofit.result_old import NonParametricAlgorithmResult
 
 
 # TODO: document me!
 class DlibAlgorithm(object):
     r"""
     """
-
     def __init__(self, dlib_options, n_iterations=10):
         self.dlib_model = None
         self._n_iterations = n_iterations
         self.dlib_options = copy_dlib_options(dlib_options)
         # T from Kazemi paper - Total number of cascades
-        self.dlib_options.cascade_depth = self.n_iterations
+        self.dlib_options.cascade_depth = int(self.n_iterations)
 
     @property
     def n_iterations(self):
@@ -76,11 +76,12 @@ class DlibAlgorithm(object):
 
         return bounding_boxes
 
-    def run(self, image, bounding_box, gt_shape=None, **kwargs):
+    def run(self, image, bounding_box, gt_shape=None):
         # Perform prediction
         pix = image_to_dlib_pixels(image)
         rect = pointcloud_to_dlib_rect(bounding_box)
         pred = dlib_full_object_detection_to_pointcloud(
-            self.dlib_model(pix, rect))
-
-        return NonParametricAlgorithmResult(image, [pred], gt_shape=gt_shape)
+                self.dlib_model(pix, rect))
+        return NonParametricIterativeResult(
+                shapes=[pred], initial_shape=None, image=image,
+                gt_shape=gt_shape)

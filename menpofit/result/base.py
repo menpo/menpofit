@@ -34,6 +34,7 @@ class Result(object):
         self.final_shape = final_shape
         self.initial_shape = initial_shape
         self.gt_shape = gt_shape
+        # If image is provided, create a copy
         self.image = None
         if image is not None:
             self.image = Image(image.pixels)
@@ -454,13 +455,18 @@ class NonParametricIterativeResult(Result):
     Class for storing a non-parametric iterative fitting result, i.e. the
     result of a method that does not optimize over a parametric shape model. It
     holds the shapes of all the iterations of the fitting procedure. It can
-    optionally store the image on which the fitting was applied.
+    optionally store the image on which the fitting was applied, as well as its
+    ground truth shape.
 
     Parameters
     ----------
     shapes : `list` of `menpo.shape.PointCloud`
-        The `list` of shapes per iteration. The first member is the initial
-        shape and the last member is the final shape.
+        The `list` of shapes per iteration. Note that the list does not
+        include the initial shape. The last member of the list is the final
+        shape.
+    initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The initial shape from which the fitting process started. If ``None``,
+        then no initial shape is assigned.
     image : `menpo.image.Image` or subclass or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
@@ -469,12 +475,15 @@ class NonParametricIterativeResult(Result):
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, shapes, image=None, gt_shape=None):
+    def __init__(self, shapes, initial_shape=None, image=None, gt_shape=None):
         super(NonParametricIterativeResult, self).__init__(
-                final_shape=shapes[-1], image=image, initial_shape=shapes[0],
-                gt_shape=gt_shape)
+                final_shape=shapes[-1], image=image,
+                initial_shape=initial_shape, gt_shape=gt_shape)
+        self.n_iters = len(shapes)
+        # If initial shape is provided, then add it in the beginning of shapes
         self.shapes = shapes
-        self.n_iters = len(shapes) - 1
+        if self.initial_shape is not None:
+            self.shapes = [self.initial_shape] + self.shapes
 
     def errors(self, compute_error=None):
         r"""
@@ -1075,7 +1084,7 @@ class NonParametricIterativeResult(Result):
                     isinstance(iters, list)):
             raise ValueError('iters must be either int or list or None')
         if iters is None:
-            iters = list(range(self.n_iters + 1))
+            iters = list(range(len(self.shapes)))
         # Create image instance
         if self.image is None:
             image = Image(np.zeros((10, 10)))
@@ -1100,13 +1109,15 @@ class NonParametricIterativeResult(Result):
         groups = []
         subplots_titles = {}
         for j in iters:
-            if j == 0:
+            if j == 0 and self.initial_shape is not None:
                 name = 'Initial'
+                image.landmarks[name] = self.initial_shape
             elif j == len(self.shapes) - 1:
                 name = 'Final'
+                image.landmarks[name] = self.final_shape
             else:
                 name = "iteration {:0{}d}".format(j, n_digits)
-            image.landmarks[name] = self.shapes[j]
+                image.landmarks[name] = self.shapes[j]
             groups.append(name)
             subplots_titles[name] = name
         # Render
@@ -1160,13 +1171,17 @@ class ParametricIterativeResult(NonParametricIterativeResult):
     of a method that optimizes the parameters of a shape model. It holds the
     shapes and shape parameters of all the iterations of the fitting
     procedure. It can optionally store the image on which the fitting was
-    applied.
+    applied , as well as its ground truth shape.
 
     Parameters
     ----------
     shapes : `list` of `menpo.shape.PointCloud`
-        The `list` of shapes per iteration. The first member is the initial
-        shape and the last member is the final shape.
+        The `list` of shapes per iteration. Note that the list does not
+        include the initial shape. The last member of the list is the final
+        shape.
+    initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The initial shape from which the fitting process started. If ``None``,
+        then no initial shape is assigned.
     shape_parameters : `list` of `ndarray`
         The `list` of shape parameters per iteration.
     image : `menpo.image.Image` or subclass or ``None``, optional
@@ -1177,14 +1192,38 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, shapes, shape_parameters, image=None, gt_shape=None):
+    def __init__(self, shapes, shape_parameters, initial_shape=None,
+                 image=None, gt_shape=None):
         super(ParametricIterativeResult, self).__init__(
-                shapes=shapes, image=image, gt_shape=gt_shape)
+                shapes=shapes, initial_shape=initial_shape, image=image,
+                gt_shape=gt_shape)
         self.shape_parameters = shape_parameters
 
 
 class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
     r"""
+    Class for storing a multi-scale non-parametric iterative fitting result,
+    i.e. the result of a multi-scale method that does not optimize over a
+    parametric shape model. It holds the shapes of all the iterations of
+    the fitting procedure, as well as the scales. It can optionally store the
+    image on which the fitting was applied, as well as its ground truth shape.
+
+    Parameters
+    ----------
+    results : `list` of `menpofit.result.NonParametricIterativeResult`
+        The `list` of non parametric iterative results per scale.
+    scales : `list` of `float`
+        The scale values (normally small to high).
+    affine_correction : `menpo.transform.Affine`
+        An affine transform from transforming shapes into the original image
+        space.
+    image : `menpo.image.Image` or subclass or ``None``, optional
+        The image on which the fitting process was applied. Note that a copy
+        of the image will be assigned as an attribute. If ``None``, then no
+        image is assigned.
+    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The ground truth shape associated with the image. If ``None``, then no
+        ground truth shape is assigned.
     """
     def __init__(self, results, scales, affine_correction, image=None,
                  gt_shape=None):
@@ -1197,19 +1236,31 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         if len(results) != len(scales):
             raise ValueError('results and scales must have equal length ({} '
                              '!= {})'.format(len(results), len(scales)))
+        # Get initial shape
+        initial_shape = None
+        if results[0].initial_shape is not None:
+            initial_shape = _rescale_shapes_to_reference(
+                    shapes=[results[0].initial_shape], scale=scales[0],
+                    affine_correction=affine_correction)[0]
         # Create shapes list and n_iters_per_scale
-        n_iters_per_scale = [results[0].n_iters]
-        shapes = _rescale_shapes_to_reference(
-                shapes=results[0].shapes, scale=scales[0],
-                affine_correction=affine_correction)
-        for (r, scale) in zip(results[1:], scales[1:]):
-            shapes += _rescale_shapes_to_reference(
-                    shapes=r.shapes[1:], scale=scale,
-                    affine_correction=affine_correction)
+        # If the result object has an initial shape, then it has to be
+        # removed from the final shapes list
+        n_iters_per_scale = []
+        shapes = []
+        for (r, scale) in zip(results, scales):
             n_iters_per_scale.append(r.n_iters)
+            if r.initial_shape is None:
+                shapes += _rescale_shapes_to_reference(
+                        shapes=r.shapes, scale=scale,
+                        affine_correction=affine_correction)
+            else:
+                shapes += _rescale_shapes_to_reference(
+                        shapes=r.shapes[1:], scale=scale,
+                        affine_correction=affine_correction)
         # Call superclass
         super(MultiScaleNonParametricIterativeResult, self).__init__(
-            shapes=shapes, image=image, gt_shape=gt_shape)
+                shapes=shapes, initial_shape=initial_shape, image=image,
+                gt_shape=gt_shape)
         # Get attributes
         self.n_iters_per_scale = n_iters_per_scale
         self.n_scales = len(scales)
@@ -1218,23 +1269,46 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
 
 class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult):
     r"""
+    Class for storing a multi-scale parametric iterative fitting result, i.e.
+    the result of a multi-scale method that optimizes over a parametric shape
+    model. It holds the shapes of all the iterations of the fitting procedure,
+    as well as the scales. It can optionally store the image on which the
+    fitting was applied, as well as its ground truth shape.
+
+    Parameters
+    ----------
+    results : `list` of `menpofit.result.ParametricIterativeResult`
+        The `list` of non parametric iterative results per scale.
+    scales : `list` of `float`
+        The scale values (normally small to high).
+    affine_correction : `menpo.transform.Affine`
+        An affine transform from transforming shapes into the original image
+        space.
+    image : `menpo.image.Image` or subclass or ``None``, optional
+        The image on which the fitting process was applied. Note that a copy
+        of the image will be assigned as an attribute. If ``None``, then no
+        image is assigned.
+    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The ground truth shape associated with the image. If ``None``, then no
+        ground truth shape is assigned.
     """
     def __init__(self, results, scales, affine_correction, image=None,
                  gt_shape=None):
-        # Create shape parameters list
-        self.shape_parameters = results[0].shape_parameters
-        for r in results[1:]:
-            self.shape_parameters += r.shape_parameters[1:]
         # Call superclass
         super(MultiScaleParametricIterativeResult, self).__init__(
                 results=results, scales=scales,
                 affine_correction=affine_correction, image=image,
                 gt_shape=gt_shape)
+        # Create shape parameters list
+        self.shape_parameters = results[0].shape_parameters
+        for r in results[1:]:
+            if r.initial_shape is None:
+                self.shape_parameters += r.shape_parameters
+            else:
+                self.shape_parameters += r.shape_parameters[1:]
 
 
 def _rescale_shapes_to_reference(shapes, scale, affine_correction):
-    r"""
-    """
     rescaled_shapes = []
     transform = Scale(1. / scale, shapes[0].n_dims)
     for shape in shapes:
