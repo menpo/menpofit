@@ -50,11 +50,13 @@ class DlibERT(MultiFitter):
         i.e. from lowest to highest scale.
     n_perturbations : `int` or ``None``, optional
         The number of perturbations to be generated from the provided
-        bounding boxes.
+        bounding boxes. Note that the total number of perturbations is
+        `n_perturbations * n_dlib_perturbations`.
     n_dlib_perturbations : `int` or ``None`` or `list` of those, optional
         The number of perturbations to be generated from the part of DLib. DLib
         calls this "oversampling amount". If `list`, it must specify a value per
-        scale.
+        scale. Note that the total number of perturbations is
+        `n_perturbations * n_dlib_perturbations`.
     perturb_from_gt_bounding_box : `function`, optional
         The function that will be used to generate the perturbations.
     n_iterations : `int` of `list` of `int`, optional
@@ -426,14 +428,15 @@ class DlibERT(MultiFitter):
         # Compute scale info strings
         scales_info = []
         lvl_str_tmplt = r"""   - Scale {0}
-     - Cascade of depth {1}
-     - Each tree has depth {2}
-     - {3} trees per cascade level
+     - Cascade depth: {1}
+     - Depth per tree: {2}
+     - Trees per cascade level: {3}
      - Regularisation parameter: {4:.1f}
      - Feature pool of size {5} and padding {6:.1f}
      - Lambda: {7:.1f}
      - {8} split tests
-     - {9} oversampling perturbations"""
+     - Perturbations generated per shape: {9}
+     - Total perturbations generated: {10}"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
                     s,
@@ -445,18 +448,27 @@ class DlibERT(MultiFitter):
                     self._dlib_options_templates[k].feature_pool_region_padding,
                     self._dlib_options_templates[k].lambda_param,
                     self._dlib_options_templates[k].num_test_splits,
-                    self._dlib_options_templates[k].oversampling_amount))
+                    self._dlib_options_templates[k].oversampling_amount,
+                    self._dlib_options_templates[k].oversampling_amount *
+                    self.n_perturbations))
         scales_info = '\n'.join(scales_info)
+
+        is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
+                                  noisy_shape_from_bounding_box)
+        if is_custom_perturb_func:
+            is_custom_perturb_func = name_of_callable(
+                    self._perturb_from_gt_bounding_box)
 
         cls_str = r"""{class_title}
  - Images scaled to diagonal: {diagonal:.2f}
- - {n_pert} perturbations with {pert}
+ - Perturbations generated per shape: {n_perturbations}
+ - Custom perturbation scheme used: {is_custom_perturb_func}
  - Scales: {scales}
 {scales_info}
 """.format(class_title='Ensemble of Regression Trees',
            diagonal=diagonal,
-           n_pert=self.n_perturbations,
-           pert=name_of_callable(self._perturb_from_gt_bounding_box),
+           n_perturbations=self.n_perturbations,
+           is_custom_perturb_func=is_custom_perturb_func,
            scales=self.scales,
            scales_info=scales_info)
         return cls_str

@@ -225,15 +225,18 @@ class SupervisedDescentFitter(MultiFitter):
             diagonal = np.sqrt(x ** 2 + y ** 2)
         is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
                                   noisy_shape_from_bounding_box)
+        if is_custom_perturb_func:
+            is_custom_perturb_func = name_of_callable(
+                    self._perturb_from_gt_bounding_box)
         regressor_cls = self.algorithms[0]._regressor_cls
 
         # Compute scale info strings
         scales_info = []
-        lvl_str_tmplt = r"""  - Scale {}
-   - {} iterations
-   - Patch shape: {}
-   - Holistic feature: {}
-   - Patch feature: {}"""
+        lvl_str_tmplt = r"""   - Scale {}
+     - {} iterations
+     - Patch shape: {}
+     - Holistic feature: {}
+     - Patch feature: {}"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
                 s, self.n_iterations[k], self.patch_shape[k],
