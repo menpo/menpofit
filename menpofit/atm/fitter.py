@@ -75,3 +75,24 @@ class LucasKanadeATMFitter(ModelFitter):
         """
         return self.algorithms[-1].interface.warped_images(image=image,
                                                            shapes=shapes)
+
+    def __str__(self):
+        # Compute scale info strings
+        scales_info = []
+        lvl_str_tmplt = r"""   - Scale {}
+     - {} active shape components
+     - {} similarity transform components"""
+        for k, s in enumerate(self.scales):
+            scales_info.append(lvl_str_tmplt.format(
+                    s,
+                    self.atm.shape_models[k].n_active_components,
+                    self.atm.shape_models[k].n_global_parameters))
+        scales_info = '\n'.join(scales_info)
+
+        cls_str = r"""{class_title}
+ - Scales: {scales}
+{scales_info}
+    """.format(class_title=self.algorithms[0].__str__(),
+               scales=self.scales,
+               scales_info=scales_info)
+        return self.atm.__str__() + cls_str

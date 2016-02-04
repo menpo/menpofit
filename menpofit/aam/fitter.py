@@ -126,6 +126,29 @@ class LucasKanadeAAMFitter(AAMFitter):
         return self.algorithms[-1].interface.warped_images(image=image,
                                                            shapes=shapes)
 
+    def __str__(self):
+        # Compute scale info strings
+        scales_info = []
+        lvl_str_tmplt = r"""   - Scale {}
+     - {} active shape components
+     - {} similarity transform components
+     - {} active appearance components"""
+        for k, s in enumerate(self.scales):
+            scales_info.append(lvl_str_tmplt.format(
+                    s,
+                    self.aam.shape_models[k].n_active_components,
+                    self.aam.shape_models[k].n_global_parameters,
+                    self.aam.appearance_models[k].n_active_components))
+        scales_info = '\n'.join(scales_info)
+
+        cls_str = r"""{class_title}
+ - Scales: {scales}
+{scales_info}
+    """.format(class_title=self.algorithms[0].__str__(),
+               scales=self.scales,
+               scales_info=scales_info)
+        return self.aam.__str__() + cls_str
+
 
 # # TODO: document me!
 class SupervisedDescentAAMFitter(SupervisedDescentFitter):

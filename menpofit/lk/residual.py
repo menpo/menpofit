@@ -212,6 +212,9 @@ class SSD(Residual):
                 return lambda: x.ravel().T.dot(kx.ravel())
         return cost_closure(self._error_img, self._kernel)
 
+    def __str__(self):
+        return "Sum of Squared Differences Residual"
+
 
 # TODO: Does not support masked templates at the moment
 class FourierSSD(Residual):
@@ -295,6 +298,9 @@ class FourierSSD(Residual):
                            axes=(-2, -1))
                 return lambda: x.ravel().T.dot(kx.ravel())
         return cost_closure(self._error_img, self._kernel)
+
+    def __str__(self):
+        return "Fourier Sum of Squared Differences Residual"
 
 
 class ECC(Residual):
@@ -389,10 +395,13 @@ class ECC(Residual):
             return lambda: x.T.dot(y)
         return cost_closure(self._normalised_IWxp, self._normalised_template)
 
+    def __str__(self):
+        return "Enhanced Correlation Coefficient Residual"
+
 
 class GradientImages(Residual):
     r"""
-    Class for Gradient Images redisual.
+    Class for Gradient Images residual.
 
     References
     ----------
@@ -472,10 +481,13 @@ class GradientImages(Residual):
             return lambda: x.T.dot(x)
         return cost_closure(self._error_img)
 
+    def __str__(self):
+        return "Gradient Image Residual"
+
 
 class GradientCorrelation(Residual):
     r"""
-    Class for Gradient Correlation redisual.
+    Class for Gradient Correlation residual.
 
     References
     ----------
@@ -594,3 +606,6 @@ class GradientCorrelation(Residual):
         def cost_closure(x):
             return lambda: 1/x
         return cost_closure(self._l)
+
+    def __str__(self):
+        return "Gradient Correlation Residual"

@@ -1,6 +1,8 @@
 from __future__ import division
+import numpy as np
 
 from menpo.feature import no_op
+from menpo.base import name_of_callable
 
 from menpofit.transform import DifferentiableAlignmentAffine
 from menpofit.fitter import MultiFitter, noisy_shape_from_bounding_box
@@ -144,3 +146,35 @@ class LucasKanadeFitter(MultiFitter):
             The warped images.
         """
         return self.algorithms[-1].warped_images(image=image, shapes=shapes)
+
+    def __str__(self):
+        if self.diagonal is not None:
+            diagonal = self.diagonal
+        else:
+            y, x = self.reference_shape.range()
+            diagonal = np.sqrt(x ** 2 + y ** 2)
+
+        # Compute scale info strings
+        scales_info = []
+        lvl_str_tmplt = r"""   - Scale {}
+     - Holistic feature: {}
+     - Template shape: {}"""
+        for k, s in enumerate(self.scales):
+            scales_info.append(lvl_str_tmplt.format(
+                    s, name_of_callable(self.holistic_features[k]),
+                    self.templates[k].shape))
+        scales_info = '\n'.join(scales_info)
+
+        cls_str = r"""Lucas-Kanade {class_title}
+ - {residual}
+ - Images warped with {transform} transform
+ - Images scaled to diagonal: {diagonal:.2f}
+ - Scales: {scales}
+{scales_info}
+""".format(class_title=self.algorithms[0],
+           residual=self.algorithms[0].residual,
+           transform=name_of_callable(self.transform_cls),
+           diagonal=diagonal,
+           scales=self.scales,
+           scales_info=scales_info)
+        return cls_str

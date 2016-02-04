@@ -913,6 +913,9 @@ class ProjectOutForwardCompositional(ProjectOut):
         self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
+    def __str__(self):
+        return "Project-Out Forward Compositional Algorithm"
+
 
 class ProjectOutInverseCompositional(ProjectOut):
     r"""
@@ -945,6 +948,9 @@ class ProjectOutInverseCompositional(ProjectOut):
         # update warp based on inverse composition
         self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
+
+    def __str__(self):
+        return "Project-Out Inverse Compositional Algorithm"
 
 
 class Simultaneous(LucasKanade):
@@ -1078,6 +1084,9 @@ class SimultaneousForwardCompositional(Simultaneous):
         self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
+    def __str__(self):
+        return "Simultaneous Forward Compositional Algorithm"
+
 
 class SimultaneousInverseCompositional(Simultaneous):
     r"""
@@ -1093,6 +1102,9 @@ class SimultaneousInverseCompositional(Simultaneous):
         # update warp based on inverse composition
         self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
+
+    def __str__(self):
+        return "Project-Out Inverse Compositional Algorithm"
 
 
 class Alternating(LucasKanade):
@@ -1236,6 +1248,9 @@ class AlternatingForwardCompositional(Alternating):
         self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
+    def __str__(self):
+        return "Alternating Forward Compositional Algorithm"
+
 
 class AlternatingInverseCompositional(Alternating):
     r"""
@@ -1251,6 +1266,9 @@ class AlternatingInverseCompositional(Alternating):
         # update warp based on inverse composition
         self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
+
+    def __str__(self):
+        return "Alternating Inverse Compositional Algorithm"
 
 
 class ModifiedAlternating(Alternating):
@@ -1378,6 +1396,9 @@ class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
         self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
+    def __str__(self):
+        return "Modified Alternating Forward Compositional Algorithm"
+
 
 class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
     r"""
@@ -1393,6 +1414,9 @@ class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
         # update warp based on inverse composition
         self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
+
+    def __str__(self):
+        return "Modified Alternating Inverse Compositional Algorithm"
 
 
 class Wiberg(LucasKanade):
@@ -1525,6 +1549,9 @@ class WibergForwardCompositional(Wiberg):
         self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
+    def __str__(self):
+        return "Wiberg Forward Compositional Algorithm"
+
 
 class WibergInverseCompositional(Wiberg):
     r"""
@@ -1540,3 +1567,6 @@ class WibergInverseCompositional(Wiberg):
         # update warp based on inverse composition
         self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
+
+    def __str__(self):
+        return "Wiberg Inverse Compositional Algorithm"

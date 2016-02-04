@@ -309,6 +309,9 @@ class ForwardCompositional(Compositional):
         self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
+    def __str__(self):
+        return "Forward Compositional Algorithm"
+
 
 class InverseCompositional(Compositional):
     r"""
@@ -339,3 +342,6 @@ class InverseCompositional(Compositional):
         # update warp based on inverse composition
         self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
+
+    def __str__(self):
+        return "Inverse Compositional Algorithm"

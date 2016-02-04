@@ -3,9 +3,11 @@ from functools import partial
 import warnings
 import dlib
 from pathlib import Path
+import numpy as np
 
 from menpo.feature import no_op
 from menpo.transform import Scale, AlignmentAffine
+from menpo.base import name_of_callable
 
 from menpofit import checks
 from menpofit.compatibility import STRING_TYPES
@@ -20,7 +22,7 @@ from .algorithm import DlibAlgorithm
 
 class DlibERT(MultiFitter):
     r"""
-    DLib wrapper class for training a multi-scale ERT model.
+    Class for training a multi-scale Ensemble of Regression Trees model.
 
     Parameters
     ----------
@@ -49,13 +51,16 @@ class DlibERT(MultiFitter):
     n_perturbations : `int` or ``None``, optional
         The number of perturbations to be generated from the provided
         bounding boxes.
-    n_dlib_perturbations : `int` or ``None``, optional
-        The number of perturbations to be generated from the part of DLib.
+    n_dlib_perturbations : `int` or ``None`` or `list` of those, optional
+        The number of perturbations to be generated from the part of DLib. DLib
+        calls this "oversampling amount". If `list`, it must specify a value per
+        scale.
     perturb_from_gt_bounding_box : `function`, optional
         The function that will be used to generate the perturbations.
-    n_iterations : `int`, optional
-        The number of iterations of each level.
-    feature_padding : `float`, optional
+    n_iterations : `int` of `list` of `int`, optional
+        The number of iterations (cascades) of each level. If `list`, it must
+        specify a value per scale.
+    feature_padding : `float` or `list` of `float`, optional
         When we randomly sample the pixels for the feature pool we do so in a
         box fit around the provided training landmarks. By default, this box
         is the tightest box that contains the landmarks. However, you can
@@ -66,13 +71,14 @@ class DlibERT(MultiFitter):
         would cause the algorithm to sample pixels from a box that was 2x2,
         effectively multiplying the area pixels are sampled from by 4.
         Similarly, setting the padding to -0.2 would cause it to sample from
-        a box 0.6x0.6 in size.
-    n_pixel_pairs : `int`, optional
+        a box 0.6x0.6 in size. If `list`, it must specify a value per scale.
+    n_pixel_pairs : `int` or `list` of `int`, optional
         `P` parameter from [1]. At each level of the cascade we randomly sample
         pixels from the image. These pixels are used to generate features for
         the random trees. So in general larger settings of this parameter
-        give better accuracy but make the algorithm run slower.
-    distance_prior_weighting : `float`, optional
+        give better accuracy but make the algorithm run slower. If `list`, it
+        must specify a value per scale.
+    distance_prior_weighting : `float` or `list` of `float`, optional
         To decide how to split nodes in the regression trees the algorithm
         looks at pairs of pixels in the image. These pixel pairs are sampled
         randomly but with a preference for selecting pixels that are near
@@ -84,23 +90,25 @@ class DlibERT(MultiFitter):
         `distance_prior_weighting` as "the fraction of the bounding box will
         we traverse to find a neighboring pixel".  Nominally, this is
         normalized between 0 and 1.  So reasonable settings are values in the
-        range (0, 1).
-    regularisation_weight : `float`, optional
+        range (0, 1). If `list`, it must specify a value per scale.
+    regularisation_weight : `float` or `list` of `float`, optional
         Boosting regularization parameter - `nu` from [1]. Larger values may
-        cause overfitting but improve performance on training data.
-    n_split_tests : `int`, optional
+        cause overfitting but improve performance on training data. If `list`,
+        it must specify a value per scale.
+    n_split_tests : `int` or `list` of `int`, optional
         When generating the random trees we randomly sample `n_split_tests`
         possible split features at each node and pick the one that gives the
         best split.  Larger values of this parameter will usually give more
-        accurate outputs but take longer to train. It is `S` from [1].
-    n_trees : `int`, optional
+        accurate outputs but take longer to train. It is equivalent of `S`
+        from [1]. If `list`, it must specify a value per scale.
+    n_trees : `int` or `list` of `int`, optional
         Number of trees created for each cascade. The total number of trees
         in the learned model is equal n_trees * n_tree_levels. Equivalent to
-        `K` from [1].
-    n_tree_levels : `int`, optional
+        `K` from [1]. If `list`, it must specify a value per scale.
+    n_tree_levels : `int` or `list` of `int`, optional
         The number of levels in the tree (depth of tree). In particular,
         there are pow(2, n_tree_levels) leaves in each tree. Equivalent to
-        `F` from [1].
+        `F` from [1]. If `list`, it must specify a value per scale.
     verbose : `bool`, optional
         If ``True``, then the progress of building ERT will be printed.
 
@@ -120,6 +128,7 @@ class DlibERT(MultiFitter):
         checks.check_diagonal(diagonal)
         self.diagonal = diagonal
         self.scales = checks.check_scales(scales)
+        # Dummy option that is required by _prepare_image of MultiFitter.
         self.holistic_features = checks.check_callable(no_op, self.n_scales)
         self.reference_shape = reference_shape
         self.n_perturbations = n_perturbations
@@ -282,9 +291,10 @@ class DlibERT(MultiFitter):
 
     def perturb_from_bb(self, gt_shape, bb):
         """
-        Returns a perturbed version of the ground truth shape with respect to
-        the alignment between the ground truth bounding box and the provided
-        bounding box.
+        Returns a perturbed version of the ground truth shape. The perturbation
+        is applied on the alignment between the ground truth bounding box and
+        the provided bounding box. This is useful for obtaining the initial
+        bounding box of the fitting.
 
         Parameters
         ----------
@@ -302,9 +312,8 @@ class DlibERT(MultiFitter):
 
     def perturb_from_gt_bb(self, gt_bb):
         """
-        Returns a perturbed version of the ground truth shape given  with
-        respect to the alignment between the ground truth bounding box and
-        the provided bounding box.
+        Returns a perturbed version of the ground truth bounding box. This is
+        useful for obtaining the initial bounding box of the fitting.
 
         Parameters
         ----------
@@ -313,8 +322,8 @@ class DlibERT(MultiFitter):
 
         Returns
         -------
-        perturbed_shape : `menpo.shape.PointCloud`
-            The perturbed shape.
+        perturbed_bb : `menpo.shape.PointDirectedGraph`
+            The perturbed ground truth bounding box.
         """
         return self._perturb_from_gt_bounding_box(gt_bb, gt_bb)
 
@@ -325,19 +334,70 @@ class DlibERT(MultiFitter):
                 affine_correction=affine_correction, image=image,
                 gt_shape=gt_shape)
 
-    def fit_from_shape(self, image, initial_shape, max_iters=20, gt_shape=None,
-                       crop_image=None, **kwargs):
+    def fit_from_shape(self, image, initial_shape, gt_shape=None,
+                       crop_image=None):
+        r"""
+        Fits the model to an image. Note that it is not possible to
+        initialise the fitting process from a shape. Thus, this method raises a
+        warning and calls `fit_from_bb` with the bounding box of the provided
+        `initial_shape`.
 
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        initial_shape : :map:`PointCloud`
+            The initial shape estimate from which the fitting procedure
+            will start. Note that the shape won't actually be used, only its
+            bounding box.
+        gt_shape : class : :map:`PointCloud`, optional
+            The ground truth shape associated to the image.
+        crop_image : ``None`` or `float`, optional
+            If `float`, it specifies the proportion of the border wrt the
+            initial shape to which the image will be internally cropped around
+            the initial shape range. If ``None``, no cropping is performed.
+            This will limit the fitting algorithm search region but is
+            likely to speed up its running time, specially when the
+            modeled object occupies a small portion of the image.
+
+        Returns
+        -------
+        fitting_result: `menpofit.result.MultiScaleNonParametricIterativeResult`
+            The result of the fitting procedure.
+        """
         warnings.warn('Fitting from an initial shape is not supported by '
                       'Dlib - therefore we are falling back to the tightest '
                       'bounding box from the given initial_shape')
         tightest_bb = initial_shape.bounding_box()
-        return self.fit_from_bb(image, tightest_bb, max_iters=max_iters,
-                                gt_shape=gt_shape, crop_image=crop_image,
-                                **kwargs)
+        return self.fit_from_bb(image, tightest_bb, gt_shape=gt_shape,
+                                crop_image=crop_image)
 
-    def fit_from_bb(self, image, bounding_box, max_iters=20, gt_shape=None,
-                    crop_image=None, **kwargs):
+    def fit_from_bb(self, image, bounding_box, gt_shape=None, crop_image=None):
+        r"""
+        Fits the model to an image given an initial bounding box.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        bounding_box : `menpo.shape.PointDirectedGraph`
+            The initial bounding box from which the fitting procedure
+            will start.
+        gt_shape : class : :map:`PointCloud`, optional
+            The ground truth shape associated to the image.
+        crop_image : ``None`` or `float`, optional
+            If `float`, it specifies the proportion of the border wrt the
+            initial shape to which the image will be internally cropped around
+            the initial shape range. If ``None``, no cropping is performed.
+            This will limit the fitting algorithm search region but is
+            likely to speed up its running time, specially when the
+            modeled object occupies a small portion of the image.
+
+        Returns
+        -------
+        fitting_result: `menpofit.result.MultiScaleNonParametricIterativeResult`
+            The result of the fitting procedure.
+        """
         # generate the list of images to be fitted
         images, bounding_boxes, gt_shapes = self._prepare_image(
             image, bounding_box, gt_shape=gt_shape, crop_image=crop_image)
@@ -348,8 +408,7 @@ class DlibERT(MultiFitter):
 
         # run multilevel fitting
         algorithm_results = self._fit(images, bounding_boxes[0],
-                                      max_iters=max_iters,
-                                      gt_shapes=gt_shapes, **kwargs)
+                                      gt_shapes=gt_shapes)
 
         # build multilevel fitting result
         fitter_result = self._fitter_result(
@@ -358,7 +417,49 @@ class DlibERT(MultiFitter):
         return fitter_result
 
     def __str__(self):
-        return 'asd'
+        if self.diagonal is not None:
+            diagonal = self.diagonal
+        else:
+            y, x = self.reference_shape.range()
+            diagonal = np.sqrt(x ** 2 + y ** 2)
+
+        # Compute scale info strings
+        scales_info = []
+        lvl_str_tmplt = r"""   - Scale {0}
+     - Cascade of depth {1}
+     - Each tree has depth {2}
+     - {3} trees per cascade level
+     - Regularisation parameter: {4:.1f}
+     - Feature pool of size {5} and padding {6:.1f}
+     - Lambda: {7:.1f}
+     - {8} split tests
+     - {9} oversampling perturbations"""
+        for k, s in enumerate(self.scales):
+            scales_info.append(lvl_str_tmplt.format(
+                    s,
+                    self._dlib_options_templates[k].cascade_depth,
+                    self._dlib_options_templates[k].tree_depth,
+                    self._dlib_options_templates[k].num_trees_per_cascade_level,
+                    self._dlib_options_templates[k].nu,
+                    self._dlib_options_templates[k].feature_pool_size,
+                    self._dlib_options_templates[k].feature_pool_region_padding,
+                    self._dlib_options_templates[k].lambda_param,
+                    self._dlib_options_templates[k].num_test_splits,
+                    self._dlib_options_templates[k].oversampling_amount))
+        scales_info = '\n'.join(scales_info)
+
+        cls_str = r"""{class_title}
+ - Images scaled to diagonal: {diagonal:.2f}
+ - {n_pert} perturbations with {pert}
+ - Scales: {scales}
+{scales_info}
+""".format(class_title='Ensemble of Regression Trees',
+           diagonal=diagonal,
+           n_pert=self.n_perturbations,
+           pert=name_of_callable(self._perturb_from_gt_bounding_box),
+           scales=self.scales,
+           scales_info=scales_info)
+        return cls_str
 
 
 class DlibWrapper(object):
@@ -378,7 +479,7 @@ class DlibWrapper(object):
                 raise ValueError('Model {} does not exist.'.format(m_path))
             model = dlib.shape_predictor(str(m_path))
 
-        # Dlib doesn't expose any information about how the model was buit,
+        # Dlib doesn't expose any information about how the model was built,
         # so we just create dummy options
         self.algorithm = DlibAlgorithm(dlib.shape_predictor_training_options(),
                                        n_iterations=0)
@@ -433,8 +534,11 @@ class DlibWrapper(object):
             The result of the fitting procedure.
         """
         # We get back a NonParametricIterativeResult with one iteration,
-        # which is useless. Simply convert it to a Result instance without
+        # which is pointless. Simply convert it to a Result instance without
         # passing in an initial shape.
         fit_result = self.algorithm.run(image, bounding_box, gt_shape=gt_shape)
         return Result(final_shape=fit_result.final_shape, image=image,
                       initial_shape=None, gt_shape=gt_shape)
+
+    def __str__(self):
+        return "Pre-trained DLib Ensemble of Regression Trees model"

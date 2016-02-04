@@ -1217,23 +1217,25 @@ def _aam_str(aam):
 
     # Compute scale info strings
     scales_info = []
-    lvl_str_tmplt = r"""  - Scale {}
-   - Holistic feature: {}
-   - Appearance model class: {}
-   - {} appearance components
-   - Shape model class: {}
-   - {} shape components"""
+    lvl_str_tmplt = r"""   - Scale {}
+     - Holistic feature: {}
+     - Appearance model class: {}
+     - {} appearance components
+     - Shape model class: {}
+     - {} shape components
+     - {} similarity transform parameters"""
     for k, s in enumerate(aam.scales):
         scales_info.append(lvl_str_tmplt.format(
             s, name_of_callable(aam.holistic_features[k]),
             name_of_callable(aam.appearance_models[k]),
             aam.appearance_models[k].n_components,
             name_of_callable(aam.shape_models[k]),
-            aam.shape_models[k].model.n_components))
+            aam.shape_models[k].model.n_components,
+            aam.shape_models[k].n_global_parameters))
     # Patch based AAM
     if hasattr(aam, 'patch_shape'):
         for k in range(len(scales_info)):
-            scales_info[k] += '\n   - Patch shape: {}'.format(
+            scales_info[k] += '\n     - Patch shape: {}'.format(
                 aam.patch_shape[k])
     scales_info = '\n'.join(scales_info)
 

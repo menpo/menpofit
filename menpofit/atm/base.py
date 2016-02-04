@@ -941,21 +941,23 @@ def _atm_str(atm):
 
     # Compute scale info strings
     scales_info = []
-    lvl_str_tmplt = r"""  - Scale {}
-   - Holistic feature: {}
-   - Template shape: {}
-   - Shape model class: {}
-   - {} shape components"""
+    lvl_str_tmplt = r"""   - Scale {}
+     - Holistic feature: {}
+     - Template shape: {}
+     - Shape model class: {}
+     - {} shape components
+     - {} similarity transform parameters"""
     for k, s in enumerate(atm.scales):
         scales_info.append(lvl_str_tmplt.format(
             s, name_of_callable(atm.holistic_features[k]),
             atm.warped_templates[k].shape,
             name_of_callable(atm.shape_models[k]),
-            atm.shape_models[k].model.n_components))
+            atm.shape_models[k].model.n_components,
+            atm.shape_models[k].n_global_parameters))
     # Patch based ATM
     if hasattr(atm, 'patch_shape'):
         for k in range(len(scales_info)):
-            scales_info[k] += '\n   - Patch shape: {}'.format(
+            scales_info[k] += '\n     - Patch shape: {}'.format(
                 atm.patch_shape[k])
     scales_info = '\n'.join(scales_info)
 

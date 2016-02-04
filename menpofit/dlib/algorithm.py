@@ -11,9 +11,35 @@ from .conversion import (copy_dlib_options, pointcloud_to_dlib_rect,
                          image_to_dlib_pixels)
 
 
-# TODO: document me!
 class DlibAlgorithm(object):
     r"""
+    DLib wrapper class for fitting a multi-scale Ensemble of Regression Trees
+    model.
+
+    Parameters
+    ----------
+    dlib_options : `list`
+        List of the options expected by DLib, as specified in the
+        `dlib.shape_predictor_training_options` method. Specifically:
+
+        =========================== =============================================
+        Value                       Description
+        =========================== ============================================
+        be_verbose                  Flag to enable info printing
+        cascade_depth               Number of cascades
+        feature_pool_region_padding Size of region within which to get features
+        feature_pool_size           Number of pixels used to generate features
+        lambda_param feature        Controls how tight the feature sampling is
+        nu                          Regularisation parameter
+        num_test_splits             Number of split features to sample per node
+        num_trees_per_cascade_level The number of trees created for each cascade
+        oversampling_amount         The number of random initialisations
+        random_seed                 Seed of random number generator
+        tree_depth                  The depth of the trees used in each cascade
+        =========================== ============================================
+
+    n_iterations : `int`, optional
+        Number of iterations (cascades).
     """
     def __init__(self, dlib_options, n_iterations=10):
         self.dlib_model = None
@@ -24,17 +50,45 @@ class DlibAlgorithm(object):
 
     @property
     def n_iterations(self):
+        """
+        Returns the number of iterations (cascades).
+
+        :type: `int`
+        """
         return self._n_iterations
 
     @n_iterations.setter
     def n_iterations(self, v):
+        """
+        Sets the number of iterations (cascades).
+
+        Parameters
+        ----------
+        v : `int`
+            The new number of iterations.
+        """
         self._n_iterations = v
         # T from Kazemi paper - Total number of cascades
         self.dlib_options.cascade_depth = self._n_iterations
 
     def train(self, images, gt_shapes, bounding_boxes, prefix='',
               verbose=False):
+        r"""
+        Train an algorithm.
 
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        gt_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of ground truth shapes that correspond to the images.
+        bounding_boxes : `list` of `list` of `menpo.shape.PointDirectedGraph`
+            The `list` of `list` of perturbed bounding boxes per image.
+        prefix : `str`, optional
+            Prefix str for verbose.
+        verbose : `bool`, optional
+            If ``True``, then information about the training is printed.
+        """
         if verbose and self.dlib_options.oversampling_amount > 1:
             n_menpofit_peturbations = len(bounding_boxes[0])
             n_dlib_perturbations = self.dlib_options.oversampling_amount
@@ -76,7 +130,25 @@ class DlibAlgorithm(object):
 
         return bounding_boxes
 
-    def run(self, image, bounding_box, gt_shape=None):
+    def run(self, image, bounding_box, gt_shape=None, **kwargs):
+        r"""
+        Run the predictor to an image given an initial bounding box.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        bounding_box : `menpo.shape.PointDirectedGraph`
+            The initial bounding box from which the fitting procedure
+            will start.
+        gt_shape : class : :map:`PointCloud`, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result: `menpofit.result.NonParametricIterativeResult`
+            The result of the fitting procedure.
+        """
         # Perform prediction
         pix = image_to_dlib_pixels(image)
         rect = pointcloud_to_dlib_rect(bounding_box)
