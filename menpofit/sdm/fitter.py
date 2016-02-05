@@ -19,9 +19,72 @@ from menpofit.result_old import MultiFitterResult
 import menpofit.checks as checks
 
 
-# TODO: document me!
 class SupervisedDescentFitter(MultiFitter):
     r"""
+    Class for training a multi-scale Supervised Descent model.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train ERT. Note that all
+        the training images need to have the specified landmark group.
+    bounding_box_group_glob : `glob` or ``None``, optional
+        Glob that defines the bounding boxes to be used for training. If
+        ``None``, then the bounding boxes of the ground truth shapes are used.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ERT. If
+        ``None``, then the mean shape will be used.
+    sd_algorithm_cls : `class` from `menpofit.sdm.algorithm`, optional
+        The Supervised Descent algorithm to be used. For a `list` of
+        available algorithms please refer to `menpofit.sdm.algorithm`.
+    holistic_features : `function`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before extracting the patches. Please
+        refer to `menpo.feature` for a list of potential features. If a `list`
+        is provided, then it defines a value per scale.
+    patch_features : `function`, optional
+        The features that will be extracted from the patches of the training
+        images. Note that, as opposed to `holistic_features`, these features
+        are extracted after extracting the patches. Please refer to
+        `menpo.feature` and `menpofit.feature` for a list of potential features.
+         If a `list` is provided, then it defines a value per scale.
+    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their ground truth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale.
+    n_iterations : `int` of `list` of `int`, optional
+        The number of iterations (cascades) of each level. If `list`, it must
+        specify a value per scale.
+    n_perturbations : `int` or ``None``, optional
+        The number of perturbations to be generated from the provided
+        bounding boxes.
+    perturb_from_gt_bounding_box : `function`, optional
+        The function that will be used to generate the perturbations.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building ERT will be printed.
+
+    References
+    ----------
+    .. [1] X. Xiong, and F. De la Torre. "Supervised Descent Method and its
+        applications to face alignment", Proceedings of the IEEE Conference on
+        Computer Vision and Pattern Recognition (CVPR), 2013.
     """
     def __init__(self, images, group=None, bounding_box_group_glob=None,
                  reference_shape=None, sd_algorithm_cls=None,
@@ -30,7 +93,6 @@ class SupervisedDescentFitter(MultiFitter):
                  n_iterations=3, n_perturbations=30,
                  perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
-
         if batch_size is not None:
             raise NotImplementedError('Training an SDM with a batch size '
                                       '(incrementally) is not implemented yet.')
@@ -201,15 +263,67 @@ class SupervisedDescentFitter(MultiFitter):
 
     def increment(self, images, group=None, bounding_box_group=None,
                   verbose=False, batch_size=None):
+        r"""
+        Method to increment the trained SDM with a new set of training images.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        group : `str` or ``None``, optional
+            The landmark group that will be used to train the SDM. Note that all
+            the training images need to have the specified landmark group.
+        bounding_box_group : `str` or ``None``, optional
+            The landmark group of the bounding boxes used for initialisation.
+        verbose : `bool`, optional
+            If ``True``, then the progress of building the AAM will be printed.
+        batch_size : `int` or ``None``, optional
+            If an `int` is provided, then the training is performed in an
+            incremental fashion on image batches of size equal to the provided
+            value. If ``None``, then the training is performed directly on the
+            all the images.
+        """
         raise NotImplementedError('Incrementing SDM methods is not yet '
                                   'implemented as careful attention must '
                                   'be taken when considering the relationships '
                                   'between cascade levels.')
 
     def perturb_from_bb(self, gt_shape, bb):
+        """
+        Returns a perturbed version of the ground truth shape. The perturbation
+        is applied on the alignment between the ground truth bounding box and
+        the provided bounding box. This is useful for obtaining the initial
+        bounding box of the fitting.
+
+        Parameters
+        ----------
+        gt_shape : `menpo.shape.PointCloud`
+            The ground truth shape.
+        bb : `menpo.shape.PointDirectedGraph`
+            The target bounding box.
+
+        Returns
+        -------
+        perturbed_shape : `menpo.shape.PointCloud`
+            The perturbed shape.
+        """
         return self._perturb_from_gt_bounding_box(gt_shape, bb)
 
     def perturb_from_gt_bb(self, gt_bb):
+        """
+        Returns a perturbed version of the ground truth bounding box. This is
+        useful for obtaining the initial bounding box of the fitting.
+
+        Parameters
+        ----------
+        gt_bb : `menpo.shape.PointDirectedGraph`
+            The ground truth bounding box.
+
+        Returns
+        -------
+        perturbed_bb : `menpo.shape.PointDirectedGraph`
+            The perturbed ground truth bounding box.
+        """
         return self._perturb_from_gt_bounding_box(gt_bb, gt_bb)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,

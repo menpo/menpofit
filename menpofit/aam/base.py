@@ -996,7 +996,8 @@ class PatchAAM(AAM):
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before extracting the patches. Please
-        refer to `menpo.feature` for a list of potential features.
+        refer to `menpo.feature` for a list of potential features. If a `list`
+        is provided, then it defines a value per scale.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The

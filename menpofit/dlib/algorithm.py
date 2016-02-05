@@ -141,7 +141,7 @@ class DlibAlgorithm(object):
         bounding_box : `menpo.shape.PointDirectedGraph`
             The initial bounding box from which the fitting procedure
             will start.
-        gt_shape : class : :map:`PointCloud`, optional
+        gt_shape : class : :map:`PointCloud` or ``None``, optional
             The ground truth shape associated to the image.
 
         Returns

@@ -6,24 +6,65 @@ from menpo.visualize import print_dynamic
 from menpofit.visualize import print_progress
 
 
-# TODO: document me!
 class BaseSupervisedDescentAlgorithm(object):
     r"""
+    Abstract class for defining a Supervised Descent algorithm.
     """
-
     def train(self, images, gt_shapes, current_shapes, prefix='',
               verbose=False):
+        """
+        Method to train the model given a set of initial shapes.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        gt_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of ground truth shapes that correspond to the images.
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images,
+            which will be used as initial shapes.
+        prefix : `str`, optional
+            The prefix to use when printing information.
+        verbose : `bool`, optional
+            If ``True``, then information is printed during training.
+
+        Returns
+        -------
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images.
+        """
         return self._train(images, gt_shapes, current_shapes, increment=False,
                            prefix=prefix, verbose=verbose)
 
     def increment(self, images, gt_shapes, current_shapes, prefix='',
                   verbose=False):
+        """
+        Method to increment the model with the set of current shapes.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        gt_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of ground truth shapes that correspond to the images.
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images.
+        prefix : `str`, optional
+            The prefix to use when printing information.
+        verbose : `bool`, optional
+            If ``True``, then information is printed during training.
+
+        Returns
+        -------
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images.
+        """
         return self._train(images, gt_shapes, current_shapes, increment=True,
                            prefix=prefix, verbose=verbose)
 
     def _train(self, images, gt_shapes, current_shapes, increment=False,
                prefix='', verbose=False):
-
         if not increment:
             # Reset the regressors
             self.regressors = []
@@ -85,6 +126,18 @@ class BaseSupervisedDescentAlgorithm(object):
         raise NotImplementedError()
 
     def run(self, image, initial_shape, gt_shape=None, **kwargs):
+        r"""
+        Run the predictor to an image given an initial shape.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the fitting procedure will start.
+        gt_shape : class : :map:`PointCloud` or ``None``, optional
+            The ground truth shape associated to the image.
+        """
         raise NotImplementedError()
 
     def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
@@ -93,38 +146,89 @@ class BaseSupervisedDescentAlgorithm(object):
         raise NotImplementedError()
 
 
-
-# TODO: document me!
 def features_per_patch(image, shape, patch_shape, features_callable):
-    """r
+    """
+    Method that first extracts patches and then features from these patches.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image` or subclass
+        The input image.
+    shape : `menpo.shape.PointCloud`
+        The points from which to extract the patches.
+    patch_shape : ``(int, int)``
+        The shape of the patch to be extracted.
+    features_callable : `callable`
+        The function to be used for extracting features.
+
+    Returns
+    -------
+    features_per_patch : 1D `ndarray`
+        The concatenated features.
     """
     patches = image.extract_patches(shape, patch_shape=patch_shape,
                                     as_single_array=True)
-
     patch_features = [features_callable(p[0]).ravel() for p in patches]
     return np.hstack(patch_features)
 
 
-# TODO: document me!
 def features_per_shapes(image, shapes, patch_shape, features_callable):
-    """r
+    """
+    Method that given multiple shapes for an image, it first extracts patches
+    that correspond to the shapes and then features from these patches.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image` or subclass
+        The input image.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The list of shapes from which to extract the patches.
+    patch_shape : ``(int, int)``
+        The shape of the patch to be extracted.
+    features_callable : `callable`
+        The function to be used for extracting features.
+
+    Returns
+    -------
+    features_per_shapes : ``(n_shapes, n_features)`` `ndarray`
+        The concatenated feature vector per shape.
     """
     patch_features = [features_per_patch(image, s, patch_shape,
                                          features_callable)
                       for s in shapes]
-
     return np.vstack(patch_features)
 
 
-# TODO: document me!
 def features_per_image(images, shapes, patch_shape, features_callable,
                        prefix='', verbose=False):
-    """r
+    """
+    Method that given multiple images with multiple shapes per image, it first
+    extracts patches that correspond to the shapes and then features from
+    these patches.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image` or subclass
+        The input images.
+    shapes : `list` of `list` of `menpo.shape.PointCloud`
+        The list of list of shapes per image from which to extract the patches.
+    patch_shape : ``(int, int)``
+        The shape of the patch to be extracted.
+    features_callable : `callable`
+        The function to be used for extracting features.
+    prefix : `str`, optional
+        The prefix of the printed information.
+    verbose : `bool`, optional
+        If ``True``, then progress information is printed.
+
+    Returns
+    -------
+    features_per_image : ``(n_images * n_shapes, n_features)`` `ndarray`
+        The concatenated feature vector per image and per shape.
     """
     wrap = partial(print_progress,
                    prefix='{}Extracting patches'.format(prefix),
                    end_with_newline=not prefix, verbose=verbose)
-
     patch_features = [features_per_shapes(i, shapes[j], patch_shape,
                                           features_callable)
                       for j, i in enumerate(wrap(images))]
@@ -132,7 +236,29 @@ def features_per_image(images, shapes, patch_shape, features_callable,
 
 
 def compute_non_parametric_delta_x(gt_shapes, current_shapes):
-    r"""
+    """
+    Method that computes the increment between a given set of current shapes
+    and the corresponding ground truth shapes.
+
+    Parameters
+    ----------
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The ground truth shapes.
+    shapes : `list` of `list` of `menpo.shape.PointCloud`
+        The list of list of shapes per image from which to extract the patches.
+    patch_shape : ``(int, int)``
+        The shape of the patch to be extracted.
+    features_callable : `callable`
+        The function to be used for extracting features.
+    prefix : `str`, optional
+        The prefix of the printed information.
+    verbose : `bool`, optional
+        If ``True``, then progress information is printed.
+
+    Returns
+    -------
+    features_per_image : ``(n_images * n_shapes, n_features)`` `ndarray`
+        The concatenated feature vector per image and per shape.
     """
     n_x = gt_shapes[0].n_parameters
     n_gt_shapes = len(gt_shapes)
