@@ -133,10 +133,6 @@ class SupervisedDescentFitter(MultiFitter):
 
     def _train(self, images, increment=False, group=None,
                bounding_box_group_glob=None, verbose=False, batch_size=None):
-        r"""
-        """
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
