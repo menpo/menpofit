@@ -146,7 +146,7 @@ class ParametricShapeGaussNewton(ParametricShapeSDAlgorithm):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     alpha2 : `float`, optional
-        The regularization parameter.
+        The regularization parameter of the Hessian matrix.
     """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
@@ -186,11 +186,6 @@ class ParametricShapeOptimalRegression(ParametricShapeSDAlgorithm):
         The SVD variance.
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
-
-    Raises
-    ------
-    ValueError
-        variance must be set to a number between 0 and 1
     """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,

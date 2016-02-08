@@ -125,7 +125,7 @@ class NonParametricGaussNewton(NonParametricSDAlgorithm):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     alpha2 : `float`, optional
-        The regularization parameter.
+        The regularization parameter of the Hessian matrix.
     """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, compute_error=euclidean_bb_normalised_error,
@@ -160,11 +160,6 @@ class NonParametricPCRRegression(NonParametricSDAlgorithm):
         The SVD variance.
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
-
-    Raises
-    ------
-    ValueError
-        variance must be set to a number between 0 and 1
     """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, compute_error=euclidean_bb_normalised_error,
@@ -199,11 +194,6 @@ class NonParametricOptimalRegression(NonParametricSDAlgorithm):
         The SVD variance.
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
-
-    Raises
-    ------
-    ValueError
-        variance must be set to a number between 0 and 1
     """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, compute_error=euclidean_bb_normalised_error,

@@ -159,7 +159,7 @@ class ParametricAppearanceGaussNewton(ParametricAppearanceSDAlgorithm):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     alpha2 : `float`, optional
-        The regularization parameter.
+        The regularization parameter of the Hessian matrix.
     """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, appearance_model_cls=PCAVectorModel,

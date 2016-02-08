@@ -2,10 +2,10 @@ import numpy as np
 from numpy.fft import fft2, ifft2, ifftshift
 from scipy.sparse import spdiags, eye as speye
 from scipy.sparse.linalg import spsolve
+
 from menpofit.math.fft_utils import pad, crop
 
 
-# TODO: Document me!
 def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
     r"""
     Minimum Output Sum of Squared Errors (MOSSE) filter.
@@ -16,11 +16,11 @@ def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
         Training images.
     y : ``(1, height, width)`` `ndarray`
         Desired response.
-    l: `float`, optional
+    l : `float`, optional
         Regularization parameter.
-    boundary: str {`constant`, `symmetric`}, optional
+    boundary : ``{'constant', 'symmetric'}``, optional
         Determines how the image is padded.
-    crop_filter: `bool`, optional
+    crop_filter : `bool`, optional
         If ``True``, the shape of the MOSSE filter is the same as the shape
         of the desired response. If ``False``, the filter's shape is equal to:
         ``X[0].shape + y.shape - 1``
@@ -34,7 +34,7 @@ def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
     References
     ----------
     .. [1] David S. Bolme, J. Ross Beveridge,  Bruce A. Draper and Yui Man Lui.
-    "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
+        "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
     """
     # number of images, number of channels, height and width
     n, k, hx, wx = X.shape
@@ -85,7 +85,7 @@ def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
 def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
            crop_filter=True, f=1.0):
     r"""
-    Incremental Minimum Output Sum od Squared Errors (iMOSSE) filter
+    Incremental Minimum Output Sum of Squared Errors (iMOSSE) filter
 
     Parameters
     ----------
@@ -99,9 +99,12 @@ def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
         Desired response.
     l : `float`, optional
         Regularization parameter.
-    boundary : str {`constant`, `symmetric`}, optional
+    boundary : ``{'constant', 'symmetric'}``, optional
         Determines how the image is padded.
     crop_filter : `bool`, optional
+        If ``True``, the shape of the MOSSE filter is the same as the shape
+        of the desired response. If ``False``, the filter's shape is equal to:
+        ``X[0].shape + y.shape - 1``
     f : ``[0, 1]`` `float`, optional
         Forgetting factor that weights the relative contribution of new
         samples vs old samples. If 1.0, all samples are weighted equally.
@@ -118,7 +121,7 @@ def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
     References
     ----------
     .. [1] David S. Bolme, J. Ross Beveridge,  Bruce A. Draper and Yui Man Lui.
-    "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
+        "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
     """
     # number of images; number of channels, height and width
     n_x, k, hz, wz = X.shape
@@ -179,7 +182,6 @@ def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
     return f, sXY, sXX
 
 
-# TODO: Document me!
 def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
     r"""
     Multi-Channel Correlation Filter (MCCF).
@@ -192,9 +194,12 @@ def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
         Desired response.
     l : `float`, optional
         Regularization parameter.
-    boundary : str {`constant`, `symmetric`}, optional
+    boundary : ``{'constant', 'symmetric'}``, optional
         Determines how the image is padded.
     crop_filter : `bool`, optional
+        If ``True``, the shape of the filter is the same as the shape
+        of the desired response. If ``False``, the filter's shape is equal to:
+        ``X[0].shape + y.shape - 1``
 
     Returns
     -------
@@ -207,7 +212,7 @@ def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
     References
     ----------
     .. [1] Hamed Kiani Galoogahi, Terence Sim,  Simon Lucey. "Multi-Channel
-    Correlation Filters". ICCV, 2013.
+        Correlation Filters". ICCV, 2013.
     """
     # number of images; number of channels, height and width
     n, k, hx, wx = X.shape
@@ -265,7 +270,6 @@ def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
     return f, sXY, sXX
 
 
-# TODO: Document me!
 def imccf(A, B, n_ab, X, y, l=0.01, boundary='constant', crop_filter=True,
           f=1.0):
     r"""
@@ -283,9 +287,12 @@ def imccf(A, B, n_ab, X, y, l=0.01, boundary='constant', crop_filter=True,
         Desired response.
     l : `float`, optional
         Regularization parameter.
-    boundary : str {`constant`, `symmetric`}, optional
+    boundary : ``{'constant', 'symmetric'}``, optional
         Determines how the image is padded.
     crop_filter : `bool`, optional
+        If ``True``, the shape of the filter is the same as the shape
+        of the desired response. If ``False``, the filter's shape is equal to:
+        ``X[0].shape + y.shape - 1``
     f : ``[0, 1]`` `float`, optional
         Forgetting factor that weights the relative contribution of new
         samples vs old samples. If 1.0, all samples are weighted equally.
@@ -302,9 +309,9 @@ def imccf(A, B, n_ab, X, y, l=0.01, boundary='constant', crop_filter=True,
     References
     ----------
     .. [1] David S. Bolme, J. Ross Beveridge,  Bruce A. Draper and Yui Man Lui.
-    "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
+        "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
     .. [2] Hamed Kiani Galoogahi, Terence Sim,  Simon Lucey. "Multi-Channel
-    Correlation Filters". ICCV, 2013.
+        Correlation Filters". ICCV, 2013.
     """
     # number of images; number of channels, height and width
     n_x, k, hz, wz = X.shape
