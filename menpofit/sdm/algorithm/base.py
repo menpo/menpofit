@@ -5,8 +5,8 @@ import numpy as np
 from menpo.visualize import print_dynamic
 
 from menpofit.visualize import print_progress
-from menpofit.result_old import NonParametricAlgorithmResult
-from menpofit.result import (NonParametricIterativeResult, ParametricIterativeResult)
+from menpofit.result import (NonParametricIterativeResult,
+                             ParametricIterativeResult)
 
 
 class BaseSupervisedDescentAlgorithm(object):
@@ -314,6 +314,30 @@ def update_non_parametric_estimates(estimated_delta_x, delta_x, gt_x,
 def print_non_parametric_info(template_shape, gt_shapes, n_perturbations,
                               delta_x, estimated_delta_x, level_index,
                               compute_error_f, prefix=''):
+    r"""
+    Method that prints information when training a non-parametric cascaded
+    regression algorithm.
+
+    Parameters
+    ----------
+    template_shape : `menpo.shape.PointCloud`
+        The template shape used to construct the shape of increments.
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The ground truth shapes.
+    n_perturbations : `int`
+        The number of perturbations applied on the ground truth shapes.
+    delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the shape increments between the current
+        shapes and the ground truth.
+    estimated_delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the estimated shape increments.
+    level_index : `int`
+        The scale index.
+    compute_error_f : `callable`
+        The function to be used for computing the error.
+    prefix : `str`
+        The prefix attached to the printed information.
+    """
     print_dynamic('{}(Iteration {}) - Calculating errors'.format(
         prefix, level_index))
     errors = []
@@ -333,6 +357,30 @@ def print_non_parametric_info(template_shape, gt_shapes, n_perturbations,
 def print_parametric_info(model, gt_shapes, n_perturbations,
                           delta_x, estimated_delta_x, level_index,
                           compute_error_f, prefix=''):
+    r"""
+    Method that prints information when training a parametric cascaded regression
+    algorithm.
+
+    Parameters
+    ----------
+    model : `menpofit.modelinstance.OrthoPDM`
+        The shape model.
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The ground truth shapes.
+    n_perturbations : `int`
+        The number of perturbations applied on the ground truth shapes.
+    delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the shape increments between the current
+        shapes and the ground truth.
+    estimated_delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the estimated shape increments.
+    level_index : `int`
+        The scale index.
+    compute_error_f : `callable`
+        The function to be used for computing the error.
+    prefix : `str`
+        The prefix attached to the printed information.
+    """
     print_dynamic('{}(Iteration {}) - Calculating errors'.format(
         prefix, level_index))
     errors = []
@@ -365,7 +413,7 @@ def compute_parametric_delta_x(gt_shapes, current_shapes, model):
     current_shapes : `list` of `list` of `menpo.shape.PointCloud`
         The list of list of current shapes that correspond to each ground truth
         shape.
-    model : `class`
+    model : `menpofit.modelinstance.OrthoPDM`
         A parametric model used to get the parameters of the ground truth shapes
         and current shapes.
 
@@ -416,7 +464,7 @@ def update_parametric_estimates(estimated_delta_x, delta_x, gt_x,
     current_shapes : `list` of `list` of `menpo.shape.PointCloud`
         The list of list of current shapes that correspond to each ground truth
         shape.
-    model : `class`
+    model : `menpofit.modelinstance.OrthoPDM`
         A parametric model used to get the parameters of the ground truth shapes
         and current shapes.
     """
@@ -453,7 +501,7 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
     patch_features : `callable`
         The function to extract features from the patches. Please refer to
         `menpo.feature` or `menpofit.feature`.
-    appearance_model_cls : `class`
+    appearance_model_cls : `menpo.model.PCAModel`
         The class that will be used to train the model, e.g.
         `menpo.model.PCAModel`.
     verbose : `bool`, optional
@@ -469,7 +517,7 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
     # Extract patches from ground truth
     gt_patches = [features_per_patch(im, gt_s, patch_shape,
                                      patch_features)
-                  for gt_s, im in wrap(zip(gt_shapes, images))]
+                  for gt_s, im in wrap(list(zip(gt_shapes, images)))]
     # Calculate appearance model from extracted gt patches
     gt_patches = np.array(gt_patches).reshape([n_images, -1])
     if verbose:
@@ -480,7 +528,7 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
 def fit_parametric_shape(image, initial_shape, parametric_algorithm,
                          gt_shape=None):
     r"""
-    Method that fits a non-parametric cascaded regression algorithm to an image.
+    Method that fits a parametric cascaded regression algorithm to an image.
 
     Parameters
     ----------
@@ -488,17 +536,23 @@ def fit_parametric_shape(image, initial_shape, parametric_algorithm,
         The input image.
     initial_shape : `menpo.shape.PointCloud`
         The initial estimation of the shape.
-    non_parametric_algo : `class`
-        The cascaded regression algorithm to use. Please refer to
-        `menpofit.sdm.algorithm`.
+    parametric_algorithm : `class`
+        A cascaded regression algorithm that employs a parametric shape model.
+        Please refer to `menpofit.sdm.algorithm`.
     gt_shape : `menpo.shape.PointCloud`
         The ground truth shape that corresponds to the image.
+
+    Returns
+    -------
+    fitting_result : `menpofit.result.ParametricIterativeResult`
+        The final fitting result.
     """
     # set current shape and initialize list of shapes
     parametric_algorithm.shape_model.set_target(initial_shape)
     current_shape = initial_shape.from_vector(
             parametric_algorithm.shape_model.target.as_vector().copy())
-    shapes = [current_shape]
+    shapes = []
+    shape_parameters = [parametric_algorithm.shape_model.as_vector()]
 
     # Cascaded Regression loop
     for r in parametric_algorithm.regressors:
@@ -515,10 +569,12 @@ def fit_parametric_shape(image, initial_shape, parametric_algorithm,
         current_shape = current_shape.from_vector(
                 parametric_algorithm.shape_model.target.as_vector().copy())
         shapes.append(current_shape)
+        shape_parameters.append(p)
 
     # return algorithm result
-    return NonParametricAlgorithmResult(image, shapes,
-                                        gt_shape=gt_shape)
+    return ParametricIterativeResult(
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape)
 
 
 def fit_non_parametric_shape(image, initial_shape, non_parametric_algorithm,
@@ -533,10 +589,15 @@ def fit_non_parametric_shape(image, initial_shape, non_parametric_algorithm,
     initial_shape : `menpo.shape.PointCloud`
         The initial estimation of the shape.
     non_parametric_algorithm : `class`
-        The cascaded regression algorithm to use. Please refer to
-        `menpofit.sdm.algorithm`.
+        A cascaded regression algorithm that does not use a parametric shape
+        model. Please refer to `menpofit.sdm.algorithm`.
     gt_shape : `menpo.shape.PointCloud`
         The ground truth shape that corresponds to the image.
+
+    Returns
+    -------
+    fitting_result : `menpofit.result.NonParametricIterativeResult`
+        The final fitting result.
     """
     # set current shape and initialize list of shapes
     current_shape = initial_shape

@@ -1,22 +1,33 @@
 import numpy as np
 from functools import partial
+
 from menpo.feature import no_op
-from menpofit.result_old import euclidean_bb_normalised_error
+from menpo.model import PCAVectorModel
+
+from menpofit.result.error import euclidean_bb_normalised_error
+from menpofit.result import MultiScaleParametricIterativeResult
+from menpofit.math import IIRLRegression, IRLRegression, OPPRegression
+from menpofit.modelinstance import OrthoPDM
+from menpofit.visualize import print_progress
 
 from .base import (BaseSupervisedDescentAlgorithm,
                    compute_parametric_delta_x, features_per_patch,
                    update_parametric_estimates, print_parametric_info,
                    build_appearance_model, fit_parametric_shape)
-from menpo.model import PCAVectorModel
-from menpofit.math import IIRLRegression, IRLRegression, OPPRegression
-from menpofit.modelinstance import OrthoPDM
-from menpofit.visualize import print_progress
 
 
 class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
     r"""
-    """
+    Abstract class for training a cascaded-regression Supervised Descent
+    algorithm that employs parametric shape and appearance models.
 
+    Parameters
+    ----------
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
+        The shape model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
+        The appearance model class.
+    """
     def __init__(self, shape_model_cls=OrthoPDM,
                  appearance_model_cls=PCAVectorModel):
         super(FullyParametricSDAlgorithm, self).__init__()
@@ -25,6 +36,8 @@ class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
         self.appearance_model_cls = appearance_model_cls
         self.appearance_model = None
         self.shape_model = None
+        # The result class to be used by a multi-scale fitter
+        self._multi_scale_fitter_result = MultiScaleParametricIterativeResult
 
     def _compute_delta_x(self, gt_shapes, current_shapes):
         # This is called first - so train shape model here
@@ -51,7 +64,7 @@ class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
                        end_with_newline=not prefix, verbose=verbose)
 
         features = []
-        for im, shapes in wrap(zip(images, current_shapes)):
+        for im, shapes in wrap(list(zip(images, current_shapes))):
             for s in shapes:
                 param_feature = self._compute_test_features(im, s)
                 features.append(param_feature)
@@ -74,37 +87,90 @@ class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
                               self._compute_error, prefix=prefix)
 
     def run(self, image, initial_shape, gt_shape=None, **kwargs):
+        r"""
+        Run the algorithm to an image given an initial shape.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the fitting procedure will start.
+        gt_shape : class : :map:`PointCloud` or ``None``, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result: `menpofit.result.ParametricIterativeResult`
+            The result of the fitting procedure.
+        """
         return fit_parametric_shape(image, initial_shape, self,
                                     gt_shape=gt_shape)
 
 
 class ParametricAppearanceProjectOut(FullyParametricSDAlgorithm):
-
+    r"""
+    Abstract class for training a cascaded-regression Supervised Descent
+    algorithm that employs parametric shape and appearance models. The algorithm
+    uses the projected-out appearance vectors as features in the regression.
+    """
     def _compute_parametric_features(self, patch):
         return self.appearance_model.project_out(patch.ravel())
 
 
 class ParametricAppearanceWeights(FullyParametricSDAlgorithm):
-
+    r"""
+    Abstract class for training a cascaded-regression Supervised Descent
+    algorithm that employs parametric shape and appearance models. The algorithm
+    uses the projection weights of the appearance vectors as features in the
+    regression.
+    """
     def _compute_parametric_features(self, patch):
         return self.appearance_model.project(patch.ravel())
 
 
 class ParametricAppearanceMeanTemplate(FullyParametricSDAlgorithm):
-
+    r"""
+    Abstract class for training a cascaded-regression Supervised Descent
+    algorithm that employs parametric shape and appearance models. The algorithm
+    uses the centered appearance vectors as features in the regression.
+    """
     def _compute_parametric_features(self, patch):
         return patch.ravel() - self.appearance_model.mean().ravel()
 
 
 class FullyParametricWeightsNewton(ParametricAppearanceWeights):
     r"""
-    """
+    Class for training a cascaded-regression Newton algorithm that employs
+    parametric shape and appearance models using Incremental Regularized Linear
+    Regression. The algorithm uses the projection weights of the appearance
+    vectors as features in the regression.
 
+    Parameters
+    ----------
+    patch_features : `callable`, optional
+        The features to be extracted from the patches of an image.
+    patch_shape : `(int, int)`, optional
+        The shape of the extracted patches.
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
+        The shape model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
+        The appearance model class.
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
+    """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
                  appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10 ** -5, alpha=0, bias=True):
+                 alpha=0, bias=True):
         super(FullyParametricWeightsNewton, self).__init__(
             shape_model_cls=shape_model_cls,
             appearance_model_cls=appearance_model_cls)
@@ -114,18 +180,40 @@ class FullyParametricWeightsNewton(ParametricAppearanceWeights):
         self.patch_features = patch_features
         self.n_iterations = n_iterations
         self._compute_error = compute_error
-        self.eps = eps
 
 
 class FullyParametricMeanTemplateNewton(ParametricAppearanceMeanTemplate):
     r"""
-    """
+    Class for training a cascaded-regression Newton algorithm that employs
+    parametric shape and appearance models using Incremental Regularized Linear
+    Regression. The algorithm uses the centered appearance vectors as features
+    in the regression.
 
+    Parameters
+    ----------
+    patch_features : `callable`, optional
+        The features to be extracted from the patches of an image.
+    patch_shape : `(int, int)`, optional
+        The shape of the extracted patches.
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
+        The shape model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
+        The appearance model class.
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
+    """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
                  appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10 ** -5, alpha=0, bias=True):
+                 alpha=0, bias=True):
         super(FullyParametricMeanTemplateNewton, self).__init__(
             shape_model_cls=shape_model_cls,
             appearance_model_cls=appearance_model_cls)
@@ -135,18 +223,40 @@ class FullyParametricMeanTemplateNewton(ParametricAppearanceMeanTemplate):
         self.patch_features = patch_features
         self.n_iterations = n_iterations
         self._compute_error = compute_error
-        self.eps = eps
 
 
 class FullyParametricProjectOutNewton(ParametricAppearanceProjectOut):
     r"""
-    """
+    Class for training a cascaded-regression Newton algorithm that employs
+    parametric shape and appearance models using Incremental Regularized Linear
+    Regression. The algorithm uses the projected-out appearance vectors as
+    features in the regression.
 
+    Parameters
+    ----------
+    patch_features : `callable`, optional
+        The features to be extracted from the patches of an image.
+    patch_shape : `(int, int)`, optional
+        The shape of the extracted patches.
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
+        The shape model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
+        The appearance model class.
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
+    """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
                  appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10 ** -5, alpha=0, bias=True):
+                 alpha=0, bias=True):
         super(FullyParametricProjectOutNewton, self).__init__(
             shape_model_cls=shape_model_cls,
             appearance_model_cls=appearance_model_cls)
@@ -156,19 +266,42 @@ class FullyParametricProjectOutNewton(ParametricAppearanceProjectOut):
         self.patch_features = patch_features
         self.n_iterations = n_iterations
         self._compute_error = compute_error
-        self.eps = eps
 
 
-# TODO: document me!
 class FullyParametricProjectOutGaussNewton(ParametricAppearanceProjectOut):
     r"""
-    """
+    Class for training a cascaded-regression Gauss-Newton algorithm that employs
+    parametric shape and appearance models using Indirect Incremental Regularized
+    Linear Regression. The algorithm uses the projected-out appearance vectors as
+    features in the regression.
 
+    Parameters
+    ----------
+    patch_features : `callable`, optional
+        The features to be extracted from the patches of an image.
+    patch_shape : `(int, int)`, optional
+        The shape of the extracted patches.
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
+        The shape model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
+        The appearance model class.
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
+    alpha2 : `float`, optional
+        The regularization parameter.
+    """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
                  appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10 ** -5, alpha=0, bias=True, alpha2=0):
+                 alpha=0, bias=True, alpha2=0):
         super(FullyParametricProjectOutGaussNewton, self).__init__(
             shape_model_cls=shape_model_cls,
             appearance_model_cls=appearance_model_cls)
@@ -179,18 +312,37 @@ class FullyParametricProjectOutGaussNewton(ParametricAppearanceProjectOut):
         self.patch_features = patch_features
         self.n_iterations = n_iterations
         self._compute_error = compute_error
-        self.eps = eps
 
 
 class FullyParametricProjectOutOPP(ParametricAppearanceProjectOut):
     r"""
-    """
+    Class for training a cascaded-regression algorithm that employs parametric
+    shape and appearance models using Multivariate Linear Regression with
+    Orthogonal Procrustes Problem reconstructions.
 
+    Parameters
+    ----------
+    patch_features : `callable`, optional
+        The features to be extracted from the patches of an image.
+    patch_shape : `(int, int)`, optional
+        The shape of the extracted patches.
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
+        The shape model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
+        The appearance model class.
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
+    """
     def __init__(self, patch_features=no_op, patch_shape=(17, 17),
                  n_iterations=3, shape_model_cls=OrthoPDM,
                  appearance_model_cls=PCAVectorModel,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10 ** -5, bias=True):
+                 bias=True):
         super(FullyParametricProjectOutOPP, self).__init__(
             shape_model_cls=shape_model_cls,
             appearance_model_cls=appearance_model_cls)
@@ -200,4 +352,3 @@ class FullyParametricProjectOutOPP(ParametricAppearanceProjectOut):
         self.patch_features = patch_features
         self.n_iterations = n_iterations
         self._compute_error = compute_error
-        self.eps = eps
