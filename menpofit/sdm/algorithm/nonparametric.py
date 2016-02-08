@@ -21,8 +21,11 @@ class NonParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
     def __init__(self):
         super(NonParametricSDAlgorithm, self).__init__()
         self.regressors = []
+
+    @property
+    def _multi_scale_fitter_result(self):
         # The result class to be used by a multi-scale fitter
-        self._multi_scale_fitter_result = MultiScaleNonParametricIterativeResult
+        return MultiScaleNonParametricIterativeResult
 
     def _compute_delta_x(self, gt_shapes, current_shapes):
         return compute_non_parametric_delta_x(gt_shapes, current_shapes)

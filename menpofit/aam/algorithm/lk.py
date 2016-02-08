@@ -827,6 +827,11 @@ class ProjectOut(LucasKanade):
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
+
+        Returns
+        -------
+        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
+            The fitting result.
         """
         # define cost closure
         def cost_closure(x, f):
@@ -978,6 +983,11 @@ class Simultaneous(LucasKanade):
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
+
+        Returns
+        -------
+        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
+            The fitting result.
         """
         # define cost closure
         def cost_closure(x):
@@ -1138,6 +1148,11 @@ class Alternating(LucasKanade):
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
+
+        Returns
+        -------
+        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
+            The fitting result.
         """
         # define cost closure
         def cost_closure(x):
@@ -1297,6 +1312,11 @@ class ModifiedAlternating(Alternating):
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
+
+        Returns
+        -------
+        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
+            The fitting result.
         """
         # define cost closure
         def cost_closure(x):
@@ -1448,6 +1468,11 @@ class Wiberg(LucasKanade):
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
+
+        Returns
+        -------
+        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
+            The fitting result.
         """
         # define cost closure
         def cost_closure(x, f):

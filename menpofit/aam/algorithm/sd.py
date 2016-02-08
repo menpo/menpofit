@@ -1,36 +1,64 @@
 from __future__ import division
 from functools import partial
 import numpy as np
+
 from menpofit.math import IRLRegression, IIRLRegression
 from menpofit.result import euclidean_bb_normalised_error
-from menpofit.sdm.algorithm.base import (
-    BaseSupervisedDescentAlgorithm, compute_parametric_delta_x,
-    update_parametric_estimates, print_parametric_info)
+from menpofit.sdm.algorithm.base import (BaseSupervisedDescentAlgorithm,
+                                         compute_parametric_delta_x,
+                                         update_parametric_estimates,
+                                         print_parametric_info)
 from menpofit.visualize import print_progress
 
 
 class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
     r"""
-    """
+    Base class for defining a cascaded-regression Supervised Descent Algorithm
+    given a trained AAM model.
 
+    Parameters
+    ----------
+    aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
+        Existing interfaces include:
+
+            ============================== =============================
+            'LucasKanadeStandardInterface' Suitable for holistic AAMs
+            'LucasKanadeLinearInterface'   Suitable for linear AAMs
+            'LucasKanadePatchInterface'    Suitable for patch-based AAMs
+            ============================== =============================
+
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    """
     def __init__(self, aam_interface, n_iterations=10,
-                 compute_error=euclidean_bb_normalised_error,
-                 eps=10**-5):
+                 compute_error=euclidean_bb_normalised_error):
         super(ParametricSupervisedDescentAlgorithm, self).__init__()
 
         self.interface = aam_interface
         self.n_iterations = n_iterations
-        self.eps = eps
 
         self._compute_error = compute_error
         self._precompute()
 
     @property
     def appearance_model(self):
+        r"""
+        Returns the appearance model of the AAM.
+
+        :type: `menpo.model.PCAModel`
+        """
         return self.interface.appearance_model
 
     @property
     def transform(self):
+        r"""
+        Returns the model driven transform object of the AAM.
+
+        :type: `menpofit.transform.ModelDrivenTransform` or subclass
+        """
         return self.interface.transform
 
     def _precompute(self):
@@ -56,7 +84,7 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
                        end_with_newline=not prefix, verbose=verbose)
 
         features = []
-        for im, shapes in wrap(zip(images, current_shapes)):
+        for im, shapes in wrap(list(zip(images, current_shapes))):
             for s in shapes:
                 param_feature = self._compute_test_features(im, s)
                 features.append(param_feature)
@@ -76,9 +104,27 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
                               self._compute_error, prefix=prefix)
 
     def run(self, image, initial_shape, gt_shape=None, **kwargs):
+        r"""
+        Run the algorithm to an image given an initial shape.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the fitting procedure will start.
+        gt_shape : class : :map:`PointCloud` or ``None``, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result: `menpofit.aam.result.AAMAlgorithmResult`
+            The result of the fitting procedure.
+        """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # Cascaded Regression loop
         for r in self.regressors:
@@ -94,15 +140,19 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
             new_x = p_list[-1] + dx
             self.transform._from_vector_inplace(new_x)
             p_list.append(new_x)
+            shapes.append(self.transform.target)
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, gt_shape=gt_shape)
+                image=image, shapes=shapes, shape_parameters=p_list,
+                gt_shape=gt_shape)
 
 
-# TODO: document me!
 class MeanTemplate(ParametricSupervisedDescentAlgorithm):
     r"""
+    Base class for defining a cascaded-regression Supervised Descent Algorithm
+    given a trained AAM model. The algorithm uses the centered appearance vectors
+    as features in the regression.
     """
     def _compute_test_features(self, image, current_shape):
         self.transform.set_target(current_shape)
@@ -111,38 +161,89 @@ class MeanTemplate(ParametricSupervisedDescentAlgorithm):
         return i_m - self.a_bar_m
 
 
-# TODO: document me!
 class MeanTemplateNewton(MeanTemplate):
     r"""
+    Class for training a cascaded-regression Newton algorithm using Incremental
+    Regularized Linear Regression given a trained AAM model. The algorithm uses
+    the centered appearance vectors as features in the regression.
+
+    Parameters
+    ----------
+    aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
+        Existing interfaces include:
+
+            ============================== =============================
+            'LucasKanadeStandardInterface' Suitable for holistic AAMs
+            'LucasKanadeLinearInterface'   Suitable for linear AAMs
+            'LucasKanadePatchInterface'    Suitable for patch-based AAMs
+            ============================== =============================
+
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
     """
     def __init__(self, aam_interface, n_iterations=3,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10**-5, alpha=0, bias=True):
+                 alpha=0, bias=True):
         super(MeanTemplateNewton, self).__init__(
             aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error, eps=eps)
+            compute_error=compute_error)
 
         self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
 
 
-# TODO: document me!
 class MeanTemplateGaussNewton(MeanTemplate):
     r"""
+    Class for training a cascaded-regression Gauss-Newton algorithm using
+    Indirect Incremental Regularized Linear Regression given a trained AAM model.
+    The algorithm uses the centered appearance vectors as features in the
+    regression.
+
+    Parameters
+    ----------
+    aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
+        Existing interfaces include:
+
+            ============================== =============================
+            'LucasKanadeStandardInterface' Suitable for holistic AAMs
+            'LucasKanadeLinearInterface'   Suitable for linear AAMs
+            'LucasKanadePatchInterface'    Suitable for patch-based AAMs
+            ============================== =============================
+
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    alpha2 : `float`, optional
+        The regularization parameter of the Hessian matrix.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
     """
     def __init__(self, aam_interface, n_iterations=3,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10**-5, alpha=0, alpha2=0, bias=True):
+                 alpha=0, alpha2=0, bias=True):
         super(MeanTemplateGaussNewton, self).__init__(
             aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error, eps=eps)
+            compute_error=compute_error)
 
         self._regressor_cls = partial(IIRLRegression, alpha=alpha,
                                       alpha2=alpha2, bias=bias)
 
 
-# TODO: document me!
 class ProjectOut(ParametricSupervisedDescentAlgorithm):
     r"""
+    Base class for defining a cascaded-regression Supervised Descent Algorithm
+    given a trained AAM model. The algorithm uses the projected-out appearance
+    vectors as features in the regression.
     """
     def _precompute(self):
         super(ProjectOut, self)._precompute()
@@ -152,6 +253,11 @@ class ProjectOut(ParametricSupervisedDescentAlgorithm):
         self.pinv_A_m = np.linalg.pinv(self.A_m)
 
     def project_out(self, J):
+        r"""
+        Projects-out the appearance subspace from a given vector or matrix.
+
+        :type: `ndarray`
+        """
         # Project-out appearance bases from a particular vector or matrix
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
 
@@ -166,38 +272,89 @@ class ProjectOut(ParametricSupervisedDescentAlgorithm):
         return self.project_out(e_m)
 
 
-# TODO: document me!
 class ProjectOutNewton(ProjectOut):
     r"""
+    Class for training a cascaded-regression Newton algorithm using Incremental
+    Regularized Linear Regression given a trained AAM model. The algorithm uses
+    the projected-out appearance vectors as features in the regression.
+
+    Parameters
+    ----------
+    aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
+        Existing interfaces include:
+
+            ============================== =============================
+            'LucasKanadeStandardInterface' Suitable for holistic AAMs
+            'LucasKanadeLinearInterface'   Suitable for linear AAMs
+            'LucasKanadePatchInterface'    Suitable for patch-based AAMs
+            ============================== =============================
+
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
     """
     def __init__(self, aam_interface, n_iterations=3,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10**-5, alpha=0, bias=True):
+                 alpha=0, bias=True):
         super(ProjectOutNewton, self).__init__(
             aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error, eps=eps)
+            compute_error=compute_error)
 
         self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
 
 
-# TODO: document me!
 class ProjectOutGaussNewton(ProjectOut):
     r"""
+    Class for training a cascaded-regression Gauss-Newton algorithm using
+    Indirect Incremental Regularized Linear Regression given a trained AAM model.
+    The algorithm uses the projected-out appearance vectors as features in the
+    regression.
+
+    Parameters
+    ----------
+    aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
+        Existing interfaces include:
+
+            ============================== =============================
+            'LucasKanadeStandardInterface' Suitable for holistic AAMs
+            'LucasKanadeLinearInterface'   Suitable for linear AAMs
+            'LucasKanadePatchInterface'    Suitable for patch-based AAMs
+            ============================== =============================
+
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    alpha2 : `float`, optional
+        The regularization parameter of the Hessian matrix.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
     """
     def __init__(self, aam_interface, n_iterations=3,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10**-5, alpha=0, alpha2=0, bias=True):
+                 alpha=0, alpha2=0, bias=True):
         super(ProjectOutGaussNewton, self).__init__(
             aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error, eps=eps)
+            compute_error=compute_error)
 
         self._regressor_cls = partial(IIRLRegression, alpha=alpha,
                                       alpha2=alpha2, bias=bias)
 
 
-# TODO: document me!
 class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
     r"""
+    Base class for defining a cascaded-regression Supervised Descent Algorithm
+    given a trained AAM model. The algorithm uses the projection weights of the
+    appearance vectors as features in the regression.
     """
     def _precompute(self):
         super(AppearanceWeights, self)._precompute()
@@ -207,6 +364,11 @@ class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
         self.pinv_A_m = np.linalg.pinv(A_m)
 
     def project(self, J):
+        r"""
+        Projects a given vector or matrix onto the appearance subspace.
+
+        :type: `ndarray`
+        """
         # Project a particular vector or matrix onto the appearance bases
         return self.pinv_A_m.dot(J - self.a_bar_m)
 
@@ -218,31 +380,81 @@ class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
         return self.project(i_m)
 
 
-# TODO: document me!
 class AppearanceWeightsNewton(AppearanceWeights):
     r"""
+    Class for training a cascaded-regression Newton algorithm using Incremental
+    Regularized Linear Regression given a trained AAM model. The algorithm uses
+    the projection weights of the appearance vectors as features in the
+    regression.
+
+    Parameters
+    ----------
+    aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
+        Existing interfaces include:
+
+            ============================== =============================
+            'LucasKanadeStandardInterface' Suitable for holistic AAMs
+            'LucasKanadeLinearInterface'   Suitable for linear AAMs
+            'LucasKanadePatchInterface'    Suitable for patch-based AAMs
+            ============================== =============================
+
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
     """
     def __init__(self, aam_interface, n_iterations=3,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10**-5, alpha=0, bias=True):
+                 alpha=0, bias=True):
         super(AppearanceWeightsNewton, self).__init__(
             aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error, eps=eps)
+            compute_error=compute_error)
 
         self._regressor_cls = partial(IRLRegression, alpha=alpha,
                                       bias=bias)
 
 
-# TODO: document me!
 class AppearanceWeightsGaussNewton(AppearanceWeights):
     r"""
+    Class for training a cascaded-regression Gauss-Newton algorithm using
+    Indirect Incremental Regularized Linear Regression given a trained AAM model.
+    The algorithm uses the projection weights of the appearance vectors as
+    features in the regression.
+
+    Parameters
+    ----------
+    aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
+        Existing interfaces include:
+
+            ============================== =============================
+            'LucasKanadeStandardInterface' Suitable for holistic AAMs
+            'LucasKanadeLinearInterface'   Suitable for linear AAMs
+            'LucasKanadePatchInterface'    Suitable for patch-based AAMs
+            ============================== =============================
+
+    n_iterations : `int`, optional
+        The number of iterations (cascades).
+    compute_error : `callable`, optional
+        The function to be used for computing the fitting error when training
+        each cascade.
+    alpha : `float`, optional
+        The regularization parameter.
+    alpha2 : `float`, optional
+        The regularization parameter of the Hessian matrix.
+    bias : `bool`, optional
+        Flag that controls whether to use a bias term.
     """
     def __init__(self, aam_interface, n_iterations=3,
                  compute_error=euclidean_bb_normalised_error,
-                 eps=10**-5, alpha=0, alpha2=0, bias=True):
+                 alpha=0, alpha2=0, bias=True):
         super(AppearanceWeightsGaussNewton, self).__init__(
             aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error, eps=eps)
+            compute_error=compute_error)
 
         self._regressor_cls = partial(IIRLRegression, alpha=alpha,
                                       alpha2=alpha2, bias=bias)

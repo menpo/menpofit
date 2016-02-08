@@ -29,8 +29,11 @@ class ParametricShapeSDAlgorithm(BaseSupervisedDescentAlgorithm):
         self.regressors = []
         self.shape_model_cls = shape_model_cls
         self.shape_model = None
+
+    @property
+    def _multi_scale_fitter_result(self):
         # The result class to be used by a multi-scale fitter
-        self._multi_scale_fitter_result = MultiScaleParametricIterativeResult
+        return MultiScaleParametricIterativeResult
 
     def _compute_delta_x(self, gt_shapes, current_shapes):
         # This is called first - so train shape model here

@@ -2,12 +2,14 @@ from __future__ import division
 import numpy as np
 from copy import deepcopy
 
+from menpo.base import name_of_callable
 from menpo.transform import AlignmentUniformScale
 from menpo.image import BooleanImage
 
 from menpofit.fitter import ModelFitter, noisy_shape_from_bounding_box
 from menpofit.sdm import SupervisedDescentFitter
 import menpofit.checks as checks
+from menpofit.result import MultiScaleParametricIterativeResult
 
 from .algorithm.lk import WibergInverseCompositional
 from .algorithm.sd import ProjectOutNewton
@@ -150,9 +152,55 @@ class LucasKanadeAAMFitter(AAMFitter):
         return self.aam.__str__() + cls_str
 
 
-# # TODO: document me!
 class SupervisedDescentAAMFitter(SupervisedDescentFitter):
     r"""
+    Class for training a multi-scale cascaded-regression Supervised Descent AAM
+    fitter.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    aam : `menpofit.aam.AAM` or subclass
+        The AAM model.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train ERT. Note that all
+        the training images need to have the specified landmark group.
+    bounding_box_group_glob : `glob` or ``None``, optional
+        Glob that defines the bounding boxes to be used for training. If
+        ``None``, then the bounding boxes of the ground truth shapes are used.
+    n_shape : `int` or `list` or ``None``, optional
+        The number of shape components that will be used. If `int`, then the
+        provided value will be applied on all scales. If `list`, then it
+        defines a value per scale. If ``None``, then all the components will
+        be used.
+    n_appearance : `int` or `list` or ``None``, optional
+        The number of appearance components that will be used. If `int`,
+        then the provided value will be applied on all scales. If `list`, then
+        it defines a value per scale. If ``None``, then all the components will
+        be used.
+    sampling : `int` or ``None``, optional
+        The sub-sampling step of the sampling mask. If ``None``, then no
+        sampling is applied on the template.
+    sd_algorithm_cls : `class` from `menpofit.aam.algorithm.sd`, optional
+        The Supervised Descent algorithm to be used. For a `list` of
+        available algorithms please refer to `menpofit.aam.algorithm.sd`.
+    n_iterations : `int` or `list` of `int`, optional
+        The number of iterations (cascades) of each level. If `list`, it must
+        specify a value per scale. If `int`, then it defines the total number of
+        iterations (cascades) over all scales.
+    n_perturbations : `int` or ``None``, optional
+        The number of perturbations to be generated from the provided
+        bounding boxes.
+    perturb_from_gt_bounding_box : `function`, optional
+        The function that will be used to generate the perturbations.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building ERT will be printed.
     """
     def __init__(self, images, aam, group=None, bounding_box_group_glob=None,
                  n_shape=None, n_appearance=None, sampling=None,
@@ -185,9 +233,88 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                                interface, n_iterations=self.n_iterations[j])
                            for j, interface in enumerate(interfaces)]
 
+    def _fitter_result(self, image, algorithm_results, affine_correction,
+                       gt_shape=None):
+        return MultiScaleParametricIterativeResult(
+                results=algorithm_results, scales=self.aam.scales,
+                affine_correction=affine_correction, image=image,
+                gt_shape=gt_shape)
 
-# TODO: Document me!
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
+            The warped images.
+        """
+        return self.algorithms[-1].interface.warped_images(image=image,
+                                                           shapes=shapes)
+
+    def __str__(self):
+        is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
+                                  noisy_shape_from_bounding_box)
+        if is_custom_perturb_func:
+            is_custom_perturb_func = name_of_callable(
+                    self._perturb_from_gt_bounding_box)
+        regressor_cls = self.algorithms[0]._regressor_cls
+
+        # Compute scale info strings
+        scales_info = []
+        lvl_str_tmplt = r"""   - Scale {}
+     - {} iterations"""
+        for k, s in enumerate(self.scales):
+            scales_info.append(lvl_str_tmplt.format(s, self.n_iterations[k]))
+        scales_info = '\n'.join(scales_info)
+
+        cls_str = r"""Supervised Descent Method
+ - Regression performed using the {reg_alg} algorithm
+   - Regression class: {reg_cls}
+ - Perturbations generated per shape: {n_perturbations}
+ - Custom perturbation scheme used: {is_custom_perturb_func}
+ - Scales: {scales}
+{scales_info}
+""".format(
+                reg_alg=name_of_callable(self._sd_algorithm_cls[0]),
+                reg_cls=name_of_callable(regressor_cls),
+                n_perturbations=self.n_perturbations,
+                is_custom_perturb_func=is_custom_perturb_func,
+                scales=self.scales,
+                scales_info=scales_info)
+
+        return self.aam.__str__() + cls_str
+
+
 def holistic_sampling_from_scale(aam, scale=0.35):
+    r"""
+    Function that generates a sampling reference mask given a scale value.
+
+    Parameters
+    ----------
+    aam : `menpofit.aam.AAM` or subclass
+        The trained AAM.
+    scale : `float`, optional
+        The scale value.
+
+    Returns
+    -------
+    true_positions : `ndarray` of `bool`
+        The array that has ``True`` for the points of the reference shape that
+        belong to the new mask.
+    boolean_image : `menpo.image.BooleanImage`
+        The boolean image of the mask.
+    """
     reference = aam.appearance_models[0].mean()
     scaled_reference = reference.rescale(scale)
 
@@ -206,8 +333,25 @@ def holistic_sampling_from_scale(aam, scale=0.35):
     return true_positions, BooleanImage(modified_mask[0])
 
 
-# TODO: Document me!
 def holistic_sampling_from_step(aam, step=8):
+    r"""
+    Function that generates a sampling reference mask given a sampling step.
+
+    Parameters
+    ----------
+    aam : `menpofit.aam.AAM` or subclass
+        The trained AAM.
+    step : `int`, optional
+        The sampling step.
+
+    Returns
+    -------
+    true_positions : `ndarray` of `bool`
+        The array that has ``True`` for the points of the reference shape that
+        belong to the new mask.
+    boolean_image : `menpo.image.BooleanImage`
+        The boolean image of the mask.
+    """
     reference = aam.appearance_models[0].mean()
 
     n_true_pixels = reference.n_true_pixels()

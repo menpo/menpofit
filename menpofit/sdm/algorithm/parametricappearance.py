@@ -30,8 +30,11 @@ class ParametricAppearanceSDAlgorithm(BaseSupervisedDescentAlgorithm):
         self.regressors = []
         self.appearance_model_cls = appearance_model_cls
         self.appearance_model = None
+
+    @property
+    def _multi_scale_fitter_result(self):
         # The result class to be used by a multi-scale fitter
-        self._multi_scale_fitter_result = MultiScaleNonParametricIterativeResult
+        return MultiScaleNonParametricIterativeResult
 
     def _compute_delta_x(self, gt_shapes, current_shapes):
         return compute_non_parametric_delta_x(gt_shapes, current_shapes)

@@ -1,6 +1,7 @@
 from __future__ import division
 from functools import partial
 import numpy as np
+import abc
 
 from menpo.visualize import print_dynamic
 
@@ -13,6 +14,10 @@ class BaseSupervisedDescentAlgorithm(object):
     r"""
     Abstract class for defining a Supervised Descent algorithm.
     """
+    @property
+    def _multi_scale_fitter_result(self):
+        raise NotImplementedError()
+
     def train(self, images, gt_shapes, current_shapes, prefix='',
               verbose=False):
         r"""
