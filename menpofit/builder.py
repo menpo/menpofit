@@ -2,11 +2,13 @@ from __future__ import division
 from functools import partial
 import warnings
 import numpy as np
+
 from menpo.shape import mean_pointcloud, PointCloud, TriMesh
 from menpo.image import Image, MaskedImage
 from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
 from menpo.visualize import print_dynamic
+
 from menpofit.visualize import print_progress
 
 
@@ -25,21 +27,18 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
 
     Parameters
     ----------
-    shapes : list of :map:`PointCloud`
+    shapes : `list` of `menpo.shape.PointCloud`
         The set of shapes from which to build the reference shape.
-
-    normalization_diagonal : `int`
-        If int, it ensures that the mean shape is scaled so that the
-        diagonal of the bounding box containing it matches the
-        normalization_diagonal value.
-        If None, the mean shape is not rescaled.
-
-    verbose : `bool`, Optional
-        Flag that controls information and progress printing.
+    normalization_diagonal : `int` or ``None``
+        If `int`, it ensures that the mean shape is scaled so that the diagonal
+        of the bounding box containing it matches the provided value.
+        If ``None``, then the mean shape is not rescaled.
+    verbose : `bool`, optional
+        If ``True``, then progress information is printed.
 
     Returns
     -------
-    reference_shape : :map:`PointCloud`
+    reference_shape : `menpo.shape.PointCloud`
         The reference shape.
     """
     # the reference_shape is the mean shape of the images' landmarks
@@ -57,10 +56,30 @@ def compute_reference_shape(shapes, normalization_diagonal, verbose=False):
     return reference_shape
 
 
-# TODO: document me!
 def rescale_images_to_reference_shape(images, group, reference_shape,
                                       verbose=False):
     r"""
+    Function that normalizes the images' sizes with respect to the size of the
+    provided reference shape. In other words, the function rescales the provided
+    images so that the size of the bounding box of their attached shape is the
+    same as the size of the bounding box of the provided reference shape.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The set of images that will be rescaled.
+    group : `str` or ``None``
+        If `str`, then it specifies the group of the images's shapes. If
+        ``None``, then the images must have only one landmark group.
+    reference_shape : `menpo.shape.PointCloud`
+        The reference shape.
+    verbose : `bool`, optional
+        If ``True``, then progress information is printed.
+
+    Returns
+    -------
+    normalized_images : `list` of `menpo.image.Image`
+        The rescaled images.
     """
     wrap = partial(print_progress, prefix='- Normalizing images size',
                    end_with_newline=False, verbose=verbose)
@@ -73,9 +92,8 @@ def rescale_images_to_reference_shape(images, group, reference_shape,
 
 def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
     r"""
-    Function that normalizes the images sizes with respect to the reference
-    shape (mean shape) scaling. This step is essential before building a
-    deformable model.
+    Function that normalizes the images' sizes with respect to the size of the
+    mean shape. This step is essential before building a deformable model.
 
     The normalization includes:
     1) Computation of the reference shape as the mean shape of the images'

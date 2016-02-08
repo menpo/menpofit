@@ -348,11 +348,11 @@ class DlibERT(MultiFitter):
         ----------
         image : `menpo.image.Image` or subclass
             The image to be fitted.
-        initial_shape : :map:`PointCloud`
+        initial_shape : `menpo.shape.PointCloud`
             The initial shape estimate from which the fitting procedure
             will start. Note that the shape won't actually be used, only its
             bounding box.
-        gt_shape : class : :map:`PointCloud`, optional
+        gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
         crop_image : ``None`` or `float`, optional
             If `float`, it specifies the proportion of the border wrt the
@@ -364,7 +364,7 @@ class DlibERT(MultiFitter):
 
         Returns
         -------
-        fitting_result: `menpofit.result.MultiScaleNonParametricIterativeResult`
+        fitting_result : `menpofit.result.MultiScaleNonParametricIterativeResult`
             The result of the fitting procedure.
         """
         warnings.warn('Fitting from an initial shape is not supported by '
@@ -385,7 +385,7 @@ class DlibERT(MultiFitter):
         bounding_box : `menpo.shape.PointDirectedGraph`
             The initial bounding box from which the fitting procedure
             will start.
-        gt_shape : class : :map:`PointCloud`, optional
+        gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
         crop_image : ``None`` or `float`, optional
             If `float`, it specifies the proportion of the border wrt the
@@ -397,7 +397,7 @@ class DlibERT(MultiFitter):
 
         Returns
         -------
-        fitting_result: `menpofit.result.MultiScaleNonParametricIterativeResult`
+        fitting_result : `menpofit.result.MultiScaleNonParametricIterativeResult`
             The result of the fitting procedure.
         """
         # generate the list of images to be fitted
