@@ -50,7 +50,7 @@ class SupervisedDescentFitter(MultiFitter):
         images. Note that, as opposed to `holistic_features`, these features
         are extracted after extracting the patches. Please refer to
         `menpo.feature` and `menpofit.feature` for a list of potential features.
-         If a `list` is provided, then it defines a value per scale.
+        If a `list` is provided, then it defines a value per scale.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
@@ -377,11 +377,94 @@ class SupervisedDescentFitter(MultiFitter):
             scales_info=scales_info)
         return cls_str
 
+
 # *
 # ************************* Non-Parametric Fitters *****************************
 # *
 # Aliases for common combinations of supervised descent fitting
-SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=NonParametricNewton)
+class SDM(SupervisedDescentFitter):
+    r"""
+    Class for training a multi-scale Supervised Descent Method.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train ERT. Note that all
+        the training images need to have the specified landmark group.
+    bounding_box_group_glob : `glob` or ``None``, optional
+        Glob that defines the bounding boxes to be used for training. If
+        ``None``, then the bounding boxes of the ground truth shapes are used.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ERT. If
+        ``None``, then the mean shape will be used.
+    holistic_features : `function`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before extracting the patches. Please
+        refer to `menpo.feature` for a list of potential features. If a `list`
+        is provided, then it defines a value per scale.
+    patch_features : `function`, optional
+        The features that will be extracted from the patches of the training
+        images. Note that, as opposed to `holistic_features`, these features
+        are extracted after extracting the patches. Please refer to
+        `menpo.feature` and `menpofit.feature` for a list of potential features.
+        If a `list` is provided, then it defines a value per scale.
+    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to normalize the scale of the training images
+        so that the extracted features are in correspondence. The
+        normalization is performed by rescaling all the training images so
+        that the diagonal of their ground truth shapes' bounding boxes
+        equals to the provided value. The reference scale gets rescaled as
+        well. If ``None``, then the images are rescaled with respect to the
+        reference shape's diagonal.
+    scales : `float` or `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
+    n_iterations : `int` or `list` of `int`, optional
+        The number of iterations (cascades) of each level. If `list`, it must
+        specify a value per scale. If `int`, then it defines the total number of
+        iterations (cascades) over all scales.
+    n_perturbations : `int` or ``None``, optional
+        The number of perturbations to be generated from the provided
+        bounding boxes.
+    perturb_from_gt_bounding_box : `function`, optional
+        The function that will be used to generate the perturbations.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building ERT will be printed.
+
+    References
+    ----------
+    .. [1] X. Xiong, and F. De la Torre. "Supervised Descent Method and its
+        applications to face alignment", Proceedings of the IEEE Conference on
+        Computer Vision and Pattern Recognition (CVPR), 2013.
+    """
+    def __init__(self, images, group=None, bounding_box_group_glob=None,
+                 reference_shape=None,  holistic_features=no_op,
+                 patch_features=no_op, patch_shape=(17, 17), diagonal=None,
+                 scales=(0.5, 1.0), n_iterations=3, n_perturbations=30,
+                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
+                 batch_size=None, verbose=False):
+        super(SDM, self).__init__(
+                images, group=group,
+                bounding_box_group_glob=bounding_box_group_glob,
+                reference_shape=reference_shape,
+                sd_algorithm_cls=NonParametricNewton,
+                holistic_features=holistic_features,
+                patch_features=patch_features, patch_shape=patch_shape,
+                diagonal=diagonal, scales=scales, n_iterations=n_iterations,
+                n_perturbations=n_perturbations,
+                perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
+                batch_size=batch_size, verbose=verbose)
 
 
 class RegularizedSDM(SupervisedDescentFitter):
@@ -415,7 +498,7 @@ class RegularizedSDM(SupervisedDescentFitter):
         images. Note that, as opposed to `holistic_features`, these features
         are extracted after extracting the patches. Please refer to
         `menpo.feature` and `menpofit.feature` for a list of potential features.
-         If a `list` is provided, then it defines a value per scale.
+        If a `list` is provided, then it defines a value per scale.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.

@@ -34,17 +34,18 @@ def similarity_2d_instance_model(shape):
     A MeanInstanceLinearModel that encodes all possible 2D similarity
     transforms of a 2D shape (of n_points).
 
-        Parameters
-        ----------
-        shape : 2D :class:`menpo.shape.Shape`
+    Parameters
+    ----------
+    shape : `menpo.shape.PointCloud`
+        shape
 
-        Returns
-        -------
-        model : `_SimilarityModel`
-            Model with four components, linear combinations of which
-            represent the original shape under a similarity transform. The
-            model is exhaustive (that is, all possible similarity transforms
-            can be expressed in the model).
+    Returns
+    -------
+    model : `_SimilarityModel`
+        Model with four components, linear combinations of which
+        represent the original shape under a similarity transform. The
+        model is exhaustive (that is, all possible similarity transforms
+        can be expressed in the model).
     """
     shape_vector = shape.as_vector()
     components = np.zeros((4, shape_vector.shape[0]))
@@ -79,8 +80,8 @@ class ModelInstance(Targetable, Vectorizable, DP):
     @property
     def weights(self):
         r"""
-        In this simple :map:`ModelInstance` the weights are just the weights
-        of the model.
+        In this simple `menpofit.modelinstance.ModelInstance` the weights are
+        just the weights of the model.
         """
         return self._weights
 
@@ -148,7 +149,7 @@ class ModelInstance(Targetable, Vectorizable, DP):
 
     def _from_vector_inplace(self, vector):
         r"""
-        Updates this :map:`ModelInstance` from it's
+        Updates this `menpofit.modelinstance.ModelInstance` from it's
         vectorized form (in this case, simply the weights on the linear model)
         """
         self._weights = vector
@@ -179,8 +180,8 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
     @property
     def weights(self):
         r"""
-        In this simple :map:`ModelInstance` the weights are just the weights
-        of the model.
+        In this simple `menpofit.modelinstance.ModelInstance` the weights are
+        just the weights of the model.
         """
         return self.transform.as_vector()
 
@@ -241,8 +242,9 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
 
 
 class PDM(ModelInstance):
-    r"""Specialization of :map:`ModelInstance` for use with spatial data.
-    TODO: update docs
+    r"""
+    Specialization of `menpofit.modelinstance.ModelInstance` for use with
+    spatial data.
     """
 
     def __init__(self, data, max_n_components=None):

@@ -240,13 +240,8 @@ class MultiFitter(object):
             the initial shape range. If ``None``, no cropping is performed.
             This will limit the fitting algorithm search region but is
             likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image. If `None`, no
-            cropping is performed.
-
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
             modeled object occupies a small portion of the image.
-        **kwargs : `dict`, optional
+        kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
             implementations of ``_fit`` method.
 
@@ -297,16 +292,11 @@ class MultiFitter(object):
         crop_image : ``None`` or `float`, optional
             If `float`, it specifies the proportion of the border wrt the
             initial shape to which the image will be internally cropped around
-            the initial shape range. If ``None``, no cropping is performed.
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image. If `None`, no
-            cropping is performed.
-
+            the initial shape range. If ``None`` , no cropping is performed.
             This will limit the fitting algorithm search region but is
             likely to speed up its running time, specially when the
             modeled object occupies a small portion of the image.
-        **kwargs : `dict`, optional
+        kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
             implementations of ``_fit`` method.
 
@@ -335,27 +325,27 @@ class MultiFitter(object):
 
         Parameters
         ----------
-        image : :map:`Image` or subclass
+        image : `menpo.image.Image` or subclass
             The image to be fitted.
-        initial_shape : :map:`PointCloud`
+        initial_shape : `menpo.shape.PointCloud`
             The initial shape from which the fitting will start.
-        gt_shape : class : :map:`PointCloud`, optional
+        gt_shape : `menpo.shape.PointCloud`, optional
             The original ground truth shape associated to the image.
-        crop_image: `None` or float`, optional
+        crop_image: ``None`` or `float`, optional
             If `float`, it specifies the proportion of the border wrt the
             initial shape to which the image will be internally cropped around
-            the initial shape range.
-            If `None`, no cropping is performed.
+            the initial shape range. If ``None``, no cropping is performed.
             This will limit the fitting algorithm search region but is
             likely to speed up its running time, specially when the
             modeled object occupies a small portion of the image.
+
         Returns
         -------
-        images : `list` of :map:`Image` or subclass
+        images : `list` of `menpo.image.Image` or subclass
             The list of images that will be fitted by the fitters.
-        initial_shapes : `list` of :map:`PointCloud`
+        initial_shapes : `list` of `menpo.shape.PointCloud`
             The initial shape for each one of the previous images.
-        gt_shapes : `list` of :map:`PointCloud`
+        gt_shapes : `list` of `menpo.shape.PointCloud`
             The ground truth shape for each one of the previous images.
         """
         # Attach landmarks to the image

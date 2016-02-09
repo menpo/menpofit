@@ -2,11 +2,13 @@ import abc
 
 
 class DP(object):
-    r"""Object that is able to take it's own derivative wrt parametrization.
+    r"""
+    Object that is able to take it's own derivative wrt parametrization.
 
     The parametrization of objects is typically defined by the
-    :map:`Vectorizable` interface. As a result, :map:`DP` is a mix-in that
-    should be inherited along with :map:`Vectorizable`.
+    `menpo.base.Vectorizable` interface. As a result,
+    `menpofit.differentiable.DP` is a mix-in that should be inherited along
+    with `menpo.base.Vectorizable`.
     """
     __metaclass__ = abc.ABCMeta
 

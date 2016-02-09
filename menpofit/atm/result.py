@@ -194,7 +194,7 @@ class ATMResult(MultiScaleParametricIterativeResult):
 
     Parameters
     ----------
-    results : `list` of :map:`ATMOptimizationResult`
+    results : `list` of `menpofit.atm.result.ATMAlgorithmResult`
         The `list` of optimization results per scale.
     scales : `list` or `tuple`
         The `list` of scale values per scale (low to high).

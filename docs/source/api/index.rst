@@ -2,10 +2,14 @@
 
 The MenpoFit API
 ################
-Write me.
+This section attempts to provide a simple browsing experience for the MenpoFit
+documentation. In MenpoFit, we use legible docstrings, and therefore, all
+documentation should be easily accessible in any sensible IDE (or IPython)
+via tab completion. However, this section should make most of the core
+classes available for viewing online.
 
-Deformable Model Algorithms
----------------------------
+Deformable Models
+-----------------
 
 .. toctree::
    :maxdepth: 1
@@ -24,7 +28,6 @@ Internal API
    :maxdepth: 1
 
    menpofit/builder/index
-   menpofit/differentiable/index
    menpofit/feature/index
    menpofit/fitter/index
    menpofit/math/index

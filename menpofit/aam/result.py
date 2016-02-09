@@ -199,7 +199,7 @@ class AAMResult(MultiScaleParametricIterativeResult):
 
     Parameters
     ----------
-    results : `list` of :map:`AAMOptimizationResult`
+    results : `list` of `menpofit.aam.result.AAMAlgorithmResult`
         The `list` of optimization results per scale.
     scales : `list` or `tuple`
         The `list` of scale values per scale (low to high).

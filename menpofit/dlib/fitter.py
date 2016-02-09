@@ -513,7 +513,7 @@ class DlibWrapper(object):
             The initial shape estimate from which the fitting procedure
             will start. Note that the shape won't actually be used, only its
             bounding box.
-        gt_shape : :map:`PointCloud`
+        gt_shape : `menpo.shape.PointCloud`
             The ground truth shape associated to the image.
 
         Returns
@@ -537,7 +537,7 @@ class DlibWrapper(object):
             The image to be fitted.
         bounding_box : `menpo.shape.PointDirectedGraph`
             The initial bounding box.
-        gt_shape : :map:`PointCloud`
+        gt_shape : `menpo.shape.PointCloud`
             The ground truth shape associated to the image.
 
         Returns

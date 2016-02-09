@@ -113,7 +113,7 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
             The image to be fitted.
         initial_shape : `menpo.shape.PointCloud`
             The initial shape from which the fitting procedure will start.
-        gt_shape : class : :map:`PointCloud` or ``None``, optional
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape associated to the image.
 
         Returns

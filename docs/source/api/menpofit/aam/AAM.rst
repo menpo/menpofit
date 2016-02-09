@@ -1,6 +1,6 @@
-.. _menpofit-aam-AM:
+.. _menpofit-aam-AAM:
 
-.. currentmodule:: menpofit.aam
+.. currentmodule:: menpofit.aam.base
 
 AAM
 ===

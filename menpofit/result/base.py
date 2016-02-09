@@ -45,7 +45,7 @@ class Result(object):
         shape exists.
 
         Parameters
-        -----------
+        ----------
         compute_error: `callable`, optional
             Callable that computes the error between the fitted and
             ground truth shapes.
@@ -75,7 +75,7 @@ class Result(object):
         shape exists.
 
         Parameters
-        -----------
+        ----------
         compute_error: `callable`, optional
             Callable that computes the error between the initial and
             ground truth shapes.
@@ -491,7 +491,7 @@ class NonParametricIterativeResult(Result):
         ground truth shape exists.
 
         Parameters
-        -----------
+        ----------
         compute_error: `callable`, optional
             Callable that computes the error between the shape at each
             iteration and the ground truth shape.
@@ -670,7 +670,7 @@ class NonParametricIterativeResult(Result):
         the shape of each iteration and the shape of the previous one.
 
         Parameters
-        -----------
+        ----------
         stat_type : ``{'mean', 'median', 'min', 'max'}``, optional
             Specifies a statistic metric to be extracted from the displacements.
 

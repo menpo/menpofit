@@ -3,6 +3,20 @@
 :mod:`menpofit.aam`
 ===================
 
+Active Appearance Models
+------------------------
+These models all differ in the manner that they compute the warp.
+
+.. toctree::
+    :maxdepth: 1
+
+    AAM
+    HolisticAAM
+    MaskedAAM
+    LinearAAM
+    LinearMaskedAAM
+    PatchAAM
+
 AAM Fitters
 -----------
 
@@ -11,21 +25,6 @@ AAM Fitters
 
     LucasKanadeAAMFitter
     SupervisedDescentAAMFitter
-
-AAM Fitting Algorithms
-----------------------
-These algorithms all differ in the manner that they compute the warp.
-
-.. toctree::
-    :maxdepth: 1
-
-    AAM
-    HolisticAAM
-    LinearAAM
-    LinearMaskedAAM
-    MaskedAAM
-    PatchAAM
-
 
 Optimisation Algorithms
 -----------------------

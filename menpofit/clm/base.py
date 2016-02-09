@@ -26,7 +26,7 @@ class CLM(object):
 
     Returns
     -------
-    clm : :map:`CLM`
+    clm : `CLM`
         The CLM object
     """
     def __init__(self, images, group=None, verbose=False, batch_size=None,
@@ -208,31 +208,6 @@ class CLM(object):
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
-        r"""
-        Visualizes the shape models of the AAM object using an interactive
-        widget.
-
-        Parameters
-        -----------
-        n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of shape principal components to be used for the
-            parameters sliders.
-            If `int`, then the number of sliders per level is the minimum
-            between `n_parameters` and the number of active components per
-            level.
-            If `list` of `int`, then a number of sliders is defined per level.
-            If ``None``, all the active components per level will have a slider.
-        parameters_bounds : (`float`, `float`), optional
-            The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu.
-            If ``'multiple'``, a slider is constructed for each parameter.
-        popup : `bool`, optional
-            If ``True``, the widget will appear as a popup window.
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
-        """
         try:
             from menpowidgets import visualize_shape_model
             visualize_shape_model(

@@ -97,10 +97,10 @@ def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
 
     The normalization includes:
     1) Computation of the reference shape as the mean shape of the images'
-       landmarks.
+    landmarks.
     2) Scaling of the reference shape using the diagonal.
     3) Rescaling of all the images so that their shape's scale is in
-       correspondence with the reference shape's scale.
+    correspondence with the reference shape's scale.
 
     Parameters
     ----------
