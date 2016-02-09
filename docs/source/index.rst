@@ -8,7 +8,8 @@ Contents
 ========
 
 .. toctree::
-   :maxdepth: 1
+    :maxdepth: 2
+    :hidden:
 
-   userguide/index
-   api/index
+    userguide/index
+    api/index

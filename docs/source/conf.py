@@ -6,42 +6,6 @@ import os
 # this line of code grabbed from docs.readthedocs.org
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 
-if on_rtd:
-    class Mock(object):
-
-        __all__ = []
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __call__(self, *args, **kwargs):
-            return Mock()
-
-        @classmethod
-        def __getattr__(cls, name):
-            if name in ('__file__', '__path__'):
-                return '/dev/null'
-            elif name[0] == name[0].upper():
-                mockType = type(name, (), {})
-                mockType.__module__ = __name__
-                return mockType
-            else:
-                return Mock()
-
-    MOCK_MODULES = ['numpy', 'scipy', 'PIL', 'sklearn', 'skimage',
-                    'scipy.linalg', 'numpy.stats', 'scipy.misc', 'PIL.Image',
-                    'matplotlib', 'mayavi',
-                    'skimage.transform', 'matplotlib.pyplot', 'scipy.spatial',
-                    'skimage.transform.pyramids', 'scipy.spatial.distance',
-                    'numpy.dtype', 'scipy.ndimage',
-                    'scipy.linalg.blas']
-    # Masking our Cython modules
-    MOCK_MODULES += ['menpo.transform.piecewiseaffine.fastpwa',
-                     'menpo.image.feature.cppimagewindowiterator',
-                     'menpo.shape.mesh.normals']
-    for mod_name in MOCK_MODULES:
-        sys.modules[mod_name] = Mock()
-
 # Add the folder above so we can grab the sphinx extensions
 sys.path.insert(0, os.path.abspath('..'))
 # Add the menpo root so we can grab the version
@@ -49,10 +13,13 @@ sys.path.insert(0, os.path.abspath('../../'))
 
 import menpofit
 
+# add an up to date mathjax path
+mathjax_path = 'https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
+
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-#needs_sphinx = '1.0'
+needs_sphinx = '1.3'
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -62,8 +29,9 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.mathjax',
               'sphinx.ext.viewcode',
               'sphinx.ext.autosummary',
-              'numpydoc',
+              'sphinx.ext.napoleon',
               'sphinxext.ref_prettify',
+              'sphinxext.theme_hack',
               'sphinxmapxrefrole']
 
 # Import the mapping dictionary and set it for sphinxmapxrefrole
@@ -72,13 +40,20 @@ xref_mapping_dict = xref_map
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
+html_static_path = ['_static']
 
 # Otherwise Sphinx emits thousands of warnings
-numpydoc_show_class_members = False
-numpydoc_class_members_toctree = False
+napoleon_include_special_with_doc = False
+napoleon_numpy_docstring = True
+napoleon_use_rtype = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_admonition_for_examples = True
+napoleon_use_admonition_for_notes = True
+napoleon_use_admonition_for_references = True
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+#source_suffix = '.rst'
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -86,14 +61,14 @@ source_suffix = '.rst'
 # The master toctree document.
 master_doc = 'index'
 
-# Sort attributes by type (functions seperate from properties)
+# Sort attributes by type (functions separate from properties)
 autodoc_member_order = 'groupwise'
 
 # General information about the project.
 project = u'MenpoFit'
 authors = (u'Joan Alabort-i-Medina, Epameinondas Antonakos, James Booth,'
            u' Patrick Snape, and Stefanos Zafeiriou')
-copyright = u'2014, ' + authors
+copyright = u'2016, ' + authors
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -133,7 +108,7 @@ exclude_patterns = ['_build', '**/test/**']
 #show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+#pygments_style = 'sphinx'
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
@@ -223,11 +198,15 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Menpofitdoc'
+htmlhelp_basename = 'MenpoFitdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
 
+latex_preamble = """
+\usepackage{enumitem}
+\setlistdepth{999}
+"""
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #'papersize': 'letterpaper',
@@ -236,13 +215,13 @@ latex_elements = {
     #'pointsize': '10pt',
 
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
+    'preamble': latex_preamble
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'Menpofit.tex', u'MenpoFit Documentation',
+    ('index', 'MenpoFit.tex', u'MenpoFit Documentation',
      authors, 'manual'),
 ]
 
@@ -288,8 +267,7 @@ man_pages = [
 texinfo_documents = [
     ('index', 'MenpoFit', u'MenpoFit Documentation',
      authors,
-     'MenpoFit',
-     'Deformable modelling toolkit built on top of the Menpo project.',
+     'MenpoFit', 'Python framework for fitting and training deformable models.',
      'Miscellaneous'),
 ]
 
