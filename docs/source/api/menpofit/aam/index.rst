@@ -5,7 +5,8 @@
 
 Active Appearance Models
 ------------------------
-These models all differ in the manner that they compute the warp.
+These AAMs differ in the manner that they compute the warp (thus represent
+the appearance features).
 
 .. toctree::
     :maxdepth: 1
@@ -17,8 +18,10 @@ These models all differ in the manner that they compute the warp.
     LinearMaskedAAM
     PatchAAM
 
-AAM Fitters
------------
+Fitters
+-------
+An AAM can be optimised either in a gradient descent manner (Lucas-Kanade) or
+using cascaded regression (Supervised Descent).
 
 .. toctree::
     :maxdepth: 1
@@ -26,26 +29,40 @@ AAM Fitters
     LucasKanadeAAMFitter
     SupervisedDescentAAMFitter
 
-Optimisation Algorithms
------------------------
+Lucas-Kanade Optimisation Algorithms
+------------------------------------
 
 .. toctree::
     :maxdepth: 1
 
     AlternatingForwardCompositional
     AlternatingInverseCompositional
-    AppearanceWeightsGaussNewton
-    AlternatingInverseCompositional
-    AppearanceWeightsNewton
-    MeanTemplateGaussNewton
-    MeanTemplateNewton
     ModifiedAlternatingForwardCompositional
     ModifiedAlternatingInverseCompositional
     ProjectOutForwardCompositional
-    ProjectOutGaussNewton
     ProjectOutInverseCompositional
-    ProjectOutNewton
     SimultaneousForwardCompositional
     SimultaneousInverseCompositional
     WibergForwardCompositional
     WibergInverseCompositional
+
+Supervised Descent Optimisation Algorithms
+------------------------------------------
+
+.. toctree::
+    :maxdepth: 1
+
+    AppearanceWeightsNewton
+    AppearanceWeightsGaussNewton
+    MeanTemplateNewton
+    MeanTemplateGaussNewton
+    ProjectOutNewton
+    ProjectOutGaussNewton
+
+Fitting Result
+--------------
+
+.. toctree::
+    :maxdepth: 1
+
+    AAMResult

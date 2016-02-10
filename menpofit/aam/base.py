@@ -35,8 +35,10 @@ class AAM(object):
     images : `list` of `menpo.image.Image`
         The `list` of training images.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the AAM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that will be used to train the AAM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
         The reference shape that will be used for building the AAM. If
         ``None``, then the mean shape will be used.
@@ -56,10 +58,13 @@ class AAM(object):
     scales : `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
-    transform : `menpofit.transform.DifferentiablePiecewiseAffine`, optional
-        A differential warp transform object.
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
-        The class to be used for building the shape model.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -277,8 +282,10 @@ class AAM(object):
         images : `list` of `menpo.image.Image`
             The `list` of training images.
         group : `str` or ``None``, optional
-            The landmark group that will be used to train the AAM. Note that all
-            the training images need to have the specified landmark group.
+            The landmark group that will be used to train the AAM. If ``None``
+            and the images only have a single landmark group, then that is the
+            one that will be used. Note that all the training images need to
+            have the specified landmark group.
         shape_forgetting_factor : ``[0.0, 1.0]`` `float`, optional
             Forgetting factor that weights the relative contribution of new
             samples vs old samples for the shape model. If ``1.0``, all samples
@@ -339,7 +346,7 @@ class AAM(object):
                  scale_index=-1):
         r"""
         Generates a novel AAM instance given a set of shape and appearance
-        weights. If no weights are provided, the mean AAM instance is
+        weights. If no weights are provided, then the mean AAM instance is
         returned.
 
         Parameters
@@ -358,7 +365,7 @@ class AAM(object):
         Returns
         -------
         image : `menpo.image.Image`
-            The novel AAM instance.
+            The AAM instance.
         """
         if shape_weights is None:
             shape_weights = [0]
@@ -375,7 +382,7 @@ class AAM(object):
 
     def random_instance(self, scale_index=-1):
         r"""
-        Generates a novel random instance of the AAM.
+        Generates a random instance of the AAM.
 
         Parameters
         ----------
@@ -385,7 +392,7 @@ class AAM(object):
         Returns
         -------
         image : `menpo.image.Image`
-            The novel AAM instance.
+            The AAM instance.
         """
         sm = self.shape_models[scale_index].model
         am = self.appearance_models[scale_index]
@@ -526,13 +533,20 @@ class AAM(object):
         r"""
         Method that builds the correct Lucas-Kanade fitting interface. It
         only applies in case you wish to fit the AAM with a Lucas-Kanade
-        algorithm.
+        algorithm (i.e. :map:`LucasKanadeAAMFitter`).
 
         Parameters
         ----------
-        sampling : `int` or ``None``, optional
-            The sub-sampling step of the sampling mask. If ``None``, then no
-            sampling is applied on the template.
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
         """
         interfaces = []
         for am, sm, s in zip(self.appearance_models, self.shape_models,
@@ -550,25 +564,25 @@ class AAM(object):
                                    n_iters_per_scale):
         r"""
         Method that generates the appearance reconstructions given a set of
-        appearance parameters. This is to be combined with a
-        `menpofit.aam.result.AAMResult` object, in order to generate the
-        appearance reconstructions of a fitting procedure.
+        appearance parameters. This is to be combined with a :map:`AAMResult`
+        object, in order to generate the appearance reconstructions of a
+        fitting procedure.
 
         Parameters
         ----------
-        appearance_parameters : `list` of `ndarray`
+        appearance_parameters : `list` of ``(n_params,)`` `ndarray`
             A set of appearance parameters per fitting iteration. It can be
-            retrieved as a property of a `menpofit.aam.result.AAMResult` object.
+            retrieved as a property of an :map:`AAMResult` object.
         n_iters_per_scale : `list` of `int`
             The number of iterations per scale. This is necessary in order to
             figure out which appearance parameters correspond to the model of
-            each scale. It can be retrieved as a property of a
-            `menpofit.aam.result.AAMResult` object.
+            each scale. It can be retrieved as a property of a :map:`AAMResult`
+            object.
 
         Returns
         -------
         appearance_reconstructions : `list` of `menpo.image.Image`
-            List of the appearance reconstructions that correspond to the
+            `List` of the appearance reconstructions that correspond to the
             provided parameters.
         """
         appearance_reconstructions = []
@@ -595,8 +609,10 @@ class MaskedAAM(AAM):
     images : `list` of `menpo.image.Image`
         The `list` of training images.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the AAM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that will be used to train the AAM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
         The reference shape that will be used for building the AAM. If
         ``None``, then the mean shape will be used.
@@ -619,8 +635,9 @@ class MaskedAAM(AAM):
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
-        The class to be used for building the shape model.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -696,8 +713,10 @@ class LinearAAM(AAM):
     images : `list` of `menpo.image.Image`
         The `list` of training images.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the AAM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that will be used to train the AAM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
         The reference shape that will be used for building the AAM. If
         ``None``, then the mean shape will be used.
@@ -717,10 +736,13 @@ class LinearAAM(AAM):
     scales : `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
-    transform : `menpofit.transform.DifferentiableThinPlateSplines`, optional
-        A differential warp transform object.
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
-        The class to be used for building the shape model.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -812,13 +834,20 @@ class LinearAAM(AAM):
         r"""
         Method that builds the correct Lucas-Kanade fitting interface. It
         only applies in case you wish to fit the AAM with a Lucas-Kanade
-        algorithm
+        algorithm (i.e. :map:`LucasKanadeAAMFitter`).
 
         Parameters
         ----------
-        sampling : `int` or ``None``, optional
-            The sub-sampling step of the sampling mask. If ``None``, then no
-            sampling is applied on the template.
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
         """
         interfaces = []
         for am, sm, s in zip(self.appearance_models, self.shape_models,
@@ -845,8 +874,10 @@ class LinearMaskedAAM(AAM):
     images : `list` of `menpo.image.Image`
         The `list` of training images.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the AAM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that will be used to train the AAM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
         The reference shape that will be used for building the AAM. If
         ``None``, then the mean shape will be used.
@@ -981,15 +1012,19 @@ class LinearMaskedAAM(AAM):
 # TODO: implement offsets support?
 class PatchAAM(AAM):
     r"""
-    Class for training a multi-scale Patch-Based Active Appearance Model.
+    Class for training a multi-scale Patch-Based Active Appearance Model. The
+    appearance of this model is formulated by simply sampling patches around
+    the image's landmarks.
 
     Parameters
     ----------
     images : `list` of `menpo.image.Image`
         The `list` of training images.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the AAM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that will be used to train the AAM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
         The reference shape that will be used for building the AAM. If
         ``None``, then the mean shape will be used.
@@ -1175,20 +1210,20 @@ class PatchAAM(AAM):
                                    n_iters_per_scale):
         r"""
         Method that generates the appearance reconstructions given a set of
-        appearance parameters. This is to be combined with a
-        `menpofit.aam.result.AAMResult` object, in order to generate the
-        appearance reconstructions of a fitting procedure.
+        appearance parameters. This is to be combined with a :map:`AAMResult`
+        object, in order to generate the appearance reconstructions of a
+        fitting procedure.
 
         Parameters
         ----------
         appearance_parameters : `list` of `ndarray`
             A set of appearance parameters per fitting iteration. It can be
-            retrieved as a property of a `menpofit.aam.result.AAMResult` object.
+            retrieved as a property of a :map:`AAMResult` object.
         n_iters_per_scale : `list` of `int`
             The number of iterations per scale. This is necessary in order to
             figure out which appearance parameters correspond to the model of
-            each scale. It can be retrieved as a property of a
-            `menpofit.aam.result.AAMResult` object.
+            each scale. It can be retrieved as a property of a :map:`AAMResult`
+            object.
 
         Returns
         -------

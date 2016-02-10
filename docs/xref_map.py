@@ -1,4 +1,23 @@
 xref_map = {
 'AAM': ('class', 'menpofit.aam.base.AAM'),
+'AAMResult': ('class', 'menpofit.aam.result.AAMResult'),
+'AlternatingForwardCompositional': ('class', 'menpofit.aam.AlternatingForwardCompositional'),
+'AlternatingInverseCompositional': ('class', 'menpofit.aam.AlternatingInverseCompositional'),
 'ATM': ('class', 'menpofit.atm.base.ATM'),
+'DifferentiablePiecewiseAffine': ('class', 'menpofit.transform.DifferentiablePiecewiseAffine'),
+'DL': ('class', 'menpofit.differentiable.DL'),
+'DP': ('class', 'menpofit.differentiable.DP'),
+'DifferentiableThinPlateSplines': ('class', 'menpofit.transform.DifferentiableThinPlateSplines'),
+'DX': ('class', 'menpofit.differentiable.DX'),
+'LucasKanadeAAMFitter': ('class', 'menpofit.aam.LucasKanadeAAMFitter'),
+'ModifiedAlternatingForwardCompositional': ('class', 'menpofit.aam.ModifiedAlternatingForwardCompositional'),
+'ModifiedAlternatingInverseCompositional': ('class', 'menpofit.aam.ModifiedAlternatingInverseCompositional'),
+'OrthoPDM': ('class', 'menpofit.modelinstance.OrthoPDM'),
+'PDM': ('class', 'menpofit.modelinstance.PDM'),
+'ProjectOutForwardCompositional': ('class', 'menpofit.aam.ProjectOutForwardCompositional'),
+'ProjectOutInverseCompositional': ('class', 'menpofit.aam.ProjectOutInverseCompositional'),
+'SimultaneousForwardCompositional': ('class', 'menpofit.aam.SimultaneousForwardCompositional'),
+'SimultaneousInverseCompositional': ('class', 'menpofit.aam.SimultaneousInverseCompositional'),
+'WibergForwardCompositional': ('class', 'menpofit.aam.WibergForwardCompositional'),
+'WibergInverseCompositional': ('class', 'menpofit.aam.WibergInverseCompositional')
 }

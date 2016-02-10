@@ -45,11 +45,27 @@ class LucasKanadeAAMFitter(AAMFitter):
 
     Parameters
     ----------
-    aam : `menpofit.aam.base.AAM` or subclass
+    aam : :map:`AAM` or `subclass`
         The trained AAM model.
-    lk_algorithm_cls : `menpofit.aam.algorithm.lk.LucasKanade` or subclass, optional
-        The Lukas-Kanade optimization algorithm that will get applied. All
-        possible algorithms are stored in `menpofit.aam.algorithm.lk`.
+    lk_algorithm_cls : `class`, optional
+        The Lukas-Kanade optimisation algorithm that will get applied. The
+        possible algorithms are:
+
+        ============================================== =====================
+        Class                                          Method
+        ============================================== =====================
+        :map:`AlternatingForwardCompositional`         Alternating
+        :map:`AlternatingInverseCompositional`
+        :map:`ModifiedAlternatingForwardCompositional` Modified Alternating
+        :map:`ModifiedAlternatingInverseCompositional`
+        :map:`ProjectOutForwardCompositional`          Project-Out
+        :map:`ProjectOutInverseCompositional`
+        :map:`SimultaneousForwardCompositional`        Simultaneous
+        :map:`SimultaneousInverseCompositional`
+        :map:`WibergForwardCompositional`              Wiberg
+        :map:`WibergInverseCompositional`
+        ============================================== =====================
+
     n_shape : `int` or `list` or ``None``, optional
         The number of shape components that will be used. If `int`, then the
         provided value will be applied on all scales. If `list`, then it
@@ -60,9 +76,11 @@ class LucasKanadeAAMFitter(AAMFitter):
         then the provided value will be applied on all scales. If `list`, then
         it defines a value per scale. If ``None``, then all the components will
         be used.
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it
+        explicitly defines the sampling mask. If ``None``, then no
+        sub-sampling is applied.
     """
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
                  n_shape=None, n_appearance=None, sampling=None):
@@ -81,25 +99,25 @@ class LucasKanadeAAMFitter(AAMFitter):
                                    n_iters_per_scale):
         r"""
         Method that generates the appearance reconstructions given a set of
-        appearance parameters. This is to be combined with a
-        `menpofit.aam.result.AAMResult` object, in order to generate the
-        appearance reconstructions of a fitting procedure.
+        appearance parameters. This is to be combined with a :map:`AAMResult`
+        object, in order to generate the appearance reconstructions of a
+        fitting procedure.
 
         Parameters
         ----------
-        appearance_parameters : `list` of `ndarray`
+        appearance_parameters : `list` of ``(n_params,)`` `ndarray`
             A set of appearance parameters per fitting iteration. It can be
-            retrieved as a property of a `menpofit.aam.result.AAMResult` object.
+            retrieved as a property of an :map:`AAMResult` object.
         n_iters_per_scale : `list` of `int`
             The number of iterations per scale. This is necessary in order to
             figure out which appearance parameters correspond to the model of
-            each scale. It can be retrieved as a property of a
-            `menpofit.aam.result.AAMResult` object.
+            each scale. It can be retrieved as a property of a :map:`AAMResult`
+            object.
 
         Returns
         -------
         appearance_reconstructions : `list` of `menpo.image.Image`
-            List of the appearance reconstructions that correspond to the
+            `List` of the appearance reconstructions that correspond to the
             provided parameters.
         """
         return self.aam.appearance_reconstructions(
@@ -110,11 +128,11 @@ class LucasKanadeAAMFitter(AAMFitter):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        fitting procedure.
+        :map:`AAMResult` fitting procedure.
 
         Parameters
         ----------
-        image : `menpo.image.Image` or subclass
+        image : `menpo.image.Image` or `subclass`
             The input image to be warped.
         shapes : `list` of `menpo.shape.PointCloud`
             The list of shapes in which the image will be warped. The shapes

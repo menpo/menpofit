@@ -28,6 +28,7 @@ Internal API
    :maxdepth: 1
 
    menpofit/builder/index
+   menpofit/differentiable/index
    menpofit/feature/index
    menpofit/fitter/index
    menpofit/math/index
