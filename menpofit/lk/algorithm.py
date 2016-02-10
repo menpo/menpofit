@@ -14,11 +14,21 @@ class LucasKanade(object):
     ----------
     template : `menpo.image.Image` or subclass
         The image template.
-    transform : `menpofit.transform.ModelDrivenTransform` or subclass
-        The model driven transform object.
-    residual : `menpofit.lk.residual.Residual` subclass
-        The residual that will get applied. All possible residuals are
-        stored in `menpofit.lk.residual`.
+    transform : `subclass` of :map:`DP` and :map:`DX`, optional
+        A differential affine transform object, e.g.
+        :map:`DifferentiableAlignmentAffine`.
+    residual : `class` subclass, optional
+        The residual that will get applied. All possible residuals are:
+
+        ========================== ============================================
+        Class                      Description
+        ========================== ============================================
+        :map:`SSD`                 Sum of Squared Differences
+        :map:`FourierSSD`          Sum of Squared Differences on Fourier domain
+        :map:`ECC`                 Enhanced Correlation Coefficient
+        :map:`GradientImages`      Image Gradient
+        :map:`GradientCorrelation` Gradient Correlation
+        ========================== ============================================
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
@@ -32,11 +42,11 @@ class LucasKanade(object):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        fitting procedure.
+        fitting procedure stored within a :map:`LucasKanadeResult`.
 
         Parameters
         ----------
-        image : `menpo.image.Image` or subclass
+        image : `menpo.image.Image` or `subclass`
             The input image to be warped.
         shapes : `list` of `menpo.shape.PointCloud`
             The list of shapes in which the image will be warped. The shapes
@@ -44,7 +54,7 @@ class LucasKanade(object):
 
         Returns
         -------
-        warped_images : `list` of `menpo.image.MaskedImage`
+        warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
             The warped images.
         """
         warped_images = []
@@ -76,6 +86,11 @@ class ForwardAdditive(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+
+        Returns
+        -------
+        fitting_result : :map:`LucasKanadeAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -145,11 +160,21 @@ class ForwardCompositional(LucasKanade):
     ----------
     template : `menpo.image.Image` or subclass
         The image template.
-    transform : `menpofit.transform.ModelDrivenTransform` or subclass
-        The model driven transform object.
-    residual : `menpofit.lk.residual.Residual` subclass
-        The residual that will get applied. All possible residuals are
-        stored in `menpofit.lk.residual`.
+    transform : `subclass` of :map:`DP` and :map:`DX`, optional
+        A differential affine transform object, e.g.
+        :map:`DifferentiableAlignmentAffine`.
+    residual : `class` subclass, optional
+        The residual that will get applied. All possible residuals are:
+
+        ========================== ============================================
+        Class                      Description
+        ========================== ============================================
+        :map:`SSD`                 Sum of Squared Differences
+        :map:`FourierSSD`          Sum of Squared Differences on Fourier domain
+        :map:`ECC`                 Enhanced Correlation Coefficient
+        :map:`GradientImages`      Image Gradient
+        :map:`GradientCorrelation` Gradient Correlation
+        ========================== ============================================
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
@@ -182,6 +207,11 @@ class ForwardCompositional(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+
+        Returns
+        -------
+        fitting_result : :map:`LucasKanadeAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -245,11 +275,21 @@ class InverseCompositional(LucasKanade):
     ----------
     template : `menpo.image.Image` or subclass
         The image template.
-    transform : `menpofit.transform.ModelDrivenTransform` or subclass
-        The model driven transform object.
-    residual : `menpofit.lk.residual.Residual` subclass
-        The residual that will get applied. All possible residuals are
-        stored in `menpofit.lk.residual`.
+    transform : `subclass` of :map:`DP` and :map:`DX`, optional
+        A differential affine transform object, e.g.
+        :map:`DifferentiableAlignmentAffine`.
+    residual : `class` subclass, optional
+        The residual that will get applied. All possible residuals are:
+
+        ========================== ============================================
+        Class                      Description
+        ========================== ============================================
+        :map:`SSD`                 Sum of Squared Differences
+        :map:`FourierSSD`          Sum of Squared Differences on Fourier domain
+        :map:`ECC`                 Enhanced Correlation Coefficient
+        :map:`GradientImages`      Image Gradient
+        :map:`GradientCorrelation` Gradient Correlation
+        ========================== ============================================
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
@@ -286,6 +326,11 @@ class InverseCompositional(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+
+        Returns
+        -------
+        fitting_result : :map:`LucasKanadeAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # initialize transform
         self.transform.set_target(initial_shape)

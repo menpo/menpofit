@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-result-index:
 
 :mod:`menpofit.result`
 ======================

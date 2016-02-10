@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-sdm-index:
 
 :mod:`menpofit.sdm`
 ===================

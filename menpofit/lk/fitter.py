@@ -15,33 +15,55 @@ from .result import LucasKanadeResult
 
 class LucasKanadeFitter(MultiFitter):
     r"""
-    Class for defining a multi-scale Lucas-Kanade fitter with repect to an
-    affine transform. Please see the references for a basic list of relevant
-    papers.
+    Class for defining a multi-scale Lucas-Kanade fitter that performs alignment
+    with respect to an affine transform. Please see the references for a basic
+    list of relevant papers.
 
     Parameters
     ----------
     template : `menpo.image.Image`
         The template image.
     group : `str` or ``None``, optional
-        The landmark group that will be used.
-    holistic_features : `closure`, optional
-        The features that will be extracted. Please refer to `menpo.feature`
-        for a list of potential features.
+        The landmark group of the `template` that will be used. If ``None`` and
+        the `template` only has a single landmark group, then that is the one
+        that will be used.
+    holistic_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to define the scale of the template. It
         defines the diagonal of the template's landmark group.
     scales : `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
-    transform : `menpofit.transform.DifferentiableAlignmentAffine`, optional
-        A differential affine transform object.
-    algorithm_cls : `menpofit.lk.algorithm.LucasKanade` subclass, optional
-        The Lukas-Kanade optimization algorithm that will get applied. All
-        possible algorithms are stored in `menpofit.lk.algorithm`.
-    residual_cls : `menpofit.lk.residual.Residual` subclass, optional
-        The residual that will get applied. All possible residuals are
-        stored in `menpofit.lk.residual`.
+    transform : `subclass` of :map:`DP` and :map:`DX`, optional
+        A differential affine transform object, e.g.
+        :map:`DifferentiableAlignmentAffine`.
+    algorithm_cls : `class`, optional
+        The Lukas-Kanade optimisation algorithm that will get applied. The
+        possible algorithms in `menpofit.lk.algorithm` are:
+
+        ====================== ============== =============
+        Class                  Warp Direction Warp Update
+        ====================== ============== =============
+        `ForwardAdditive`      Forward        Additive
+        `ForwardCompositional` Forward        Compositional
+        `InverseCompositional` Inverse
+        ====================== ============== =============
+    residual_cls : `class` subclass, optional
+        The residual that will get applied. All possible residuals are:
+
+        ========================== ============================================
+        Class                      Description
+        ========================== ============================================
+        :map:`SSD`                 Sum of Squared Differences
+        :map:`FourierSSD`          Sum of Squared Differences on Fourier domain
+        :map:`ECC`                 Enhanced Correlation Coefficient
+        :map:`GradientImages`      Image Gradient
+        :map:`GradientCorrelation` Gradient Correlation
+        ========================== ============================================
 
     References
     ----------
@@ -100,22 +122,21 @@ class LucasKanadeFitter(MultiFitter):
 
     def perturb_from_gt_bb(self, gt_bb,
                            perturb_func=noisy_shape_from_bounding_box):
-        r"""
-        Method for adding noise to the ground truth bounding box. This is
+        """
+        Returns a perturbed version of the ground truth bounding box. This is
         useful for obtaining the initial bounding box of the fitting.
 
         Parameters
         ----------
-        gt_bb : `menpo.shape.PointCloud`
+        gt_bb : `menpo.shape.PointDirectedGraph`
             The ground truth bounding box.
-        perturb_func : `closure`, optional
-            The method to be used for adding noise to the ground truth
-            bounding box.
+        perturb_func : `callable`, optional
+            The function that will be used for generating the perturbations.
 
         Returns
         -------
-        perturbed_bb : `menpo.shape.PointCloud`
-            The perturbed bounding box.
+        perturbed_bb : `menpo.shape.PointDirectedGraph`
+            The perturbed ground truth bounding box.
         """
         return perturb_func(gt_bb, gt_bb)
 
@@ -130,11 +151,11 @@ class LucasKanadeFitter(MultiFitter):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        fitting procedure.
+        fitting procedure stored within a `LucasKanadeResult`.
 
         Parameters
         ----------
-        image : `menpo.image.Image` or subclass
+        image : `menpo.image.Image` or `subclass`
             The input image to be warped.
         shapes : `list` of `menpo.shape.PointCloud`
             The list of shapes in which the image will be warped. The shapes

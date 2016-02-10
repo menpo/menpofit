@@ -55,9 +55,11 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
     @property
     def transform(self):
         r"""
-        Returns the model driven transform object of the AAM.
+        Returns the model driven differential transform object of the AAM, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
 
-        :type: `menpofit.transform.ModelDrivenTransform` or subclass
+        :type: `subclass` of :map:`DL` and :map:`DX`
         """
         return self.interface.transform
 
@@ -118,8 +120,8 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
 
         Returns
         -------
-        fitting_result: `menpofit.aam.result.AAMAlgorithmResult`
-            The result of the fitting procedure.
+        fitting_result : :map:`AAMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -283,6 +285,8 @@ class ProjectOutNewton(ProjectOut):
     aam_interface : The AAM interface class from `menpofit.aam.algorithm.lk`.
         Existing interfaces include:
 
+            ============================== =============================
+            Class                          AAM
             ============================== =============================
             'LucasKanadeStandardInterface' Suitable for holistic AAMs
             'LucasKanadeLinearInterface'   Suitable for linear AAMs

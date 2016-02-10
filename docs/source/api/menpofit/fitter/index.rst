@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-fitter-index:
 
 :mod:`menpofit.fitter`
 ======================

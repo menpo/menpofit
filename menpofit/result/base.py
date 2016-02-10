@@ -902,10 +902,11 @@ class NonParametricIterativeResult(Result):
             The id of the figure to be used.
         new_figure : `bool`, optional
             If ``True``, a new figure is created.
+        iters : `list` of `int` or ``None``, optional
+            The iterations to be visualized. If ``None``, then all the iterations
+            are rendered.
         render_image : `bool`, optional
             If ``True`` and the image exists, then it gets rendered.
-        animation_enabled : `bool`, optional
-            If ``True``, then the iterations are rendered as an animation.
         subplots_enabled : `bool`, optional
             If ``True``, then the requested final, initial and ground truth
             shapes get rendered on separate subplots.

@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-dlib-index:
 
 :mod:`menpofit.dlib`
 ====================

@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-aam-index:
 
 :mod:`menpofit.aam`
 ===================
@@ -66,3 +66,4 @@ Fitting Result
     :maxdepth: 1
 
     AAMResult
+    AAMAlgorithmResult

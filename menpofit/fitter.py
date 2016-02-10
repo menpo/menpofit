@@ -243,13 +243,14 @@ class MultiFitter(object):
             modeled object occupies a small portion of the image.
         kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
-            implementations of ``_fit`` method.
+            implementations.
 
         Returns
         -------
-        multi_fitting_result : `class` from `menpofit.result`
-            The multi-scale fitting result containing the result of
-            fitting procedure.
+        fitting_result : `class` (see below)
+            The multi-scale fitting result containing the result of the fitting
+            procedure. It can be a :map:`MultiScaleNonParametricIterativeResult`
+            or :map:`MultiScaleParametricIterativeResult` or `subclass` of those.
         """
         # generate the list of images to be fitted
         images, initial_shapes, gt_shapes = self._prepare_image(
@@ -298,13 +299,14 @@ class MultiFitter(object):
             modeled object occupies a small portion of the image.
         kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
-            implementations of ``_fit`` method.
+            implementations.
 
         Returns
         -------
-        multi_fitting_result : `class` from `menpofit.result`
-            The multi-scale fitting result containing the result of
-            fitting procedure.
+        fitting_result : `class` (see below)
+            The multi-scale fitting result containing the result of the fitting
+            procedure. It can be a :map:`MultiScaleNonParametricIterativeResult`
+            or :map:`MultiScaleParametricIterativeResult` or `subclass` of those.
         """
         initial_shape = align_shape_with_bounding_box(self.reference_shape,
                                                       bounding_box)
@@ -314,40 +316,6 @@ class MultiFitter(object):
 
     def _prepare_image(self, image, initial_shape, gt_shape=None,
                        crop_image=0.5):
-        r"""
-        Prepares the image to be fitted.
-
-        The image is first rescaled wrt the ``reference_landmarks`` and then
-        a gaussian pyramid is applied. Depending on the
-        ``pyramid_on_features`` flag, the pyramid is either applied to the
-        features image computed from the rescaled imaged or applied to the
-        rescaled image and features extracted at each pyramidal level.
-
-        Parameters
-        ----------
-        image : `menpo.image.Image` or subclass
-            The image to be fitted.
-        initial_shape : `menpo.shape.PointCloud`
-            The initial shape from which the fitting will start.
-        gt_shape : `menpo.shape.PointCloud`, optional
-            The original ground truth shape associated to the image.
-        crop_image: ``None`` or `float`, optional
-            If `float`, it specifies the proportion of the border wrt the
-            initial shape to which the image will be internally cropped around
-            the initial shape range. If ``None``, no cropping is performed.
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image.
-
-        Returns
-        -------
-        images : `list` of `menpo.image.Image` or subclass
-            The list of images that will be fitted by the fitters.
-        initial_shapes : `list` of `menpo.shape.PointCloud`
-            The initial shape for each one of the previous images.
-        gt_shapes : `list` of `menpo.shape.PointCloud`
-            The ground truth shape for each one of the previous images.
-        """
         # Attach landmarks to the image
         image.landmarks['__initial_shape'] = initial_shape
         if gt_shape:
@@ -402,31 +370,6 @@ class MultiFitter(object):
 
     def _fit(self, images, initial_shape, gt_shapes=None, max_iters=20,
              **kwargs):
-        r"""
-        Fits the fitter to the multilevel pyramidal images.
-
-        Parameters
-        -----------
-        images: :class:`menpo.image.masked.MaskedImage` list
-            The images to be fitted.
-        initial_shape: :class:`menpo.shape.PointCloud`
-            The initial shape from which the fitting will start.
-        gt_shapes: :class:`menpo.shape.PointCloud` list, optional
-            The original ground truth shapes associated to the multilevel
-            images.
-        max_iters: int or list, optional
-            The maximum number of iterations.
-            If int, then this will be the overall maximum number of iterations
-            for all the pyramidal levels.
-            If list, then a maximum number of iterations is specified for each
-            pyramidal level.
-
-        Returns
-        -------
-        algorithm_results: :class:`FittingResult` list
-            The fitting object containing the state of the whole fitting
-            procedure.
-        """
         # Perform check
         max_iters = checks.check_max_iters(max_iters, self.n_scales)
 
@@ -477,7 +420,7 @@ class ModelFitter(MultiFitter):
         r"""
         The holistic features utilized by the model.
 
-        :type: `callable`
+        :type: `list` of `callable`
         """
         return self._model.holistic_features
 

@@ -1,7 +1,7 @@
-.. _api-base-index:
+.. _api-differentiable-index:
 
 :mod:`menpofit.differentiable`
-=============================
+==============================
 
 Differentiable Abstract Classes
 -------------------------------

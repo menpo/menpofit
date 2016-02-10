@@ -33,13 +33,16 @@ class LucasKanadeBaseInterface(object):
 
     Parameters
     ----------
-    transform : `menpofit.transform.ModelDrivenTransform` or subclass
-        The model driven transform object of the AAM.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
     template : `menpo.image.Image` or subclass
         The image template (usually the mean of the AAM's appearance model).
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
+        defines the sampling mask. If ``None``, then no sub-sampling is applied.
     """
     def __init__(self, transform, template, sampling=None):
         self.transform = transform
@@ -260,15 +263,18 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
 
     Parameters
     ----------
-    appearance_model : `menpofit.model.PCAModel` or subclass
+    appearance_model : `menpo.model.PCAModel` or subclass
         The appearance PCA model of the AAM.
-    transform : `menpofit.transform.ModelDrivenTransform` or subclass
-        The model driven transform object of the AAM.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
     template : `menpo.image.Image` or subclass
         The image template (usually the mean of the AAM's appearance model).
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
+        defines the sampling mask. If ``None``, then no sub-sampling is applied.
     """
     def __init__(self, appearance_model, transform, template, sampling=None):
         super(LucasKanadeStandardInterface, self).__init__(transform, template,
@@ -364,7 +370,7 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
 
         Returns
         -------
-        result : `menpofit.aam.result.AAMAlgorithmResult`
+        result : :map:`AAMAlgorithmResult`
             The optimization result object.
         """
         return AAMAlgorithmResult(
@@ -414,7 +420,7 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
 
         Returns
         -------
-        result : `menpofit.aam.result.AAMAlgorithmResult`
+        result : :map:`AAMAlgorithmResult`
             The optimization result object.
         """
         # TODO: Separate result for linear AAMs that stores both the sparse
@@ -434,13 +440,16 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
 
     Parameters
     ----------
-    transform : `menpofit.modelinstance.OrthoPDM` or subclass
-        The model driven transform of the AAM.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
     template : `menpo.image.Image` or subclass
         The image template (usually the mean of the AAM's appearance model).
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
+        defines the sampling mask. If ``None``, then no sub-sampling is applied.
     patch_shape : ``(int, int)``, optional
         The patch shape.
     patch_normalisation : `closure`, optional
@@ -592,15 +601,18 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
 
     Parameters
     ----------
-    appearance_model : `menpofit.model.PCAModel` or subclass
+    appearance_model : `menpo.model.PCAModel` or subclass
         The appearance PCA model of the patch-based AAM.
-    transform : `menpofit.modelinstance.OrthoPDM` or subclass
-        The model driven transform of the AAM.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
     template : `menpo.image.Image` or subclass
         The image template (usually the mean of the AAM's appearance model).
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
+        defines the sampling mask. If ``None``, then no sub-sampling is applied.
     patch_shape : ``(int, int)``, optional
         The patch shape.
     patch_normalisation : `closure`, optional
@@ -702,7 +714,7 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
 
         Returns
         -------
-        result : `menpofit.aam.result.AAMAlgorithmResult`
+        result : :map:`AAMAlgorithmResult`
             The optimization result object.
         """
         return AAMAlgorithmResult(
@@ -746,9 +758,11 @@ class LucasKanade(object):
     @property
     def transform(self):
         r"""
-        Returns the model driven transform object of the AAM.
+        Returns the model driven differential transform object of the AAM, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
 
-        :type: `menpofit.transform.ModelDrivenTransform` or subclass
+        :type: `subclass` of :map:`DL` and :map:`DX`
         """
         return self.interface.transform
 
@@ -830,8 +844,8 @@ class ProjectOut(LucasKanade):
 
         Returns
         -------
-        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
-            The fitting result.
+        fitting_result : :map:`AAMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # define cost closure
         def cost_closure(x, f):
@@ -986,8 +1000,8 @@ class Simultaneous(LucasKanade):
 
         Returns
         -------
-        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
-            The fitting result.
+        fitting_result : :map:`AAMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # define cost closure
         def cost_closure(x):
@@ -1151,8 +1165,8 @@ class Alternating(LucasKanade):
 
         Returns
         -------
-        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
-            The fitting result.
+        fitting_result : :map:`AAMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # define cost closure
         def cost_closure(x):
@@ -1315,8 +1329,8 @@ class ModifiedAlternating(Alternating):
 
         Returns
         -------
-        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
-            The fitting result.
+        fitting_result : :map:`AAMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # define cost closure
         def cost_closure(x):
@@ -1471,8 +1485,8 @@ class Wiberg(LucasKanade):
 
         Returns
         -------
-        fitting_result : `menpofit.aam.result.AAMAlgorithmResult`
-            The fitting result.
+        fitting_result : :map:`AAMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # define cost closure
         def cost_closure(x, f):

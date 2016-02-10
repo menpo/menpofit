@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-modelinstance-index:
 
 :mod:`menpofit.modelinstance`
 =============================

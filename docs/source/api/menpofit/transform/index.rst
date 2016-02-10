@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-transform-index:
 
 :mod:`menpofit.transform`
 =========================

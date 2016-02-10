@@ -29,8 +29,10 @@ class SupervisedDescentFitter(MultiFitter):
     images : `list` of `menpo.image.Image`
         The `list` of training images.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train ERT. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that will be used to train the SDM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     bounding_box_group_glob : `glob` or ``None``, optional
         Glob that defines the bounding boxes to be used for training. If
         ``None``, then the bounding boxes of the ground truth shapes are used.
@@ -81,7 +83,7 @@ class SupervisedDescentFitter(MultiFitter):
         value. If ``None``, then the training is performed directly on the
         all the images.
     verbose : `bool`, optional
-        If ``True``, then the progress of building ERT will be printed.
+        If ``True``, then the progress of training will be printed.
 
     References
     ----------
@@ -270,12 +272,14 @@ class SupervisedDescentFitter(MultiFitter):
         images : `list` of `menpo.image.Image`
             The `list` of training images.
         group : `str` or ``None``, optional
-            The landmark group that will be used to train the SDM. Note that all
-            the training images need to have the specified landmark group.
+            The landmark group that will be used to increment the model. If
+            ``None`` and the images only have a single landmark group, then that
+            is the one that will be used. Note that all the training images need
+            to have the specified landmark group.
         bounding_box_group : `str` or ``None``, optional
             The landmark group of the bounding boxes used for initialisation.
         verbose : `bool`, optional
-            If ``True``, then the progress of building the AAM will be printed.
+            If ``True``, then the progress of training will be printed.
         batch_size : `int` or ``None``, optional
             If an `int` is provided, then the training is performed in an
             incremental fashion on image batches of size equal to the provided

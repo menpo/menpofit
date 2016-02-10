@@ -13,15 +13,15 @@ class AAMAlgorithmResult(ParametricIterativeResult):
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of shapes per iteration. The first and last members
         correspond to the initial and final shapes, respectively.
-    shape_parameters : `list` of `ndarray`
+    shape_parameters : `list` of ``(n_shape_parameters,)`` `ndarray`
         The `list` of shape parameters per iteration. The first and last members
         correspond to the initial and final shapes, respectively.
-    appearance_parameters : `list` of `ndarray`
+    appearance_parameters : `list` of ``(n_appearance_parameters,)`` `ndarray`
         The `list` of appearance parameters per iteration. The first and last
         members correspond to the initial and final shapes, respectively.
-    cost_functions : `list` of `closures`, optional
+    cost_functions : `list` of `callable` or ``None``, optional
         The `list` of methods that compute the cost per iteration.
-    image : `menpo.image.Image` or subclass or ``None``, optional
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
@@ -43,7 +43,7 @@ class AAMAlgorithmResult(ParametricIterativeResult):
         r"""
         Returns a list of the cost per iteration.
 
-        :type: `list`
+        :type: `list` of `float`
         """
         if self._cost_functions is not None:
             return [f() for f in self._cost_functions]
@@ -199,14 +199,14 @@ class AAMResult(MultiScaleParametricIterativeResult):
 
     Parameters
     ----------
-    results : `list` of `menpofit.aam.result.AAMAlgorithmResult`
+    results : `list` of :map:`AAMAlgorithmResult`
         The `list` of optimization results per scale.
     scales : `list` or `tuple`
         The `list` of scale values per scale (low to high).
     affine_correction : `menpo.transform.homogeneous.affine.AlignmentAffine`
         The affine transform that transfers the per-scale shapes to the image
         scale.
-    image : `menpo.image.Image` or subclass or ``None``, optional
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.

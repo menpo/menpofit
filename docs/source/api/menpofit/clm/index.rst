@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-clm-index:
 
 :mod:`menpofit.clm`
 ===================

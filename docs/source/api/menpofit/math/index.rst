@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-math-index:
 
 :mod:`menpofit.math`
 ====================

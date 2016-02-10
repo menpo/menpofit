@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-visualize-index:
 
 :mod:`menpofit.visualize`
 =========================

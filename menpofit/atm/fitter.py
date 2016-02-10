@@ -13,19 +13,28 @@ class LucasKanadeATMFitter(ModelFitter):
 
     Parameters
     ----------
-    atm : `menpofit.atm.base.ATM` or subclass
+    atm : :map:`ATM` or `subclass`
         The trained ATM model.
-    lk_algorithm_cls : `menpofit.atm.algorithm.LucasKanade` or subclass, optional
-        The Lukas-Kanade optimization algorithm that will get applied. All
-        possible algorithms are stored in `menpofit.atm.algorithm`.
+    lk_algorithm_cls : `class`, optional
+        The Lukas-Kanade optimisation algorithm that will get applied. The
+        possible algorithms are:
+
+        =========================== ============== =============
+        Class                       Warp Direction Warp Update
+        =========================== ============== =============
+        :map:`ForwardCompositional` Forward        Compositional
+        :map:`InverseCompositional` Inverse
+        =========================== ============== =============
     n_shape : `int` or `list` or ``None``, optional
         The number of shape components that will be used. If `int`, then the
         provided value will be applied on all scales. If `list`, then it
         defines a value per scale. If ``None``, then all the components will
         be used.
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it
+        explicitly defines the sampling mask. If ``None``, then no
+        sub-sampling is applied.
     """
     def __init__(self, atm, lk_algorithm_cls=InverseCompositional,
                  n_shape=None, sampling=None):
@@ -39,7 +48,7 @@ class LucasKanadeATMFitter(ModelFitter):
         r"""
         The trained ATM model.
 
-        :type: `menpofit.atm.ATM` or subclass
+        :type: :map:`ATM` or `subclass`
         """
         return self._model
 
@@ -58,11 +67,11 @@ class LucasKanadeATMFitter(ModelFitter):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        fitting procedure.
+        fitting procedure stored within an :map:`ATMResult`.
 
         Parameters
         ----------
-        image : `menpo.image.Image` or subclass
+        image : `menpo.image.Image` or `subclass`
             The input image to be warped.
         shapes : `list` of `menpo.shape.PointCloud`
             The list of shapes in which the image will be warped. The shapes

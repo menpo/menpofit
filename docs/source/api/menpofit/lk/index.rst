@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-lk-index:
 
 :mod:`menpofit.lk`
 ==================
@@ -32,3 +32,12 @@ Residuals
     ECC
     GradientImages
     GradientCorrelation
+
+Fitting Result
+--------------
+
+.. toctree::
+    :maxdepth: 1
+
+    LucasKanadeResult
+    LucasKanadeAlgorithmResult

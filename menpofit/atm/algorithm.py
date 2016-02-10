@@ -11,17 +11,20 @@ from .result import ATMAlgorithmResult
 class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
     r"""
     Interface for Lucas-Kanade optimization of standard ATM. Suitable for
-    `menpofit.atm.HolisticATM`.
+    :map:`HolisticATM`.
 
     Parameters
     ----------
-    transform : `menpofit.transform.ModelDrivenTransform` or subclass
-        The model driven transform object of the ATM.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
     template : `menpo.image.Image` or subclass
         The image template.
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
+        defines the sampling mask. If ``None``, then no sub-sampling is applied.
     """
     def __init__(self, transform, template, sampling=None):
         super(ATMLucasKanadeStandardInterface, self).__init__(
@@ -49,7 +52,7 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
 
         Returns
         -------
-        result : `menpofit.atm.result.ATMAlgorithmResult`
+        result : :map:`ATMAlgorithmResult`
             The optimization result object.
         """
         return ATMAlgorithmResult(
@@ -93,7 +96,7 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
 
         Returns
         -------
-        result : `menpofit.atm.result.ATMAlgorithmResult`
+        result : :map:`ATMAlgorithmResult`
             The optimization result object.
         """
         # TODO: Separate result for linear ATM that stores both the sparse
@@ -133,7 +136,7 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
 
         Returns
         -------
-        result : `menpofit.atm.result.ATMAlgorithmResult`
+        result : :map:`ATMAlgorithmResult`
             The optimization result object.
         """
         return ATMAlgorithmResult(
@@ -167,9 +170,11 @@ class LucasKanade(object):
     @property
     def transform(self):
         r"""
-        Returns the model driven transform object of the ATM.
+        Returns the model driven differential transform object of the AAM, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
 
-        :type: `menpofit.transform.ModelDrivenTransform` or subclass
+        :type: `subclass` of :map:`DL` and :map:`DX`
         """
         return self.interface.transform
 
@@ -225,6 +230,11 @@ class Compositional(LucasKanade):
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
+
+        Returns
+        -------
+        fitting_result : :map:`ATMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # define cost closure
         def cost_closure(x):

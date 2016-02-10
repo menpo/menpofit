@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-feature-index:
 
 :mod:`menpofit.feature`
 =======================

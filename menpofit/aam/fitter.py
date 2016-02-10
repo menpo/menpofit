@@ -25,7 +25,7 @@ class AAMFitter(ModelFitter):
         r"""
         The trained AAM model.
 
-        :type: `menpofit.aam.AAM` or subclass
+        :type: :map:`AAM` or `subclass`
         """
         return self._model
 
@@ -128,7 +128,7 @@ class LucasKanadeAAMFitter(AAMFitter):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        :map:`AAMResult` fitting procedure.
+        fitting procedure stored within an :map:`AAMResult`.
 
         Parameters
         ----------
@@ -179,11 +179,13 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
     ----------
     images : `list` of `menpo.image.Image`
         The `list` of training images.
-    aam : `menpofit.aam.AAM` or subclass
-        The AAM model.
+    aam : :map:`AAM` or `subclass`
+        The trained AAM model.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train ERT. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that will be used to train the fitter. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     bounding_box_group_glob : `glob` or ``None``, optional
         Glob that defines the bounding boxes to be used for training. If
         ``None``, then the bounding boxes of the ground truth shapes are used.
@@ -197,20 +199,32 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         then the provided value will be applied on all scales. If `list`, then
         it defines a value per scale. If ``None``, then all the components will
         be used.
-    sampling : `int` or ``None``, optional
-        The sub-sampling step of the sampling mask. If ``None``, then no
-        sampling is applied on the template.
-    sd_algorithm_cls : `class` from `menpofit.aam.algorithm.sd`, optional
-        The Supervised Descent algorithm to be used. For a `list` of
-        available algorithms please refer to `menpofit.aam.algorithm.sd`.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
+        defines the sampling mask. If ``None``, then no sub-sampling is applied.
+    sd_algorithm_cls : `class`, optional
+        The Supervised Descent algorithm to be used. The possible algorithms
+        are:
+
+        =================================== ================== =============
+        Class                               Features           Regression
+        =================================== ================== =============
+        :map:`MeanTemplateNewton`           Mean Template      Newton
+        :map:`MeanTemplateGaussNewton`                         Gauss-Newton
+        :map:`ProjectOutNewton`             Project-Out        Newton
+        :map:`ProjectOutGaussNewton`                           Gauss-Newton
+        :map:`AppearanceWeightsNewton`      Appearance Weights Newton
+        :map:`AppearanceWeightsGaussNewton`                    Gauss-Newton
+        =================================== ================== =============
     n_iterations : `int` or `list` of `int`, optional
         The number of iterations (cascades) of each level. If `list`, it must
         specify a value per scale. If `int`, then it defines the total number of
         iterations (cascades) over all scales.
     n_perturbations : `int` or ``None``, optional
-        The number of perturbations to be generated from the provided
-        bounding boxes.
-    perturb_from_gt_bounding_box : `function`, optional
+        The number of perturbations to be generated from the provided bounding
+        boxes.
+    perturb_from_gt_bounding_box : `callable`, optional
         The function that will be used to generate the perturbations.
     batch_size : `int` or ``None``, optional
         If an `int` is provided, then the training is performed in an
@@ -218,7 +232,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         value. If ``None``, then the training is performed directly on the
         all the images.
     verbose : `bool`, optional
-        If ``True``, then the progress of building ERT will be printed.
+        If ``True``, then the progress of training will be printed.
     """
     def __init__(self, images, aam, group=None, bounding_box_group_glob=None,
                  n_shape=None, n_appearance=None, sampling=None,
@@ -262,11 +276,11 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        fitting procedure.
+        fitting procedure stored within an :map:`AAMResult`.
 
         Parameters
         ----------
-        image : `menpo.image.Image` or subclass
+        image : `menpo.image.Image` or `subclass`
             The input image to be warped.
         shapes : `list` of `menpo.shape.PointCloud`
             The list of shapes in which the image will be warped. The shapes
@@ -320,7 +334,7 @@ def holistic_sampling_from_scale(aam, scale=0.35):
 
     Parameters
     ----------
-    aam : `menpofit.aam.AAM` or subclass
+    aam : :map:`AAM` or subclass
         The trained AAM.
     scale : `float`, optional
         The scale value.
@@ -357,7 +371,7 @@ def holistic_sampling_from_step(aam, step=8):
 
     Parameters
     ----------
-    aam : `menpofit.aam.AAM` or subclass
+    aam : :map:`AAM` or subclass
         The trained AAM.
     step : `int`, optional
         The sampling step.

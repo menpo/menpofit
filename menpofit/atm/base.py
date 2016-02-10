@@ -35,16 +35,17 @@ class ATM(object):
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of training shapes.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the ATM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group of the `template` that will be used to train the ATM.
+        If ``None`` and the `template` only has a single landmark group, then
+        that is the one that will be used.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
         The reference shape that will be used for building the ATM. If
         ``None``, then the mean shape will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -56,10 +57,13 @@ class ATM(object):
     scales : `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
-    transform : `menpofit.transform.DifferentiablePiecewiseAffine`, optional
-        A differential warp transform object.
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
-        The class to be used for building the shape model.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -231,8 +235,9 @@ class ATM(object):
         shapes : `list` of `menpo.shape.PointCloud`
             The `list` of training shapes.
         group : `str` or ``None``, optional
-            The landmark group that will be used to train the ATM. Note that all
-            the training images need to have the specified landmark group.
+            The landmark group of the `template` that will be used to train the
+            ATM. If ``None`` and the `template` only has a single landmark group,
+            then that is the one that will be used.
         shape_forgetting_factor : ``[0.0, 1.0]`` `float`, optional
             Forgetting factor that weights the relative contribution of new
             samples vs old samples for the shape model. If ``1.0``, all samples
@@ -284,9 +289,8 @@ class ATM(object):
 
     def instance(self, shape_weights=None, scale_index=-1):
         r"""
-        Generates a novel ATM instance given a set of shape and appearance
-        weights. If no weights are provided, the mean ATM instance is
-        returned.
+        Generates a novel ATM instance given a set of shape weights. If no
+        weights are provided, the mean ATM instance is returned.
 
         Parameters
         ----------
@@ -300,7 +304,7 @@ class ATM(object):
         Returns
         -------
         image : `menpo.image.Image`
-            The novel ATM instance.
+            The ATM instance.
         """
         if shape_weights is None:
             shape_weights = [0]
@@ -313,7 +317,7 @@ class ATM(object):
 
     def random_instance(self, scale_index=-1):
         r"""
-        Generates a novel random instance of the ATM.
+        Generates a random instance of the ATM.
 
         Parameters
         ----------
@@ -323,7 +327,7 @@ class ATM(object):
         Returns
         -------
         image : `menpo.image.Image`
-            The novel ATM instance.
+            The ATM instance.
         """
         sm = self.shape_models[scale_index].model
         template = self.warped_templates[scale_index]
@@ -415,15 +419,20 @@ class ATM(object):
 
     def build_fitter_interfaces(self, sampling):
         r"""
-        Method that builds the correct Lucas-Kanade fitting interface. It
-        only applies in case you wish to fit the ATM with a Lucas-Kanade
-        algorithm
+        Method that builds the correct Lucas-Kanade fitting interface.
 
         Parameters
         ----------
-        sampling : `int` or ``None``, optional
-            The sub-sampling step of the sampling mask. If ``None``, then no
-            sampling is applied on the template.
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
         """
         interfaces = []
         for wt, sm, s in zip(self.warped_templates, self.shape_models,
@@ -453,13 +462,14 @@ class MaskedATM(ATM):
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of training shapes.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the ATM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group of the `template` that will be used to train the ATM.
+        If ``None`` and the `template` only has a single landmark group, then
+        that is the one that will be used.
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -540,13 +550,14 @@ class LinearATM(ATM):
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of training shapes.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the ATM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group of the `template` that will be used to train the ATM.
+        If ``None`` and the `template` only has a single landmark group, then
+        that is the one that will be used.
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -558,8 +569,10 @@ class LinearATM(ATM):
     scales : `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
-    transform : `menpofit.transform.DifferentiableThinPlateSplines`, optional
-        A differential warp transform object.
+    transform : `subclass` of :map:`DL` and :map:`DX`, optional
+        A differential warp transform object, e.g.
+        :map:`DifferentiablePiecewiseAffine` or
+        :map:`DifferentiableThinPlateSplines`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -633,15 +646,20 @@ class LinearATM(ATM):
 
     def build_fitter_interfaces(self, sampling):
         r"""
-        Method that builds the correct Lucas-Kanade fitting interface. It
-        only applies in case you wish to fit the ATM with a Lucas-Kanade
-        algorithm
+        Method that builds the correct Lucas-Kanade fitting interface.
 
         Parameters
         ----------
-        sampling : `int` or ``None``, optional
-            The sub-sampling step of the sampling mask. If ``None``, then no
-            sampling is applied on the template.
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
         """
         interfaces = []
         for wt, sm, s in zip(self.warped_templates, self.shape_models,
@@ -669,13 +687,14 @@ class LinearMaskedATM(ATM):
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of training shapes.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the ATM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group of the `template` that will be used to train the ATM.
+        If ``None`` and the `template` only has a single landmark group, then
+        that is the one that will be used.
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -687,9 +706,10 @@ class LinearMaskedATM(ATM):
     scales : `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
-    patch_shape : ``(int, int)``, optional
-        The size of the patches of the mask that is used to sample the
-        appearance vectors.
+    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+        The shape of the patches of the mask that is used to extract the
+        appearance vectors. If a `list` is provided, then it defines a patch
+        shape per scale.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -767,15 +787,20 @@ class LinearMaskedATM(ATM):
 
     def build_fitter_interfaces(self, sampling):
         r"""
-        Method that builds the correct Lucas-Kanade fitting interface. It
-        only applies in case you wish to fit the ATM with a Lucas-Kanade
-        algorithm
+        Method that builds the correct Lucas-Kanade fitting interface.
 
         Parameters
         ----------
-        sampling : `int` or ``None``, optional
-            The sub-sampling step of the sampling mask. If ``None``, then no
-            sampling is applied on the template.
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
         """
         interfaces = []
         for wt, sm, s in zip(self.warped_templates, self.shape_models,
@@ -804,12 +829,14 @@ class PatchATM(ATM):
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of training shapes.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train the ATM. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group of the `template` that will be used to train the ATM.
+        If ``None`` and the `template` only has a single landmark group, then
+        that is the one that will be used.
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
-        that the features are extracted before extracting the patches. Please
-        refer to `menpo.feature` for a list of potential features.
+        that the features are extracted before warping the images to the
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -822,7 +849,7 @@ class PatchATM(ATM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
-        The shape of the patches to be extracted. If a list is provided,
+        The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
@@ -907,15 +934,20 @@ class PatchATM(ATM):
 
     def build_fitter_interfaces(self, sampling):
         r"""
-        Method that builds the correct Lucas-Kanade fitting interface. It
-        only applies in case you wish to fit the ATM with a Lucas-Kanade
-        algorithm
+        Method that builds the correct Lucas-Kanade fitting interface.
 
         Parameters
         ----------
-        sampling : `int` or ``None``, optional
-            The sub-sampling step of the sampling mask. If ``None``, then no
-            sampling is applied on the template.
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
         """
         interfaces = []
         for j, (wt, sm, s) in enumerate(zip(self.warped_templates,

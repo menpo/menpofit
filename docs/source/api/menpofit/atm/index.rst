@@ -1,11 +1,12 @@
-.. _api-base-index:
+.. _api-atm-index:
 
 :mod:`menpofit.atm`
 ===================
 
 Active Template Models
 ----------------------
-These models all differ in the manner that they compute the warp.
+These models differ in the manner that they compute the warp (thus represent
+the appearance features).
 
 .. toctree::
     :maxdepth: 1
@@ -17,19 +18,28 @@ These models all differ in the manner that they compute the warp.
     LinearMaskedATM
     PatchATM
 
-AAM Fitters
------------
+Fitter
+------
 
 .. toctree::
     :maxdepth: 1
 
     LucasKanadeATMFitter
 
-Optimisation Algorithms
------------------------
+Lucas-Kanade Optimisation Algorithms
+------------------------------------
 
 .. toctree::
     :maxdepth: 1
 
     ForwardCompositional
     InverseCompositional
+
+Fitting Result
+--------------
+
+.. toctree::
+    :maxdepth: 1
+
+    ATMResult
+    ATMAlgorithmResult

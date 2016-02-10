@@ -1,4 +1,4 @@
-.. _api-base-index:
+.. _api-builder-index:
 
 :mod:`menpofit.builder`
 =======================

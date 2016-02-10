@@ -42,11 +42,11 @@ class AAM(object):
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
         The reference shape that will be used for building the AAM. If
         ``None``, then the mean shape will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -619,8 +619,8 @@ class MaskedAAM(AAM):
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -723,8 +723,8 @@ class LinearAAM(AAM):
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -884,8 +884,8 @@ class LinearMaskedAAM(AAM):
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
-        reference shape. Please refer to `menpo.feature` for a list of
-        potential features.
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -900,8 +900,9 @@ class LinearMaskedAAM(AAM):
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
-        The class to be used for building the shape model.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -993,6 +994,24 @@ class LinearMaskedAAM(AAM):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
+        r"""
+        Method that builds the correct Lucas-Kanade fitting interface. It
+        only applies in case you wish to fit the AAM with a Lucas-Kanade
+        algorithm (i.e. :map:`LucasKanadeAAMFitter`).
+
+        Parameters
+        ----------
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
+        """
         interfaces = []
         for am, sm, s in zip(self.appearance_models, self.shape_models,
                              sampling):
@@ -1030,9 +1049,9 @@ class PatchAAM(AAM):
         ``None``, then the mean shape will be used.
     holistic_features : `closure`, optional
         The features that will be extracted from the training images. Note
-        that the features are extracted before extracting the patches. Please
-        refer to `menpo.feature` for a list of potential features. If a `list`
-        is provided, then it defines a value per scale.
+        that the features are extracted before warping the images to the
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
         This parameter is used to normalize the scale of the training images
         so that the extracted features are in correspondence. The
@@ -1045,10 +1064,11 @@ class PatchAAM(AAM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
-        The shape of the patches to be extracted. If a list is provided,
+        The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass, optional
-        The class to be used for building the shape model.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
         The number of shape components to keep. If `int`, then it sets the exact
         number of components. If `float`, then it defines the variance
@@ -1186,13 +1206,20 @@ class PatchAAM(AAM):
         r"""
         Method that builds the correct Lucas-Kanade fitting interface. It
         only applies in case you wish to fit the AAM with a Lucas-Kanade
-        algorithm
+        algorithm (i.e. :map:`LucasKanadeAAMFitter`).
 
         Parameters
         ----------
-        sampling : `int` or ``None``, optional
-            The sub-sampling step of the sampling mask. If ``None``, then no
-            sampling is applied on the template.
+        sampling : `list` of `int` or `ndarray` or ``None``
+            It defines a sampling mask per scale. If `int`, then it
+            defines the sub-sampling step of the sampling mask. If `ndarray`,
+            then it explicitly defines the sampling mask. If ``None``, then no
+            sub-sampling is applied.
+
+        Returns
+        -------
+        fitter_interfaces : `list`
+            The `list` of Lucas-Kanade interface per scale.
         """
         interfaces = []
         for j, (am, sm, s) in enumerate(zip(self.appearance_models,
