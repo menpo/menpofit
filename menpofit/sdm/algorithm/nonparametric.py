@@ -60,7 +60,7 @@ class NonParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
         Returns
         -------
-        fitting_result: `menpofit.result.NonParametricIterativeResult`
+        fitting_result: :map:`NonParametricIterativeResult`
             The result of the fitting procedure.
         """
         return fit_non_parametric_shape(image, initial_shape, self,
@@ -76,8 +76,8 @@ class NonParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
 class NonParametricNewton(NonParametricSDAlgorithm):
     r"""
-    Class for training a non-parametric cascaded-regression Newton algorithm
-    using Incremental Regularized Linear Regression.
+    Class for training a non-parametric cascaded-regression algorithm using
+    Incremental Regularized Linear Regression (:map:`IRLRegression`).
 
     Parameters
     ----------
@@ -109,8 +109,8 @@ class NonParametricNewton(NonParametricSDAlgorithm):
 
 class NonParametricGaussNewton(NonParametricSDAlgorithm):
     r"""
-    Class for training a non-parametric cascaded-regression Gauss-Newton
-    algorithm using Indirect Incremental Regularized Linear Regression.
+    Class for training a non-parametric cascaded-regression algorithm using
+    Indirect Incremental Regularized Linear Regression (:map:`IIRLRegression`).
 
     Parameters
     ----------
@@ -146,7 +146,7 @@ class NonParametricGaussNewton(NonParametricSDAlgorithm):
 class NonParametricPCRRegression(NonParametricSDAlgorithm):
     r"""
     Class for training a non-parametric cascaded-regression algorithm using
-    Principal Component Regression.
+    Principal Component Regression (:map:`PCRRegression`).
 
     Parameters
     ----------
@@ -180,7 +180,8 @@ class NonParametricPCRRegression(NonParametricSDAlgorithm):
 class NonParametricOptimalRegression(NonParametricSDAlgorithm):
     r"""
     Class for training a non-parametric cascaded-regression algorithm using
-    Multivariate Linear Regression with optimal reconstructions.
+    Multivariate Linear Regression with optimal reconstructions
+    (:map:`OptimalLinearRegression`).
 
     Parameters
     ----------
@@ -215,7 +216,7 @@ class NonParametricOPPRegression(NonParametricSDAlgorithm):
     r"""
     Class for training a non-parametric cascaded-regression algorithm using
     Multivariate Linear Regression with Orthogonal Procrustes Problem
-    reconstructions.
+    reconstructions (:map:`OPPRegression`).
 
     Parameters
     ----------

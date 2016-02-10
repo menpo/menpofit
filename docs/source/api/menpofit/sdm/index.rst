@@ -5,15 +5,28 @@
 
 Supervised Descent Method
 -------------------------
-These models all differ in the manner that they compute the warp.
+SDM is a cascaded-regression deformable model that learns average descent
+directions that minimise a given cost function.
 
 .. toctree::
     :maxdepth: 1
 
     SupervisedDescentFitter
 
+Pre-defined Models
+------------------
+Models with pre-defined algorithms that are commonly-used in literature.
+
+.. toctree::
+    :maxdepth: 1
+
+    SDM
+    RegularizedSDM
+
 Non-Parametric Algorithms
 -------------------------
+The cascaded regression of these algorithms is performed between landmark
+coordinates and image-based features.
 
 .. toctree::
     :maxdepth: 1
@@ -26,31 +39,39 @@ Non-Parametric Algorithms
 
 Parametric Shape Algorithms
 ---------------------------
+The cascaded regression of these algorithms is performed between the
+parameters of a statistical shape model and image-based features.
 
 .. toctree::
     :maxdepth: 1
 
     ParametricShapeNewton
     ParametricShapeGaussNewton
-    ParametricShapeOptimalRegression
     ParametricShapePCRRegression
+    ParametricShapeOptimalRegression
     ParametricShapeOPPRegression
 
 Parametric Appearance Algorithms
 --------------------------------
+The cascaded regression of these algorithms is performed between landmark
+coordinates and features that are based on a statistical parametric
+appearance model.
 
 .. toctree::
     :maxdepth: 1
 
     ParametricAppearanceProjectOutNewton
-    ParametricAppearanceMeanTemplateGuassNewton
-    ParametricAppearanceMeanTemplateNewton
     ParametricAppearanceProjectOutGuassNewton
-    ParametricAppearanceWeightsGuassNewton
+    ParametricAppearanceMeanTemplateNewton
+    ParametricAppearanceMeanTemplateGuassNewton
     ParametricAppearanceWeightsNewton
+    ParametricAppearanceWeightsGuassNewton
 
 Fully Parametric Algorithms
 ---------------------------
+The cascaded regression is performed between the parameters of a statistical
+shape model and features that are based on a statistical parametric
+appearance model.
 
 .. toctree::
     :maxdepth: 1
@@ -60,12 +81,3 @@ Fully Parametric Algorithms
     FullyParametricMeanTemplateNewton
     FullyParametricWeightsNewton
     FullyParametricProjectOutOPP
-
-Pre-defined
------------
-
-.. toctree::
-    :maxdepth: 1
-
-    SDM
-    RegularizedSDM

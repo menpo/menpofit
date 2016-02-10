@@ -24,17 +24,20 @@ class LucasKanadeFitter(MultiFitter):
     template : `menpo.image.Image`
         The template image.
     group : `str` or ``None``, optional
-        The landmark group of the `template` that will be used. If ``None`` and
-        the `template` only has a single landmark group, then that is the one
-        that will be used.
+        The landmark group of the `template` that will be used as reference
+        shape. If ``None`` and the `template` only has a single landmark
+        group, then that is the one that will be used.
     holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
     diagonal : `int` or ``None``, optional
-        This parameter is used to define the scale of the template. It
-        defines the diagonal of the template's landmark group.
+        This parameter is used to rescale the reference shape (specified by
+        `group`) so that the diagonal of its bounding box matches the
+        provided value. In other words, this parameter controls the size of
+        the model at the highest scale. If ``None``, then the reference shape
+        does not get rescaled.
     scales : `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.

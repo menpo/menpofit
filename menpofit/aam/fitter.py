@@ -207,16 +207,16 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         The Supervised Descent algorithm to be used. The possible algorithms
         are:
 
-        =================================== ================== =============
-        Class                               Features           Regression
-        =================================== ================== =============
-        :map:`MeanTemplateNewton`           Mean Template      Newton
-        :map:`MeanTemplateGaussNewton`                         Gauss-Newton
-        :map:`ProjectOutNewton`             Project-Out        Newton
-        :map:`ProjectOutGaussNewton`                           Gauss-Newton
-        :map:`AppearanceWeightsNewton`      Appearance Weights Newton
-        :map:`AppearanceWeightsGaussNewton`                    Gauss-Newton
-        =================================== ================== =============
+        =================================== ============= =====================
+        Class                               Features      Regression
+        =================================== ============= =====================
+        :map:`MeanTemplateNewton`           Mean Template :map:`IRLRegression`
+        :map:`MeanTemplateGaussNewton`                    :map:`IIRLRegression`
+        :map:`ProjectOutNewton`             Project-Out   :map:`IRLRegression`
+        :map:`ProjectOutGaussNewton`                      :map:`IIRLRegression`
+        :map:`AppearanceWeightsNewton`      App. Weights  :map:`IRLRegression`
+        :map:`AppearanceWeightsGaussNewton`               :map:`IIRLRegression`
+        =================================== ============= =====================
     n_iterations : `int` or `list` of `int`, optional
         The number of iterations (cascades) of each level. If `list`, it must
         specify a value per scale. If `int`, then it defines the total number of

@@ -166,8 +166,9 @@ class MeanTemplate(ParametricSupervisedDescentAlgorithm):
 class MeanTemplateNewton(MeanTemplate):
     r"""
     Class for training a cascaded-regression Newton algorithm using Incremental
-    Regularized Linear Regression given a trained AAM model. The algorithm uses
-    the centered appearance vectors as features in the regression.
+    Regularized Linear Regression (:map:`IRLRegression`) given a trained AAM
+    model. The algorithm uses the centered appearance vectors as features in
+    the regression.
 
     Parameters
     ----------
@@ -203,9 +204,9 @@ class MeanTemplateNewton(MeanTemplate):
 class MeanTemplateGaussNewton(MeanTemplate):
     r"""
     Class for training a cascaded-regression Gauss-Newton algorithm using
-    Indirect Incremental Regularized Linear Regression given a trained AAM model.
-    The algorithm uses the centered appearance vectors as features in the
-    regression.
+    Indirect Incremental Regularized Linear Regression (:map:`IIRLRegression`)
+    given a trained AAM model. The algorithm uses the centered appearance
+    vectors as features in the regression.
 
     Parameters
     ----------
@@ -277,8 +278,9 @@ class ProjectOut(ParametricSupervisedDescentAlgorithm):
 class ProjectOutNewton(ProjectOut):
     r"""
     Class for training a cascaded-regression Newton algorithm using Incremental
-    Regularized Linear Regression given a trained AAM model. The algorithm uses
-    the projected-out appearance vectors as features in the regression.
+    Regularized Linear Regression (:map:`IRLRegression`) given a trained AAM
+    model. The algorithm uses the projected-out appearance vectors as
+    features in the regression.
 
     Parameters
     ----------
@@ -316,9 +318,9 @@ class ProjectOutNewton(ProjectOut):
 class ProjectOutGaussNewton(ProjectOut):
     r"""
     Class for training a cascaded-regression Gauss-Newton algorithm using
-    Indirect Incremental Regularized Linear Regression given a trained AAM model.
-    The algorithm uses the projected-out appearance vectors as features in the
-    regression.
+    Indirect Incremental Regularized Linear Regression (:map:`IIRLRegression`)
+    given a trained AAM model. The algorithm uses the projected-out
+    appearance vectors as features in the regression.
 
     Parameters
     ----------
@@ -387,9 +389,9 @@ class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
 class AppearanceWeightsNewton(AppearanceWeights):
     r"""
     Class for training a cascaded-regression Newton algorithm using Incremental
-    Regularized Linear Regression given a trained AAM model. The algorithm uses
-    the projection weights of the appearance vectors as features in the
-    regression.
+    Regularized Linear Regression (:map:`IRLRegression`) given a trained AAM
+    model. The algorithm uses the projection weights of the appearance
+    vectors as features in the regression.
 
     Parameters
     ----------
@@ -426,9 +428,9 @@ class AppearanceWeightsNewton(AppearanceWeights):
 class AppearanceWeightsGaussNewton(AppearanceWeights):
     r"""
     Class for training a cascaded-regression Gauss-Newton algorithm using
-    Indirect Incremental Regularized Linear Regression given a trained AAM model.
-    The algorithm uses the projection weights of the appearance vectors as
-    features in the regression.
+    Indirect Incremental Regularized Linear Regression (:map:`IIRLRegression`)
+    given a trained AAM model. The algorithm uses the projection weights of
+    the appearance vectors as features in the regression.
 
     Parameters
     ----------

@@ -23,10 +23,11 @@ class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
     Parameters
     ----------
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     """
     def __init__(self, shape_model_cls=OrthoPDM,
                  appearance_model_cls=PCAVectorModel):
@@ -104,7 +105,7 @@ class FullyParametricSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
         Returns
         -------
-        fitting_result: `menpofit.result.ParametricIterativeResult`
+        fitting_result: :map:`ParametricIterativeResult`
             The result of the fitting procedure.
         """
         return fit_parametric_shape(image, initial_shape, self,
@@ -144,10 +145,10 @@ class ParametricAppearanceMeanTemplate(FullyParametricSDAlgorithm):
 
 class FullyParametricWeightsNewton(ParametricAppearanceWeights):
     r"""
-    Class for training a cascaded-regression Newton algorithm that employs
-    parametric shape and appearance models using Incremental Regularized Linear
-    Regression. The algorithm uses the projection weights of the appearance
-    vectors as features in the regression.
+    Class for training a cascaded-regression algorithm that employs parametric
+    shape and appearance models using Incremental Regularized Linear
+    Regression (:map:`IRLRegression`). The algorithm uses the projection
+    weights of the appearance vectors as features in the regression.
 
     Parameters
     ----------
@@ -157,10 +158,11 @@ class FullyParametricWeightsNewton(ParametricAppearanceWeights):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -187,10 +189,10 @@ class FullyParametricWeightsNewton(ParametricAppearanceWeights):
 
 class FullyParametricMeanTemplateNewton(ParametricAppearanceMeanTemplate):
     r"""
-    Class for training a cascaded-regression Newton algorithm that employs
-    parametric shape and appearance models using Incremental Regularized Linear
-    Regression. The algorithm uses the centered appearance vectors as features
-    in the regression.
+    Class for training a cascaded-regression algorithm that employs parametric
+    shape and appearance models using Incremental Regularized Linear
+    Regression (:map:`IRLRegression`). The algorithm uses the centered
+    appearance vectors as features in the regression.
 
     Parameters
     ----------
@@ -200,10 +202,11 @@ class FullyParametricMeanTemplateNewton(ParametricAppearanceMeanTemplate):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -230,10 +233,10 @@ class FullyParametricMeanTemplateNewton(ParametricAppearanceMeanTemplate):
 
 class FullyParametricProjectOutNewton(ParametricAppearanceProjectOut):
     r"""
-    Class for training a cascaded-regression Newton algorithm that employs
+    Class for training a cascaded-regression algorithm that employs
     parametric shape and appearance models using Incremental Regularized Linear
-    Regression. The algorithm uses the projected-out appearance vectors as
-    features in the regression.
+    Regression (:map:`IRLRegression`). The algorithm uses the projected-out
+    appearance vectors as features in the regression.
 
     Parameters
     ----------
@@ -243,10 +246,11 @@ class FullyParametricProjectOutNewton(ParametricAppearanceProjectOut):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -273,10 +277,10 @@ class FullyParametricProjectOutNewton(ParametricAppearanceProjectOut):
 
 class FullyParametricProjectOutGaussNewton(ParametricAppearanceProjectOut):
     r"""
-    Class for training a cascaded-regression Gauss-Newton algorithm that employs
-    parametric shape and appearance models using Indirect Incremental Regularized
-    Linear Regression. The algorithm uses the projected-out appearance vectors as
-    features in the regression.
+    Class for training a cascaded-regression algorithm that employs parametric
+    shape and appearance models using Indirect Incremental Regularized Linear
+    Regression (:map:`IIRLRegression`). The algorithm uses the projected-out
+    appearance vectors as features in the regression.
 
     Parameters
     ----------
@@ -286,10 +290,11 @@ class FullyParametricProjectOutGaussNewton(ParametricAppearanceProjectOut):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -321,7 +326,7 @@ class FullyParametricProjectOutOPP(ParametricAppearanceProjectOut):
     r"""
     Class for training a cascaded-regression algorithm that employs parametric
     shape and appearance models using Multivariate Linear Regression with
-    Orthogonal Procrustes Problem reconstructions.
+    Orthogonal Procrustes Problem reconstructions (:map:`OPPRegression`).
 
     Parameters
     ----------
@@ -331,10 +336,11 @@ class FullyParametricProjectOutOPP(ParametricAppearanceProjectOut):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.

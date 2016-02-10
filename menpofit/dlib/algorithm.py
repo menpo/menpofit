@@ -22,7 +22,7 @@ class DlibAlgorithm(object):
         List of the options expected by DLib, as specified in the
         `dlib.shape_predictor_training_options` method. Specifically:
 
-        =========================== =============================================
+        =========================== ============================================
         Value                       Description
         =========================== ============================================
         be_verbose                  Flag to enable info printing

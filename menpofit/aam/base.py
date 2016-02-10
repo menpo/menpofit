@@ -39,25 +39,28 @@ class AAM(object):
         the images only have a single landmark group, then that is the one
         that will be used. Note that all the training images need to have the
         specified landmark group.
-    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the AAM. If
-        ``None``, then the mean shape will be used.
     holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their ground truth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     transform : `subclass` of :map:`DL` and :map:`DX`, optional
         A differential warp transform object, e.g.
         :map:`DifferentiablePiecewiseAffine` or
@@ -102,8 +105,8 @@ class AAM(object):
         Zafeiriou. "Feature-Based Lucas-Kanade and Active Appearance Models",
         IEEE Transactions on Image Processing, 24(9): 2617-2632, 2015.
     """
-    def __init__(self, images, group=None, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+    def __init__(self, images, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
                  max_appearance_components=None, verbose=False,
@@ -613,25 +616,28 @@ class MaskedAAM(AAM):
         the images only have a single landmark group, then that is the one
         that will be used. Note that all the training images need to have the
         specified landmark group.
-    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the AAM. If
-        ``None``, then the mean shape will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
@@ -658,8 +664,8 @@ class MaskedAAM(AAM):
         value. If ``None``, then the training is performed directly on the
         all the images.
     """
-    def __init__(self, images, group=None, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+    def __init__(self, images, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), shape_model_cls=OrthoPDM,
                  max_shape_components=None, max_appearance_components=None,
                  verbose=False, batch_size=None):
@@ -717,25 +723,28 @@ class LinearAAM(AAM):
         the images only have a single landmark group, then that is the one
         that will be used. Note that all the training images need to have the
         specified landmark group.
-    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the AAM. If
-        ``None``, then the mean shape will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     transform : `subclass` of :map:`DL` and :map:`DX`, optional
         A differential warp transform object, e.g.
         :map:`DifferentiablePiecewiseAffine` or
@@ -763,8 +772,8 @@ class LinearAAM(AAM):
         value. If ``None``, then the training is performed directly on the
         all the images.
     """
-    def __init__(self, images, group=None, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+    def __init__(self, images, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  transform=DifferentiableThinPlateSplines,
                  shape_model_cls=OrthoPDM,  max_shape_components=None,
                  max_appearance_components=None, verbose=False,
@@ -878,25 +887,28 @@ class LinearMaskedAAM(AAM):
         the images only have a single landmark group, then that is the one
         that will be used. Note that all the training images need to have the
         specified landmark group.
-    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the AAM. If
-        ``None``, then the mean shape will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
@@ -923,8 +935,8 @@ class LinearMaskedAAM(AAM):
         value. If ``None``, then the training is performed directly on the
         all the images.
     """
-    def __init__(self, images, group=None, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+    def __init__(self, images, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), shape_model_cls=OrthoPDM,
                  max_shape_components=None, max_appearance_components=None,
                  verbose=False, batch_size=None):
@@ -1044,25 +1056,28 @@ class PatchAAM(AAM):
         the images only have a single landmark group, then that is the one
         that will be used. Note that all the training images need to have the
         specified landmark group.
-    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the AAM. If
-        ``None``, then the mean shape will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the AAM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
@@ -1089,8 +1104,8 @@ class PatchAAM(AAM):
         value. If ``None``, then the training is performed directly on the
         all the images.
     """
-    def __init__(self, images, group=None, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+    def __init__(self, images, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), patch_normalisation=no_op,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
                  max_appearance_components=None, verbose=False,

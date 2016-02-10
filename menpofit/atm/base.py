@@ -38,25 +38,28 @@ class ATM(object):
         The landmark group of the `template` that will be used to train the ATM.
         If ``None`` and the `template` only has a single landmark group, then
         that is the one that will be used.
-    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the ATM. If
-        ``None``, then the mean shape will be used.
     holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ATM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     transform : `subclass` of :map:`DL` and :map:`DX`, optional
         A differential warp transform object, e.g.
         :map:`DifferentiablePiecewiseAffine` or
@@ -84,8 +87,8 @@ class ATM(object):
         framework", International Journal of Computer Vision, 56(3): 221-255,
         2004.
     """
-    def __init__(self, template, shapes, group=None, reference_shape=None,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+    def __init__(self, template, shapes, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
                  verbose=False, batch_size=None):
@@ -465,22 +468,28 @@ class MaskedATM(ATM):
         The landmark group of the `template` that will be used to train the ATM.
         If ``None`` and the `template` only has a single landmark group, then
         that is the one that will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ATM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     patch_shape : ``(int, int)``, optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
@@ -499,17 +508,19 @@ class MaskedATM(ATM):
         all the images.
     """
     def __init__(self, template, shapes, group=None, holistic_features=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 max_shape_components=None, verbose=False, batch_size=None):
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
+                 patch_shape=(17, 17), max_shape_components=None,
+                 verbose=False, batch_size=None):
         # Check arguments
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         # Call superclass
         super(MaskedATM, self).__init__(
-            template, shapes, group=group, verbose=verbose,
-            holistic_features=holistic_features,
-            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales,  max_shape_components=max_shape_components,
-            batch_size=batch_size)
+                template, shapes, group=group,
+                holistic_features=holistic_features,
+                reference_shape=reference_shape, diagonal=diagonal,
+                scales=scales, transform=DifferentiableThinPlateSplines,
+                max_shape_components=max_shape_components, verbose=verbose,
+                batch_size=batch_size)
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
@@ -553,22 +564,28 @@ class LinearATM(ATM):
         The landmark group of the `template` that will be used to train the ATM.
         If ``None`` and the `template` only has a single landmark group, then
         that is the one that will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ATM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     transform : `subclass` of :map:`DL` and :map:`DX`, optional
         A differential warp transform object, e.g.
         :map:`DifferentiablePiecewiseAffine` or
@@ -587,15 +604,17 @@ class LinearATM(ATM):
         value. If ``None``, then the training is performed directly on the
         all the images.
     """
-    def __init__(self, template, shapes, group=None, verbose=False,
-                 holistic_features=no_op,
-                 transform=DifferentiableThinPlateSplines, diagonal=None,
-                 scales=(0.5, 1.0), max_shape_components=None, batch_size=None):
+    def __init__(self, template, shapes, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
+                 transform=DifferentiableThinPlateSplines,
+                 max_shape_components=None, verbose=False, batch_size=None):
         super(LinearATM, self).__init__(
-            template, shapes, group=group, verbose=verbose,
-            holistic_features=holistic_features, transform=transform,
-            diagonal=diagonal, scales=scales,
-            max_shape_components=max_shape_components, batch_size=batch_size)
+                template, shapes, group=group,
+                holistic_features=holistic_features,
+                reference_shape=reference_shape, diagonal=diagonal,
+                scales=scales, transform=transform,
+                max_shape_components=max_shape_components, verbose=verbose,
+                batch_size=batch_size)
 
     @property
     def _str_title(self):
@@ -690,22 +709,28 @@ class LinearMaskedATM(ATM):
         The landmark group of the `template` that will be used to train the ATM.
         If ``None`` and the `template` only has a single landmark group, then
         that is the one that will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ATM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches of the mask that is used to extract the
         appearance vectors. If a `list` is provided, then it defines a patch
@@ -724,19 +749,20 @@ class LinearMaskedATM(ATM):
         value. If ``None``, then the training is performed directly on the
         all the images.
     """
-    def __init__(self, template, shapes, group=None, verbose=False,
-                 holistic_features=no_op, diagonal=None, scales=(0.5, 1.0),
+    def __init__(self, template, shapes, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), max_shape_components=None,
-                 batch_size=None):
+                 verbose=False, batch_size=None):
         # Check arguments
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         # Call superclass
         super(LinearMaskedATM, self).__init__(
-            template, shapes, group=group, verbose=verbose,
-            holistic_features=holistic_features,
-            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales,  max_shape_components=max_shape_components,
-            batch_size=batch_size)
+                template, shapes, group=group,
+                holistic_features=holistic_features,
+                reference_shape=reference_shape, diagonal=diagonal,
+                scales=scales, transform=DifferentiableThinPlateSplines,
+                max_shape_components=max_shape_components, verbose=verbose,
+                batch_size=batch_size)
 
     @property
     def _str_title(self):
@@ -832,22 +858,28 @@ class PatchATM(ATM):
         The landmark group of the `template` that will be used to train the ATM.
         If ``None`` and the `template` only has a single landmark group, then
         that is the one that will be used.
-    holistic_features : `closure`, optional
+    holistic_features : `closure` or `list` of `closure`, optional
         The features that will be extracted from the training images. Note
         that the features are extracted before warping the images to the
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the ATM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their groundtruth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
@@ -866,19 +898,20 @@ class PatchATM(ATM):
         all the images.
     """
     def __init__(self, template, shapes, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  patch_shape=(17, 17), patch_normalisation=no_op,
-                 diagonal=None, scales=(0.5, 1.0), max_shape_components=None,
-                 verbose=False, batch_size=None):
+                 max_shape_components=None, verbose=False, batch_size=None):
         # Check arguments
         self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
         self.patch_normalisation = patch_normalisation
         # Call superclass
         super(PatchATM, self).__init__(
-            template, shapes, group=group, verbose=verbose,
-            holistic_features=holistic_features,
-            transform=DifferentiableThinPlateSplines, diagonal=diagonal,
-            scales=scales,  max_shape_components=max_shape_components,
-            batch_size=batch_size)
+                template, shapes, group=group,
+                holistic_features=holistic_features,
+                reference_shape=reference_shape, diagonal=diagonal,
+                scales=scales, transform=DifferentiableThinPlateSplines,
+                max_shape_components=max_shape_components, verbose=verbose,
+                batch_size=batch_size)
 
     @property
     def _str_title(self):

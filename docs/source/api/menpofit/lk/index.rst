@@ -5,6 +5,8 @@
 
 Lucas-Kanade Alignment
 ----------------------
+LK performs alignment (or optical flow estimation) between a template image
+and a test image with respect to an affine transformation.
 
 .. toctree::
     :maxdepth: 1

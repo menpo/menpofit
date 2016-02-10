@@ -22,46 +22,53 @@ from .algorithm import DlibAlgorithm
 
 class DlibERT(MultiFitter):
     r"""
-    Class for training a multi-scale Ensemble of Regression Trees model.
+    Class for training a multi-scale Ensemble of Regression Trees model. This
+    class uses the implementation provided by the official DLib package
+    (http://dlib.net/) and makes it multi-scale.
 
     Parameters
     ----------
     images : `list` of `menpo.image.Image`
         The `list` of training images.
     group : `str` or ``None``, optional
-        The landmark group that will be used to train ERT. Note that all
-        the training images need to have the specified landmark group.
+        The landmark group that corresponds to the ground truth shape of each
+        image. If ``None`` and the images only have a single landmark group,
+        then that is the one that will be used. Note that all the training
+        images need to have the specified landmark group.
     bounding_box_group_glob : `glob` or ``None``, optional
         Glob that defines the bounding boxes to be used for training. If
         ``None``, then the bounding boxes of the ground truth shapes are used.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the ERT. If
-        ``None``, then the mean shape will be used.
+        The reference shape that will be used for normalising the size of the
+        training images. The normalization is performed by rescaling all the
+        training images so that the scale of their ground truth shapes
+        matches the scale of the reference shape. Note that the reference
+        shape is rescaled with respect to the `diagonal` before performing
+        the normalisation. If ``None``, then the mean shape will be used.
     diagonal : `int` or ``None``, optional
-        This parameter is used to normalize the scale of the training images
-        so that the extracted features are in correspondence. The
-        normalization is performed by rescaling all the training images so
-        that the diagonal of their ground truth shapes' bounding boxes
-        equals to the provided value. The reference scale gets rescaled as
-        well. If ``None``, then the images are rescaled with respect to the
-        reference shape's diagonal.
-    scales : `tuple` of `float`, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
         The scale value of each scale. They must provided in ascending order,
-        i.e. from lowest to highest scale.
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
     n_perturbations : `int` or ``None``, optional
-        The number of perturbations to be generated from the provided
-        bounding boxes. Note that the total number of perturbations is
-        `n_perturbations * n_dlib_perturbations`.
+        The number of perturbations to be generated from each of the bounding
+        boxes using `perturb_from_gt_bounding_box`. Note that the total
+        number of perturbations is `n_perturbations * n_dlib_perturbations`.
+    perturb_from_gt_bounding_box : `function`, optional
+        The function that will be used to generate the perturbations.
     n_dlib_perturbations : `int` or ``None`` or `list` of those, optional
         The number of perturbations to be generated from the part of DLib. DLib
         calls this "oversampling amount". If `list`, it must specify a value per
         scale. Note that the total number of perturbations is
         `n_perturbations * n_dlib_perturbations`.
-    perturb_from_gt_bounding_box : `function`, optional
-        The function that will be used to generate the perturbations.
-    n_iterations : `int` of `list` of `int`, optional
+    n_iterations : `int` or `list` of `int`, optional
         The number of iterations (cascades) of each level. If `list`, it must
-        specify a value per scale.
+        specify a value per scale. If `int`, then it defines the total number of
+        iterations (cascades) over all scales.
     feature_padding : `float` or `list` of `float`, optional
         When we randomly sample the pixels for the feature pool we do so in a
         box fit around the provided training landmarks. By default, this box
@@ -206,8 +213,6 @@ class DlibERT(MultiFitter):
 
     def _train(self, original_images, group=None, bounding_box_group_glob=None,
                verbose=False):
-        r"""
-        """
         # Dlib does not support incremental builds, so we must be passed a list
         if not isinstance(original_images, list):
             original_images = list(original_images)
@@ -364,7 +369,7 @@ class DlibERT(MultiFitter):
 
         Returns
         -------
-        fitting_result : `menpofit.result.MultiScaleNonParametricIterativeResult`
+        fitting_result : :map:`MultiScaleNonParametricIterativeResult`
             The result of the fitting procedure.
         """
         warnings.warn('Fitting from an initial shape is not supported by '
@@ -397,7 +402,7 @@ class DlibERT(MultiFitter):
 
         Returns
         -------
-        fitting_result : `menpofit.result.MultiScaleNonParametricIterativeResult`
+        fitting_result : :map:`MultiScaleNonParametricIterativeResult`
             The result of the fitting procedure.
         """
         # generate the list of images to be fitted
@@ -518,7 +523,7 @@ class DlibWrapper(object):
 
         Returns
         -------
-        fitting_result: `menpofit.result.Result`
+        fitting_result : :map:`Result`
             The result of the fitting procedure.
         """
         warnings.warn('Fitting from an initial shape is not supported by '
@@ -542,7 +547,7 @@ class DlibWrapper(object):
 
         Returns
         -------
-        fitting_result: `menpofit.result.Result`
+        fitting_result : :map:`Result`
             The result of the fitting procedure.
         """
         # We get back a NonParametricIterativeResult with one iteration,

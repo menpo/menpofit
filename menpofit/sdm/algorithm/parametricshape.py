@@ -21,8 +21,9 @@ class ParametricShapeSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
     Parameters
     ----------
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     """
     def __init__(self, shape_model_cls=OrthoPDM):
         super(ParametricShapeSDAlgorithm, self).__init__()
@@ -74,7 +75,7 @@ class ParametricShapeSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
         Returns
         -------
-        fitting_result: `menpofit.result.ParametricIterativeResult`
+        fitting_result: :map:`ParametricIterativeResult`
             The result of the fitting procedure.
         """
         return fit_parametric_shape(image, initial_shape, self,
@@ -90,8 +91,9 @@ class ParametricShapeSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
 class ParametricShapeNewton(ParametricShapeSDAlgorithm):
     r"""
-    Class for training a cascaded-regression Newton algorithm that employs a
-    parametric shape model using Incremental Regularized Linear Regression.
+    Class for training a cascaded-regression algorithm that employs a
+    parametric shape model using Incremental Regularized Linear Regression
+    (:map:`IRLRegression`).
 
     Parameters
     ----------
@@ -101,8 +103,9 @@ class ParametricShapeNewton(ParametricShapeSDAlgorithm):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -127,9 +130,9 @@ class ParametricShapeNewton(ParametricShapeSDAlgorithm):
 
 class ParametricShapeGaussNewton(ParametricShapeSDAlgorithm):
     r"""
-    Class for training a cascaded-regression Gauss-Newton algorithm that employs
-    a parametric shape model using Indirect Incremental Regularized Linear
-    Regression.
+    Class for training a cascaded-regression algorithm that employs a
+    parametric shape model using Indirect Incremental Regularized Linear
+    Regression (:map:`IIRLRegression`).
 
     Parameters
     ----------
@@ -139,8 +142,9 @@ class ParametricShapeGaussNewton(ParametricShapeSDAlgorithm):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -170,7 +174,7 @@ class ParametricShapeOptimalRegression(ParametricShapeSDAlgorithm):
     r"""
     Class for training a cascaded-regression algorithm that employs a parametric
     shape model using Multivariate Linear Regression with optimal
-    reconstructions.
+    reconstructions (:map:`OptimalLinearRegression`).
 
     Parameters
     ----------
@@ -180,8 +184,9 @@ class ParametricShapeOptimalRegression(ParametricShapeSDAlgorithm):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -208,7 +213,7 @@ class ParametricShapeOptimalRegression(ParametricShapeSDAlgorithm):
 class ParametricShapePCRRegression(ParametricShapeSDAlgorithm):
     r"""
     Class for training a cascaded-regression algorithm that employs a parametric
-    shape model using Principal Component Regression.
+    shape model using Principal Component Regression (:map:`PCRRegression`).
 
     Parameters
     ----------
@@ -218,8 +223,9 @@ class ParametricShapePCRRegression(ParametricShapeSDAlgorithm):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -252,7 +258,7 @@ class ParametricShapeOPPRegression(ParametricShapeSDAlgorithm):
     r"""
     Class for training a cascaded-regression algorithm that employs a parametric
     shape model using Multivariate Linear Regression with Orthogonal Procrustes
-    Problem reconstructions.
+    Problem reconstructions (:map:`OPPRegression`).
 
     Parameters
     ----------
@@ -262,8 +268,9 @@ class ParametricShapeOPPRegression(ParametricShapeSDAlgorithm):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    shape_model_cls : `menpofit.modelinstance.OrthoPDM` or subclass
-        The shape model class.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.

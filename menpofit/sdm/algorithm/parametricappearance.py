@@ -22,8 +22,8 @@ class ParametricAppearanceSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
     Parameters
     ----------
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     """
     def __init__(self, appearance_model_cls=PCAVectorModel):
         super(ParametricAppearanceSDAlgorithm, self).__init__()
@@ -87,7 +87,7 @@ class ParametricAppearanceSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
         Returns
         -------
-        fitting_result: `menpofit.result.NonParametricIterativeResult`
+        fitting_result: :map:`NonParametricIterativeResult`
             The result of the fitting procedure.
         """
         return fit_non_parametric_shape(image, initial_shape, self,
@@ -103,8 +103,9 @@ class ParametricAppearanceSDAlgorithm(BaseSupervisedDescentAlgorithm):
 
 class ParametricAppearanceNewton(ParametricAppearanceSDAlgorithm):
     r"""
-    Class for training a cascaded-regression Newton algorithm that employs a
-    parametric appearance model using Incremental Regularized Linear Regression.
+    Class for training a cascaded-regression algorithm that employs a
+    parametric appearance model using Incremental Regularized Linear
+    Regression (:map:`IRLRegression`).
 
     Parameters
     ----------
@@ -114,8 +115,8 @@ class ParametricAppearanceNewton(ParametricAppearanceSDAlgorithm):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -142,7 +143,7 @@ class ParametricAppearanceGaussNewton(ParametricAppearanceSDAlgorithm):
     r"""
     Class for training a cascaded-regression Gauss-Newton algorithm that employs
     a parametric appearance model using Indirect Incremental Regularized Linear
-    Regression.
+    Regression (:map:`IIRLRegression`).
 
     Parameters
     ----------
@@ -152,8 +153,8 @@ class ParametricAppearanceGaussNewton(ParametricAppearanceSDAlgorithm):
         The shape of the extracted patches.
     n_iterations : `int`, optional
         The number of iterations (cascades).
-    appearance_model_cls : `menpo.model.PCAVectorModel` or subclass
-        The appearance model class.
+    appearance_model_cls : `menpo.model.PCAVectorModel` or `subclass`
+        The class to be used for building the appearance model.
     compute_error : `callable`, optional
         The function to be used for computing the fitting error when training
         each cascade.
@@ -182,10 +183,9 @@ class ParametricAppearanceGaussNewton(ParametricAppearanceSDAlgorithm):
 class ParametricAppearanceProjectOutNewton(ParametricAppearanceNewton):
     r"""
     Class for training a cascaded-regression Newton algorithm that employs a
-    parametric appearance model using Incremental Regularized Linear Regression.
-    The difference with `menpofit.sdm.algorithm.ParametricAppearanceNewton` is
-    that this algorithm uses the projected-out appearance vectors as features in
-    the regression.
+    parametric appearance model using Incremental Regularized Linear
+    Regression (:map:`IRLRegression`). The algorithm uses the projected-out
+    appearance vectors as features in the regression.
     """
     def _compute_parametric_features(self, patch):
         return self.appearance_model.project_out(patch.ravel())
@@ -194,10 +194,9 @@ class ParametricAppearanceProjectOutNewton(ParametricAppearanceNewton):
 class ParametricAppearanceMeanTemplateNewton(ParametricAppearanceNewton):
     r"""
     Class for training a cascaded-regression Newton algorithm that employs a
-    parametric appearance model using Incremental Regularized Linear Regression.
-    The difference with `menpofit.sdm.algorithm.ParametricAppearanceNewton` is
-    that this algorithm uses the centered appearance vectors as features in
-    the regression.
+    parametric appearance model using Incremental Regularized Linear
+    Regression (:map:`IRLRegression`). The algorithm uses the centered
+    appearance vectors as features in the regression.
     """
     def _compute_parametric_features(self, patch):
         return patch.ravel() - self.appearance_model.mean().ravel()
@@ -206,10 +205,9 @@ class ParametricAppearanceMeanTemplateNewton(ParametricAppearanceNewton):
 class ParametricAppearanceWeightsNewton(ParametricAppearanceNewton):
     r"""
     Class for training a cascaded-regression Newton algorithm that employs a
-    parametric appearance model using Incremental Regularized Linear Regression.
-    The difference with `menpofit.sdm.algorithm.ParametricAppearanceNewton` is
-    that this algorithm uses the projection weights of the appearance vectors
-    as features in the regression.
+    parametric appearance model using Incremental Regularized Linear
+    Regression (:map:`IRLRegression`). The algorithm uses the projection
+    weights of the appearance vectors as features in the regression.
     """
     def _compute_parametric_features(self, patch):
         return self.appearance_model.project(patch.ravel())
@@ -219,10 +217,8 @@ class ParametricAppearanceProjectOutGuassNewton(ParametricAppearanceGaussNewton)
     r"""
     Class for training a cascaded-regression Gauss-Newton algorithm that employs
     a parametric appearance model using Indirect Incremental Regularized Linear
-    Regression. The difference with
-    `menpofit.sdm.algorithm.ParametricAppearanceGaussNewton` is that this
-    algorithm uses the projected-out appearance vectors as features in the
-    regression.
+    Regression (:map:`IIRLRegression`). The algorithm uses the projected-out
+    appearance vectors as features in the regression.
     """
     def _compute_parametric_features(self, patch):
         return self.appearance_model.project_out(patch.ravel())
@@ -232,9 +228,8 @@ class ParametricAppearanceMeanTemplateGuassNewton(ParametricAppearanceGaussNewto
     r"""
     Class for training a cascaded-regression Gauss-Newton algorithm that employs
     a parametric appearance model using Indirect Incremental Regularized Linear
-    Regression. The difference with
-    `menpofit.sdm.algorithm.ParametricAppearanceGaussNewton` is that this
-    algorithm uses the centered appearance vectors as features in the regression.
+    Regression (:map:`IIRLRegression`). The algorithm uses the centered
+    appearance vectors as features in the regression.
     """
     def _compute_parametric_features(self, patch):
         return patch.ravel() - self.appearance_model.mean().ravel()
@@ -244,10 +239,8 @@ class ParametricAppearanceWeightsGuassNewton(ParametricAppearanceGaussNewton):
     r"""
     Class for training a cascaded-regression Gauss-Newton algorithm that employs
     a parametric appearance model using Indirect Incremental Regularized Linear
-    Regression. The difference with
-    `menpofit.sdm.algorithm.ParametricAppearanceGaussNewton` is that this
-    algorithm uses the projection weights of the appearance vectors as features
-    in the regression.
+    Regression (:map:`IIRLRegression`). The algorithm uses the projection
+    weights of the appearance vectors as features in the regression.
     """
     def _compute_parametric_features(self, patch):
         return self.appearance_model.project(patch.ravel())
