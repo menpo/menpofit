@@ -15,3 +15,14 @@ These models all differ in the manner that they compute the warp.
     PCRRegression
     OptimalLinearRegression
     OPPRegression
+
+Correlation Filters
+-------------------
+
+.. toctree::
+    :maxdepth: 1
+
+    mccf
+    imccf
+    mosse
+    imosse

@@ -2,39 +2,85 @@ from __future__ import division
 from functools import partial
 import numpy as np
 from scipy.stats import multivariate_normal
+
 from menpo.shape import PointCloud
 from menpo.image import Image
+
 from menpofit.base import build_grid
 from menpofit.feature import normalize_norm, probability_map
-from menpofit.math.fft_utils import (
-    fft2, ifft2, fftshift, pad, crop, fft_convolve2d_sum)
+from menpofit.math.fft_utils import (fft2, ifft2, fftshift, pad, crop,
+                                     fft_convolve2d_sum)
 from menpofit.visualize import print_progress
+
 from .base import IncrementalCorrelationFilterThinWrapper
 
 
-# TODO: Document me!
 class ExpertEnsemble(object):
     r"""
-    """
-
-
-# TODO: Document me!
-# TODO: Should convolutional experts of ensembles support patch features?
-class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
-    r"""
+    Abstract class for defining an ensemble of patch experts that correspond
+    to landmark points.
     """
     @property
     def n_experts(self):
         r"""
+        Returns the number of experts.
+
+        :type: `int`
+        """
+        pass
+
+    def predict_response(self, image, shape):
+        r"""
+        Method for predicting the response of the experts on a given image.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or `subclass`
+            The test image.
+        shape : `menpo.shape.PointCloud`
+            The shape that corresponds to the image from which the patches
+            will be extracted.
+        """
+        pass
+
+    def predict_probability(self, image, shape):
+        r"""
+        Method for predicting the response of the experts on a given image.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or `subclass`
+            The test image.
+        shape : `menpo.shape.PointCloud`
+            The shape that corresponds to the image from which the patches
+            will be extracted.
+        """
+        pass
+
+
+# TODO: Should convolutional experts of ensembles support patch features?
+class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
+    r"""
+    Base class for defining an ensemble of convolution-based patch experts.
+    """
+    @property
+    def n_experts(self):
+        r"""
+        Returns the number of experts.
+
+        :type: `int`
         """
         return self.fft_padded_filters.shape[0]
 
     @property
     def n_sample_offsets(self):
         r"""
+        Returns the number of offsets that are sampled within a patch.
+
+        :type: `int`
         """
         if self.sample_offsets:
-            return self.sample_offsets.n_points
+            return self.sample_offsets.shape[0]
         else:
             return 1
 
@@ -127,15 +173,48 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         return probability_map(responses)
 
 
-# TODO: Document me!
 class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     r"""
+    Class for defining an ensemble of correlation filter experts.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of training shapes that correspond to the images.
+    icf_cls : `class`, optional
+        The incremental correlation filter class. For example
+        :map:`IncrementalCorrelationFilterThinWrapper`.
+    patch_shape : ``(int, int)``, optional
+        The shape of the patches that will be extracted around the landmarks.
+        Those patches are used to train the experts.
+    context_size : ``(int, int)``, optional
+        The context shape for the convolution.
+    response_covariance : `int`, optional
+        The covariance of the generated Gaussian response.
+    patch_normalisation : `callable`, optional
+        A normalisation function that will be applied on the extracted patches.
+    cosine_mask : `bool`, optional
+        If ``True``, then a cosine mask (Hanning function) will be applied on
+        the extracted patches.
+    sample_offsets : ``(n_offsets, n_dims)`` `ndarray` or ``None``, optional
+        The offsets to sample from within a patch. So ``(0, 0)`` is the centre
+        of the patch (no offset) and ``(1, 0)`` would be sampling the patch
+        from 1 pixel up the first axis away from the centre. If ``None``,
+        then no offsets are applied.
+    prefix : `str`, optional
+        The prefix of the printed progress information.
+    verbose : `bool`, optional
+        If ``True``, then information will be printed regarding the training
+        progress.
     """
-    def __init__(self, images, shapes, verbose=False, prefix='',
+    def __init__(self, images, shapes,
                  icf_cls=IncrementalCorrelationFilterThinWrapper,
                  patch_shape=(17, 17), context_size=(34, 34),
                  response_covariance=3, patch_normalisation=normalize_norm,
-                 cosine_mask=True, sample_offsets=None):
+                 cosine_mask=True, sample_offsets=None, prefix='',
+                 verbose=False):
         # TODO: check parameters?
         # Set parameters
         self._icf = icf_cls()
@@ -158,8 +237,6 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         self._train(images, shapes, verbose=verbose, prefix=prefix)
 
     def _extract_patch(self, image, landmark):
-        r"""
-        """
         # Extract patch from image
         patch = image.extract_patches(
             landmark, patch_shape=self.context_size,
@@ -170,14 +247,12 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         # Normalise patch
         patch = self.patch_normalisation(patch)
         if self.cosine_mask:
-            # Apply cosine mask if require
+            # Apply cosine mask if required
             patch = self._cosine_mask * patch
         return patch
 
     def _train(self, images, shapes, prefix='', verbose=False,
                increment=False):
-        r"""
-        """
         # Define print_progress partial
         wrap = partial(print_progress,
                        prefix='{}Training experts'
@@ -242,18 +317,41 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         self.cross_correlations = np.asarray(cross_correlations)
 
 
-# TODO: Document me!
 def generate_gaussian_response(patch_shape, response_covariance):
     r"""
+    Method that generates a Gaussian response (probability density function)
+    given the desired shape and a covariance value.
+
+    Parameters
+    ----------
+    patch_shape : ``(int, int)``, optional
+        The shape of the response.
+    response_covariance : `int`, optional
+        The covariance of the generated Gaussian response.
+
+    Returns
+    -------
+    pdf : ``(patch_height, patch_width)`` `ndarray`
+        The generated response.
     """
     grid = build_grid(patch_shape)
     mvn = multivariate_normal(mean=np.zeros(2), cov=response_covariance)
     return mvn.pdf(grid)
 
 
-# TODO: Document me!
 def generate_cosine_mask(patch_shape):
     r"""
+    Function that generates a cosine mask (Hanning window).
+
+    Parameters
+    ----------
+    patch_shape : ``(int, int)``, optional
+        The shape of the mask.
+
+    Returns
+    -------
+    mask : ``(patch_height, patch_width)`` `ndarray`
+        The generated Hanning window.
     """
     cy = np.hanning(patch_shape[0])
     cx = np.hanning(patch_shape[1])

@@ -5,6 +5,8 @@
 
 Constrained Local Models
 ------------------------
+Deformable model that consists of a generative parametric shape model and
+discriminatively trained experts per part.
 
 .. toctree::
     :maxdepth: 1
@@ -13,6 +15,7 @@ Constrained Local Models
 
 CLM Fitters
 -----------
+A CLM is optimised either a gradient descent manner.
 
 .. toctree::
     :maxdepth: 1

@@ -12,10 +12,10 @@ def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
 
     Parameters
     ----------
-    X : ``(n_images, n_channels, height, width)`` `ndarray`
-        Training images.
-    y : ``(1, height, width)`` `ndarray`
-        Desired response.
+    X : ``(n_images, n_channels, image_h, image_w)`` `ndarray`
+        The training images.
+    y : ``(1, response_h, response_w)`` `ndarray`
+        The desired response.
     l : `float`, optional
         Regularization parameter.
     boundary : ``{'constant', 'symmetric'}``, optional
@@ -27,14 +27,22 @@ def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
 
     Returns
     -------
-    mosse: ``(1, height, width)`` `ndarray`
+    f : ``(1, response_h, response_w)`` `ndarray`
         Minimum Output Sum od Squared Errors (MOSSE) filter associated to
         the training images.
+    sXY : ``(N,)`` `ndarray`
+        The auto-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
+    sXX : ``(N, N)`` `ndarray`
+        The cross-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
 
     References
     ----------
-    .. [1] David S. Bolme, J. Ross Beveridge,  Bruce A. Draper and Yui Man Lui.
-        "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
+    .. [1] D. S. Bolme, J. R. Beveridge, B. A. Draper, and Y. M. Lui. "Visual
+        Object Tracking using Adaptive Correlation Filters", IEEE Proceedings
+        of International Conference on Computer Vision and Pattern Recognition
+        (CVPR), 2010.
     """
     # number of images, number of channels, height and width
     n, k, hx, wx = X.shape
@@ -85,18 +93,22 @@ def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
 def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
            crop_filter=True, f=1.0):
     r"""
-    Incremental Minimum Output Sum of Squared Errors (iMOSSE) filter
+    Incremental Minimum Output Sum of Squared Errors (iMOSSE) filter.
 
     Parameters
     ----------
-    A :
-    B :
+    A : ``(N,)`` `ndarray`
+        The current auto-correlation array, where
+        ``N = (patch_h+response_h-1) * (patch_w+response_w-1) * n_channels``.
+    B : ``(N, N)`` `ndarray`
+        The current cross-correlation array, where
+        ``N = (patch_h+response_h-1) * (patch_w+response_w-1) * n_channels``.
     n_ab : `int`
-        Total number of samples used to produce A and B.
-    X : ``(n_images, n_channels, height, width)`` `ndarray`
-        Training images.
-    y : ``(1, height, width)`` `ndarray`
-        Desired response.
+        The current number of images.
+    X : ``(n_images, n_channels, image_h, image_w)`` `ndarray`
+        The training images (patches).
+    y : ``(1, response_h, response_w)`` `ndarray`
+        The desired response.
     l : `float`, optional
         Regularization parameter.
     boundary : ``{'constant', 'symmetric'}``, optional
@@ -107,21 +119,27 @@ def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
         ``X[0].shape + y.shape - 1``
     f : ``[0, 1]`` `float`, optional
         Forgetting factor that weights the relative contribution of new
-        samples vs old samples. If 1.0, all samples are weighted equally.
-        If <1.0, more emphasis is put on the new samples.
+        samples vs old samples. If ``1.0``, all samples are weighted equally.
+        If ``<1.0``, more emphasis is put on the new samples.
 
     Returns
     -------
-    mccf : ``(1, height, width)`` `ndarray`
-        Multi-Channel Correlation Filter (MCCF) filter associated to the
-        training images.
-    sXY :
-    sXX :
+    f : ``(1, response_h, response_w)`` `ndarray`
+        Minimum Output Sum od Squared Errors (MOSSE) filter associated to
+        the training images.
+    sXY : ``(N,)`` `ndarray`
+        The auto-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
+    sXX : ``(N, N)`` `ndarray`
+        The cross-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
 
     References
     ----------
-    .. [1] David S. Bolme, J. Ross Beveridge,  Bruce A. Draper and Yui Man Lui.
-        "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
+    .. [1] D. S. Bolme, J. R. Beveridge, B. A. Draper, and Y. M. Lui. "Visual
+        Object Tracking using Adaptive Correlation Filters", IEEE Proceedings
+        of International Conference on Computer Vision and Pattern Recognition
+        (CVPR), 2010.
     """
     # number of images; number of channels, height and width
     n_x, k, hz, wz = X.shape
@@ -188,31 +206,36 @@ def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
 
     Parameters
     ----------
-    X : ``(n_images, n_channels, height, width)`` `ndarray`
-        Training images.
-    y : ``(1, height, width)`` `ndarray`
-        Desired response.
+    X : ``(n_images, n_channels, image_h, image_w)`` `ndarray`
+        The training images.
+    y : ``(1, response_h, response_w)`` `ndarray`
+        The desired response.
     l : `float`, optional
         Regularization parameter.
     boundary : ``{'constant', 'symmetric'}``, optional
         Determines how the image is padded.
     crop_filter : `bool`, optional
-        If ``True``, the shape of the filter is the same as the shape
+        If ``True``, the shape of the MOSSE filter is the same as the shape
         of the desired response. If ``False``, the filter's shape is equal to:
         ``X[0].shape + y.shape - 1``
 
     Returns
     -------
-    mccf: ``(1, height, width)`` `ndarray`
+    f : ``(1, response_h, response_w)`` `ndarray`
         Multi-Channel Correlation Filter (MCCF) filter associated to the
         training images.
-    sXY :
-    sXX :
+    sXY : ``(N,)`` `ndarray`
+        The auto-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
+    sXX : ``(N, N)`` `ndarray`
+        The cross-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
 
     References
     ----------
-    .. [1] Hamed Kiani Galoogahi, Terence Sim,  Simon Lucey. "Multi-Channel
-        Correlation Filters". ICCV, 2013.
+    .. [1] H. K. Galoogahi, T. Sim, and Simon Lucey. "Multi-Channel
+        Correlation Filters". IEEE Proceedings of International Conference on
+        Computer Vision (ICCV), 2013.
     """
     # number of images; number of channels, height and width
     n, k, hx, wx = X.shape
@@ -277,41 +300,52 @@ def imccf(A, B, n_ab, X, y, l=0.01, boundary='constant', crop_filter=True,
 
     Parameters
     ----------
-    A :
-    B :
+    A : ``(N,)`` `ndarray`
+        The current auto-correlation array, where
+        ``N = (patch_h+response_h-1) * (patch_w+response_w-1) * n_channels``.
+    B : ``(N, N)`` `ndarray`
+        The current cross-correlation array, where
+        ``N = (patch_h+response_h-1) * (patch_w+response_w-1) * n_channels``.
     n_ab : `int`
-        Total number of samples used to produce A and B.
-    X : ``(n_images, n_channels, height, width)`` `ndarray`
-        Training images.
-    y : ``(1, height, width)`` `ndarray`
-        Desired response.
+        The current number of images.
+    X : ``(n_images, n_channels, image_h, image_w)`` `ndarray`
+        The training images (patches).
+    y : ``(1, response_h, response_w)`` `ndarray`
+        The desired response.
     l : `float`, optional
         Regularization parameter.
     boundary : ``{'constant', 'symmetric'}``, optional
         Determines how the image is padded.
     crop_filter : `bool`, optional
-        If ``True``, the shape of the filter is the same as the shape
+        If ``True``, the shape of the MOSSE filter is the same as the shape
         of the desired response. If ``False``, the filter's shape is equal to:
         ``X[0].shape + y.shape - 1``
     f : ``[0, 1]`` `float`, optional
         Forgetting factor that weights the relative contribution of new
-        samples vs old samples. If 1.0, all samples are weighted equally.
-        If <1.0, more emphasis is put on the new samples.
+        samples vs old samples. If ``1.0``, all samples are weighted equally.
+        If ``<1.0``, more emphasis is put on the new samples.
 
     Returns
     -------
-    mccf : ``(1, height, width)`` `ndarray`
+    f : ``(1, response_h, response_w)`` `ndarray`
         Multi-Channel Correlation Filter (MCCF) filter associated to the
         training images.
-    sXY :
-    sXX :
+    sXY : ``(N,)`` `ndarray`
+        The auto-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
+    sXX : ``(N, N)`` `ndarray`
+        The cross-correlation array, where
+        ``N = (image_h+response_h-1) * (image_w+response_w-1) * n_channels``.
 
     References
     ----------
-    .. [1] David S. Bolme, J. Ross Beveridge,  Bruce A. Draper and Yui Man Lui.
-        "Visual Object Tracking using Adaptive Correlation Filters". CVPR, 2010.
-    .. [2] Hamed Kiani Galoogahi, Terence Sim,  Simon Lucey. "Multi-Channel
-        Correlation Filters". ICCV, 2013.
+    .. [1] D. S. Bolme, J. R. Beveridge, B. A. Draper, and Y. M. Lui. "Visual
+        Object Tracking using Adaptive Correlation Filters", IEEE Proceedings
+        of International Conference on Computer Vision and Pattern Recognition
+        (CVPR), 2010.
+    .. [2] H. K. Galoogahi, T. Sim, and Simon Lucey. "Multi-Channel
+        Correlation Filters". IEEE Proceedings of International Conference on
+        Computer Vision (ICCV), 2013.
     """
     # number of images; number of channels, height and width
     n_x, k, hz, wz = X.shape

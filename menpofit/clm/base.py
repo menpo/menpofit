@@ -13,10 +13,9 @@ from menpofit.builder import (
     compute_reference_shape, rescale_images_to_reference_shape)
 from menpofit.modelinstance import OrthoPDM
 
-from .expert import ExpertEnsemble, CorrelationFilterExpertEnsemble
+from .expert import CorrelationFilterExpertEnsemble
 
 
-# TODO: Document me!
 class CLM(object):
     r"""
     Constrained Local Model (CLM) class.
@@ -29,26 +28,24 @@ class CLM(object):
     clm : `CLM`
         The CLM object
     """
-    def __init__(self, images, group=None, verbose=False, batch_size=None,
-                 diagonal=None, scales=(0.5, 1), holistic_features=no_op,
+    def __init__(self, images, group=None, reference_shape=None, diagonal=None,
+                 scales=(0.5, 1), holistic_features=no_op,
                  shape_model_cls=OrthoPDM,
                  expert_ensemble_cls=CorrelationFilterExpertEnsemble,
-                 max_shape_components=None, reference_shape=None):
-        scales = checks.check_scales(scales)
+                 max_shape_components=None, verbose=False, batch_size=None):
+        self.scales = checks.check_scales(scales)
         n_scales = len(scales)
         self.diagonal = checks.check_diagonal(diagonal)
-        self.scales = scales
         self.holistic_features = checks.check_callable(holistic_features,
-                                                       self.n_scales)
-        self.expert_ensemble_cls = checks.check_algorithm_cls(
-            expert_ensemble_cls, self.n_scales, ExpertEnsemble)
-        shape_model_cls = checks.check_callable(shape_model_cls, n_scales)
-
+                                                       n_scales)
+        self.expert_ensemble_cls = checks.check_callable(expert_ensemble_cls,
+                                                         n_scales)
+        self._shape_model_cls = checks.check_callable(shape_model_cls,
+                                                      n_scales)
         self.max_shape_components = checks.check_max_components(
-            max_shape_components, self.n_scales, 'max_shape_components')
+            max_shape_components, n_scales, 'max_shape_components')
         self.reference_shape = reference_shape
         self.shape_models = []
-        self._shape_model_cls = shape_model_cls
         self.expert_ensembles = []
 
         # Train CLM
@@ -61,8 +58,8 @@ class CLM(object):
 
     @property
     def n_scales(self):
-        r"""
-        The number of scales of the CLM.
+        """
+        Returns the number of scales.
 
         :type: `int`
         """
@@ -70,10 +67,6 @@ class CLM(object):
 
     def _train(self, images, increment=False, group=None, verbose=False,
                shape_forgetting_factor=1.0, batch_size=None):
-        r"""
-        """
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -113,8 +106,6 @@ class CLM(object):
 
     def _train_batch(self, image_batch, increment=False, group=None,
                      shape_forgetting_factor=1.0, verbose=False):
-        r"""
-        """
         # normalize images
         image_batch = rescale_images_to_reference_shape(
             image_batch, group, self.reference_shape, verbose=verbose)
@@ -199,8 +190,34 @@ class CLM(object):
             shapes, forgetting_factor=forgetting_factor,
             max_n_components=self.max_shape_components[scale_index])
 
-    def increment(self, images, group=None, verbose=False,
-                  shape_forgetting_factor=1.0, batch_size=None):
+    def increment(self, images, group=None, shape_forgetting_factor=1.0,
+                  verbose=False, batch_size=None):
+        r"""
+        Method to increment the trained CLM with a new set of training images.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        group : `str` or ``None``, optional
+            The landmark group that will be used to train the CLM. If ``None``
+            and the images only have a single landmark group, then that is the
+            one that will be used. Note that all the training images need to
+            have the specified landmark group.
+        shape_forgetting_factor : ``[0.0, 1.0]`` `float`, optional
+            Forgetting factor that weights the relative contribution of new
+            samples vs old samples for the shape model. If ``1.0``, all samples
+            are weighted equally and, hence, the result is the exact same as
+            performing batch PCA on the concatenated list of old and new
+            simples. If ``<1.0``, more emphasis is put on the new samples.
+        verbose : `bool`, optional
+            If ``True``, then the progress of building the CLM will be printed.
+        batch_size : `int` or ``None``, optional
+            If an `int` is provided, then the training is performed in an
+            incremental fashion on image batches of size equal to the provided
+            value. If ``None``, then the training is performed directly on the
+            all the images.
+        """
         return self._train(images, increment=True, group=group, verbose=verbose,
                            shape_forgetting_factor=shape_forgetting_factor,
                            batch_size=batch_size)
@@ -208,6 +225,28 @@ class CLM(object):
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
+        r"""
+        Visualizes the shape models of the AAM object using an interactive
+        widget.
+
+        Parameters
+        ----------
+        n_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : ``(int, int)``, optional
+            The size of the rendered figure.
+        """
         try:
             from menpowidgets import visualize_shape_model
             visualize_shape_model(
@@ -220,14 +259,10 @@ class CLM(object):
 
     # TODO: Implement me!
     def view_expert_ensemble_widget(self):
-        r"""
-        """
         raise NotImplementedError()
 
     # TODO: Implement me!
     def view_clm_widget(self):
-        r"""
-        """
         raise NotImplementedError()
 
     # TODO: Implement me!
