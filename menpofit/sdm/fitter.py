@@ -51,6 +51,7 @@ class SupervisedDescentFitter(MultiFitter):
         :map:`NonParametricOptimalRegression` :map:`OptimalLinearRegression`
         :map:`NonParametricOPPRegression`     :map:`OPPRegression`
         ===================================== ==============================
+
         **Parametric shape:**
 
         ======================================= ===================================
@@ -62,6 +63,7 @@ class SupervisedDescentFitter(MultiFitter):
         :map:`ParametricShapeOptimalRegression` :map:`OptimalLinearRegression`
         :map:`ParametricShapeOPPRegression`     :map:`ParametricShapeOPPRegression`
         ======================================= ===================================
+
         **Parametric appearance:**
 
         ================================================== =====================
@@ -74,6 +76,7 @@ class SupervisedDescentFitter(MultiFitter):
         :map:`ParametricAppearanceWeightsNewton`           :map:`IRLRegression`
         :map:`ParametricAppearanceWeightsGuassNewton`      :map:`IIRLRegression`
         ================================================== =====================
+
         **Parametric shape and appearance:**
 
         =========================================== =====================
@@ -108,7 +111,7 @@ class SupervisedDescentFitter(MultiFitter):
         are extracted after extracting the patches. If `list`, then it must
         define a feature function per scale. Please refer to `menpo.feature`
         and `menpofit.feature` for a list of potential features.
-    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
     scales : `float` or `tuple` of `float`, optional
@@ -480,7 +483,7 @@ class SDM(SupervisedDescentFitter):
         are extracted after extracting the patches. If `list`, then it must
         define a feature function per scale. Please refer to `menpo.feature`
         and `menpofit.feature` for a list of potential features.
-    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
     scales : `float` or `tuple` of `float`, optional
@@ -572,7 +575,7 @@ class RegularizedSDM(SupervisedDescentFitter):
         are extracted after extracting the patches. If `list`, then it must
         define a feature function per scale. Please refer to `menpo.feature`
         and `menpofit.feature` for a list of potential features.
-    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
     scales : `float` or `tuple` of `float`, optional

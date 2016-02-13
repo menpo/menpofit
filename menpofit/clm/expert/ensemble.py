@@ -5,6 +5,7 @@ from scipy.stats import multivariate_normal
 
 from menpo.shape import PointCloud
 from menpo.image import Image
+from menpo.base import name_of_callable
 
 from menpofit.base import build_grid
 from menpofit.feature import normalize_norm, probability_map
@@ -87,6 +88,9 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     @property
     def padded_size(self):
         r"""
+        Returns the convolution pad size, i.e. ``floor(1.5 * patch_shape - 1)``.
+
+        :type: (`int`, `int`)
         """
         pad_size = np.floor(1.5 * np.asarray(self.patch_shape) - 1).astype(int)
         return tuple(pad_size)
@@ -94,11 +98,28 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     @property
     def search_size(self):
         r"""
+        Returns the search size (`patch_shape`).
+
+        :type: (`int`, `int`)
         """
         return self.patch_shape
 
     def increment(self, images, shapes, prefix='', verbose=False):
         r"""
+        Increments the learned ensemble of convolution-based experts given a new
+        set of training data.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The list of training images.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of training shapes that correspond to the images.
+        prefix : `str`, optional
+            The prefix of the printed training progress.
+        verbose : `bool`, optional
+            If ``True``, then information about the training progress will be
+            printed.
         """
         self._train(images, shapes, prefix=prefix, verbose=verbose,
                     increment=True)
@@ -106,6 +127,9 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     @property
     def spatial_filter_images(self):
         r"""
+        Returns a `list` of `n_experts` filter images on the spatial domain.
+
+        :type: `list` of `menpo.image.Image`
         """
         filter_images = []
         for fft_padded_filter in self.fft_padded_filters:
@@ -118,6 +142,9 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     @property
     def frequency_filter_images(self):
         r"""
+        Returns a `list` of `n_experts` filter images on the frequency domain.
+
+        :type: `list` of `menpo.image.Image`
         """
         filter_images = []
         for fft_padded_filter in self.fft_padded_filters:
@@ -129,8 +156,6 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         return filter_images
 
     def _extract_patch(self, image, landmark):
-        r"""
-        """
         # Extract patch from image
         patch = image.extract_patches(
             landmark, patch_shape=self.patch_shape,
@@ -142,8 +167,6 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         return self.patch_normalisation(patch)
 
     def _extract_patches(self, image, shape):
-        r"""
-        """
         # Obtain patch ensemble, the whole shape is used to extract patches
         # from all landmarks at once
         patches = image.extract_patches(shape, patch_shape=self.patch_shape,
@@ -157,6 +180,15 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
 
     def predict_response(self, image, shape):
         r"""
+        Method for predicting the response of the experts on a given image.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or `subclass`
+            The test image.
+        shape : `menpo.shape.PointCloud`
+            The shape that corresponds to the image from which the patches
+            will be extracted.
         """
         # Extract patches
         patches = self._extract_patches(image, shape)
@@ -166,11 +198,73 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
 
     def predict_probability(self, image, shape):
         r"""
+        Method for predicting the response of the experts on a given image.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or `subclass`
+            The test image.
+        shape : `menpo.shape.PointCloud`
+            The shape that corresponds to the image from which the patches
+            will be extracted.
         """
         # Predict responses
         responses = self.predict_response(image, shape)
         # Turn them into proper probability maps
         return probability_map(responses)
+
+    def view_spatial_filter_images_widget(self, figure_size=(10, 8),
+                                          style='coloured',
+                                          browser_style='buttons'):
+        r"""
+        Visualizes the filters on the spatial domain using an interactive widget.
+
+        Parameters
+        ----------
+        figure_size : (`int`, `int`), optional
+            The initial size of the rendered figure.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
+        browser_style : {``'buttons'``, ``'slider'``}, optional
+            It defines whether the selector of the objects will have the form of
+            plus/minus buttons or a slider.
+        """
+        try:
+            from menpowidgets import visualize_images
+            visualize_images(self.spatial_filter_images,
+                             figure_size=figure_size, style=style,
+                             browser_style=browser_style)
+        except ImportError:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
+
+    def view_frequency_filter_images_widget(self, figure_size=(10, 8),
+                                            style='coloured',
+                                            browser_style='buttons'):
+        r"""
+        Visualizes the filters on the frequency domain using an interactive
+        widget.
+
+        Parameters
+        ----------
+        figure_size : (`int`, `int`), optional
+            The initial size of the rendered figure.
+        style : {``'coloured'``, ``'minimal'``}, optional
+            If ``'coloured'``, then the style of the widget will be coloured. If
+            ``minimal``, then the style is simple using black and white colours.
+        browser_style : {``'buttons'``, ``'slider'``}, optional
+            It defines whether the selector of the objects will have the form of
+            plus/minus buttons or a slider.
+        """
+        try:
+            from menpowidgets import visualize_images
+            visualize_images(self.frequency_filter_images,
+                             figure_size=figure_size, style=style,
+                             browser_style=browser_style)
+        except ImportError:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
 
 class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
@@ -186,10 +280,10 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     icf_cls : `class`, optional
         The incremental correlation filter class. For example
         :map:`IncrementalCorrelationFilterThinWrapper`.
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The shape of the patches that will be extracted around the landmarks.
         Those patches are used to train the experts.
-    context_size : ``(int, int)``, optional
+    context_shape : (`int`, `int`), optional
         The context shape for the convolution.
     response_covariance : `int`, optional
         The covariance of the generated Gaussian response.
@@ -211,7 +305,7 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     """
     def __init__(self, images, shapes,
                  icf_cls=IncrementalCorrelationFilterThinWrapper,
-                 patch_shape=(17, 17), context_size=(34, 34),
+                 patch_shape=(17, 17), context_shape=(34, 34),
                  response_covariance=3, patch_normalisation=normalize_norm,
                  cosine_mask=True, sample_offsets=None, prefix='',
                  verbose=False):
@@ -219,14 +313,14 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         # Set parameters
         self._icf = icf_cls()
         self.patch_shape = patch_shape
-        self.context_size = context_size
+        self.context_shape = context_shape
         self.response_covariance = response_covariance
         self.patch_normalisation = patch_normalisation
         self.cosine_mask = cosine_mask
         self.sample_offsets = sample_offsets
 
         # Generate cosine mask
-        self._cosine_mask = generate_cosine_mask(self.context_size)
+        self._cosine_mask = generate_cosine_mask(self.context_shape)
 
         # Generate desired response, i.e. a Gaussian response with the
         # specified covariance centred at the middle of the patch
@@ -239,7 +333,7 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     def _extract_patch(self, image, landmark):
         # Extract patch from image
         patch = image.extract_patches(
-            landmark, patch_shape=self.context_size,
+            landmark, patch_shape=self.context_shape,
             sample_offsets=self.sample_offsets, as_single_array=True)
         # Reshape patch
         # patch: (offsets x ch) x h x w
@@ -316,6 +410,24 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         self.auto_correlations = np.asarray(auto_correlations)
         self.cross_correlations = np.asarray(cross_correlations)
 
+    def __str__(self):
+        cls_str = r"""Ensemble of Correlation Filter Experts
+ - {n_experts} experts
+ - {icf_cls} class
+ - Patch shape: {patch_height} x {patch_width}
+ - Patch normalisation: {patch_norm}
+ - Context shape: {context_height} x {context_width}
+ - Cosine mask: {cosine_mask}""".format(
+                n_experts=self.n_experts,
+                icf_cls=name_of_callable(self._icf),
+                patch_height=self.patch_shape[0],
+                patch_width=self.patch_shape[1],
+                patch_norm=name_of_callable(self.patch_normalisation),
+                context_height=self.context_shape[0],
+                context_width=self.context_shape[1],
+                cosine_mask=self.cosine_mask)
+        return cls_str
+
 
 def generate_gaussian_response(patch_shape, response_covariance):
     r"""
@@ -324,7 +436,7 @@ def generate_gaussian_response(patch_shape, response_covariance):
 
     Parameters
     ----------
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The shape of the response.
     response_covariance : `int`, optional
         The covariance of the generated Gaussian response.
@@ -345,7 +457,7 @@ def generate_cosine_mask(patch_shape):
 
     Parameters
     ----------
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The shape of the mask.
 
     Returns

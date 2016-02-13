@@ -443,7 +443,7 @@ class AAM(object):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
@@ -478,7 +478,7 @@ class AAM(object):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
@@ -519,7 +519,7 @@ class AAM(object):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
@@ -638,7 +638,7 @@ class MaskedAAM(AAM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale. If `float`, then a single scale is
         assumed.
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
     shape_model_cls : `subclass` of :map:`PDM`, optional
@@ -909,7 +909,7 @@ class LinearMaskedAAM(AAM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale. If `float`, then a single scale is
         assumed.
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
     shape_model_cls : `subclass` of :map:`PDM`, optional
@@ -1078,9 +1078,11 @@ class PatchAAM(AAM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale. If `float`, then a single scale is
         assumed.
-    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
+    patch_normalisation : `callable`, optional
+        The normalisation function to be applied on the extracted patches.
     shape_model_cls : `subclass` of :map:`PDM`, optional
         The class to be used for building the shape model. The most common
         choice is :map:`OrthoPDM`.
@@ -1162,7 +1164,7 @@ class PatchAAM(AAM):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
@@ -1204,7 +1206,7 @@ class PatchAAM(AAM):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:

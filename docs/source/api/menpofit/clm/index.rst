@@ -15,7 +15,6 @@ discriminatively trained experts per part.
 
 CLM Fitters
 -----------
-A CLM is optimised either a gradient descent manner.
 
 .. toctree::
     :maxdepth: 1
@@ -31,11 +30,20 @@ Optimisation Algorithms
     ActiveShapeModel
     RegularisedLandmarkMeanShift
 
-Experts
--------
+Experts Ensemble
+----------------
+Algorithms for learning an ensemble of discriminative experts.
 
 .. toctree::
     :maxdepth: 1
 
     CorrelationFilterExpertEnsemble
+
+Experts
+-------
+Discriminative experts
+
+.. toctree::
+    :maxdepth: 1
+
     IncrementalCorrelationFilterThinWrapper

@@ -164,7 +164,7 @@ def features_per_patch(image, shape, patch_shape, features_callable):
         The input image.
     shape : `menpo.shape.PointCloud`
         The points from which to extract the patches.
-    patch_shape : ``(int, int)``
+    patch_shape : (`int`, `int`)
         The shape of the patch to be extracted.
     features_callable : `callable`
         The function to be used for extracting features.
@@ -191,7 +191,7 @@ def features_per_shapes(image, shapes, patch_shape, features_callable):
         The input image.
     shapes : `list` of `menpo.shape.PointCloud`
         The list of shapes from which to extract the patches.
-    patch_shape : ``(int, int)``
+    patch_shape : (`int`, `int`)
         The shape of the patch to be extracted.
     features_callable : `callable`
         The function to be used for extracting features.
@@ -220,7 +220,7 @@ def features_per_image(images, shapes, patch_shape, features_callable,
         The input images.
     shapes : `list` of `list` of `menpo.shape.PointCloud`
         The list of list of shapes per image from which to extract the patches.
-    patch_shape : ``(int, int)``
+    patch_shape : (`int`, `int`)
         The shape of the patch to be extracted.
     features_callable : `callable`
         The function to be used for extracting features.
@@ -501,7 +501,7 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
         The `list` of training images.
     gt_shapes : `list` of `menpo.shape.PointCloud`
         The `list` of ground truth shapes that correspond to the training shapes.
-    patch_shape : ``(int, int)``
+    patch_shape : (`int`, `int`)
         The shape of the extracted patches.
     patch_features : `callable`
         The function to extract features from the patches. Please refer to

@@ -254,7 +254,7 @@ def extract_patches(images, shapes, patch_shape, normalise_function=no_op,
         The set of images to warp.
     shapes : `list` of `menpo.shape.PointCloud`
         The set of shapes that correspond to the images.
-    patch_shape : ``(int, int)``
+    patch_shape : (`int`, `int`)
         The shape of the patches.
     normalise_function : `callable`
         A normalisation function to apply on the values of the patches.
@@ -333,7 +333,7 @@ def build_patch_reference_frame(landmarks, boundary=3, group='source',
     group : `str`, optional
         Group that will be assigned to the provided set of landmarks on the
         reference frame.
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The shape of the patches.
 
     Returns

@@ -8,9 +8,9 @@ from menpo.visualize import print_dynamic
 
 from menpofit import checks
 from menpofit.base import batch
-from menpofit.builder import (
-    compute_features, scale_images, MenpoFitBuilderWarning,
-    compute_reference_shape, rescale_images_to_reference_shape)
+from menpofit.builder import (compute_features, scale_images,
+                              MenpoFitBuilderWarning, compute_reference_shape,
+                              rescale_images_to_reference_shape)
 from menpofit.modelinstance import OrthoPDM
 
 from .expert import CorrelationFilterExpertEnsemble
@@ -18,18 +18,91 @@ from .expert import CorrelationFilterExpertEnsemble
 
 class CLM(object):
     r"""
-    Constrained Local Model (CLM) class.
+    Class for training a multi-scale holistic Constrained Local Model. Please
+    see the references for a basic list of relevant papers.
 
     Parameters
     ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that will be used to train the CLM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
+    holistic_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the training images. If `list`,
+        then it must define a feature function per scale. Please refer to
+        `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the CLM. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    patch_normalisation : `callable`, optional
+        The normalisation function to be applied on the extracted patches.
+    context_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The context shape for the convolution. If a `list` is provided,
+        then it defines a context shape per scale.
+    cosine_mask : `bool`, optional
+        If ``True``, then a cosine mask (Hanning function) will be applied on
+        the extracted patches.
+    sample_offsets : ``(n_offsets, n_dims)`` `ndarray` or ``None``, optional
+        The offsets to sample from within a patch. So ``(0, 0)`` is the centre
+        of the patch (no offset) and ``(1, 0)`` would be sampling the patch
+        from 1 pixel up the first axis away from the centre. If ``None``,
+        then no offsets are applied.
+    shape_model_cls : `subclass` of :map:`PDM`, optional
+        The class to be used for building the shape model. The most common
+        choice is :map:`OrthoPDM`.
+    expert_ensemble_cls : `subclass` of :map:`ExpertEnsemble`, optional
+        The class to be used for training the ensemble of experts. The most
+        common choice is :map:`CorrelationFilterExpertEnsemble`.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per scale. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+    verbose : `bool`, optional
+        If ``True``, then the progress of building the CLM will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
 
-    Returns
-    -------
-    clm : `CLM`
-        The CLM object
+    References
+    ----------
+    .. [1] D. Cristinacce, and T. F. Cootes. "Feature Detection and Tracking
+        with Constrained Local Models", British Machine Vision Conference (BMVC),
+        2006.
+    .. [2] J.M. Saragih, S. Lucey, and J. F. Cohn. "Deformable model fitting by
+        regularized landmark mean-shift", International Journal of Computer
+        Vision (IJCV), 91(2): 200-215, 2011.
+    .. [3] T. F. Cootes, C. J. Taylor, D. H. Cooper, and J. Graham. "Active
+        Shape Models - their training and application", Computer Vision and Image
+        Understanding (CVIU), 61(1): 38-59, 1995.
     """
-    def __init__(self, images, group=None, reference_shape=None, diagonal=None,
-                 scales=(0.5, 1), holistic_features=no_op,
+    def __init__(self, images, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1),
+                 patch_shape=(17, 17), patch_normalisation=no_op,
+                 context_shape=(34, 34), cosine_mask=True, sample_offsets=None,
                  shape_model_cls=OrthoPDM,
                  expert_ensemble_cls=CorrelationFilterExpertEnsemble,
                  max_shape_components=None, verbose=False, batch_size=None):
@@ -45,6 +118,11 @@ class CLM(object):
         self.max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
         self.reference_shape = reference_shape
+        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
+        self.patch_normalisation = patch_normalisation
+        self.context_shape = checks.check_patch_shape(context_shape, n_scales)
+        self.cosine_mask = cosine_mask
+        self.sample_offsets = sample_offsets
         self.shape_models = []
         self.expert_ensembles = []
 
@@ -171,10 +249,14 @@ class CLM(object):
                                                    prefix=prefix,
                                                    verbose=verbose)
             else:
-                expert_ensemble = self.expert_ensemble_cls[i](scaled_images,
-                                                              scaled_shapes,
-                                                              prefix=prefix,
-                                                              verbose=verbose)
+                expert_ensemble = self.expert_ensemble_cls[i](
+                        images=scaled_images, shapes=scaled_shapes,
+                        patch_shape=self.patch_shape[i],
+                        patch_normalisation=self.patch_normalisation,
+                        cosine_mask=self.cosine_mask,
+                        context_shape=self.context_shape[i],
+                        sample_offsets=self.sample_offsets,
+                        prefix=prefix, verbose=verbose)
                 self.expert_ensembles.append(expert_ensemble)
 
             if verbose:
@@ -226,7 +308,7 @@ class CLM(object):
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualizes the shape models of the AAM object using an interactive
+        Visualizes the shape models of the CLM object using an interactive
         widget.
 
         Parameters
@@ -244,7 +326,7 @@ class CLM(object):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
@@ -259,16 +341,38 @@ class CLM(object):
 
     # TODO: Implement me!
     def view_expert_ensemble_widget(self):
+        r"""
+        Visualizes the ensemble of experts of the CLM object using an interactive
+        widget.
+
+        Parameters
+        ----------
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
+        """
         raise NotImplementedError()
 
     # TODO: Implement me!
     def view_clm_widget(self):
+        r"""
+        Visualizes the CLM object using an interactive widget.
+
+        Parameters
+        ----------
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
+        """
         raise NotImplementedError()
 
-    # TODO: Implement me!
     def __str__(self):
-        r"""
-        """
         if self.diagonal is not None:
             diagonal = self.diagonal
         else:
@@ -277,30 +381,41 @@ class CLM(object):
 
         # Compute scale info strings
         scales_info = []
-        lvl_str_tmplt = r"""  - Scale {}
-   - Holistic feature: {}
-   - Shape model class: {}
-   - {} shape components
-   - Expert ensemble class: {}
-    - {} experts
-    - Patch shape: {}"""
+        lvl_str_tmplt = r"""   - Scale {}
+     - Holistic feature: {}
+     - Ensemble of experts class: {}
+       - {} experts
+       - {} class
+       - Patch shape: {} x {}
+       - Patch normalisation: {}
+       - Context shape: {} x {}
+       - Cosine mask: {}
+     - Shape model class: {}
+       - {} shape components
+       - {} similarity transform parameters"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
-                s, name_of_callable(self.holistic_features[k]),
-                name_of_callable(self.shape_models[k]),
-                self.shape_models[k].model.n_components,
-                name_of_callable(self.expert_ensembles[k]),
-                self.expert_ensembles[k].n_experts,
-                self.expert_ensembles[k].patch_shape,
-            ))
+                    s, name_of_callable(self.holistic_features[k]),
+                    name_of_callable(self.expert_ensemble_cls[k]),
+                    self.expert_ensembles[k].n_experts,
+                    name_of_callable(self.expert_ensembles[k]._icf),
+                    self.expert_ensembles[k].patch_shape[0],
+                    self.expert_ensembles[k].patch_shape[1],
+                    name_of_callable(self.expert_ensembles[k].patch_normalisation),
+                    self.expert_ensembles[k].context_shape[0],
+                    self.expert_ensembles[k].context_shape[1],
+                    self.expert_ensembles[k].cosine_mask,
+                    name_of_callable(self.shape_models[k]),
+                    self.shape_models[k].model.n_components,
+                    self.shape_models[k].n_global_parameters))
         scales_info = '\n'.join(scales_info)
 
         cls_str = r"""{class_title}
  - Images scaled to diagonal: {diagonal:.2f}
  - Scales: {scales}
 {scales_info}
-        """.format(class_title=self._str_title,
-                   diagonal=diagonal,
-                   scales=self.scales,
-                   scales_info=scales_info)
+""".format(class_title=self._str_title,
+           diagonal=diagonal,
+           scales=self.scales,
+           scales_info=scales_info)
         return cls_str

@@ -450,7 +450,7 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
         It defines a sampling mask per scale. If `int`, then it defines the
         sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
         defines the sampling mask. If ``None``, then no sub-sampling is applied.
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The patch shape.
     patch_normalisation : `closure`, optional
         A method for normalizing the values of the extracted patches.
@@ -613,7 +613,7 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
         It defines a sampling mask per scale. If `int`, then it defines the
         sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
         defines the sampling mask. If ``None``, then no sub-sampling is applied.
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The patch shape.
     patch_normalisation : `closure`, optional
         A method for normalizing the values of the extracted patches.

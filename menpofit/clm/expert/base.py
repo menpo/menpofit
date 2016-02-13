@@ -12,21 +12,21 @@ class IncrementalCorrelationFilterThinWrapper(object):
     cf_callable : `callable`, optional
         The correlation filter function. Possible options are:
 
-        =========== ===========================================
-        Class       Method
-        =========== ===========================================
-        :map:`mccf` Multi-Channel Correlation Filter
-        :map:`moss` Minimum Output Sum of Squared Errors Filter
-        =========== ===========================================
+        ============ ===========================================
+        Class        Method
+        ============ ===========================================
+        :map:`mccf`  Multi-Channel Correlation Filter
+        :map:`mosse` Minimum Output Sum of Squared Errors Filter
+        ============ ===========================================
     icf_callable : `callable`, optional
         The incremental correlation filter function. Possible options are:
 
-        ============ =======================================================
-        Class        Method
-        ============ =======================================================
-        :map:`imccf` Incremental Multi-Channel Correlation Filter
-        :map:`imoss` Incremental Minimum Output Sum of Squared Errors Filter
-        ============ =======================================================
+        ============= =======================================================
+        Class         Method
+        ============= =======================================================
+        :map:`imccf`  Incremental Multi-Channel Correlation Filter
+        :map:`imosse` Incremental Minimum Output Sum of Squared Errors Filter
+        ============= =======================================================
     """
     def __init__(self, cf_callable=mccf, icf_callable=imccf):
         self.cf_callable = cf_callable

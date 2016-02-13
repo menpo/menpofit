@@ -374,7 +374,7 @@ class ATM(object):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
@@ -408,7 +408,7 @@ class ATM(object):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
@@ -490,7 +490,7 @@ class MaskedATM(ATM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale. If `float`, then a single scale is
         assumed.
-    patch_shape : ``(int, int)``, optional
+    patch_shape : (`int`, `int`), optional
         The size of the patches of the mask that is used to sample the
         appearance vectors.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
@@ -731,7 +731,7 @@ class LinearMaskedATM(ATM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale. If `float`, then a single scale is
         assumed.
-    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
         The shape of the patches of the mask that is used to extract the
         appearance vectors. If a `list` is provided, then it defines a patch
         shape per scale.
@@ -880,7 +880,7 @@ class PatchATM(ATM):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale. If `float`, then a single scale is
         assumed.
-    patch_shape : ``(int, int)`` or `list` of ``(int, int)``, optional
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
@@ -953,7 +953,7 @@ class PatchATM(ATM):
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
             each parameter.
-        figure_size : ``(int, int)``, optional
+        figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
         try:
