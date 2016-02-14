@@ -3,15 +3,32 @@
 :mod:`menpofit.result`
 ======================
 
-Result
-------
+Basic Result
+------------
+Class for defining a basic fitting result.
 
 .. toctree::
     :maxdepth: 1
 
     Result
+
+Iterative Result
+----------------
+Classes for defining an iterative fitting result.
+
+.. toctree::
+    :maxdepth: 1
+
     NonParametricIterativeResult
     ParametricIterativeResult
+
+Multi-scale Iterative Result
+----------------------------
+Classes for defining a multi-scale iterative fitting result.
+
+.. toctree::
+    :maxdepth: 1
+
     MultiScaleNonParametricIterativeResult
     MultiScaleParametricIterativeResult
 

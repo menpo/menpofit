@@ -3,8 +3,8 @@
 :mod:`menpofit.aam`
 ===================
 
-Active Appearance Models
-------------------------
+Active Appearance Model
+-----------------------
 AAM is a generative model that consists of a statistical parametric model of
 the shape and the appearance of an object. MenpoFit has several AAMs which
 differ in the manner that they compute the warp (thus represent the

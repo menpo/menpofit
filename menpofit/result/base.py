@@ -3,6 +3,7 @@ from collections import Iterable
 
 from menpo.image import Image
 from menpo.transform import Scale
+
 from menpofit.visualize import view_image_multiple_landmarks
 
 from .error import euclidean_bb_normalised_error
@@ -10,7 +11,7 @@ from .error import euclidean_bb_normalised_error
 
 class Result(object):
     r"""
-    Class for storing a basic fitting result. It holds the final shape of a
+    Class for defining a basic fitting result. It holds the final shape of a
     fitting process and, optionally, the initial shape, ground truth shape
     and the image.
 
@@ -18,7 +19,7 @@ class Result(object):
     ----------
     final_shape : `menpo.shape.PointCloud`
         The final shape of the fitting process.
-    image : `menpo.image.Image` or subclass or ``None``, optional
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
@@ -452,7 +453,7 @@ class Result(object):
 
 class NonParametricIterativeResult(Result):
     r"""
-    Class for storing a non-parametric iterative fitting result, i.e. the
+    Class for defining a non-parametric iterative fitting result, i.e. the
     result of a method that does not optimize over a parametric shape model. It
     holds the shapes of all the iterations of the fitting procedure. It can
     optionally store the image on which the fitting was applied, as well as its
@@ -467,7 +468,7 @@ class NonParametricIterativeResult(Result):
     initial_shape : `menpo.shape.PointCloud` or ``None``, optional
         The initial shape from which the fitting process started. If ``None``,
         then no initial shape is assigned.
-    image : `menpo.image.Image` or subclass or ``None``, optional
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
@@ -1168,7 +1169,7 @@ class NonParametricIterativeResult(Result):
 
 class ParametricIterativeResult(NonParametricIterativeResult):
     r"""
-    Class for storing a parametric iterative fitting result, i.e. the result
+    Class for defining a parametric iterative fitting result, i.e. the result
     of a method that optimizes the parameters of a shape model. It holds the
     shapes and shape parameters of all the iterations of the fitting
     procedure. It can optionally store the image on which the fitting was
@@ -1185,7 +1186,7 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         then no initial shape is assigned.
     shape_parameters : `list` of `ndarray`
         The `list` of shape parameters per iteration.
-    image : `menpo.image.Image` or subclass or ``None``, optional
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
@@ -1203,7 +1204,7 @@ class ParametricIterativeResult(NonParametricIterativeResult):
 
 class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
     r"""
-    Class for storing a multi-scale non-parametric iterative fitting result,
+    Class for defining a multi-scale non-parametric iterative fitting result,
     i.e. the result of a multi-scale method that does not optimize over a
     parametric shape model. It holds the shapes of all the iterations of
     the fitting procedure, as well as the scales. It can optionally store the
@@ -1218,7 +1219,7 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
     affine_correction : `menpo.transform.Affine`
         An affine transform from transforming shapes into the original image
         space.
-    image : `menpo.image.Image` or subclass or ``None``, optional
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
@@ -1270,7 +1271,7 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
 
 class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult):
     r"""
-    Class for storing a multi-scale parametric iterative fitting result, i.e.
+    Class for defining a multi-scale parametric iterative fitting result, i.e.
     the result of a multi-scale method that optimizes over a parametric shape
     model. It holds the shapes of all the iterations of the fitting procedure,
     as well as the scales. It can optionally store the image on which the
@@ -1285,7 +1286,7 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
     affine_correction : `menpo.transform.Affine`
         An affine transform from transforming shapes into the original image
         space.
-    image : `menpo.image.Image` or subclass or ``None``, optional
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
