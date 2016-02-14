@@ -33,7 +33,7 @@ def view_image_multiple_landmarks(
         interpolation='bilinear', cmap_name=None, alpha=1.,
         image_view=True, render_lines=True, line_style='-', line_width=1,
         line_colour='r', render_markers=True, marker_style='o',
-        marker_size=20, marker_edge_width=1, marker_edge_colour='k',
+        marker_size=5, marker_edge_width=1, marker_edge_colour='k',
         marker_face_colour='r', render_numbering=False,
         numbers_horizontal_align='center', numbers_vertical_align='bottom',
         numbers_font_name='sans-serif', numbers_font_size=10,

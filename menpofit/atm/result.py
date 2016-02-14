@@ -91,7 +91,7 @@ class ATMAlgorithmResult(ParametricIterativeResult):
                      'p', '*', 'h', 'H', '1', '2', '3', '4', '8'}
 
         marker_size : `int`, optional
-            The size of the markers in points^2.
+            The size of the markers in points.
         marker_face_colour : `colour` or ``None``, optional
             The face (filling) colour of the markers. If ``None``, the colour
             is sampled from the jet colormap.
@@ -267,7 +267,7 @@ class ATMResult(MultiScaleParametricIterativeResult):
                      'p', '*', 'h', 'H', '1', '2', '3', '4', '8'}
 
         marker_size : `int`, optional
-            The size of the markers in points^2.
+            The size of the markers in points.
         marker_face_colour : `colour` or ``None``, optional
             The face (filling) colour of the markers. If ``None``, the colour
             is sampled from the jet colormap.

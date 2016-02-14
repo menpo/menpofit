@@ -96,9 +96,9 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         return tuple(pad_size)
 
     @property
-    def search_size(self):
+    def search_shape(self):
         r"""
-        Returns the search size (`patch_shape`).
+        Returns the search shape (`patch_shape`).
 
         :type: (`int`, `int`)
         """
@@ -180,7 +180,9 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
 
     def predict_response(self, image, shape):
         r"""
-        Method for predicting the response of the experts on a given image.
+        Method for predicting the response of the experts on a given image. Note
+        that the provided shape must have the same number of points as the
+        number of experts.
 
         Parameters
         ----------
@@ -189,6 +191,11 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         shape : `menpo.shape.PointCloud`
             The shape that corresponds to the image from which the patches
             will be extracted.
+
+        Returns
+        -------
+        response : ``(n_experts, 1, height, width)`` `ndarray`
+            The response of each expert.
         """
         # Extract patches
         patches = self._extract_patches(image, shape)
@@ -198,7 +205,9 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
 
     def predict_probability(self, image, shape):
         r"""
-        Method for predicting the response of the experts on a given image.
+        Method for predicting the probability map of the response experts on a
+        given image. Note that the provided shape must have the same number of
+        points as the number of experts.
 
         Parameters
         ----------
@@ -207,6 +216,11 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         shape : `menpo.shape.PointCloud`
             The shape that corresponds to the image from which the patches
             will be extracted.
+
+        Returns
+        -------
+        probability_map : ``(n_experts, 1, height, width)`` `ndarray`
+            The probability map of the response of each expert.
         """
         # Predict responses
         responses = self.predict_response(image, shape)

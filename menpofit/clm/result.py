@@ -31,7 +31,7 @@ class CLMAlgorithmResult(ParametricIterativeResult):
 
 class CLMResult(MultiScaleParametricIterativeResult):
     r"""
-    Class for storing the multi-scale iterative fitting result of an CLM. It
+    Class for storing the multi-scale iterative fitting result of a CLM. It
     holds the shapes, shape parameters, appearance parameters and costs per
     iteration.
 

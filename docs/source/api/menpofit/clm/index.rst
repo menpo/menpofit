@@ -13,16 +13,16 @@ discriminatively trained experts per part.
 
     CLM
 
-CLM Fitters
------------
+Fitter
+------
 
 .. toctree::
     :maxdepth: 1
 
     GradientDescentCLMFitter
 
-Optimisation Algorithms
------------------------
+Gradient Descent Optimisation Algorithms
+----------------------------------------
 
 .. toctree::
     :maxdepth: 1
@@ -47,3 +47,12 @@ Discriminative experts
     :maxdepth: 1
 
     IncrementalCorrelationFilterThinWrapper
+
+Fitting Result
+--------------
+
+.. toctree::
+    :maxdepth: 1
+
+    CLMResult
+    CLMAlgorithmResult

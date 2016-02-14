@@ -111,7 +111,7 @@ class Result(object):
              interpolation='bilinear', cmap_name=None, alpha=1., masked=True,
              render_markers=True, final_markers_colour='r',
              initial_markers_colour='b', gt_markers_colour='y',
-             marker_style='o', marker_size=20, marker_edge_colour='k',
+             marker_style='o', marker_size=5, marker_edge_colour='k',
              marker_edge_width=1., render_numbering=False,
              numbers_horizontal_align='center',
              numbers_vertical_align='bottom',
@@ -207,7 +207,7 @@ class Result(object):
                 {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
         marker_size : `int`, optional
-            The size of the markers in points^2.
+            The size of the markers in points.
         marker_edge_colour : See Below, optional
             The edge colour of the markers.
             Example options ::
@@ -565,7 +565,7 @@ class NonParametricIterativeResult(Result):
                      'p', '*', 'h', 'H', '1', '2', '3', '4', '8'}
 
         marker_size : `int`, optional
-            The size of the markers in points^2.
+            The size of the markers in points.
         marker_face_colour : `colour` or ``None``, optional
             The face (filling) colour of the markers. If ``None``, the colour
             is sampled from the jet colormap.
@@ -746,7 +746,7 @@ class NonParametricIterativeResult(Result):
                      'p', '*', 'h', 'H', '1', '2', '3', '4', '8'}
 
         marker_size : `int`, optional
-            The size of the markers in points^2.
+            The size of the markers in points.
         marker_face_colour : `colour` or ``None``, optional
             The face (filling) colour of the markers. If ``None``, the colour
             is sampled from the jet colormap.
@@ -871,7 +871,7 @@ class NonParametricIterativeResult(Result):
                         cmap_name=None, alpha=1., masked=True,
                         render_markers=True, marker_edge_colour=None,
                         marker_face_colour=None, marker_style='o',
-                        marker_size=20, marker_edge_width=1.,
+                        marker_size=5, marker_edge_width=1.,
                         render_numbering=False,
                         numbers_horizontal_align='center',
                         numbers_vertical_align='bottom',
@@ -939,7 +939,7 @@ class NonParametricIterativeResult(Result):
                 {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
         marker_size : `int`, optional
-            The size of the markers in points^2.
+            The size of the markers in points.
         marker_edge_colour : See Below, optional
             The edge colour of the markers.
             Example options ::
