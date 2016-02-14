@@ -1,8 +1,10 @@
 import numpy as np
+
 from menpo.base import Targetable, Vectorizable
 from menpo.shape import PointCloud
-from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM, ModelInstance
 from menpo.transform.base import Transform, VComposable, VInvertible
+
+from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM
 from menpofit.differentiable import DP
 
 
@@ -11,30 +13,25 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
                            VComposable, VInvertible, DP):
     r"""
     A transform that couples a traditional landmark-based transform to a
-    statistical model such that source points of the alignment transform
-    are the points of the model. The weights of the transform are just
-    the weights of statistical model.
+    statistical linear model such that source points of the alignment transform
+    are the points of the model. The weights of the transform are just the
+    weights of statistical model.
 
     If no source is provided, the mean of the model is defined as the
     source landmarks of the transform.
 
     Parameters
     ----------
-    model : :class:`menpo.model.base.StatisticalModel`
+    model : `menpo.model.LinearModel`
         A linear statistical shape model.
-    transform_cls : :class:`menpo.transform.AlignableTransform`
-        A class of :class:`menpo.transform.base.AlignableTransform`
-        The align constructor will be called on this with the source
-        and target landmarks. The target is
-        set to the points generated from the model using the
-        provide weights - the source is either given or set to the
-        model's mean.
-    source : :class:`menpo.shape.base.PointCloud`
-        The source landmarks of the transform. If None, the mean of the model
+    transform_cls : `subclass` of `menpo.transform.Alignment`
+        A class of `menpo.transform.Alignment`. The align constructor will be
+        called on this with the source and target landmarks. The target is set
+        to the points generated from the model using the provide weights - the
+        source is either given or set to the model's mean.
+    source : `menpo.shape.PointCloud` or ``None``, optional
+        The source landmarks of the transform. If ``None``, the mean of the model
          is used.
-
-        Default: None
-
     """
     def __init__(self, model, transform_cls, source=None):
         self.pdm = model
@@ -50,7 +47,7 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         r"""
         The number of dimensions that the transform supports.
 
-        :type: int
+        :type: `int`
         """
         return self.pdm.n_dims
 
@@ -60,32 +57,28 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
         Parameters
         ----------
-        x : (N, D) ndarray or a transformable object
+        x : ``(N, D)`` `ndarray` or a transformable object
             The object to be transformed.
-        kwargs : dict
+        kwargs : `dict`
             Passed through to transforms `apply_inplace` method.
 
         Returns
         --------
-        transformed : (N, D) ndarray or object
+        transformed : ``(N, D)`` `ndarray` or object
             The transformed object
         """
         return self.transform._apply(x, **kwargs)
 
     @property
     def target(self):
+        r"""
+        The current `menpo.shape.PointCloud` that this object produces.
+
+        :type: `menpo.shape.PointCloud`
+        """
         return self.pdm.target
 
     def _target_setter(self, new_target):
-        r"""
-        On a new target being set, we need to:
-
-        Parameters
-        ----------
-
-        new_target: :class:`PointCloud`
-            The new_target that we want to set.
-        """
         self.pdm.set_target(new_target)
 
     def _new_target_from_state(self):
@@ -108,9 +101,7 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         r"""
         The total number of parameters.
 
-        Simply ``n_weights``.
-
-        :type: int
+        :type: `int`
         """
         return self.pdm.n_parameters
 
@@ -121,16 +112,12 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
         Returns
         -------
-        params : (`n_parameters`,) ndarray
+        params : ``(n_parameters,)`` `ndarray`
             The vector of weights
         """
         return self.pdm.as_vector()
 
     def _from_vector_inplace(self, vector):
-        r"""
-        Updates the ModelDrivenTransform's state from it's
-        vectorized form.
-        """
         self.pdm._from_vector_inplace(vector)
         # By here the pdm has updated our target state, we just need to
         # update the transform
@@ -138,22 +125,25 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
     def compose_after_from_vector_inplace(self, delta):
         r"""
-        Composes two ModelDrivenTransforms together based on the
-        first order approximation proposed by Papandreou and Maragos in [1].
+        Composes two transforms together based on the first order approximation
+        proposed in [1].
+
         Parameters
         ----------
-        delta : (N,) ndarray
-            Vectorized :class:`ModelDrivenTransform` to be applied **before**
-            self
+        delta : ``(N,)`` `ndarray`
+            Vectorized `ModelDrivenTransform` to be applied **before** self.
+
         Returns
         --------
-        transform : self
+        transform : `self`
             self, updated to the result of the composition
+
         References
         ----------
         .. [1] G. Papandreou and P. Maragos, "Adaptive and Constrained
-               Algorithms for Inverse Compositional Active Appearance Model
-               Fitting", CVPR08
+            Algorithms for Inverse Compositional Active Appearance Model
+            Fitting", Proceedings of IEEE Conference on Computer Vision and
+            Pattern Recognition (CVPR), 2008.
         """
         # the incremental warp is always evaluated at p=0, ie the mean shape
         points = self.pdm.model.mean().points
@@ -186,6 +176,11 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
     @property
     def has_true_inverse(self):
+        r"""
+        Whether the transform has true inverse.
+
+        :type: `bool`
+        """
         return False
 
     def _build_pseudoinverse(self):
@@ -193,26 +188,27 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
     def pseudoinverse_vector(self, vector):
         r"""
-        The vectorized pseudoinverse of a provided vector instance.
-        Syntactic sugar for
-        self.from_vector(vector).pseudoinverse.as_vector()
-        On ModelDrivenTransform this is especially fast - we just negate the
+        The vectorized pseudoinverse of a provided vector instance. Syntactic
+        sugar for `self.from_vector(vector).pseudoinverse.as_vector()`.
+        On `ModelDrivenTransform` this is especially fast - we just negate the
         vector provided.
+
         Parameters
         ----------
-        vector :  (P,) ndarray
+        vector : ``(P,)`` `ndarray`
             A vectorized version of self
+
         Returns
         -------
-        pseudoinverse_vector : (N,) ndarray
+        pseudoinverse_vector : ``(N,)`` `ndarray`
             The pseudoinverse of the vector provided
         """
         return -vector
 
     def d_dp(self, points):
         r"""
-        The derivative of this MDT wrt parametrization changes evaluated at
-        points.
+        The derivative of this `ModelDrivenTransform` with respect to the
+        parametrisation changes evaluated at points.
 
         This is done by chaining the derivative of points wrt the
         source landmarks on the transform (dW/dL) together with the Jacobian
@@ -220,16 +216,13 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
         Parameters
         ----------
-
-        points: ndarray shape (n_points, n_dims)
+        points : ``(n_points, n_dims)`` `ndarray`
             The spatial points at which the derivative should be evaluated.
 
         Returns
         -------
-
-        ndarray shape (n_points, n_params, n_dims)
-            The jacobian wrt parameterization
-
+        d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+            The Jacobian with respect to the parametrisation.
         """
         # check if re-computation of dW/dl can be avoided
         if not np.array_equal(self._cached_points, points):
@@ -260,14 +253,19 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
     def Jp(self):
         r"""
-        Compute parameters' Jacobian.
+        Compute the parameters' Jacobian, as shown in [1].
+
+        Returns
+        -------
+        Jp : ``(n_params, n_params)`` `ndarray`
+            The parameters' Jacobian.
 
         References
         ----------
-
         .. [1] G. Papandreou and P. Maragos, "Adaptive and Constrained
-               Algorithms for Inverse Compositional Active Appearance Model
-               Fitting", CVPR08
+            Algorithms for Inverse Compositional Active Appearance Model
+            Fitting", Proceedings of IEEE Conference on Computer Vision and
+            Pattern Recognition (CVPR), 2008.
         """
         # the incremental warp is always evaluated at p=0, ie the mean shape
         points = self.pdm.model.mean().points
@@ -303,38 +301,26 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 # noinspection PyMissingConstructor
 class GlobalMDTransform(ModelDrivenTransform):
     r"""
-    A transform that couples an alignment transform to a
-    statistical model together with a global similarity transform,
-    such that the weights of the transform are fully specified by
-    both the weights of statistical model and the weights of the
-    similarity transform. The model is assumed to
-    generate an instance which is then transformed by the similarity
-    transform; the result defines the target landmarks of the transform.
-    If no source is provided, the mean of the model is defined as the
-    source landmarks of the transform.
+    A transform that couples an alignment transform to a statistical model
+    together with a global similarity transform, such that the weights of the
+    transform are fully specified by both the weights of statistical model and
+    the weights of the similarity transform. The model is assumed to generate an
+    instance which is then transformed by the similarity transform; the result
+    defines the target landmarks of the transform. If no source is provided,
+    the mean of the model is defined as the source landmarks of the transform.
 
     Parameters
     ----------
-    model : :class:`menpo.model.base.StatisticalModel`
+    model : `menpo.model.LinearModel`
         A linear statistical shape model.
-    transform_cls : :class:`menpo.transform.AlignableTransform`
-        A class of :class:`menpo.transform.base.AlignableTransform`
-        The align constructor will be called on this with the source
-        and target landmarks. The target is
-        set to the points generated from the model using the
-        provide weights - the source is either given or set to the
-        model's mean.
-    source : :class:`menpo.shape.base.PointCloud`, optional
-        The source landmarks of the transform. If no `source` is provided the
-        mean of the model is used.
-    weights : (P,) ndarray, optional
-        The reconstruction weights that will be fed to the model in order to
-        generate an instance of the target landmarks.
-    composition: 'both', 'warp' or 'model', optional
-        The composition approximation employed by this
-        ModelDrivenTransform.
-
-        Default: `both`
+    transform_cls : `subclass` of `menpo.transform.Alignment`
+        A class of `menpo.transform.Alignment`. The align constructor will be
+        called on this with the source and target landmarks. The target is set
+        to the points generated from the model using the provide weights - the
+        source is either given or set to the model's mean.
+    source : `menpo.shape.PointCloud` or ``None``, optional
+        The source landmarks of the transform. If ``None``, the mean of the model
+         is used.
     """
     def __init__(self, model, transform_cls, source=None):
         super(GlobalMDTransform, self).__init__(model, transform_cls,
@@ -346,22 +332,25 @@ class GlobalMDTransform(ModelDrivenTransform):
 
     def compose_after_from_vector_inplace(self, delta):
         r"""
-        Composes two ModelDrivenTransforms together based on the
-        first order approximation proposed by Papandreou and Maragos in [1].
+        Composes two transforms together based on the first order approximation
+        proposed in [1].
+
         Parameters
         ----------
-        delta : (N,) ndarray
-            Vectorized :class:`ModelDrivenTransform` to be applied **before**
-            self
+        delta : ``(N,)`` `ndarray`
+            Vectorized `ModelDrivenTransform` to be applied **before** self.
+
         Returns
         --------
-        transform : self
+        transform : `self`
             self, updated to the result of the composition
+
         References
         ----------
         .. [1] G. Papandreou and P. Maragos, "Adaptive and Constrained
-               Algorithms for Inverse Compositional Active Appearance Model
-               Fitting", CVPR08
+            Algorithms for Inverse Compositional Active Appearance Model
+            Fitting", Proceedings of IEEE Conference on Computer Vision and
+            Pattern Recognition (CVPR), 2008.
         """
         # the incremental warp is always evaluated at p=0, ie the mean shape
         points = self.pdm.model.mean().points
@@ -417,14 +406,19 @@ class GlobalMDTransform(ModelDrivenTransform):
 
     def Jp(self):
         r"""
-        Compute parameters Jacobian.
+        Compute the parameters' Jacobian, as shown in [1].
+
+        Returns
+        -------
+        Jp : ``(n_params, n_params)`` `ndarray`
+            The parameters' Jacobian.
 
         References
         ----------
-
         .. [1] G. Papandreou and P. Maragos, "Adaptive and Constrained
-               Algorithms for Inverse Compositional Active Appearance Model
-               Fitting", CVPR08
+            Algorithms for Inverse Compositional Active Appearance Model
+            Fitting", Proceedings of IEEE Conference on Computer Vision and
+            Pattern Recognition (CVPR), 2008.
         """
         # the incremental warp is always evaluated at p=0, ie the mean shape
         points = self.pdm.model.mean().points
@@ -481,37 +475,32 @@ class GlobalMDTransform(ModelDrivenTransform):
 
 class OrthoMDTransform(GlobalMDTransform):
     r"""
-    A transform that couples an alignment transform to a
-    statistical model together with a global similarity transform,
-    such that the weights of the transform are fully specified by
-    both the weights of statistical model and the weights of the
-    similarity transform. The model is assumed to
-    generate an instance which is then transformed by the similarity
-    transform; the result defines the target landmarks of the transform.
-    If no source is provided, the mean of the model is defined as the
-    source landmarks of the transform.
+    A transform that couples an alignment transform to a statistical model
+    together with a global similarity transform, such that the weights of the
+    transform are fully specified by both the weights of statistical model and
+    the weights of the similarity transform. The model is assumed to generate an
+    instance which is then transformed by the similarity transform; the result
+    defines the target landmarks of the transform. If no source is provided, the
+    mean of the model is defined as the source landmarks of the transform.
 
-    This transform (in contrast to the :class:`GlobalMDTransform`)
-    additionally orthonormalizes both the global and the model basis against
+    This transform (in contrast to the :map:`GlobalMDTransform`)
+    additionally orthonormalises both the global and the model basis against
     each other, ensuring that orthogonality and normalization is enforced
     across the unified bases.
 
     Parameters
     ----------
-    model : :class:`menpo.model.base.StatisticalModel`
+    model : `menpo.model.LinearModel`
         A linear statistical shape model.
-    transform_cls : :class:`menpo.transform.AlignableTransform`
-        A class of :class:`menpo.transform.base.AlignableTransform`
-        The align constructor will be called on this with the source
-        and target landmarks. The target is
-        set to the points generated from the model using the
-        provide weights - the source is either given or set to the
-        model's mean.
-    source : :class:`menpo.shape.base.PointCloud`, optional
-        The source landmarks of the transform. If no `source` is provided the
-        mean of the model is used.
+    transform_cls : `subclass` of `menpo.transform.Alignment`
+        A class of `menpo.transform.Alignment`. The align constructor will be
+        called on this with the source and target landmarks. The target is set
+        to the points generated from the model using the provide weights - the
+        source is either given or set to the model's mean.
+    source : `menpo.shape.PointCloud` or ``None``, optional
+        The source landmarks of the transform. If ``None``, the mean of the model
+         is used.
     """
-
     def __init__(self, model, transform_cls, source=None):
         super(OrthoMDTransform, self).__init__(model, transform_cls,
                                                source=source)
@@ -524,10 +513,31 @@ class OrthoMDTransform(GlobalMDTransform):
         raise NotImplementedError()
 
 
-# TODO: document me!
 # This is pretty hacking - but we basically stole the OrthoPDM's model
 class LinearOrthoMDTransform(OrthoPDM, Transform):
     r"""
+    A transform that couples an alignment transform to a statistical model
+    together with a global similarity transform, such that the weights of the
+    transform are fully specified by both the weights of statistical model and
+    the weights of the similarity transform. The model is assumed to generate an
+    instance which is then transformed by the similarity transform; the result
+    defines the target landmarks of the transform. If no source is provided, the
+    mean of the model is defined as the source landmarks of the transform.
+
+    This transform (in contrast to the :map:`GlobalMDTransform`)
+    additionally orthonormalises both the global and the model basis against
+    each other, ensuring that orthogonality and normalization is enforced
+    across the unified bases.
+
+    This transform (in contrast to the :map:`OrthoMDTransform`) should be used
+    with linear statistical models of dense shapes.
+
+    Parameters
+    ----------
+    model : `menpo.model.LinearModel`
+        A linear statistical shape model.
+    sparse_instance : `menpo.shape.PointCloud`
+        The source landmarks of the transform.
     """
     def __init__(self, model, sparse_instance):
         super(LinearOrthoMDTransform, self).__init__(model)
@@ -539,18 +549,41 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
 
     @property
     def n_landmarks(self):
+        r"""
+        The number of sparse landmarks.
+
+        :type: `int`
+        """
         return self._sparse_instance.n_points
 
     @property
     def dense_target(self):
+        r"""
+        The current dense `menpo.shape.PointCloud` that this object produces.
+
+        :type: `menpo.shape.PointCloud`
+        """
         return PointCloud(self.target.points[self.n_landmarks:])
 
     @property
     def sparse_target(self):
+        r"""
+        The current sparse `menpo.shape.PointCloud` that this object produces.
+
+        :type: `menpo.shape.PointCloud`
+        """
         sparse_target = PointCloud(self.target.points[:self.n_landmarks])
         return self._sparse_instance.from_vector(sparse_target.as_vector())
 
     def set_target(self, target):
+        r"""
+        Update this object so that it attempts to recreate the ``new_target``.
+
+        Parameters
+        ----------
+        new_target : `menpo.shape.PointCloud`
+            The new target that this object should try and regenerate.
+        """
         if target.n_points == self.n_landmarks:
             # densify target
             target = np.dot(np.dot(target.as_vector(), self.pinv_V), self.W)
@@ -561,4 +594,18 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
         return self.target.points[self.n_landmarks:]
 
     def d_dp(self, _):
+        r"""
+        The derivative with respect to the parametrisation changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+            The Jacobian with respect to the parametrisation.
+        """
         return OrthoPDM.d_dp(self, _)[self.n_landmarks:, ...]

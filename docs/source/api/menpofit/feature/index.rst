@@ -5,7 +5,7 @@
 
 Features
 --------
-These models all differ in the manner that they compute the warp.
+Common feature-related functions required by deformable models.
 
 .. toctree::
     :maxdepth: 1

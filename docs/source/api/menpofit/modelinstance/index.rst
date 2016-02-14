@@ -3,15 +3,29 @@
 :mod:`menpofit.modelinstance`
 =============================
 
-Model Instance
---------------
+Abstract Classes
+----------------
+
+.. toctree::
+    :maxdepth: 1
+
+    ModelInstance
+
+Similarity Model
+----------------
 
 .. toctree::
     :maxdepth: 1
 
     similarity_2d_instance_model
-    ModelInstance
     GlobalSimilarityModel
+
+Point Distribution Model
+------------------------
+
+.. toctree::
+    :maxdepth: 1
+
     PDM
     GlobalPDM
     OrthoPDM

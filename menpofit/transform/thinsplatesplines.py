@@ -1,11 +1,29 @@
 import numpy as np
+
 from menpo.transform import ThinPlateSplines
+
 from menpofit.differentiable import DL, DX
+
 from .rbf import DifferentiableR2LogR2RBF
 
 
 class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
+    r"""
+    The Thin Plate Splines (TPS) alignment between 2D `source` and `target`
+    landmarks. The transform can compute its own derivative with respect to
+    spatial changes, as well as anchor landmark changes.
 
+    Parameters
+    ----------
+    source : ``(N, 2)`` `ndarray`
+        The source points to apply the tps from
+    target : ``(N, 2)`` `ndarray`
+        The target points to apply the tps to
+    kernel : `class` or ``None``, optional
+        The differentiable kernel to apply. Possible options are
+        :map:`DifferentiableR2LogRRBF` and :map:`DifferentiableR2LogR2RBF`. If
+        ``None``, then :map:`DifferentiableR2LogR2RBF` is used.
+    """
     def __init__(self, source, target, kernel=None):
         if kernel is None:
             kernel = DifferentiableR2LogR2RBF(source.points)
@@ -31,8 +49,8 @@ class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
 
         Parameters
         ----------
-        points : (n_points, n_dims)
-            Points at which the Jacobian will be evaluated.
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
 
         Returns
         -------
@@ -127,18 +145,21 @@ class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
 
         Parameters
         ----------
-        points: ndarray shape (n_points, n_dims)
+        points : ``(n_points, n_dims)`` `ndarray`
             The spatial points at which the derivative should be evaluated.
 
         Returns
         -------
-        d_dx: ndarray shape (n_points, n_dims, n_dims)
-            The jacobian wrt spatial changes.
+        d_dx : ``(n_points, n_dims, n_dims)`` `ndarray`
+            The Jacobian wrt spatial changes.
 
-            d_dx[i, j, k] is the scalar differential change that the
-            j'th dimension of the i'th point experiences due to a first order
-            change in the k'th dimension.
+            ``d_dx[i, j, k]`` is the scalar differential change that the
+            ``j``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``k``'th dimension.
 
+            It may be the case that the Jacobian is constant across space -
+            in this case axis zero may have length ``1`` to allow for
+            broadcasting.
         """
         dk_dx = np.zeros((points.shape[0] + 3,   # i
                           self.source.n_points,  # k

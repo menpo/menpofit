@@ -89,6 +89,11 @@ class IRLRegression(object):
         ----------
         x : ``(n_features,)`` `ndarray`
             The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
         """
         if self.bias:
             if len(x.shape) == 1:
@@ -174,6 +179,11 @@ class IIRLRegression(IRLRegression):
         ----------
         x : ``(n_features,)`` `ndarray`
             The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
         """
         return np.dot(x, self.W)
 
@@ -250,6 +260,11 @@ class PCRRegression(object):
         ----------
         x : ``(n_features,)`` `ndarray`
             The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
         """
         if self.bias:
             if len(x.shape) == 1:
@@ -338,6 +353,11 @@ class OptimalLinearRegression(object):
         ----------
         x : ``(n_features,)`` `ndarray`
             The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
         """
         if self.bias:
             if len(x.shape) == 1:
@@ -416,6 +436,11 @@ class OPPRegression(object):
         ----------
         x : ``(n_features,)`` `ndarray`
             The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
         """
         if self.bias:
             if len(x.shape) == 1:

@@ -3,11 +3,10 @@
 :mod:`menpofit.visualize`
 =========================
 
-Visualize
----------
+Print Utilities
+---------------
 
 .. toctree::
     :maxdepth: 1
 
     print_progress
-    view_image_multiple_landmarks

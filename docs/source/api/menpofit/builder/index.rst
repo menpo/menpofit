@@ -3,22 +3,30 @@
 :mod:`menpofit.builder`
 =======================
 
-Builder
--------
+Building Functions
+------------------
+Collection of functions that are commonly-used by most deformable model builders.
 
 .. toctree::
     :maxdepth: 1
 
-    MenpoFitModelBuilderWarning
-    compute_reference_shape
-    rescale_images_to_reference_shape
-    normalization_wrt_reference_shape
+    align_shapes
+    build_patch_reference_frame
+    build_reference_frame
     compute_features
+    compute_reference_shape
+    densify_shapes
+    extract_patches
+    normalization_wrt_reference_shape
+    rescale_images_to_reference_shape
     scale_images
     warp_images
-    extract_patches
-    build_reference_frame
-    build_patch_reference_frame
-    densify_shapes
-    align_shapes
+
+Warnings
+--------
+
+.. toctree::
+    :maxdepth: 1
+
     MenpoFitBuilderWarning
+    MenpoFitModelBuilderWarning

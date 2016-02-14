@@ -5,7 +5,6 @@
 
 Regression
 ----------
-These models all differ in the manner that they compute the warp.
 
 .. toctree::
     :maxdepth: 1
