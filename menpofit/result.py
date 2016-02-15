@@ -5,8 +5,7 @@ from menpo.image import Image
 from menpo.transform import Scale
 
 from menpofit.visualize import view_image_multiple_landmarks
-
-from .error import euclidean_bb_normalised_error
+from menpofit.error import euclidean_bb_normalised_error
 
 
 class Result(object):

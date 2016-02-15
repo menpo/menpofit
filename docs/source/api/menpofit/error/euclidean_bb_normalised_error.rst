@@ -1,6 +1,6 @@
-.. _menpofit-result-euclidean_bb_normalised_error:
+.. _menpofit-error-euclidean_bb_normalised_error:
 
-.. currentmodule:: menpofit.result
+.. currentmodule:: menpofit.error
 
 euclidean_bb_normalised_error
 =============================

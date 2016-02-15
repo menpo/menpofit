@@ -31,11 +31,3 @@ Classes for defining a multi-scale iterative fitting result.
 
     MultiScaleNonParametricIterativeResult
     MultiScaleParametricIterativeResult
-
-Errors
-------
-
-.. toctree::
-    :maxdepth: 1
-
-    euclidean_bb_normalised_error

@@ -4,7 +4,7 @@ from functools import partial
 from menpo.feature import no_op
 from menpo.model import PCAVectorModel
 
-from menpofit.result.error import euclidean_bb_normalised_error
+from menpofit.error import euclidean_bb_normalised_error
 from menpofit.result import MultiScaleNonParametricIterativeResult
 from menpofit.math import IIRLRegression, IRLRegression
 from menpofit.visualize import print_progress

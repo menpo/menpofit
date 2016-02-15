@@ -3,7 +3,7 @@ from functools import partial
 from menpo.feature import no_op
 
 from menpofit.result import MultiScaleNonParametricIterativeResult
-from menpofit.result.error import euclidean_bb_normalised_error
+from menpofit.error import euclidean_bb_normalised_error
 from menpofit.math import (IIRLRegression, IRLRegression, PCRRegression,
                            OptimalLinearRegression, OPPRegression)
 
