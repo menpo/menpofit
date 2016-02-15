@@ -1,4 +1,5 @@
 from menpofit.fitter import ModelFitter
+from menpofit import checks
 
 from .algorithm import RegularisedLandmarkMeanShift
 from .result import CLMResult
@@ -45,7 +46,7 @@ class GradientDescentCLMFitter(CLMFitter):
     def __init__(self, clm, gd_algorithm_cls=RegularisedLandmarkMeanShift,
                  n_shape=None):
         self._model = clm
-        self._check_n_shape(n_shape)
+        checks.set_models_components(clm.shape_models, n_shape)
         self._set_up(gd_algorithm_cls)
 
     def _set_up(self, gd_algorithm_cls ):

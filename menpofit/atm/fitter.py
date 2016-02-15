@@ -39,8 +39,10 @@ class LucasKanadeATMFitter(ModelFitter):
     def __init__(self, atm, lk_algorithm_cls=InverseCompositional,
                  n_shape=None, sampling=None):
         self._model = atm
+        # Check parameters
         checks.set_models_components(atm.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, atm.n_scales)
+        # Set up algorithm
         self._set_up(lk_algorithm_cls)
 
     @property

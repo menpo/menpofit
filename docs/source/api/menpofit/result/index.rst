@@ -22,7 +22,7 @@ Classes for defining an iterative fitting result.
     NonParametricIterativeResult
     ParametricIterativeResult
 
-Multi-scale Iterative Result
+Multi-Scale Iterative Result
 ----------------------------
 Classes for defining a multi-scale iterative fitting result.
 

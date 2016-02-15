@@ -3,6 +3,7 @@ import collections
 from functools import partial
 import numpy as np
 
+from menpo.base import name_of_callable
 from menpo.shape import TriMesh
 from menpo.transform import PiecewiseAffine
 
@@ -394,6 +395,28 @@ def set_models_components(models, n_components):
             raise ValueError('n_components can be an integer or a float '
                              'or None or a list containing 1 or {} of '
                              'those'.format(n_scales))
+
+
+def check_model(model, cls):
+    r"""
+    Function that checks whether the provided `class` object is a subclass of
+    the provided base `class`.
+
+    Parameters
+    ----------
+    model : `class`
+        The object.
+    cls : `class`
+        The required base class.
+
+    Raises
+    ------
+    ValueError
+        Model must be a {cls} instance.
+    """
+    if not isinstance(model, cls):
+        raise ValueError('Model must be a {} instance.'.format(
+                name_of_callable(cls)))
 
 
 def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):

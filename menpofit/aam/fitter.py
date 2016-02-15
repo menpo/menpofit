@@ -29,9 +29,6 @@ class AAMFitter(ModelFitter):
         """
         return self._model
 
-    def _check_n_appearance(self, n_appearance):
-        checks.set_models_components(self.aam.appearance_models, n_appearance)
-
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
         return AAMResult(results=algorithm_results, scales=self.aam.scales,
@@ -85,9 +82,11 @@ class LucasKanadeAAMFitter(AAMFitter):
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
                  n_shape=None, n_appearance=None, sampling=None):
         self._model = aam
-        self._check_n_shape(n_shape)
-        self._check_n_appearance(n_appearance)
+        # Check parameters
+        checks.set_models_components(aam.shape_models, n_shape)
+        checks.set_models_components(aam.appearance_models, n_appearance)
         self._sampling = checks.check_sampling(sampling, aam.n_scales)
+        # Set up algorithm
         self._set_up(lk_algorithm_cls)
 
     def _set_up(self, lk_algorithm_cls):
@@ -241,8 +240,9 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                  perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         self.aam = aam
-        checks.set_models_components(aam.appearance_models, n_appearance)
+        # Check parameters
         checks.set_models_components(aam.shape_models, n_shape)
+        checks.set_models_components(aam.appearance_models, n_appearance)
         self._sampling = checks.check_sampling(sampling, aam.n_scales)
 
         # patch_feature and patch_shape are not actually

@@ -433,9 +433,6 @@ class ModelFitter(MultiFitter):
         """
         return self._model.scales
 
-    def _check_n_shape(self, n_shape):
-        checks.set_models_components(self._model.shape_models, n_shape)
-
     def perturb_from_bb(self, gt_shape, bb,
                         perturb_func=noisy_shape_from_bounding_box):
         """

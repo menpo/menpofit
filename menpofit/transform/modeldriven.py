@@ -4,6 +4,7 @@ from menpo.base import Targetable, Vectorizable
 from menpo.shape import PointCloud
 from menpo.transform.base import Transform, VComposable, VInvertible
 
+from menpofit.checks import check_model
 from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM
 from menpofit.differentiable import DP
 
@@ -22,25 +23,24 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
     Parameters
     ----------
-    model : `menpo.model.LinearModel`
-        A linear statistical shape model.
+    model : :map:`PDM` or `subclass`
+        A linear statistical shape model (Point Distribution Model).
     transform_cls : `subclass` of `menpo.transform.Alignment`
         A class of `menpo.transform.Alignment`. The align constructor will be
         called on this with the source and target landmarks. The target is set
         to the points generated from the model using the provide weights - the
         source is either given or set to the model's mean.
     source : `menpo.shape.PointCloud` or ``None``, optional
-        The source landmarks of the transform. If ``None``, the mean of the model
-         is used.
+        The source landmarks of the transform. If ``None``, the mean of the
+        model is used.
     """
     def __init__(self, model, transform_cls, source=None):
+        # Check the provided model
+        check_model(model, PDM)
+        # Assign attributes
         self.pdm = model
         self._cached_points, self.dW_dl = None, None
         self.transform = transform_cls(source, self.target)
-
-    def _check_model(self, model):
-        if not isinstance(model, PDM):
-            raise ValueError('Model must be a PDM instance.')
 
     @property
     def n_dims(self):
@@ -311,24 +311,24 @@ class GlobalMDTransform(ModelDrivenTransform):
 
     Parameters
     ----------
-    model : `menpo.model.LinearModel`
-        A linear statistical shape model.
+    model : :map:`GlobalPDM` or `subclass`
+        A linear statistical shape model (Point Distribution Model) that also
+        has a global similarity transform.
     transform_cls : `subclass` of `menpo.transform.Alignment`
         A class of `menpo.transform.Alignment`. The align constructor will be
         called on this with the source and target landmarks. The target is set
         to the points generated from the model using the provide weights - the
         source is either given or set to the model's mean.
     source : `menpo.shape.PointCloud` or ``None``, optional
-        The source landmarks of the transform. If ``None``, the mean of the model
-         is used.
+        The source landmarks of the transform. If ``None``, the mean of the
+        model is used.
     """
     def __init__(self, model, transform_cls, source=None):
+        # Check the provided model
+        check_model(model, GlobalPDM)
+        # Assign attributes
         super(GlobalMDTransform, self).__init__(model, transform_cls,
                                                 source=source)
-
-    def _check_model(self, model):
-        if not isinstance(model, GlobalPDM):
-            raise ValueError('Model must be a GlobalPDM instance.')
 
     def compose_after_from_vector_inplace(self, delta):
         r"""
@@ -490,24 +490,25 @@ class OrthoMDTransform(GlobalMDTransform):
 
     Parameters
     ----------
-    model : `menpo.model.LinearModel`
-        A linear statistical shape model.
+    model : :map:`OrthoPDM` or `subclass`
+        A linear statistical shape model (Point Distribution Model) that also
+        has a global similarity transform that is orthonormalised with the
+        shape bases.
     transform_cls : `subclass` of `menpo.transform.Alignment`
         A class of `menpo.transform.Alignment`. The align constructor will be
         called on this with the source and target landmarks. The target is set
         to the points generated from the model using the provide weights - the
         source is either given or set to the model's mean.
     source : `menpo.shape.PointCloud` or ``None``, optional
-        The source landmarks of the transform. If ``None``, the mean of the model
-         is used.
+        The source landmarks of the transform. If ``None``, the mean of the
+        model is used.
     """
     def __init__(self, model, transform_cls, source=None):
+        # Check the provided model
+        check_model(model, OrthoPDM)
+        # Assign attributes
         super(OrthoMDTransform, self).__init__(model, transform_cls,
                                                source=source)
-
-    def _check_model(self, model):
-        if not isinstance(model, OrthoPDM):
-            raise ValueError('Model must be an OrthoPDM instance.')
 
     def pseudoinverse(self):
         raise NotImplementedError()
