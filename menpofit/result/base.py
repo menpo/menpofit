@@ -32,13 +32,52 @@ class Result(object):
     """
     def __init__(self, final_shape, image=None, initial_shape=None,
                  gt_shape=None):
-        self.final_shape = final_shape
-        self.initial_shape = initial_shape
-        self.gt_shape = gt_shape
+        self._final_shape = final_shape
+        self._initial_shape = initial_shape
+        self._gt_shape = gt_shape
         # If image is provided, create a copy
-        self.image = None
+        self._image = None
         if image is not None:
-            self.image = Image(image.pixels)
+            self._image = Image(image.pixels)
+
+    @property
+    def final_shape(self):
+        r"""
+        Returns the final shape of the fitting process.
+
+        :type: `menpo.shape.PointCloud`
+        """
+        return self._final_shape
+
+    @property
+    def initial_shape(self):
+        r"""
+        Returns the initial shape of the fitting process, if it exists.
+        Otherwise, it returns ``None``.
+
+        :type: `menpo.shape.PointCloud` or ``None``
+        """
+        return self._initial_shape
+
+    @property
+    def gt_shape(self):
+        r"""
+        Returns the ground truth shape associated with the image. Otherwise, it
+        returns ``None``.
+
+        :type: `menpo.shape.PointCloud` or ``None``
+        """
+        return self._gt_shape
+
+    @property
+    def image(self):
+        r"""
+        Returns the image that the fitting was applied on, if it was provided.
+        Otherwise, it returns ``None``.
+
+        :type: `menpo.shape.Image` or `subclass` or ``None``
+        """
+        return self._image
 
     def final_error(self, compute_error=None):
         r"""
@@ -112,7 +151,7 @@ class Result(object):
              interpolation='bilinear', cmap_name=None, alpha=1., masked=True,
              render_markers=True, final_markers_colour='r',
              initial_markers_colour='b', gt_markers_colour='y',
-             marker_style='o', marker_size=5, marker_edge_colour='k',
+             marker_style='o', marker_size=4, marker_edge_colour='k',
              marker_edge_width=1., render_numbering=False,
              numbers_horizontal_align='center',
              numbers_vertical_align='bottom',
@@ -480,11 +519,31 @@ class NonParametricIterativeResult(Result):
         super(NonParametricIterativeResult, self).__init__(
                 final_shape=shapes[-1], image=image,
                 initial_shape=initial_shape, gt_shape=gt_shape)
-        self.n_iters = len(shapes)
+        self._n_iters = len(shapes)
         # If initial shape is provided, then add it in the beginning of shapes
-        self.shapes = shapes
+        self._shapes = shapes
         if self.initial_shape is not None:
-            self.shapes = [self.initial_shape] + self.shapes
+            self._shapes = [self.initial_shape] + self._shapes
+
+    @property
+    def shapes(self):
+        r"""
+        Returns the `list` of shapes obtained at each iteration of the fitting
+        process. The `list` includes the `initial_shape` (if it exists) and
+        `final_shape`.
+
+        :type: `list` of `menpo.shape.PointCloud`
+        """
+        return self._shapes
+
+    @property
+    def n_iters(self):
+        r"""
+        Returns the total number of iterations of the fitting process.
+
+        :type: `int`
+        """
+        return self._n_iters
 
     def errors(self, compute_error=None):
         r"""
@@ -872,7 +931,7 @@ class NonParametricIterativeResult(Result):
                         cmap_name=None, alpha=1., masked=True,
                         render_markers=True, marker_edge_colour=None,
                         marker_face_colour=None, marker_style='o',
-                        marker_size=5, marker_edge_width=1.,
+                        marker_size=4, marker_edge_width=1.,
                         render_numbering=False,
                         numbers_horizontal_align='center',
                         numbers_vertical_align='bottom',
@@ -1199,7 +1258,18 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         super(ParametricIterativeResult, self).__init__(
                 shapes=shapes, initial_shape=initial_shape, image=image,
                 gt_shape=gt_shape)
-        self.shape_parameters = shape_parameters
+        self._shape_parameters = shape_parameters
+
+    @property
+    def shape_parameters(self):
+        r"""
+        Returns the `list` of shape parameters obtained at each iteration of
+        the fitting process. The `list` includes the parameters of the
+        `initial_shape` (if it exists) and `final_shape`.
+
+        :type: `list` of ``(n_params,)`` `ndarray`
+        """
+        return self._shape_parameters
 
 
 class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
@@ -1264,9 +1334,27 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
                 shapes=shapes, initial_shape=initial_shape, image=image,
                 gt_shape=gt_shape)
         # Get attributes
-        self.n_iters_per_scale = n_iters_per_scale
-        self.n_scales = len(scales)
+        self._n_iters_per_scale = n_iters_per_scale
+        self._n_scales = len(scales)
         self._affine_correction = affine_correction
+
+    @property
+    def n_iters_per_scale(self):
+        r"""
+        Returns the number of iterations per scale of the fitting process.
+
+        :type: `list` of `int`
+        """
+        return self._n_iters_per_scale
+
+    @property
+    def n_scales(self):
+        r"""
+        Returns the number of scales used during the fitting process.
+
+        :type: `int`
+        """
+        return self._n_scales
 
 
 class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult):
@@ -1302,12 +1390,23 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
                 affine_correction=affine_correction, image=image,
                 gt_shape=gt_shape)
         # Create shape parameters list
-        self.shape_parameters = results[0].shape_parameters
+        self._shape_parameters = results[0].shape_parameters
         for r in results[1:]:
             if r.initial_shape is None:
-                self.shape_parameters += r.shape_parameters
+                self._shape_parameters += r.shape_parameters
             else:
-                self.shape_parameters += r.shape_parameters[1:]
+                self._shape_parameters += r.shape_parameters[1:]
+
+    @property
+    def shape_parameters(self):
+        r"""
+        Returns the `list` of shape parameters obtained at each iteration of
+        the fitting process. The `list` includes the parameters of the
+        `initial_shape` (if it exists) and `final_shape`.
+
+        :type: `list` of ``(n_params,)`` `ndarray`
+        """
+        return self._shape_parameters
 
 
 def _rescale_shapes_to_reference(shapes, scale, affine_correction):

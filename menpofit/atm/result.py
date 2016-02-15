@@ -37,7 +37,7 @@ class ATMAlgorithmResult(ParametricIterativeResult):
     @property
     def costs(self):
         r"""
-        Returns a list of the cost per iteration.
+        Returns a `list` with the cost per iteration.
 
         :type: `list` of `float`
         """
@@ -216,11 +216,20 @@ class ATMResult(MultiScaleParametricIterativeResult):
                 affine_correction=affine_correction, image=image,
                 gt_shape=gt_shape)
         # Create costs list
-        self.costs = None
+        self._costs = None
         if results[0].costs is not None:
-            self.costs = results[0].costs
+            self._costs = results[0].costs
             for r in results[1:]:
-                self.costs += r.costs[1:]
+                self._costs += r.costs[1:]
+
+    @property
+    def costs(self):
+        r"""
+        Returns a `list` with the cost per iteration.
+
+        :type: `list` of `float`
+        """
+        return self._costs
 
     def plot_costs(self, figure_id=None, new_figure=False, render_lines=True,
                    line_colour='b', line_style='-', line_width=2,

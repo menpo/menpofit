@@ -35,13 +35,24 @@ class AAMAlgorithmResult(ParametricIterativeResult):
                 shapes=shapes[1:], initial_shape=shapes[0],
                 shape_parameters=shape_parameters,  image=image,
                 gt_shape=gt_shape)
-        self.appearance_parameters = appearance_parameters
+        self._appearance_parameters = appearance_parameters
         self._cost_functions = cost_functions
+
+    @property
+    def appearance_parameters(self):
+        r"""
+        Returns the `list` of appearance parameters obtained at each iteration
+        of the fitting process. The `list` includes the parameters of the
+        `initial_shape` (if it exists) and `final_shape`.
+
+        :type: `list` of ``(n_params,)`` `ndarray`
+        """
+        return self._appearance_parameters
 
     @property
     def costs(self):
         r"""
-        Returns a list of the cost per iteration.
+        Returns a `list` with the cost per iteration.
 
         :type: `list` of `float`
         """
@@ -221,17 +232,37 @@ class AAMResult(MultiScaleParametricIterativeResult):
                 affine_correction=affine_correction, image=image,
                 gt_shape=gt_shape)
         # Create appearance parameters list
-        self.appearance_parameters = None
+        self._appearance_parameters = None
         if results[0].appearance_parameters is not None:
-            self.appearance_parameters = results[0].appearance_parameters
+            self._appearance_parameters = results[0].appearance_parameters
             for r in results[1:]:
-                self.appearance_parameters += r.appearance_parameters[1:]
+                self._appearance_parameters += r.appearance_parameters[1:]
         # Create costs list
-        self.costs = None
+        self._costs = None
         if results[0].costs is not None:
-            self.costs = results[0].costs
+            self._costs = results[0].costs
             for r in results[1:]:
-                self.costs += r.costs[1:]
+                self._costs += r.costs[1:]
+
+    @property
+    def appearance_parameters(self):
+        r"""
+        Returns the `list` of appearance parameters obtained at each iteration
+        of the fitting process. The `list` includes the parameters of the
+        `initial_shape` (if it exists) and `final_shape`.
+
+        :type: `list` of ``(n_params,)`` `ndarray`
+        """
+        return self._appearance_parameters
+
+    @property
+    def costs(self):
+        r"""
+        Returns a `list` with the cost per iteration.
+
+        :type: `list` of `float`
+        """
+        return self._costs
 
     def plot_costs(self, figure_id=None, new_figure=False, render_lines=True,
                    line_colour='b', line_style='-', line_width=2,
