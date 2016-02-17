@@ -16,8 +16,8 @@ from .result import LucasKanadeResult
 class LucasKanadeFitter(MultiFitter):
     r"""
     Class for defining a multi-scale Lucas-Kanade fitter that performs alignment
-    with respect to an affine transform. Please see the references for a basic
-    list of relevant papers.
+    with respect to a homogeneous transform. Please see the references for a
+    basic list of relevant papers.
 
     Parameters
     ----------
@@ -42,7 +42,7 @@ class LucasKanadeFitter(MultiFitter):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale.
     transform : `subclass` of :map:`DP` and :map:`DX`, optional
-        A differential affine transform object, e.g.
+        A differential homogeneous transform object, e.g.
         :map:`DifferentiableAlignmentAffine`.
     algorithm_cls : `class`, optional
         The Lukas-Kanade optimisation algorithm that will get applied. The

@@ -145,7 +145,7 @@ class ForwardAdditive(LucasKanade):
 
         # return algorithm result
         return LucasKanadeAlgorithmResult(
-                image=image, shapes=shapes, shape_parameters=p_list,
+                image=image, shapes=shapes, homogeneous_parameters=p_list,
                 cost_functions=cost_functions, gt_shape=gt_shape)
 
     def __str__(self):
@@ -260,7 +260,7 @@ class ForwardCompositional(LucasKanade):
 
         # return algorithm result
         return LucasKanadeAlgorithmResult(
-                image=image, shapes=shapes, shape_parameters=p_list,
+                image=image, shapes=shapes, homogeneous_parameters=p_list,
                 cost_functions=cost_functions, gt_shape=gt_shape)
 
     def __str__(self):
@@ -373,7 +373,7 @@ class InverseCompositional(LucasKanade):
 
         # return algorithm result
         return LucasKanadeAlgorithmResult(
-                image=image, shapes=shapes, shape_parameters=p_list,
+                image=image, shapes=shapes, homogeneous_parameters=p_list,
                 cost_functions=cost_functions, gt_shape=gt_shape)
 
     def __str__(self):

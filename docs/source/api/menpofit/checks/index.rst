@@ -2,7 +2,7 @@
 
 :mod:`menpofit.checks`
 ======================
-Functions for checking the parameters values that are passed in
+Functions for checking the parameters' values that are passed in
 MenpoFit's classes.
 
 Parameters Check Functions
