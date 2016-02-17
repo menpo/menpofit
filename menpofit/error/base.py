@@ -600,23 +600,3 @@ def euclidean_distance_indexed_normalised_error(shape, gt_shape, index1,
     return distance_indexed_normalised_error(
             shape_error_f=euclidean_error, index1=index1, index2=index2,
             shape=shape, gt_shape=gt_shape)
-
-
-def compute_cumulative_error(errors, bins):
-    r"""
-    Computes the values of the Cumulative Error Distribution (CED).
-
-    Parameters
-    ----------
-    errors : `list` of `float`
-        The `list` of errors per image.
-    bins : `list` of `float`
-        The values of the error bins centers at which the CED is evaluated.
-
-    Returns
-    -------
-    ced : `list` of `float`
-        The computed CED.
-    """
-    n_errors = len(errors)
-    return [np.count_nonzero([errors <= x]) / n_errors for x in bins]
