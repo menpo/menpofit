@@ -4,7 +4,7 @@ from collections import Iterable
 from menpo.image import Image
 from menpo.transform import Scale
 
-from menpofit.visualize import view_image_multiple_landmarks
+from menpo.visualize import view_image_multiple_landmarks
 from menpofit.error import euclidean_bb_normalised_error
 
 

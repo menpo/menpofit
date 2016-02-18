@@ -19,3 +19,4 @@ Errors Visualization
     :maxdepth: 1
 
     statistics_table
+    plot_cumulative_error_distribution
