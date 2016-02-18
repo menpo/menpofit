@@ -1,3 +1,7 @@
+from collections import OrderedDict
+import numpy as np
+import pandas as pn
+
 from menpo.visualize import print_progress as menpo_print_progress
 
 
@@ -77,3 +81,178 @@ def print_progress(iterable, prefix='', n_items=None, offset=0,
         # Skip the verbosity!
         for i in iterable:
             yield i
+
+
+def statistics_table(errors, method_names, auc_max_error, auc_error_step,
+                     auc_min_error=0., stats_types=None, stats_names=None,
+                     sort_by=None, precision=4):
+    r"""
+    Function that generates a table with statistical measures on the fitting
+    results of various methods using pandas. It supports multiple types of
+    statistical measures.
+
+    **Note that the returned object is a pandas table which can be further
+    converted to Latex tabular or simply a string.** See the examples for
+    more details.
+
+    Parameters
+    ----------
+    errors : `list` of `list` of `float`
+        A `list` that contains `lists` of `float` with the errors per method.
+    method_names : `list` of `str`
+        The `list` with the names that will appear for each method. Note that
+        it must have the same length as `errors`.
+    auc_max_error : `float`
+        The maximum error value for computing the area under the curve.
+    auc_error_step : `float`
+        The sampling step of the error bins for computing the area under the
+        curve.
+    auc_min_error : `float`, optional
+        The minimum error value for computing the area under the curve.
+    stats_types : `list` of `str` or ``None``, optional
+        The types of statistical measures to compute. Possible options are:
+
+        ======== ========================================================
+        Value    Description
+        ======== ========================================================
+        `mean`   The mean value of the errors.
+        `std`    The standard deviation of the errors.
+        `median` The median value of the errors.
+        `mad`    The median absolute deviation of the errors.
+        `max`    The max value of the errors.
+        `auc`    The area under the curve based on the CED of the errors.
+        `fr`     The failure rate (percentage of images that failed).
+        ======== ========================================================
+        If ``None``, then all of them will be used with the above order.
+    stats_names : `list` of `str`, optional
+        The `list` with the names that will appear for each statistical measure
+        type selected in `stats_types`. Note that it must have the same
+        length as `stats_types`.
+    sort_by : `str` or ``None``, optional
+        The column to use for sorting the methods. If ``None``, then no
+        sorting is performed and the methods will appear in the provided
+        order of `method_names`. Possible options are:
+
+        ======== ========================================================
+        Value    Description
+        ======== ========================================================
+        `mean`   The mean value of the errors.
+        `std`    The standard deviation of the errors.
+        `median` The median value of the errors.
+        `mad`    The median absolute deviation of the errors.
+        `max`    The max value of the errors.
+        `auc`    The area under the curve based on the CED of the errors.
+        `fr`     The failure rate (percentage of images that failed).
+        ======== ========================================================
+
+    precision : `int`, optional
+        The precision of the reported values, i.e. the number of decimals.
+
+    Raises
+    ------
+    ValueError
+        stat_type must be selected from [mean, std, median, mad, max, auc, fr]
+    ValueError
+        sort_by must be selected from [mean, std, median, mad, max, auc, fr]
+    ValueError
+        stats_types and stats_names must have the same length
+
+    Returns
+    -------
+    table : `pandas.DataFrame`
+        The pandas table. It can be further converted to various format,
+        such as Latex tabular or `str`.
+
+    Examples
+    --------
+    Let us create some errors for 3 methods sampled from Normal distributions
+    with different mean and standard deviations: ::
+
+        import numpy as np
+        from menpofit.visualize import statistics_table
+
+        method_names = ['Method_1', 'Method_2', 'Method_3']
+        errors = [list(np.random.normal(0.07, 0.02, 400)),
+                  list(np.random.normal(0.06, 0.03, 400)),
+                  list(np.random.normal(0.08, 0.04, 400))]
+
+    We can create a pandas `DataFrame` as: ::
+
+        tab = statistics_table(errors, method_names, auc_max_error=0.1,
+                               auc_error_step=0.001, sort_by='auc')
+        tab
+
+    Pandas offers excellent functionalities. For example, the table can be
+    converted to an `str` as: ::
+
+        print(tab.to_string())
+
+    or to a Latex tabular as: ::
+
+        print(tab.to_latex())
+
+    """
+    from menpofit.error import compute_statistical_measures
+
+    # Make sure errors is a list of lists
+    if not isinstance(errors[0], list):
+        errors = [errors]
+
+    # Compute statistics
+    means, stds, medians, mads, maxs, aucs, frs = compute_statistical_measures(
+            errors, step_error=auc_error_step, max_error=auc_max_error,
+            min_error=auc_min_error)
+
+    # Check stats types
+    supported_types = ['mean', 'std', 'median', 'mad', 'max', 'auc', 'fr']
+    if stats_types is None:
+        stats_types = supported_types
+
+    # Check stats names
+    if stats_names is None:
+        stats_names = stats_types
+
+    # Check stats_types and stats_names lists
+    if len(stats_types) != len(stats_names):
+        raise ValueError('stats_types and stats_names must have the same '
+                         'length')
+
+    # Create data dict
+    data = OrderedDict()
+    for stat_type, stat_name in zip(stats_types, stats_names):
+        if stat_type not in supported_types:
+            raise ValueError('stat_type must be selected from [mean, std, '
+                             'median, mad, max, auc, fr]')
+        if stat_type == 'mean':
+            data[stat_name] = np.array(means)
+        if stat_type == 'std':
+            data[stat_name] = np.array(stds)
+        if stat_type == 'median':
+            data[stat_name] = np.array(medians)
+        if stat_type == 'mad':
+            data[stat_name] = np.array(mads)
+        if stat_type == 'max':
+            data[stat_name] = np.array(maxs)
+        if stat_type == 'auc':
+            data[stat_name] = np.array(aucs)
+        if stat_type == 'fr':
+            data[stat_name] = np.array(frs)
+
+    # Create pandas table
+    tab = pn.DataFrame(data, index=method_names)
+
+    # Sort table
+    ascending = True
+    if sort_by is not None:
+        if sort_by not in stats_types:
+            raise ValueError('sort_by must be selected from [mean, std, '
+                             'median, mad, max, auc, fr]')
+        if sort_by == 'auc':
+            ascending = False
+        tab.sort_values(by=stats_names[stats_types.index(sort_by)],
+                        inplace=True, ascending=ascending)
+
+    # Set precision
+    pn.set_option('precision', precision)
+
+    return tab

@@ -10,3 +10,12 @@ Print Utilities
     :maxdepth: 1
 
     print_progress
+
+
+Errors Visualization
+--------------------
+
+.. toctree::
+    :maxdepth: 1
+
+    statistics_table
