@@ -544,6 +544,40 @@ class NonParametricIterativeResult(Result):
         """
         return self._n_iters
 
+    def to_result(self, pass_image=True, pass_initial_shape=True,
+                  pass_gt_shape=True):
+        r"""
+        Returns a :map:`Result` instance of the object, i.e. a fitting result
+        object that does not store the iterations. This can be useful for
+        reducing the size of saved fitting results.
+
+        Parameters
+        ----------
+        pass_image : `bool`, optional
+            If ``True``, then the image will get passed (if it exists).
+        pass_initial_shape : `bool`, optional
+            If ``True``, then the initial shape will get passed (if it exists).
+        pass_gt_shape : `bool`, optional
+            If ``True``, then the ground truth shape will get passed (if it
+            exists).
+
+        Returns
+        -------
+        result : :map:`Result`
+            The final "lightweight" fitting result.
+        """
+        image = None
+        if pass_image:
+            image = self.image
+        initial_shape = None
+        if pass_initial_shape:
+            initial_shape = self.initial_shape
+        gt_shape = None
+        if pass_gt_shape:
+            gt_shape = self.gt_shape
+        return Result(self.final_shape, image=image,
+                      initial_shape=initial_shape, gt_shape=gt_shape)
+
     def errors(self, compute_error=None):
         r"""
         Returns a list containing the error at each fitting iteration, if the

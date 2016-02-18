@@ -123,6 +123,7 @@ def statistics_table(errors, method_names, auc_max_error, auc_error_step,
         `auc`    The area under the curve based on the CED of the errors.
         `fr`     The failure rate (percentage of images that failed).
         ======== ========================================================
+
         If ``None``, then all of them will be used with the above order.
     stats_names : `list` of `str`, optional
         The `list` with the names that will appear for each statistical measure
