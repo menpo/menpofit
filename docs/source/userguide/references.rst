@@ -3,7 +3,8 @@
 References
 ==========
 This is an indicative list of papers relevant to the methods that are
-implemented in MenpoFit:
+implemented in MenpoFit. They are listed in alphabetical order of the first
+author's surname.
 
 #. J. Alabort-i-Medina, and S. Zafeiriou. `"A Unified Framework for Compositional`
    `Fitting of Active Appearance Models"`, arXiv:1601.00199.
