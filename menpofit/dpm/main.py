@@ -16,6 +16,22 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
+            ###### testing learned model #########
+            # pickle_dev = '/vol/atlas/homes/ks3811/pickles'
+            # try:
+            #     # import matplotlib.pyplot as plt
+            #     # plt.pcolor([[0, 0], [1, 1]], cmap=plt.cm.Reds)
+            #     # plt.show()
+            #     # plt.close()
+            #     import os
+            #     import menpo.io as mio
+            #     fp = os.path.join(pickle_dev, 'mix.pkl')
+            #     model = mio.import_pickle(fp)
+            #     print 'test'
+            #
+            # except ValueError:  # pickle does not exist
+            #     pass
+            ########################################
             opts, args = getopt.getopt(argv[1:], "h", ["help"])
             lns1, im = debugging()
             im.landmarks['PTS'] = PointCloud(lns1[0])
@@ -38,6 +54,7 @@ def get_components(model, pyra_pad):
         def_ids = []
         filter_ids = []
         parents = []
+        def_index = []
         filter_index = []
         bias = 0
         anchors = []
@@ -48,12 +65,13 @@ def get_components(model, pyra_pad):
             filter_id = cm[k]['filterid'][0][0]
             filter_ids.append(filter_id - 1)
             parents.append(cm[k]['parent'][0][0] - 1)
+            def_index.append(model['defs'][0][0][0][def_id - 1][1][0][0])  # -1 due to python numbering
             filter_index.append(model['filters'][0][0][0][filter_id - 1][1][0][0])  # -1 due to python numbering
             x = model['defs'][0][0][0][def_id - 1]  # -1 due to python numbering
             (ax, ay, ds) = np.copy(x['anchor'][0])
             if k == 0:
                 bias = 1*x['w'][0][0]
-            anchors.append((ay, ax))
+            anchors.append((ax, ay, ds))
         pairs = zip(parents, range(num_parts))
         tree_matrix = csr_matrix(([1] * (num_parts-1), (zip(*pairs[1:]))), shape=(num_parts, num_parts))
         tree = Tree(tree_matrix, root_vertex=0, skip_checks=True)
@@ -61,6 +79,7 @@ def get_components(model, pyra_pad):
         component['def_ids'] = def_ids
         component['filter_ids'] = filter_ids
         component['tree'] = tree
+        component['def_index'] = def_index
         component['filter_index'] = filter_index
         component['bias'] = bias
         component['anchors'] = anchors
@@ -147,7 +166,7 @@ def debugging():
     defs_all = get_defs(model)
     _ms = model['maxsize'][0][0][0]
     sbin = model['sbin'][0][0][0][0]
-    thresh = min(-0.55, model['thresh'][0][0][0][0])
+    thresh = min(0, model['thresh'][0][0][0][0])
     #thresh = min(-50, model['thresh'][0][0][0][0])
     pyra_pad = (max(_ms[1] - 2, 0), max(_ms[0] - 2, 0))  # (padx, pady)
     components = get_components(model, pyra_pad)
@@ -178,7 +197,19 @@ def debugging():
     dpm = DPM(filters_all, defs_all, components)    # todo: this actually should have been learnt from the images
     # return
     #
-    boxes = DPMFitter(dpm).fast_fit(im, thresh)
+    #thresh = -3
+
+    pickle_dev = '/vol/atlas/homes/ks3811/pickles'
+    try:
+        import os
+        import menpo.io as mio
+        fp = os.path.join(pickle_dev, 'mix3.pkl')
+        model = mio.import_pickle(fp)
+    except ValueError:  # pickle does not exist
+        pass
+
+    boxes = DPMFitter(dpm).fast_fit_from_model(im, model, thresh)
+    print np.size(boxes)
     boxes.sort(key=lambda item: item['s'], reverse=True)
     cc, pick = non_max_suppression_fast(clip_boxes(boxes), 0.3)
     lns = bb_to_lns(boxes, pick)
