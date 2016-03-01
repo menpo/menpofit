@@ -450,7 +450,8 @@ def view_image_multiple_landmarks(
                             'weight': legend_font_weight}
 
                     # display legend on side
-                    plt.gca().legend(groups, title=legend_title, prop=prop,
+                    plt.gca().legend([subplots_titles[g] for g in groups],
+                                     title=legend_title, prop=prop,
                                      loc=legend_location,
                                      bbox_to_anchor=legend_bbox_to_anchor,
                                      borderaxespad=legend_border_axes_pad,
@@ -521,7 +522,8 @@ def view_image_multiple_landmarks(
                             'weight': legend_font_weight}
 
                     # display legend on side
-                    plt.gca().legend(groups, title=legend_title, prop=prop,
+                    plt.gca().legend([subplots_titles[g] for g in groups],
+                                     title=legend_title, prop=prop,
                                      loc=legend_location,
                                      bbox_to_anchor=legend_bbox_to_anchor,
                                      borderaxespad=legend_border_axes_pad,

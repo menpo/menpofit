@@ -39,6 +39,24 @@ class ExpertEnsemble(object):
         """
         pass
 
+    @property
+    def spatial_filter_images(self):
+        r"""
+        Returns a `list` of `n_experts` filter images on the spatial domain.
+
+        :type: `list` of `menpo.image.Image`
+        """
+        pass
+
+    @property
+    def frequency_filter_images(self):
+        r"""
+        Returns a `list` of `n_experts` filter images on the frequency domain.
+
+        :type: `list` of `menpo.image.Image`
+        """
+        pass
+
     def predict_response(self, image, shape):
         r"""
         Method for predicting the response of the experts on a given image.

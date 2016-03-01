@@ -304,6 +304,30 @@ class CLM(object):
                            shape_forgetting_factor=shape_forgetting_factor,
                            batch_size=batch_size)
 
+    def shape_instance(self, shape_weights=None, scale_index=-1):
+        r"""
+        Generates a novel shape instance given a set of shape weights. If no
+        weights are provided, the mean shape is returned.
+
+        Parameters
+        ----------
+        shape_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the shape model that will be used to create a novel
+            shape instance. If ``None``, the weights are assumed to be zero,
+            thus the mean shape is used.
+        scale_index : `int`, optional
+            The scale to be used.
+
+        Returns
+        -------
+        instance : `menpo.shape.PointCloud`
+            The shape instance.
+        """
+        if shape_weights is None:
+            shape_weights = [0]
+        sm = self.shape_models[scale_index].model
+        return sm.instance(shape_weights, normalized_weights=True)
+
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
@@ -356,13 +380,23 @@ class CLM(object):
         """
         raise NotImplementedError()
 
-    # TODO: Implement me!
-    def view_clm_widget(self):
+    def view_clm_widget(self, n_shape_parameters=5,
+                        parameters_bounds=(-3.0, 3.0), mode='multiple',
+                        figure_size=(10, 8)):
         r"""
         Visualizes the CLM object using an interactive widget.
 
         Parameters
         ----------
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
         mode : {``single``, ``multiple``}, optional
             If ``'single'``, only a single slider is constructed along with a
             drop down menu. If ``'multiple'``, a slider is constructed for
@@ -370,7 +404,14 @@ class CLM(object):
         figure_size : (`int`, `int`), optional
             The size of the rendered figure.
         """
-        raise NotImplementedError()
+        try:
+            from menpowidgets import visualize_clm
+            visualize_clm(self, n_shape_parameters=n_shape_parameters,
+                          parameters_bounds=parameters_bounds,
+                          figure_size=figure_size, mode=mode)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def __str__(self):
         if self.diagonal is not None:

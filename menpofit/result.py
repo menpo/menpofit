@@ -288,37 +288,41 @@ class Result(object):
         render_lines : `bool` or `list` of `bool`, optional
             If ``True``, the lines will be rendered. You can either provide a
             single value that will be used for all shapes or a list with a
-            different value per shape.
+            different value per shape in (`final`, `initial`, `groundtruth`)
+            order.
         line_style : `str` or `list` of `str`, optional
             The style of the lines. You can either provide a single value that
             will be used for all shapes or a list with a different value per
-            shape. Example options::
+            shape in (`final`, `initial`, `groundtruth`) order.
+            Example options::
 
                 {'-', '--', '-.', ':'}
 
         line_width : `float` or `list` of `float`, optional
             The width of the lines. You can either provide a single value that
             will be used for all shapes or a list with a different value per
-            shape.
+            shape in (`final`, `initial`, `groundtruth`) order.
         render_markers : `bool` or `list` of `bool`, optional
             If ``True``, the markers will be rendered. You can either provide a
             single value that will be used for all shapes or a list with a
-            different value per shape.
+            different value per shape in (`final`, `initial`, `groundtruth`)
+            order.
         marker_style : `str` or `list` of `str`, optional
             The style of the markers. You can either provide a single value that
             will be used for all shapes or a list with a different value per
-            shape. Example options::
+            shape in (`final`, `initial`, `groundtruth`) order.
+            Example options::
 
                 {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
         marker_size : `int` or `list` of `int`, optional
             The size of the markers in points. You can either provide a single
             value that will be used for all shapes or a list with a different
-            value per shape.
+            value per shape in (`final`, `initial`, `groundtruth`) order.
         marker_edge_width : `float` or `list` of `float`, optional
             The width of the markers' edge. You can either provide a single
             value that will be used for all shapes or a list with a different
-            value per shape.
+            value per shape in (`final`, `initial`, `groundtruth`) order.
         render_numbering : `bool`, optional
             If ``True``, the landmarks will be numbered.
         numbers_horizontal_align : ``{center, right, left}``, optional
@@ -523,36 +527,29 @@ class Result(object):
                 axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
                 axes_y_ticks=axes_y_ticks, figure_size=figure_size)
 
-    def view_widget(self, figure_size=(10, 8), style='coloured'):
+    def view_widget(self, browser_style='buttons', figure_size=(10, 8),
+                    style='coloured'):
         r"""
         Visualizes the result object using an interactive widget.
 
         Parameters
         ----------
+        browser_style : {``'buttons'``, ``'slider'``}, optional
+            It defines whether the selector of the images will have the form of
+            plus/minus buttons or a slider.
         figure_size : (`int`, `int`), optional
             The initial size of the rendered figure.
         style : {``'coloured'``, ``'minimal'``}, optional
             If ``'coloured'``, then the style of the widget will be coloured. If
             ``minimal``, then the style is simple using black and white colours.
         """
-        if self.image is not None:
-            from menpowidgets import visualize_images
-            image = Image(self.image.pixels)
-            image.landmarks['final'] = self.final_shape
-            if self.initial_shape is not None:
-                image.landmarks['initial'] = self.initial_shape
-            if self.gt_shape is not None:
-                image.landmarks['groundtruth'] = self.gt_shape
-            visualize_images(image, figure_size=figure_size, style=style)
-        else:
-            from menpowidgets import visualize_pointclouds
-            pointclouds = [self.final_shape]
-            if self.initial_shape is not None:
-                pointclouds.append(self.initial_shape)
-            if self.gt_shape is not None:
-                pointclouds.append(self.gt_shape)
-            visualize_pointclouds(pointclouds, figure_size=figure_size,
-                                  style=style, browser_style='slider')
+        try:
+            from menpowidgets import visualize_fitting_result
+            visualize_fitting_result(self, figure_size=figure_size, style=style,
+                                     browser_style=browser_style)
+        except ImportError:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def __str__(self):
         out = "Fitting result of {} landmark points.".format(
@@ -1019,24 +1016,11 @@ class NonParametricIterativeResult(Result):
                 render_grid=render_grid,  grid_line_style=grid_line_style,
                 grid_line_width=grid_line_width)
 
-    def view_widget(self, figure_size=(10, 8), style='coloured'):
-        r"""
-        Visualizes the iterative result object using an interactive widget.
-
-        Parameters
-        ----------
-        figure_size : (`int`, `int`), optional
-            The initial size of the rendered figure.
-        style : {``'coloured'``, ``'minimal'``}, optional
-            If ``'coloured'``, then the style of the widget will be coloured. If
-            ``minimal``, then the style is simple using black and white colours.
-        """
-        pass
-
     def view_iterations(self, figure_id=None, new_figure=False,
                         iters=None, render_image=True, subplots_enabled=False,
                         channels=None, interpolation='bilinear',
-                        cmap_name=None, alpha=1., masked=True,
+                        cmap_name=None, alpha=1., masked=True, render_lines=True,
+                        line_style='-', line_width=2, line_colour=None,
                         render_markers=True, marker_edge_colour=None,
                         marker_face_colour=None, marker_style='o',
                         marker_size=4, marker_edge_width=1.,
@@ -1070,7 +1054,7 @@ class NonParametricIterativeResult(Result):
             The id of the figure to be used.
         new_figure : `bool`, optional
             If ``True``, a new figure is created.
-        iters : `list` of `int` or ``None``, optional
+        iters : `int` or `list` of `int` or ``None``, optional
             The iterations to be visualized. If ``None``, then all the iterations
             are rendered.
         render_image : `bool`, optional
@@ -1099,33 +1083,67 @@ class NonParametricIterativeResult(Result):
             The alpha blending value, between 0 (transparent) and 1 (opaque).
         masked : `bool`, optional
             If ``True``, then the image is rendered as masked.
-        render_markers : `bool`, optional
-            If ``True``, the markers will be rendered.
-        marker_style : See Below, optional
-            The style of the markers. Example options ::
+        render_lines : `bool` or `list` of `bool`, optional
+            If ``True``, the lines will be rendered. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per iteration shape.
+        line_style : `str` or `list` of `str`, optional
+            The style of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape. Example options::
+
+                {'-', '--', '-.', ':'}
+
+        line_width : `float` or `list` of `float`, optional
+            The width of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape.
+        line_colour : `colour` or `list` of `colour` (See Below), optional
+            The colour of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape. Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        render_markers : `bool` or `list` of `bool`, optional
+            If ``True``, the markers will be rendered. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per iteration shape.
+        marker_style : `str or `list` of `str` (see below), optional
+            The style of the markers. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape. Example options ::
 
                 {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
-        marker_size : `int`, optional
-            The size of the markers in points.
-        marker_edge_colour : See Below, optional
-            The edge colour of the markers.
-            Example options ::
+        marker_size : `int` or `list` of `int`, optional
+            The size of the markers in points. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per iteration shape.
+        marker_edge_colour : `colour` or `list` of `colour` (See Below), optional
+            The edge colour of the markers. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per iteration shape. Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
                 (3, ) ndarray
 
-        marker_face_colour : See Below, optional
-            The face (filling) colour of the markers.
-            Example options ::
+        marker_face_colour : `colour` or `list` of `colour` (See Below), optional
+            The face (filling) colour of the markers. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per iteration shape. Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
                 (3, ) ndarray
 
-        marker_edge_width : `float`, optional
-            The width of the markers' edge.
+        marker_edge_width : `float` or `list` of `float`, optional
+            The width of the markers' edge. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per iteration shape.
         render_numbering : `bool`, optional
             If ``True``, the landmarks will be numbered.
         numbers_horizontal_align : ``{center, right, left}``, optional
@@ -1291,10 +1309,10 @@ class NonParametricIterativeResult(Result):
                 render_landmarks=True, masked=masked,
                 channels=channels, interpolation=interpolation,
                 cmap_name=cmap_name, alpha=alpha, image_view=True,
-                render_lines=False, line_style='-', line_width=2,
-                line_colour='k', render_markers=render_markers,
-                marker_style=marker_style, marker_size=marker_size,
-                marker_edge_width=marker_edge_width,
+                render_lines=render_lines, line_style=line_style,
+                line_width=line_width, line_colour=line_colour,
+                render_markers=render_markers, marker_style=marker_style,
+                marker_size=marker_size, marker_edge_width=marker_edge_width,
                 marker_edge_colour=marker_edge_colour,
                 marker_face_colour=marker_face_colour,
                 render_numbering=render_numbering,
