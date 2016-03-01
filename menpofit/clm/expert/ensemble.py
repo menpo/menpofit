@@ -30,6 +30,15 @@ class ExpertEnsemble(object):
         """
         pass
 
+    @property
+    def search_shape(self):
+        r"""
+        Returns the search shape (`patch_shape`).
+
+        :type: (`int`, `int`)
+        """
+        pass
+
     def predict_response(self, image, shape):
         r"""
         Method for predicting the response of the experts on a given image.
@@ -41,6 +50,11 @@ class ExpertEnsemble(object):
         shape : `menpo.shape.PointCloud`
             The shape that corresponds to the image from which the patches
             will be extracted.
+
+        Returns
+        -------
+        response : ``(n_experts, 1, height, width)`` `ndarray`
+            The response of each expert.
         """
         pass
 
@@ -55,6 +69,11 @@ class ExpertEnsemble(object):
         shape : `menpo.shape.PointCloud`
             The shape that corresponds to the image from which the patches
             will be extracted.
+
+        Returns
+        -------
+        probability_map : ``(n_experts, 1, height, width)`` `ndarray`
+            The probability map of the response of each expert.
         """
         pass
 

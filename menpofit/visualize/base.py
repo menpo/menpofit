@@ -293,12 +293,22 @@ def view_image_multiple_landmarks(
         The ticks of the y axis.
     figure_size : (`float`, `float`) `tuple` or ``None`` optional
         The size of the figure in inches.
+
+    Returns
+    -------
+    renderer : `class`
+        The renderer object.
     """
     from menpo.visualize.viewmatplotlib import (MatplotlibSubplots,
                                                 MatplotlibRenderer,
                                                 _check_colours_list)
     from menpo.image import MaskedImage
     import matplotlib.pyplot as plt
+
+    # If multiple channels were passed in, they must be restricted to the
+    # first channel
+    if isinstance(channels, list):
+        channels = channels[0]
 
     # This makes the code shorter for dealing with masked images vs non-masked
     # images
@@ -347,7 +357,7 @@ def view_image_multiple_landmarks(
             'marker_face_colour must be a colour value or a list of colours '
             'with length equal to the number of landmark groups')
     if (with_labels is None or (isinstance(with_labels, list) and
-                                    isinstance(with_labels[0], str))):
+                                isinstance(with_labels[0], str))):
         with_labels = [with_labels] * len(groups)
     elif isinstance(with_labels, list) and isinstance(with_labels[0], list):
         if len(with_labels) != len(groups):

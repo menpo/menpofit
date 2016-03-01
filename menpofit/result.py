@@ -148,16 +148,18 @@ class Result(object):
              render_final_shape=True, render_initial_shape=False,
              render_gt_shape=False, subplots_enabled=True, channels=None,
              interpolation='bilinear', cmap_name=None, alpha=1., masked=True,
-             render_markers=True, final_markers_colour='r',
-             initial_markers_colour='b', gt_markers_colour='y',
-             marker_style='o', marker_size=4, marker_edge_colour='k',
+             final_marker_face_colour='r', final_marker_edge_colour='k',
+             final_line_colour='r', initial_marker_face_colour='b',
+             initial_marker_edge_colour='k', initial_line_colour='b',
+             gt_marker_face_colour='y', gt_marker_edge_colour='k',
+             gt_line_colour='y', render_lines=True, line_style='-',
+             line_width=2, render_markers=True, marker_style='o', marker_size=4,
              marker_edge_width=1., render_numbering=False,
              numbers_horizontal_align='center',
-             numbers_vertical_align='bottom',
-             numbers_font_name='sans-serif', numbers_font_size=10,
-             numbers_font_style='normal', numbers_font_weight='normal',
-             numbers_font_colour='k', render_legend=True,
-             legend_title='', legend_font_name='sans-serif',
+             numbers_vertical_align='bottom', numbers_font_name='sans-serif',
+             numbers_font_size=10, numbers_font_style='normal',
+             numbers_font_weight='normal', numbers_font_colour='k',
+             render_legend=True, legend_title='', legend_font_name='sans-serif',
              legend_font_style='normal', legend_font_size=10,
              legend_font_weight='normal', legend_marker_scale=None,
              legend_location=2, legend_bbox_to_anchor=(1.05, 1.),
@@ -214,9 +216,7 @@ class Result(object):
             The alpha blending value, between 0 (transparent) and 1 (opaque).
         masked : `bool`, optional
             If ``True``, then the image is rendered as masked.
-        render_markers : `bool`, optional
-            If ``True``, the markers will be rendered.
-        final_markers_colour : See Below, optional
+        final_marker_face_colour : See Below, optional
             The face (filling) colour of the markers of the final fitting shape.
             Example options ::
 
@@ -224,7 +224,22 @@ class Result(object):
                 or
                 (3, ) ndarray
 
-        initial_markers_colour : See Below, optional
+        final_marker_edge_colour : See Below, optional
+            The edge colour of the markers of the final fitting shape.
+            Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        final_line_colour : See Below, optional
+            The line colour of the final fitting shape. Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        initial_marker_face_colour : See Below, optional
             The face (filling) colour of the markers of the initial shape.
             Example options ::
 
@@ -232,7 +247,22 @@ class Result(object):
                 or
                 (3, ) ndarray
 
-        gt_markers_colour : See Below, optional
+        initial_marker_edge_colour : See Below, optional
+            The edge colour of the markers of the initial shape.
+            Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        initial_line_colour : See Below, optional
+            The line colour of the initial shape. Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        gt_marker_face_colour : See Below, optional
             The face (filling) colour of the markers of the ground truth shape.
             Example options ::
 
@@ -240,23 +270,55 @@ class Result(object):
                 or
                 (3, ) ndarray
 
-        marker_style : See Below, optional
-            The style of the markers. Example options ::
-
-                {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
-
-        marker_size : `int`, optional
-            The size of the markers in points.
-        marker_edge_colour : See Below, optional
-            The edge colour of the markers.
+        gt_marker_edge_colour : See Below, optional
+            The edge colour of the markers of the ground truth shape.
             Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
                 (3, ) ndarray
 
-        marker_edge_width : `float`, optional
-            The width of the markers' edge.
+        gt_line_colour : See Below, optional
+            The line colour of the ground truth shape. Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        render_lines : `bool` or `list` of `bool`, optional
+            If ``True``, the lines will be rendered. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per shape.
+        line_style : `str` or `list` of `str`, optional
+            The style of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            shape. Example options::
+
+                {'-', '--', '-.', ':'}
+
+        line_width : `float` or `list` of `float`, optional
+            The width of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            shape.
+        render_markers : `bool` or `list` of `bool`, optional
+            If ``True``, the markers will be rendered. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per shape.
+        marker_style : `str` or `list` of `str`, optional
+            The style of the markers. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            shape. Example options::
+
+                {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
+
+        marker_size : `int` or `list` of `int`, optional
+            The size of the markers in points. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per shape.
+        marker_edge_width : `float` or `list` of `float`, optional
+            The width of the markers' edge. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per shape.
         render_numbering : `bool`, optional
             If ``True``, the landmarks will be numbered.
         numbers_horizontal_align : ``{center, right, left}``, optional
@@ -378,6 +440,11 @@ class Result(object):
             The ticks of the y axis.
         figure_size : (`float`, `float`) `tuple` or ``None`` optional
             The size of the figure in inches.
+
+        Returns
+        -------
+        renderer : `class`
+            The renderer object.
         """
         # Create image instance
         if self.image is None:
@@ -387,37 +454,45 @@ class Result(object):
             image = Image(self.image.pixels)
         # Assign pointclouds to image
         groups = []
-        colours = []
+        face_colours = []
+        edge_colours = []
+        line_colours = []
         subplots_titles = {}
         if render_final_shape:
             image.landmarks['final'] = self.final_shape
             groups.append('final')
-            colours.append(final_markers_colour)
+            face_colours.append(final_marker_face_colour)
+            edge_colours.append(final_marker_edge_colour)
+            line_colours.append(final_line_colour)
             subplots_titles['final'] = 'Final'
         if self.initial_shape is not None and render_initial_shape:
             image.landmarks['initial'] = self.initial_shape
             groups.append('initial')
-            colours.append(initial_markers_colour)
+            face_colours.append(initial_marker_face_colour)
+            edge_colours.append(initial_marker_edge_colour)
+            line_colours.append(initial_line_colour)
             subplots_titles['initial'] = 'Initial'
         if self.gt_shape is not None and render_gt_shape:
             image.landmarks['groundtruth'] = self.gt_shape
             groups.append('groundtruth')
-            colours.append(gt_markers_colour)
+            face_colours.append(gt_marker_face_colour)
+            edge_colours.append(gt_marker_edge_colour)
+            line_colours.append(gt_line_colour)
             subplots_titles['groundtruth'] = 'Groundtruth'
         # Render
-        view_image_multiple_landmarks(
+        return view_image_multiple_landmarks(
                 image, groups, with_labels=None, figure_id=figure_id,
                 new_figure=new_figure, subplots_enabled=subplots_enabled,
                 subplots_titles=subplots_titles, render_image=render_image,
                 render_landmarks=True, masked=masked,
                 channels=channels, interpolation=interpolation,
                 cmap_name=cmap_name, alpha=alpha, image_view=True,
-                render_lines=False, line_style='-', line_width=2,
-                line_colour='k', render_markers=render_markers,
-                marker_style=marker_style, marker_size=marker_size,
-                marker_edge_width=marker_edge_width,
-                marker_edge_colour=marker_edge_colour,
-                marker_face_colour=colours,
+                render_lines=render_lines, line_style=line_style,
+                line_width=line_width, line_colour=line_colours,
+                render_markers=render_markers, marker_style=marker_style,
+                marker_size=marker_size, marker_edge_width=marker_edge_width,
+                marker_edge_colour=edge_colours,
+                marker_face_colour=face_colours,
                 render_numbering=render_numbering,
                 numbers_horizontal_align=numbers_horizontal_align,
                 numbers_vertical_align=numbers_vertical_align,
@@ -1172,32 +1247,26 @@ class NonParametricIterativeResult(Result):
             The ticks of the y axis.
         figure_size : (`float`, `float`) `tuple` or ``None`` optional
             The size of the figure in inches.
+
+        Returns
+        -------
+        renderer : `class`
+            The renderer object.
         """
         # Parse iters
         if not (iters is None or isinstance(iters, int) or
-                    isinstance(iters, list)):
+                isinstance(iters, list)):
             raise ValueError('iters must be either int or list or None')
         if iters is None:
             iters = list(range(len(self.shapes)))
+        if isinstance(iters, int):
+            iters = [iters]
         # Create image instance
         if self.image is None:
             image = Image(np.zeros((10, 10)))
             render_image = False
         else:
             image = Image(self.image.pixels)
-        # Parse colours
-        if marker_edge_colour is not None:
-            if (isinstance(marker_edge_colour, list) and
-                    len(marker_edge_colour) == 1):
-                marker_edge_colour *= len(iters)
-            else:
-                marker_edge_colour = [marker_edge_colour] * len(iters)
-        if marker_face_colour is not None:
-            if (isinstance(marker_face_colour, list) and
-                    len(marker_face_colour) == 1):
-                marker_face_colour *= len(iters)
-            else:
-                marker_face_colour = [marker_face_colour] * len(iters)
         # Assign pointclouds to image
         n_digits = len(str(self.n_iters))
         groups = []
@@ -1215,7 +1284,7 @@ class NonParametricIterativeResult(Result):
             groups.append(name)
             subplots_titles[name] = name
         # Render
-        view_image_multiple_landmarks(
+        return view_image_multiple_landmarks(
                 image, groups, with_labels=None, figure_id=figure_id,
                 new_figure=new_figure, subplots_enabled=subplots_enabled,
                 subplots_titles=subplots_titles, render_image=render_image,
