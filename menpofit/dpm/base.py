@@ -6,295 +6,65 @@ import os
 from menpo.feature import hog
 from menpo.feature.gradient import score, lincomb, qp_one_sparse
 from menpo.image import Image
-from .fitter import DPMFitter, non_max_suppression_fast, clip_boxes, bb_to_lns
+from .fitter import DPMFitter  # , non_max_suppression_fast, clip_boxes, bb_to_lns
 from numpy import size, nonzero
 from menpo.shape import Tree
 from scipy.sparse import csr_matrix
 
 
-class DPM(object):
-    def __init__(self, filters_all, defs_all, components=None, config=None):
+class DPMLearner(object):
+    def __init__(self, config=None):
         # assert(isinstance(tree, Tree))
         # assert(len(filters) == len(tree.vertices) == len(def_coef))
-        self.components = components
-        self.filters_all = filters_all
-        self.defs_all = defs_all
+        # self.components = components
+        # self.filters_all = filters_all
+        # self.defs_all = defs_all
         self.config = config
 
         # remove when config is passed properly or can be learned from the example.
         if self.config is None:
-            self.config = self._get_config()
+            self.config = self._get_face_default_config()
 
-        self.fitter = DPMFitter(self)
-        # self._model_train()
+        self.fitter = DPMFitter()
+        start = time.time()
+        self._model_train()
+        stop = time.time()
+        print stop-start
+        print 'done'
 
     @staticmethod
-    def _get_config():
-        # function with configurations for the mixture and number of points.
-        conf = dict()  # used instead of the opts struct in the original code
-        # conf['viewpoint'] = [-30, -15, -15, 0, 15, 15, 30] # range(90, -90, -15)
-        # conf['partpoolsize'] =  68 + 68 + 68
-        # 39 + 68 + 39  (original code)
-        conf['viewpoint'] = range(90, -90, -15)
-        conf['partpoolsize'] = 39+68+39
-
+    def _get_face_default_config():
+        conf = dict()  # configurations for the mixture components.
         conf['sbin'] = 4
+        conf['viewpoint'] = range(90, -90-15, -15)  # 90 <-> -90
+        conf['partpoolsize'] = 39 + 68 + 39
         conf['mixture_poolid'] = [range(0, 39), range(0, 39), range(0, 39),
-                                  range(0, 68), range(0, 68), range(0, 68), range(0, 68),
-                                  range(0, 68), range(0, 68), range(0, 68),
-                                  # range(39, 107), range(39, 107), range(39, 107), range(39, 107),
-                                  # range(39, 107), range(39, 107), range(39, 107),
+                                  range(39, 107), range(39, 107), range(39, 107), range(39, 107),
+                                  range(39, 107), range(39, 107), range(39, 107),
                                   range(107, 146), range(107, 146), range(107, 146)]
-        # conf['mixture_poolid'] = [range(0, 68), range(0, 68), range(68, 136), range(68, 136),
-        #                           range(68, 136), range(136, 204), range(136, 204)]
-        conf['parents'] = [0, 0, 0, 0, 0, 0, 0]  # value to call the get_parents_lns().
-
         return conf
 
     @staticmethod
-    def get_pos(self):
-        pickle_dev = '/vol/atlas/homes/ks3811/pickles'
-        fp = os.path.join(pickle_dev, 'data.pkl')
-        _c = mio.import_pickle(fp)
-        pos = _c['pos']
-        return pos
-
-    def _model_train(self):
-        # todo : get this done
-        # mat_p = '/vol/atlas/homes/grigoris/external/dpm_ramanan/face-release1.0-full/christos_code/'
-        # file1 = mat_p + 'lfpw_helen_full.mat'
-        file1 = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/multipie.mat'
-        mat = scipy.io.loadmat(file1)
-        multipie = mat['multipie'][0]
-
-        # multipiedir = '/vol/hmi/projects/christos/Journal_IVC_2013/01_Data/01_Train/02_LFPW+HELEN/01_Images_Pts/';
-        multipiedir = '/vol/hmi/projects/christos/Journal_IVC_2013/01_Data/01_Train/01_MultiPIE/01_Images_Pts/';
-        # multipiedir = '/vol/atlas/databases/multipie/';
-        # annodir = '/vol/hmi/projects/christos/Journal_IVC_2013/01_Data/01_Train/02_LFPW+HELEN/01_Images_Pts/';
-        # annodir = '/vol/hmi/projects/christos/Journal_IVC_2013/01_Data/01_Train/01_MultiPIE/01_Images_Pts/';
-        annodir = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/annos.mat';
-        negims = '/vol/hmi/projects/christos/Journal_IVC_2013/03_Ramanan/INRIA/';
-
-        pickle_dev = '/vol/atlas/homes/ks3811/pickles'
-        try:  # TODO: save by model name (otherwise it might load the same data all the time)
-            fp = os.path.join(pickle_dev, 'data2.pkl')
-            _c = mio.import_pickle(fp)
-            pos = _c['pos']
-            neg = _c['neg']
-        except ValueError:  # pickle does not exist
-            pos, neg = self._get_pie_image_info(multipie, multipiedir, annodir, negims)
-            _c = dict()
-            _c['pos'] = pos
-            _c['neg'] = neg
-            mio.export_pickle(_c, fp)
-
-        pos = self._ln2box(pos)
-        spos = self._split(pos)
-        k = min(len(neg), 200)
-        kneg = neg[0:k]
-
-        #todo : come back to make it work in parallel
-        #pool = mp.Pool(processes=4)
-        #results = pool.map(self._train_model, range(1,7))
-        #results = [pool.apply(self._train_model, args=(x,)) for x in range(1, 7)]
-        #print results
-
-        parts_models = []
-        try:
-            fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
-            parts_models = mio.import_pickle(fp)
-        except ValueError:  # pickle does not exist
-            import time
-            start = time.time()
-            for i in xrange(self.config['partpoolsize']):
-                if len(spos[i]) > 0:
-                    init_model = self._init_model(spos[i], self.config['sbin'])
-                    parts_models.append(self._train(init_model, spos[i], kneg, iters=4))
-                else:
-                    parts_models.append([])
-            end = time.time()
-            print (end - start)
-            fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
-            mio.export_pickle(parts_models, fp)
-
-        try:
-            fp = os.path.join(pickle_dev, 'defs.pkl')
-            defs = mio.import_pickle(fp)
-        except ValueError:  # pickle does not exist
-            defs = self.build_mixture_defs(pos, parts_models[39]['maxsize'][0])
-            fp = os.path.join(pickle_dev, 'defs.pkl')
-            mio.export_pickle(defs, fp)
-
-        try:
-            fp = os.path.join(pickle_dev, 'mix2.pkl')
-            model = mio.import_pickle(fp)
-        except ValueError:  # pickle does not exist
-            import time
-            start = time.time()
-            model = self.build_mixture_model(parts_models, defs)
-            model = self._train(model, pos, kneg, 1)
-            end = time.time()
-            print (end - start)
-            fp = os.path.join(pickle_dev, 'mix2.pkl')
-            mio.export_pickle(model, fp)
-
-        try:
-            fp = os.path.join(pickle_dev, 'final.pkl')
-            model = mio.import_pickle(fp)
-        except ValueError:  # pickle does not exist
-            import time
-            start = time.time()
-            model = self._train(model, pos, neg, 2)
-            end = time.time()
-            print (end - start)
-            fp = os.path.join(pickle_dev, 'final.pkl')
-            mio.export_pickle(model, fp)
-            print 'done'
-
-
-
-    @staticmethod
-    def _get_image_info(pos_data, pos_data_im, pos_data_anno, neg_data_im):
-        # load info for the data.
-        # pos_data -> dictionary that includes the image names (for positives).
-        # pos_data_im -> dir of positive images
-        # pos_data_anno -> dir of annotation of positive images
-        # neg_data_im -> dir of negative images
-        pos = []
-        print('Collecting info for the positive images.')
-        for cnt, m in enumerate(pos_data):  # gmixid = cnt
-            print cnt
-            assert(m['images'].shape[0] > 2)
-            for _im in m['images']:
-                im_n = _im[0][0]
-                ln = mio.import_landmark_file(pos_data_anno + im_n[:im_n.rfind('.') + 1] + 'pts')
-                assert (ln.n_landmarks == m['nlandmark'][0][0])
-
-                aux = dict()  # aux dictionary, will be saved as element of the 'pos' list.
-                aux['pts'] = ln.lms.points.copy()   # Differs from original code with the tree!!!
-                aux['im'] = os.path.join(pos_data_im, im_n)
-                assert(os.path.isfile(aux['im']))
-                aux['gmixid'] = 1 * cnt
-
-                pos.append(dict(aux))
-
-        print('Collecting info for the negative images.')
-        l1 = sorted(os.listdir(neg_data_im))
-        neg = []
-        for elem in l1:
-            print elem
-            if elem[elem.rfind('.') + 1:] in ['jpg', 'png', 'jpeg']:
-                aux = dict()
-                aux['im'] = os.path.join(neg_data_im, elem)
-                neg.append(dict(aux))
-
-        return pos, neg
-
-    @staticmethod
-    def _get_pie_image_info(pos_data, pos_data_im, pos_data_anno, neg_data_im):
-        pos = []
-        train_list = [50, 50, 50, 50, 50, 50, 300, 50, 50, 50, 50, 50, 50]
-        mat = scipy.io.loadmat(pos_data_anno)
-        annos = mat['annos'][0, 0]
-        for cnt, m in enumerate(pos_data): #     gmixid = cnt
-            assert(m['images'].shape[0] > 2)
-            count = 0
-            for _im in m['images']:
-                im_n = _im[0][0]
-                # anno_file_name = pos_data_anno + im_n + '.pts'
-                file_name = pos_data_im + im_n + '.png'
-                if count > train_list[cnt]:
-                    break
-                count += 1
-                if not os.path.isfile(file_name):  # or not os.path.isfile(anno_file_name)):
-                    continue
-                # ln = mio.import_landmark_file(anno_file_name)
-                # assert (ln.n_landmarks == m['nlandmark'][0][0])
-
-                aux = dict()  # aux dictionary, will be saved as element of the 'pos' list.
-                aux['pts'] = annos['n' + im_n]  # ln.lms.points.copy()   # Differs from original code with the tree!!!
-                aux['im'] = file_name  # os.path.join(pos_data_im, im_n)
-                assert(os.path.isfile(aux['im']))
-                aux['gmixid'] = 1 * cnt
-                pos.append(dict(aux))
-
-        print('Collecting info for the negative images.')
-        l1 = sorted(os.listdir(neg_data_im))
-        neg = []
-        for elem in l1:
-            if elem[elem.rfind('.') + 1:] in ['jpg', 'png', 'jpeg']:
-                aux = dict()
-                aux['im'] = os.path.join(neg_data_im, elem)
-                neg.append(dict(aux))
-        return pos, neg
-
-    def _split(self, pos_images):
-        # split the boxes into different splits. Each box (formed from the respective landmark) is assigned to
-        # the classes it belongs according to the config file, e.g. for 68 lns -> 68 splits.
-        conf = self.config
-        spos = []
-        for i in range(conf['partpoolsize']):
-            spos.append([])
-
-        for p in pos_images:
-            partids_inpool = conf['mixture_poolid'][p['gmixid']]
-            for i, k in enumerate(partids_inpool):
-                s = {}
-                s['im'] = p['im'][:]  # copy the string
-                s['gmixid'] = 0
-                s['box_y1'] = [p['box_y1'][i] * 1]  # idea to implement them as a k*4 numpy array.
-                s['box_x1'] = [p['box_x1'][i] * 1]
-                s['box_y2'] = [p['box_y2'][i] * 1]
-                s['box_x2'] = [p['box_x2'][i] * 1]
-
-                spos[k].append(dict(s))
-        return spos
-
-    def _ln2box(self, pos):
-        # converts the points in bboxes. (same as point2box in the original code)
-        for i, p in enumerate(pos):
-            parents_lns = self._get_parents_lns(p['gmixid'])  # might require modification if more than one models present.
-            lengths = np.linalg.norm(abs(p['pts'][1:] - p['pts'][parents_lns[0, 1:], :]), axis=1)
-            boxlen = np.percentile(lengths, 80)/2  # 0.73% to compensate for the zero norm 34 point.
-            assert(boxlen > 3)  # ensure that boxes are 'big' enough.
-            _t = np.clip(p['pts'] - boxlen - 1, 0, np.inf) # -1 for matlab indexes
-            p['box_x1'] = np.copy(_t[:, 0])
-            p['box_y1'] = np.copy(_t[:, 1])
-            _t = p['pts'] - 1 + boxlen  # no check for boundary, -1 for matlab indexes
-            p['box_x2'] = np.copy(_t[:, 0])
-            p['box_y2'] = np.copy(_t[:, 1])
-        return pos
-
-    @staticmethod
     def _get_parents_lns(gmixid):
-        # parents of each landmark point as defined in the original code.
-        # i -> indicates the model of landmarks followed. If more than one models,
-        # then this could be called with different i value to return the specified parents.
+        # Parents of each landmark point as defined in the original code.  # todo: declare tree and get rid of this.
         if 0 <= gmixid <= 2:
             parents = np.array(([0, 1, 2, 3, 4, 5,
-                            1, 7, 8, 9, 10,
-                            11, 12, 13, 14,
-                            1, 16, 17, 18, 19, 20, 21,
-                            19, 23, 24, 23, 26,
-                            22, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38]))
-            # Point numbering (68 points) should be with the ibug68 convention
-            # and expect zero-based numbering (0-67).
-            # parents_ibug68 = [1, 2, 3, 4, 5, 6, 7, 8, 57, 8, 9, 10, 11, 12, 13, 14,
-            #                   15, 36, 17, 18, 19, 20, 23, 24, 25, 26, 45, 28, 29,
-            #                   30, 33, 32, 33, 33, 33, 34, 37, 38, 39, 27, 39, 40,
-            #                   27, 42, 43, 44, 47, 42, 49, 50, 51, 33, 51, 52, 53,
-            #                   54, 65, 66, 66, 67, 49, 50, 51, 52, 53, 55, 56, 58]
+                                 1, 7, 8, 9, 10,
+                                 11, 12, 13, 14,
+                                 1, 16, 17, 18, 19, 20, 21,
+                                 19, 23, 24, 23, 26,
+                                 22, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38]))
         elif 3 <= gmixid <= 9:
             parents = np.array(([0, 1, 2, 1, 4,
-                       1, 6, 7, 8,
-                       9, 10, 11, 10, 13, 14,
-                       15, 16, 17, 18, 19,
-                       9, 21, 22, 21, 24, 25,
-                       26, 27, 28, 29, 30,
-                       1, 32, 33, 34, 34, 33, 32, 32, 39, 40, 40, 39,
-                       41, 44, 45, 46, 47, 48, 49,
-                       47,
-                       51, 52, 53, 54, 55, 56, 57, 58, 59, 52, 61, 62, 63, 64, 65, 66, 67],))
+                                 1, 6, 7, 8,
+                                 9, 10, 11, 10, 13, 14,
+                                 15, 16, 17, 18, 19,
+                                 9, 21, 22, 21, 24, 25,
+                                 26, 27, 28, 29, 30,
+                                 1, 32, 33, 34, 34, 33, 32, 32, 39, 40, 40, 39,
+                                 41, 44, 45, 46, 47, 48, 49,
+                                 47,
+                                 51, 52, 53, 54, 55, 56, 57, 58, 59, 52, 61, 62, 63, 64, 65, 66, 67]))
         elif 10 <= gmixid <= 12:
             parents = np.array(([0, 1, 2, 3, 4, 5,
                                  1, 7, 8, 9, 10,
@@ -304,22 +74,206 @@ class DPM(object):
                                  22, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38]))
         else:
             raise ValueError('No such model for parents\' list exists.')
-        return parents - 1  # parents_ibug68
+        return parents - 1  # -1 to change matlab indexes
+
+    @staticmethod
+    def _get_anno2tree(gmixid):
+        if 0 <= gmixid <= 2:
+            anno2tree = np.array(([6, 5, 4, 3, 2, 1,
+                                   14, 15, 11, 12, 13,
+                                   10, 9, 8, 7,
+                                   16, 17, 18, 19, 20, 21, 22,
+                                   25, 24, 23, 26, 27,
+                                   28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]))
+        elif 3 <= gmixid <= 9:
+            anno2tree = np.array(([34, 33, 32, 35, 36,
+                                   31, 30, 29, 28,
+                                   40, 41, 42, 39, 38, 37,
+                                   18, 19, 20, 21, 22,
+                                   43, 48, 47, 44, 45, 46,
+                                   27, 26, 25, 24, 23,
+                                   52, 51, 50, 49, 61, 62, 63, 53, 54, 55, 65, 64,
+                                   56, 66, 57, 67, 59, 68, 60, 58,
+                                   9,8 , 7, 6, 5, 4, 3, 2, 1, 10, 11, 12, 13, 14, 15, 16, 17]))
+        elif 10 <= gmixid <= 12:
+            anno2tree = np.array(([6, 5, 4, 3, 2, 1,
+                                   14, 15, 11, 12, 13,
+                                   10, 9, 8, 7,
+                                   16, 17, 18, 19, 20, 21, 22,
+                                   25, 24, 23, 26, 27,
+                                   28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]))
+        else:
+            raise ValueError('No such model for anno2tree\' list exists.')
+        return anno2tree - 1  # -1 to change matlab indexes
+
+    @staticmethod
+    def _get_pie_image_info(pos_data, pos_data_dir, anno_dir, neg_data_dir):
+        pos = []
+        train_list = [50, 50, 50, 50, 50, 50, 300, 50, 50, 50, 50, 50, 50]
+        print('Collecting info for the positive images.')
+        for gmixid, poses in enumerate(pos_data):
+            count = 0
+            for img in poses['images']:
+                if count >= train_list[gmixid]:
+                    break
+                img_name = img[0][0]
+                [sub_id, ses_id, rec_id, cam_id, _] = img_name.split('_')
+                cam1_id = cam_id[0:2]
+                cam2_id = cam_id[2]
+                file_name = '{0}/session{1}/png/{2}/{3}/{4}_{5}/{6}.png'.format(pos_data_dir, ses_id, sub_id, rec_id, cam1_id, cam2_id, img_name)
+                anno_file_name = '{0}/{1}_lm.mat'.format(anno_dir, img_name)
+                if not os.path.isfile(file_name) or not os.path.isfile(anno_file_name):
+                    continue
+                count += 1
+                aux = dict()
+                aux['pts'] = scipy.io.loadmat(anno_file_name)['pts'][DPMLearner._get_anno2tree(gmixid), :]
+                aux['im'] = file_name
+                aux['gmixid'] = gmixid
+                pos.append(aux)
+        print('Collecting info for the negative images.')
+        l1 = sorted(os.listdir(neg_data_dir))
+        neg = []
+        for elem in l1:
+            if elem[elem.rfind('.') + 1:] in ['jpg', 'png', 'jpeg']:
+                aux = dict()
+                aux['im'] = os.path.join(neg_data_dir, elem)
+                neg.append(dict(aux))
+        return pos, neg
+
+    def _model_train(self):
+        multipie_mat = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/multipie.mat'
+        multipie = scipy.io.loadmat(multipie_mat)['multipie'][0]
+
+        multipie_dir = '/vol/hci2/Databases/video/MultiPIE'
+        anno_dir = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/my_annotation'
+        # negims = '/vol/hmi/projects/christos/Journal_IVC_2013/03_Ramanan/INRIA/'
+        neg_imgs_dir = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/INRIA'
+        pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor'
+
+        try:  # Check if the data is already existed.
+            fp = os.path.join(pickle_dev, 'data.pkl')
+            _c = mio.import_pickle(fp)
+            pos = _c['pos']
+            neg = _c['neg']
+        except ValueError:  # Data in pickle does not exist
+            start = time.time()
+            pos, neg = self._get_pie_image_info(multipie, multipie_dir, anno_dir, neg_imgs_dir)
+            _c = dict()
+            _c['pos'] = pos
+            _c['neg'] = neg
+            mio.export_pickle(_c, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, 'data_time.pkl')
+            mio.export_pickle(stop-start, fp)
+
+        pos = self._ln2box(pos)
+        spos = self._split(pos)
+        k = min(len(neg), 200)
+        kneg = neg[0:k]
+
+        #todo : Learning each tndependent part can be done in parallel
+        #pool = mp.Pool(processes=4)
+        #results = pool.map(self._train_model, range(1,7))
+        #results = [pool.apply(self._train_model, args=(x,)) for x in range(1, 7)]
+        #print results
+
+        parts_models = []
+        try:
+            fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
+            parts_models = mio.import_pickle(fp)
+        except ValueError:
+            start = time.time()
+            for i in xrange(self.config['partpoolsize']):
+                assert(len(spos[i]) > 0)
+                init_model = self._init_model(spos[i], self.config['sbin'])
+                parts_models.append(self._train(init_model, spos[i], kneg, iters=4))
+            fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
+            mio.export_pickle(parts_models, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, 'actual_parts_model_fast_time.pkl')
+            mio.export_pickle(stop-start, fp)
+
+        try:  # todo: if independent parts are learned in parallel, need to wait for all results before continuing.
+            fp = os.path.join(pickle_dev, 'defs.pkl')
+            defs = mio.import_pickle(fp)
+        except ValueError:
+            defs = self.build_mixture_defs(pos, parts_models[0]['maxsize'][0])
+            fp = os.path.join(pickle_dev, 'defs.pkl')
+            mio.export_pickle(defs, fp)
+
+        try:
+            fp = os.path.join(pickle_dev, 'mix.pkl')
+            model = mio.import_pickle(fp)
+        except ValueError:
+            model = self.build_mixture_model(parts_models, defs)
+            start = time.time()
+            model = self._train(model, pos, kneg, 1)
+            fp = os.path.join(pickle_dev, 'mix.pkl')
+            mio.export_pickle(model, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, 'mix_time.pkl')
+            mio.export_pickle(stop-start, fp)
+
+        try:
+            fp = os.path.join(pickle_dev, 'final.pkl')
+            model = mio.import_pickle(fp)
+        except ValueError:
+            start = time.time()
+            model = self._train(model, pos, neg, 2)
+            fp = os.path.join(pickle_dev, 'final.pkl')
+            mio.export_pickle(model, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, 'final.pkl')
+            mio.export_pickle(stop-start, fp)
+
+    def _split(self, pos_images):
+        # Each component contains different number of parts.
+        # Split the positive exampls's parts according to its part pools.
+        conf = self.config
+        split_pos = []
+        for i in range(conf['partpoolsize']):
+            split_pos.append([])
+        for p in pos_images:
+            part_ids_inpool = conf['mixture_poolid'][p['gmixid']]
+            for i, k in enumerate(part_ids_inpool):
+                s = dict()
+                s['im'] = p['im'][:]
+                s['gmixid'] = 0  # Each independent part is assume to belong to 0th component.
+                s['box_y1'] = [p['box_y1'][i]]
+                s['box_x1'] = [p['box_x1'][i]]
+                s['box_y2'] = [p['box_y2'][i]]
+                s['box_x2'] = [p['box_x2'][i]]
+                split_pos[k].append(dict(s))
+        return split_pos
+
+    def _ln2box(self, pos):
+        # Converts the points in bboxes. (same as point2box.mat in the original code)
+        for i, p in enumerate(pos):
+            parents_lns = self._get_parents_lns(p['gmixid'])
+            lengths = np.linalg.norm(abs(p['pts'][1:] - p['pts'][parents_lns[1:]]), axis=1)
+            boxlen = np.percentile(lengths, 80, interpolation='midpoint')  # 0.73% to compensate for the zero norm 34 point.
+            assert(boxlen > 3)  # ensure that boxes are 'big' enough.
+            _t = np.clip(p['pts'] - 1 - boxlen/2, 0, np.inf) # -1 for matlab indexes
+            p['box_x1'] = np.copy(_t[:, 0])
+            p['box_y1'] = np.copy(_t[:, 1])
+            _t = p['pts'] - 1 + boxlen/2  # no check for boundary, -1 for matlab indexes
+            p['box_x2'] = np.copy(_t[:, 0])
+            p['box_y2'] = np.copy(_t[:, 1])
+        return pos
 
     def _init_model(self, pos_, sbin):
         areas = np.empty((len(pos_),))
         for i, el in enumerate(pos_):
             areas[i] = (el['box_x2'][0] - el['box_x1'][0] + 1) * (el['box_y2'][0] - el['box_y1'][0] + 1)
-
-        areas = np.sort(areas)
-        area = areas[int(areas.shape[0] * 0.3)]  # todo: return to 0.2. Current value of 0.21 just to make sz 5 and easier to work with
+        areas = np.sort(areas)  # Pick 20 percentile area
+        area = areas[np.floor(areas.size * 0.2)]  # todo: return to 0.2. Current value of 0.21 just to make sz 5 and easier to work with
         nw = np.sqrt(area)
 
-        im = hog(Image(np.zeros((1, 30, 30))), mode='sparse', algorithm='zhuramanan')
+        im = hog(Image(np.zeros((1, 30, 30))), mode='sparse', algorithm='zhuramanan')  # Calculating HOG features size
         siz = [im.pixels.shape[0], round(nw/sbin), round(nw/sbin)]
 
         d = dict()  # deformation
-        d['w'] = 0
+        d['w'] = 0  # bias
         d['i'] = 0
         d['anchor'] = np.zeros((3,))
 
@@ -332,30 +286,29 @@ class DPM(object):
         c['def_ids'] = [0]
         c['parent'] = -1
         c['anchors'] = [np.zeros((3,))]
-        c['tree'] = Tree(np.array([0]), root_vertex=0, skip_checks=True)
+        c['tree'] = Tree(np.array([0]), root_vertex=0, skip_checks=True)  # Independent part is a single node tree.
 
-        _d, _f, _c = [], [], []  # list of the respective dictionaries above
-        _d.append(dict(d)), _f.append(dict(f)), _c.append(c)
         model = dict()
-        model['defs'] = _d
-        model['filters'] = _f
-        model['components'] = _c
+        model['defs'] = [d]
+        model['filters'] = [f]
+        model['components'] = [c]
 
         model['maxsize'] = siz[1:]
-        model['len'] = 1 + siz[0] * siz[1] * siz[2]
+        model['len'] = 1 + np.prod(siz)
         model['interval'] = 10
         model['sbin'] = sbin
 
         model = self._poswarp(model, pos_)
-        c = model['components'][0]
-        c['bias'] = model['defs'][0]['w']
-        return model
+        return Model.model_from_dict(model)
+        # c = model['components'][0]
+        # c['bias'] = d['w']  # todo: dont think this is needed
 
     def _poswarp(self, model, pos):
-        warped = self._warppos(model, pos[0:100])  ################## DEBUGGING, REMOVE THE 0:100 in the end!!!!!!!!!!!!!
+        # Update independent part model's filter by averaging its hog feature.
+        warped = self._warppos(model, pos)
         s = model['filters'][0]['w'].shape  # filter size
         num = len(warped)
-        feats = np.empty((s[0]*s[1]*s[2], num))
+        feats = np.empty((np.prod(s), num))
 
         for c, im in enumerate(warped):
             feat = hog(im, mode='sparse', algorithm='zhuramanan', cell_size=model['sbin'])
@@ -365,137 +318,75 @@ class DPM(object):
         scores = np.sum(w * w)
         w2 = w.reshape(s)
         model['filters'][0]['w'] = np.copy(w2)
-        model['obj'] = - scores * 1.
+        model['obj'] = -scores
         return model
 
     def _warppos(self, model, pos):
-        # Load the images, crop and resize them to predefined shape.
+        # Load the images, crop and resize them to a predefined shape.
         f = model['components'][0]['filter_ids'][0]  # potentially redundant, f == 0 (but check the rest first.)
-        siz = model['filters'][f]['w'].shape[1:3]
+        siz = model['filters'][f]['w'].shape[1:]
         sbin = model['sbin']
         pixels = [sbin * siz[0], sbin * siz[1]]
-        numpos = len(pos)
-        heights = np.empty((numpos,))
-        widths = np.empty((numpos,))
-
+        num_pos = len(pos)
+        heights = np.empty((num_pos,))
+        widths = np.empty((num_pos,))
         for i, el in enumerate(pos):
             heights[i] = el['box_y2'][0] - el['box_y1'][0] + 1
             widths[i] = el['box_x2'][0] - el['box_x1'][0] + 1
-
-        cropsize = ((siz[0] + 2) * sbin, (siz[1] + 2) * sbin)
-
+        crop_size = ((siz[0] + 2) * sbin, (siz[1] + 2) * sbin)
         warped = []
         for i, p in enumerate(pos):
-
             padx = sbin * widths[i] / pixels[1]
             pady = sbin * heights[i] / pixels[0]
 
             im = mio.import_image(p['im'])
             im_cr = im.crop([p['box_y1'][0] - pady, p['box_x1'][0] - padx], [p['box_y2'][0] + pady, p['box_x2'][0] + padx])
-            im2 = im_cr.resize(cropsize)
-            #warped.append(np.copy(im2.pixels))
+            im2 = im_cr.resize(crop_size)
             warped.append(im2.copy())
-
         return warped
 
     def _train(self, model, pos, negs, iters, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.6):
         # the size of vectorized model
-        length = self._sparselen(model)
+        length = model.sparselen()
         # Maximum number of model that fitted into the cache
         nmax = round(maxsize*0.25*10**9/length)
-        num_id = 5  # 5 = [label, id, level, posX, poY]
-        qp = Qp(length, nmax, num_id, c, wpos)
-        (w, qp.wreg, qp.w0, qp.noneg) = self._model2vec(model)
-        qp.w = (w - qp.w0) * qp.wreg
+        qp = Qp(model, length, nmax, c, wpos)
         for t in range(iters):
-            model['delta'] = self._poslatent(t, model, qp, pos, overlap)
-            if model['delta'] < 0.001:
+            model.delta = self._poslatent(t, model, qp, pos, overlap)
+            if model.delta < 0.001:
                 break
             qp.svfix = range(qp.n)
             qp.sv[qp.svfix] = True
             qp.prune()
             qp.opt(0.5)
-            model = self.vec2model(qp.actual_w(), model)
-            model['intervel'] = 4
+            model = qp.vec2model(model)
+            model.interval = 4
 
             for i, neg in enumerate(negs):
                 print 'iter:', t, 'neg:', i, '/', np.size(negs)
                 im = mio.import_image(neg['im'])
-                box, model = DPMFitter(self).fit_with_bb(im,  model, -1, [], 0, i, -1, qp)
+                box, model = self.fitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp)
                 if np.sum(qp.sv) == nmax:
                     break
 
             qp.opt()
-            model = self.vec2model(qp.actual_w(), model)
-            model['lb'] = qp.lb
-            model['ub'] = qp.ub
+            model = qp.vec2model(model)
+            model.lb = qp.lb
+            model.ub = qp.ub
 
         return model
 
-    def _sparselen(self, model):
-        # check if it can be incorporated to the model (length of filters, deformations)
-        len1 = -1
-        for tempcnt, comp in enumerate(model['components']):
-            if not comp:
-                continue
-            numblocks = 0
-            feats = np.zeros((model['len'],))
-            for cv in comp['tree'].vertices:
-                x = model['filters'][comp['filter_ids'][cv]]
-                i1 = x['i']
-                i2 = i1 + size(x['w']) - 1
-                feats[i1:i2+1] = 1
-                numblocks += 1
-
-                x = model['defs'][comp['def_ids'][cv]]
-                i1 = x['i']
-                i2 = i1 + size(x['w']) - 1
-                feats[i1:i2+1] = 1
-                numblocks += 1
-            # Number of entries needed to encode a block-scarce representation
-            # 1 maybe used to encode the length itself
-            n = 1 + 2 * numblocks + int(np.sum(feats))
-            len1 = max(len1, n)
-        return len1
-
-    @staticmethod
-    def _model2vec(model):
-        w = np.zeros((model['len'],))  # note: +1, otherwise it crashes trying to access the last element. -> check !!!!!!!!!!!!!!!!!!!!
-        w0 = np.zeros_like(w)
-        wreg = np.ones_like(w0)
-        noneg = []
-
-        for x in model['defs']:
-            l = size(x['w'])
-            j = np.array(range(x['i'], x['i'] + l))
-            w[j] = np.copy(x['w'])
-
-            if l == 1:
-                wreg[j] = 0.01
-            else:
-                wreg[j] = 0.1
-                j = np.array([j[0], j[2]])
-                w0[j] = 0.01
-                noneg.append(j)
-
-        for x in model['filters']:
-            if x['i'] >= 0:
-                l = size(x['w'])
-                j = np.array(range(x['i'], x['i'] + l))
-                w[j] = np.copy(x['w'])
-
-        noneg = np.array(noneg, dtype=np.intc).flatten() if np.size(noneg) > 0 else []  # np.zeros((1, 1), dtype=np.intc)
-
-        return w, wreg, w0, noneg
-
     def _poslatent(self, t, model, qp, poses, overlap):
         num_pos = size(poses)
-        model['interval'] = 5
-        num_positives = np.zeros(size(model['components'], ), dtype=int)
+        model.interval = 5
+        num_positives = np.zeros(size(model.components, ), dtype=int)
         score0 = qp.score_pos()
         qp.n = 0
-        w = (self._model2vec(model)[0] - qp.w0) * qp.wreg
-        assert(scipy.linalg.norm(w - qp.w) < 10**-5)
+        old_w = qp.w
+        qp = qp.model2qp(model)
+        assert(scipy.linalg.norm(old_w - qp.w) < 10**-5)
+        # w = (model.model2vec()[0] - qp.w0) * qp.wreg
+        # assert(scipy.linalg.norm(w - qp.w) < 10**-5)
 
         for i, pos in enumerate(poses):
             print 'iter:', t, 'pos:', i, '/', num_pos
@@ -507,10 +398,7 @@ class DPM(object):
                 bbox['box'][p, :] = [pos['box_x1'][p], pos['box_y1'][p], pos['box_x2'][p], pos['box_y2'][p]]        #todo : bbox values are weird fixit
             im = mio.import_image(pos['im'])
             im, bbox['box'] = self._croppos(im, bbox['box'])
-            start = time.time()
-            box, model = DPMFitter(self).fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
-            end = time.time()
-            # print 'taken:', end - start
+            box, model = self.fitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
             if np.size(box) > 0:
                 # im.view()     #  for visualization
                 # cc, pick = non_max_suppression_fast(clip_boxes([box]), 0.3)
@@ -551,24 +439,6 @@ class DPM(object):
         box[:, 3] -= y1
         return cropped_im, box
 
-    def vec2model(self, w, model):
-        w = w.astype(np.double)
-        for i in range(np.size(model['defs'])):
-            x = model['defs'][i]
-            s = np.shape(x['w'])
-            j = range(int(x['i']), int(x['i'] + np.prod(s)))
-            model['defs'][i]['w'] = np.reshape(w[j], s)
-
-        for i in range(np.size(model['filters'])):
-            x = model['filters'][i]
-            if x['i'] >= 0:
-                s = np.shape(x['w'])
-                j = range(int(x['i']), int(x['i'] + np.prod(s)))
-                model['filters'][i]['w'] = np.reshape(w[j], s)
-        w2 = self._model2vec(model)
-        assert(np.all(w == w2[0]))
-        return model
-
     def build_mixture_defs(self, pos, maxsize):
 
         conf = self.config
@@ -594,7 +464,7 @@ class DPM(object):
                 scale0 = boxsize[id_j]/maxsize
                 points[:, :, j] = pos[id_j]['pts']/scale0
 
-            deftemp = (points[:, :, :] - points[par, :, :])[0]
+            deftemp = (points[:, :, :] - points[par, :, :])
             deftemp = np.mean(deftemp, axis=2)
             defs.append(deftemp[1:, :])
         return defs
@@ -607,17 +477,17 @@ class DPM(object):
         model_ = {}
 
         assert(len(defs) == len(conf['mixture_poolid']))
-        model_['maxsize'] = models[39]['maxsize']
+        model_['maxsize'] = models[0].maxsize
         model_['len'] = 0
-        model_['interval'] = models[39]['interval']
-        model_['sbin'] = models[39]['sbin']
+        model_['interval'] = models[0].interval
+        model_['sbin'] = models[0].sbin
 
         # add the filters
         model_['filters'] = []
         for m in models:    # for each possible parts
             if np.size(m) > 0:
                 f = dict()
-                f['w'] = m['filters'][0]['w']
+                f['w'] = m.filters[0]['w']
                 f['i'] = model_['len']
                 model_['len'] += np.size(f['w'])
                 model_['filters'].append(f)
@@ -642,7 +512,6 @@ class DPM(object):
                 nd = np.size(model_['defs'])
                 d = dict()
                 d['i'] = model_['len']
-                # d['w'] = np.array([0.00, 0, 0.00, 0])
                 d['w'] = np.array([0.01, 0, 0.01, 0])
                 d['anchor'] = np.array([round(def_j[0]) + 1, round(def_j[1]) + 1, 0])
                 model_['defs'].append(d)
@@ -650,16 +519,115 @@ class DPM(object):
                 def_ids.append(nd)
             component['def_ids'] = def_ids
             component['filter_ids'] = conf['mixture_poolid'][i]
-            parents = self._get_parents_lns(i)[0]
+            parents = self._get_parents_lns(i)
             num_parts = np.size(parents)
             pairs = zip(parents, range(num_parts))
             tree_matrix = csr_matrix(([1] * (num_parts-1), (zip(*pairs[1:]))), shape=(num_parts, num_parts))
             component['tree'] = Tree(tree_matrix, root_vertex=0, skip_checks=True)
             model_['components'].append(component)
-        return model_
+
+        return Model.model_from_dict(model_)
+
+
+class Model(object):
+
+    def __init__(self, filters=None, defs=None, components=None, interval=10, sbin=5, maxsize=None, len=-1, lb=0,
+                 ub=0, delta=0):
+        self.filters = filters
+        self.defs = defs
+        self.components = components
+        self.interval = interval
+        self.sbin = sbin
+        self.maxsize = maxsize
+        self.len = len
+        self.lb = lb
+        self.ub = ub
+        self.delta = delta
+
+    @classmethod
+    def model_from_dict(cls, model):
+        filters = model['filters'] if 'filters' in model else None
+        defs = model['defs'] if 'defs' in model else None
+        components = model['components'] if 'components' in model else None
+        interval = model['interval'] if 'interval' in model else 10
+        sbin = model['sbin'] if 'sbin' in model else 5
+        maxsize = model['maxsize'] if 'maxsize' in model else None
+        len = model['len'] if 'len' in model else -1
+        lb = model['lb'] if 'lb' in model else 0
+        ub = model['ub'] if 'ub' in model else 0
+        return cls(filters, defs, components, interval, sbin, maxsize, len, lb, ub)
+
+    def sparselen(self):
+        # Number of entries needed to encode a block-scarce representation
+        len1 = -1
+        for tempcnt, comp in enumerate(self.components):
+            if not comp:
+                continue
+            numblocks = 0
+            feats = np.zeros((self.len,))
+            for cv in comp['tree'].vertices:
+                x = self.filters[comp['filter_ids'][cv]]
+                i1 = x['i']
+                i2 = i1 + size(x['w']) - 1
+                feats[i1:i2+1] = 1
+                numblocks += 1
+
+                x = self.defs[comp['def_ids'][cv]]
+                i1 = x['i']
+                i2 = i1 + size(x['w']) - 1
+                feats[i1:i2+1] = 1
+                numblocks += 1
+
+            n = 1 + 2 * numblocks + int(np.sum(feats))  # 1 maybe used to encode the length itself
+            len1 = max(len1, n)
+        return len1
+
+    def get_filters_weights(self):
+        return self._extract_from_model('filters', 'w')
+
+    def get_filters_indexes(self):
+        return self._extract_from_model('filters', 'i')
+
+    def get_defs_weights(self):
+        return self._extract_from_model('defs', 'w')
+
+    def get_defs_indexes(self):
+        return self._extract_from_model('defs', 'i')
+
+    def get_defs_anchors(self):
+        return self._extract_from_model('defs', 'anchor')
+
+    def _extract_from_model(self, field, sub_field):
+        sub_fields = []
+        for f in getattr(self, field):
+            if f:
+                sub_fields.append(f[sub_field])
+        return sub_fields
+
 
 class Qp(object):
-    def __init__(self, length, nmax, num_id, c, wpos):
+    # def __init__(self, length, nmax, num_id, c, wpos):
+    #     self.x = np.zeros((length, nmax), dtype=np.float32)
+    #     self.i = np.zeros((num_id, nmax), dtype=np.int)
+    #     self.b = np.zeros((nmax,), dtype=np.float32)
+    #     self.d = np.zeros((nmax,))
+    #     self.a = np.zeros((nmax,))
+    #     self.sv = np.zeros((nmax,), dtype=np.bool)
+    #     self.w = np.zeros((length,))
+    #     self.l = np.array([0], dtype=np.double)
+    #     self.n = 0
+    #     self.ub = 0.0
+    #     self.lb = 0.0
+    #     self.svfix = []
+    #     self.cpos = c * wpos
+    #     self.cneg = c
+    #     self.wreg = wreg
+    #     self.w0 = w0
+    #     self.non_neg = non_neg
+    #     self.w = (w - self.w0) * self.wreg
+
+    def __init__(self, model, length, nmax, c, wpos):
+        num_id = 5  # 5 = [label, id, level, posX, poY]
         self.x = np.zeros((length, nmax), dtype=np.float32)
         self.i = np.zeros((num_id, nmax), dtype=np.int)
         self.b = np.zeros((nmax,), dtype=np.float32)
@@ -671,46 +639,41 @@ class Qp(object):
         self.n = 0
         self.ub = 0.0
         self.lb = 0.0
+        self.lb_old = 0.0
         self.svfix = []
         self.cpos = c * wpos
         self.cneg = c
+        self.wreg = []
+        self.w0 = []
+        self.non_neg = []
+        self.model2qp(model)
 
     def score_pos(self):
         y = self.i[0, 0:self.n]
         i = np.array(nonzero(y)[0], dtype=np.intc)
         w = self.w + self.w0 * self.wreg
         scores = score(w, self.x, i)/self.cpos
-        # assert(scores[-1] == self.slow_score(w/self.cpos, self.x[:, self.n-1]))
         return scores
 
     def score_neg(self):
         w = - (self.w + self.w0 * self.wreg)
         scores = score(w, self.x, np.array([self.n - 1],  dtype=np.intc)) / self.cneg  # -1 bc current n point to the next free space
-        # assert(scores == self.slow_score(w, self.x[:, self.n-1])/self.cneg)
         return scores
 
     @staticmethod
     def slow_score(w, x):
         xp = 1
         y = 0
-        scores = []
         for b in range(x[0]):
             wp = int(x[xp])
             xp += 1
             length = int(x[xp]) - wp
             xp += 1
-            # print 'wp :', wp, 'length :', length
-            score = 0
             for j in range(length):
-                if length == 775:
-                    score += w[wp] * x[xp]
+                y += w[wp] * x[xp]
                 wp += 1
                 xp += 1
-            if length == 775:
-                scores.append(score)
-            y += score
-            # print 'current_score :', score, 'acc_score :', y
-        return scores
+        return y
 
     def write(self, ex):
         if self.n == np.size(self.a):
@@ -734,12 +697,6 @@ class Qp(object):
             ids = range(i1, i2)
             x = np.array(block['x'])
             x = x if label else -x
-            # if np.size(x) > 1:
-            #     actual_x = np.zeros((np.shape(x)[0], np.shape(x)[2], np.shape(x)[1]))
-            #     for f in range(np.shape(x)[0]):
-            #         actual_x[f, :, :] = np.transpose(np.asmatrix(x[f, :, :]))
-            #     print np.all(x == actual_x)
-            #     x = actual_x
             x = x.flatten()  # x.reshape(n, 1)
             bias = bias - np.sum(self.w0[ids] * x)
             x = c*x
@@ -781,7 +738,7 @@ class Qp(object):
         self.sv[range(n)] = True
         self.sv[n:] = False
         self.a[n:] = 0
-        self.project_noneg()
+        self.project_non_neg()
         self.lb = self.update_lb()
         self.n = n
 
@@ -794,9 +751,9 @@ class Qp(object):
     def increment_neg_ub(self, rscore):
         self.ub += self.cneg*max(1+rscore, 0)
 
-    def project_noneg(self):
-        if np.size(self.noneg) > 0:
-            self.w[self.noneg] = np.maximum(self.w[self.noneg], np.zeros_like(self.w[self.noneg]))
+    def project_non_neg(self):
+        if np.size(self.non_neg) > 0:
+            self.w[self.non_neg] = np.maximum(self.w[self.non_neg], np.zeros_like(self.w[self.non_neg]))
 
     def _sparse2dense(self, x):
         y = np.zeros((np.size(self.w),))
@@ -814,7 +771,7 @@ class Qp(object):
         self.refresh()
         I = np.array(range(self.n), dtype=np.intc)
         ids = self.i[:, I]
-        J = np.lexsort((ids[4, :], ids[3, :], ids[2, :], ids[1, :], ids[0, :]))  # find a better way to sort column
+        J = np.lexsort((ids[4, :], ids[3, :], ids[2, :], ids[1, :], ids[0, :]))  # todo:find a better way to sort column
         ids = ids[:, J]
         eqid = np.zeros_like(J, dtype=bool)
         eqid[1:] = np.all(ids[:, 1:] == ids[:, 0:-1], axis=0)
@@ -822,13 +779,11 @@ class Qp(object):
         loss = self.computeloss(slack[J], eqid)
         ub = self.update_ub(loss)
         lb = self.lb
-        # print 'lb : ', lb, 'ub : ', ub
         self.sv[I] = True
         for t in range(iters):
             self.one()
             lb = self.lb
             ub_est = min(self.ub, ub)
-            # print 'lb : ', lb, 'est_ub : ', ub_est
             if lb > 0 and 1 - lb/ub_est < tol:
                 slack = self.b[I] - score(self.w, self.x, I)
                 loss = self.computeloss(slack[J], eqid)
@@ -844,14 +799,14 @@ class Qp(object):
         idxs = np.array(idxs, dtype=np.intc)
         self.l[0] = np.sum(self.b[idxs] * self.a[idxs])
         self.w = lincomb(self.x, self.a, idxs, np.size(self.w))
-        #self.lin_comb(idxs)
-        self.project_noneg()
+        #self.slow_lin_comb(idxs)
+        self.project_non_neg()
         self.lb_old = self.lb
         self.lb = self.update_lb()
         if self.lb_old != 0:
             assert(self.lb > self.lb_old - 10**-5)
 
-    def lin_comb(self, ids):
+    def slow_lin_comb(self, ids):
         for i in range(np.size(ids)):
             a = self.a[ids[i]]
         xp = 1
@@ -897,7 +852,7 @@ class Qp(object):
         self.lb = self.update_lb()
         self.ub = self.update_ub(loss)
         print 'lb : ', self.lb, 'ub : ', self.ub
-        assert(np.all(self.w[self.noneg] >= 0))
+        assert(np.all(self.w[self.non_neg] >= 0))
         assert(np.all(self.a[range(self.n)] >= -10**-5))
         assert(np.all(self.a[range(self.n)] <= 1 + 10**-5))
 
@@ -974,7 +929,7 @@ class Qp(object):
                     assert(self.a[i2] >= 0 and self.a[i2] <= c)
                     assert(abs(a1 + a2 - (self.a[i] + self.a[i2])) < 10-5)
                     self.w += dA * (x1 - x2)
-                    self.project_noneg()
+                    self.project_non_neg()
                     self.l[0] += dA * (self.b[i] - self.b[i2])
             elif pg > 10**-12 or pg < -10**-12:
                 dA = self.a[i]
@@ -984,10 +939,58 @@ class Qp(object):
                 assert(self.a[i] >= 0 and self.a[i] <= c)
                 dA = self.a[i] - dA
                 self.w += dA*x1
-                self.project_noneg()
+                self.project_non_neg()
                 self.l[0] += dA * self.b[i]
                 idC[j] = min(max(ci + dA, 0), c)
                 assert(idC[j] >= 0 and idC[j] <= c)
             if self.a[i] > 0:
                 idI[j] = i
         return np.sum(err)
+
+    def vec2model(self, model, debug=False):
+        w = self.actual_w().astype(np.double)
+        for i in range(np.size(model.defs)):
+            x = model.defs[i]
+            s = np.shape(x['w'])
+            j = range(int(x['i']), int(x['i'] + np.prod(s)))
+            model.defs[i]['w'] = np.reshape(w[j], s)
+
+        for i in range(np.size(model.filters)):
+            x = model.filters[i]
+            if x['i'] >= 0:
+                s = np.shape(x['w'])
+                j = range(int(x['i']), int(x['i'] + np.prod(s)))
+                model.filters[i]['w'] = np.reshape(w[j], s)
+        if True:  # TODO: fix this. w2 is not in the actual form
+            self.model2qp(model)
+            w_from_model = self.actual_w().astype(np.double)
+            assert(np.all(w == w_from_model))
+        return model
+
+    def model2qp(self, model):
+        w = np.zeros((model.len,))
+        w0 = np.zeros_like(w)
+        wreg = np.ones_like(w0)
+        non_neg = []
+        for x in model.defs:
+            l = size(x['w'])
+            j = np.array(range(x['i'], x['i'] + l))
+            w[j] = np.copy(x['w'])
+            if l == 1:
+                wreg[j] = 0.01
+            else:
+                wreg[j] = 0.1
+                j = np.array([j[0], j[2]])
+                w0[j] = 0.01
+                non_neg.append(j)
+        for x in model.filters:
+            if x['i'] >= 0:
+                l = size(x['w'])
+                j = np.array(range(x['i'], x['i'] + l))
+                w[j] = np.copy(x['w'])
+        non_neg = np.array(non_neg, dtype=np.intc).flatten() if np.size(non_neg) > 0 else []
+        self.w = (w - w0) * wreg
+        self.wreg = wreg
+        self.w0 = w0
+        self.non_neg = non_neg
+        return self

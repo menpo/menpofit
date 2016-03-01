@@ -1,17 +1,9 @@
 import numpy as np
-from menpofit.fitter import ModelFitter
 
 
 class DPMFitter(object):
     r"""
     """
-
-    def __init__(self, dpm):
-        self._model = dpm
-
-    @property
-    def dpm(self):
-        return self._model
 
     def fit(self, image, threshold=-1):
         padding = (3, 3)  # TODO: param in the future maybe?
@@ -102,57 +94,51 @@ class DPMFitter(object):
                 for i in range(X.shape[0]):
                     x, y = X[i], Y[i]
                     box = XY[:, :, i]
-                    #XY = _backtrack(x, y, tree, Ix, Iy, fsz, scale, padding)
                     detection_info = dict()
                     detection_info['level'] = level
                     detection_info['s'] = np.copy(rscore[y, x])
                     detection_info['xy'] = box
                     boxes.append(dict(detection_info))
-
         return boxes
 
     def fast_fit_from_model(self, image, model, threshold=-10**100):
         from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
-        padding = (3, 3)  # TODO: param in the future maybe?
-        feats, scales = _featpyramid(image, 5, 4, padding)
+        padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
+        feats, scales = _featpyramid(image, model.interval, model.sbin, padding)
 
-        boxes = []  # list with detection boxes (as dictionaries)
-        filters_all = _extract_from_model(model, 'filters', 'w')
-        defs_all = _extract_from_model(model, 'defs', 'w')
-        anchors_all = _extract_from_model(model, 'defs', 'anchor')
-        components = model['components']
-        fsz = [filters_all[0].shape[1], filters_all[0].shape[2]]
+        boxes = []
+        filters_all = model.get_filters_weights()
+        defs_all = model.get_defs_weights()
+        anchors_all = model.get_defs_anchors()
 
         for level, feat in feats.iteritems():  # for each level in the pyramid
             unary_scores_all = convolve_python_f(feat, filters_all)
-            for c, component in enumerate(components):
+            for c, component in enumerate(model.components):
                 if not component:
                     continue
                 tree = component['tree']
                 filter_ids = component['filter_ids']
                 def_ids = component['def_ids']
-                bias = defs_all[def_ids[tree.root_vertex]]
+                defs = np.array(defs_all)[def_ids]
+                bias = defs[tree.root_vertex]
                 anchors = np.array(anchors_all)[def_ids]
+                fsz = np.array(filters_all[filter_ids[tree.root_vertex]].shape)[1:]
 
                 scores = np.array(unary_scores_all)[filter_ids]
-                scores, Ix, Iy = _fast_compute_pairwise_scores(scores, defs_all, tree, filter_ids,
-                                                                   def_ids, anchors, padding)
+                scores, Ix, Iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
                 scale = scales[level]
-                root_id = filter_ids[tree.root_vertex]
-                rscore = scores[root_id] + bias
+                rscore = scores[tree.root_vertex] + bias
                 [Y, X] = np.where(rscore > threshold)
 
                 if X.shape[0] > 0:
-                    XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding)  # todo: comback seprate backtrack from writing to ex
+                    XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding)
 
                 for i in range(X.shape[0]):
                     x, y = X[i], Y[i]
-                    box = XY[:, :, i]
-                    #XY = _backtrack(x, y, tree, Ix, Iy, fsz, scale, padding)
                     detection_info = dict()
                     detection_info['level'] = level
                     detection_info['s'] = np.copy(rscore[y, x])
-                    detection_info['xy'] = box
+                    detection_info['xy'] = XY[:, :, i]
                     boxes.append(dict(detection_info))
 
         return boxes
@@ -162,25 +148,20 @@ class DPMFitter(object):
         ex = dict()
         ex['blocks'] = []
         ex['id'] = np.array([label, id, 0, 0, 0])
-        padding = (3, 3)  # TODO: param in the future maybe?
-        feats, scales = _featpyramid(image, model['interval'], 4, padding)
+        padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
+        feats, scales = _featpyramid(image, model.interval, model.sbin, padding)
         from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
 
         boxes = []  # list with detection boxes (as dictionaries)
-        #filters_all = self._model.filters_all
-        # defs_all = self._model.defs_all
-        # components = self._model.components
-        filters_all = _extract_from_model(model, 'filters', 'w')
-        defs_all = _extract_from_model(model, 'defs', 'w')
-        filters_index_all = _extract_from_model(model, 'filters', 'i')
-        defs_index_all = _extract_from_model(model, 'defs', 'i')
-        anchors_all = _extract_from_model(model, 'defs', 'anchor')
-        components = model['components']
-        fsz = [filters_all[0].shape[1], filters_all[0].shape[2]]
+        filters_all = model.get_filters_weights()
+        filters_index_all = model.get_filters_indexes()
+        defs_all = model.get_defs_weights()
+        defs_index_all = model.get_defs_indexes()
+        anchors_all = model.get_defs_anchors()
 
         for level, feat in feats.iteritems():  # for each level in the pyramid
             unary_scores_all = convolve_python_f(feat, filters_all)
-            for c, component in enumerate(components):
+            for c, component in enumerate(model.components):
                 if not component:
                     continue
                 if latent:
@@ -190,10 +171,12 @@ class DPMFitter(object):
                 tree = component['tree']
                 filter_ids = component['filter_ids']
                 def_ids = component['def_ids']
-                bias = defs_all[def_ids[tree.root_vertex]]
+                defs = np.array(defs_all)[def_ids]
+                bias = defs[tree.root_vertex]
                 anchors = np.array(anchors_all)[def_ids]
                 filter_index = np.array(filters_index_all)[filter_ids]
                 def_index = np.array(defs_index_all)[def_ids]
+                fsz = np.array(filters_all[filter_ids[tree.root_vertex]].shape)[1:]
 
                 ovmask = {}
                 if latent:
@@ -211,15 +194,15 @@ class DPMFitter(object):
                 for i, ov in ovmask.iteritems():
                     assert(np.any(ov))
                     mask = np.zeros(ov.shape)
-                    mask[np.logical_not(ov)] = -999999  # can not be -np.inf because of using distance tranform
+                    mask[np.logical_not(ov)] = -999999  # can not be -np.inf because of using distance transform
+                    if np.shape(scores[i]) != np.shape(mask):
+                        print 'false'
                     scores[i] = scores[i] + mask
                 old_scores = np.copy(scores)
 
-                scores, Ix, Iy = _fast_compute_pairwise_scores(scores, defs_all, tree, filter_ids,
-                                                               def_ids, anchors, padding)
+                scores, Ix, Iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
                 scale = scales[level]
-                root_id = filter_ids[tree.root_vertex]
-                rscore = scores[root_id] + bias
+                rscore = scores[tree.root_vertex] + bias
 
                 # print rscore
                 # import matplotlib.pyplot as plt
@@ -232,27 +215,12 @@ class DPMFitter(object):
 
                 [Y, X] = np.where(rscore >= threshold)
 
-                # if X.shape[0] == 1:
-                #     best_rscore = rscore
-                #     best_bias = bias
-                #     best_ws = ws
-                #     best_old_scores = old_scores
-                #     best_tree = tree
-                #     best_filter_ids = filter_ids
-
-                # if X.shape[0] > 10:
-                #     X = X[0:10]
-                #     Y = Y[0:10]
-
                 # if X.shape[0] > 0:
                 #     XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
 
                 print 'level :', level, 'component :', c, 'found :', X.shape[0]
-                import time
                 diffs = []
-                # start = time.time()
                 for i in range(X.shape[0]):
-                    # print 'creating ex :', i, '/', X.shape[0]
                     x, y = X[i], Y[i]
                     # box = XY[:, :, i]
                     XY, ptr = _backtrack(x, y, tree, Ix, Iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
@@ -266,8 +234,6 @@ class DPMFitter(object):
                         qp.write(ex)
                         qp.increment_neg_ub(rscore[y, x])
                         diffs.append(abs(qp.score_neg() - rscore[y, x]))
-                # end = time.time()
-                # print (end - start)
 
                 if not latent and X.shape[0] > 0 and qp.n < np.size(qp.a):
                     # print qp.score_neg(), rscore[y, x], qp.score_neg() - rscore[y, x]
@@ -279,16 +245,10 @@ class DPMFitter(object):
 
                 if not latent and (qp.lb < 0 or 1-qp.lb/qp.ub > 0.05 or qp.n == np.size(qp.sv)):
                     model = self._obtimize(model, qp)
-                    # old_fil = filters_all
-                    filters_all = _extract_from_model(model, 'filters', 'w')
+                    filters_all = model.get_filters_weights()
                     unary_scores_all = convolve_python_f(feat, filters_all)
-                    # print 'old == new fils', old_fil == filters_all
-                    # old_def = defs_all
-                    defs_all = _extract_from_model(model, 'defs', 'w')
-                    # print 'old == new defs', old_def == defs_all
-                    # old_anchors_all = anchors_all
-                    anchors_all = _extract_from_model(model, 'defs', 'anchor')
-                    # print 'old == new anchor', old_anchors_all == anchors_all
+                    defs_all = model.get_defs_weights()
+                    anchors_all = model.get_defs_anchors()
 
         if latent:
             qp.write(ex)
@@ -299,34 +259,35 @@ class DPMFitter(object):
                 boxes = boxes[-1]
         return boxes, model
 
-    def _obtimize(self, model, qp):
+    @staticmethod
+    def _obtimize(model, qp):
         if qp.lb < 0 or qp.n == np.size(qp.a):
             qp.mult()
             qp.prune()
         else:
             qp.one()
-        model = self._model.vec2model(qp.actual_w(), model)
+        model = qp.vec2model(model)
         return model
 
 
-def _extract_from_model(model, field, sub_field):
-    sub_fields = []
-    for f in model[field]:
-        if f:
-            sub_fields.append(f[sub_field])
-    return sub_fields
+# def _extract_from_model(model, field, sub_field):
+#     sub_fields = []
+#     for f in model[field]:
+#         if f:
+#             sub_fields.append(f[sub_field])
+#     return sub_fields
 
 
-def copy_to_new_array(arr):
-    # copies each value of an original array to a new one in the same shape.
-    # Due to matlab having column-major.
-    sh = arr.shape
-    new = np.empty(sh, order='C')
-    for c in range(sh[0]):
-        for i in range(sh[1]):
-            for j in range(sh[2]):
-                new[c, i, j] = np.copy(arr[c, i, j])
-    return new
+# def copy_to_new_array(arr):
+#     # copies each value of an original array to a new one in the same shape.
+#     # Due to matlab having column-major.
+#     sh = arr.shape
+#     new = np.empty(sh, order='C')
+#     for c in range(sh[0]):
+#         for i in range(sh[1]):
+#             for j in range(sh[2]):
+#                 new[c, i, j] = np.copy(arr[c, i, j])
+#     return new
 
 
 def _test_overlap(fsz, feat, scale, padding, img_size, box, overlap):
@@ -408,7 +369,7 @@ def _compute_pairwise_scores(scores, tree, def_coef, anchor):
     return scores, Ix, Iy
 
 
-def _fast_compute_pairwise_scores(scores, def_coefs, tree, filter_ids, def_ids, anchors=None, padding=None):
+def _fast_compute_pairwise_scores(scores, def_coefs, tree, anchors=None, padding=None):
     r"""
     Given the (unary) scores it computes the pairwise scores by utilising the Generalised Distance
     Transform.
@@ -437,11 +398,9 @@ def _fast_compute_pairwise_scores(scores, def_coefs, tree, filter_ids, def_ids, 
     Iy, Ix = {}, {}
     for depth in range(tree.maximum_depth, 0, -1):
         for curr_vert in tree.vertices_at_depth(depth):
-            curr_filter_id = filter_ids[curr_vert]
-            parent_filter_id = filter_ids[tree.parent(curr_vert)]
-            (Ny, Nx) = scores[parent_filter_id].shape
-            curr_def_id = def_ids[curr_vert]
-            w = def_coefs[curr_def_id] * -1
+            parent = tree.parent(curr_vert)
+            (Ny, Nx) = scores[parent].shape
+            w = def_coefs[curr_vert] * -1.00
             cx = anchors[curr_vert][0]
             cy = anchors[curr_vert][1]
             ds = anchors[curr_vert][2]
@@ -450,8 +409,8 @@ def _fast_compute_pairwise_scores(scores, def_coefs, tree, filter_ids, def_ids, 
             virtpady = (step - 1)*padding[1]
             startx = cx - virtpadx
             starty = cy - virtpady
-            msg, Ix1, Iy1 = call_shiftdt(scores[curr_filter_id], np.array(w), startx, starty, Nx, Ny, 1)
-            scores[parent_filter_id] += msg
+            msg, Ix1, Iy1 = call_shiftdt(scores[curr_vert], np.array(w, dtype=np.double), startx, starty, Nx, Ny, 1)
+            scores[parent] += msg
             Ix[curr_vert] = np.copy(Ix1)
             Iy[curr_vert] = np.copy(Iy1)
     return scores, Ix, Iy
@@ -638,7 +597,7 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
             ptr[cv, 0] = Ix[cv].ravel()[idx]
             ptr[cv, 1] = Iy[cv].ravel()[idx]
 
-            # exactly the same as bove:
+            # exactly the same as above:
             box[cv, 0] = (ptr[cv, 0] - pyra_pad[0]) * scale + 1
             box[cv, 1] = (ptr[cv, 1] - pyra_pad[1]) * scale + 1
             box[cv, 2] = box[cv, 0] + fsz[0] * scale - 1
