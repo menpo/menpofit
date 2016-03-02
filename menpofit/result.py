@@ -1,6 +1,6 @@
 from __future__ import division
 import abc
-from functools import wraps
+from functools import wraps, partial
 import numpy as np
 from menpo.transform import Scale
 from menpo.shape import PointCloud
@@ -66,7 +66,7 @@ class Result(object):
             The final error at the end of the fitting procedure.
         """
         if compute_error is None:
-            compute_error = compute_normalise_point_to_point_error
+            compute_error = euclidean_bb_normalised_error
         if self.gt_shape is not None:
             return compute_error(self.final_shape, self.gt_shape)
         else:
@@ -89,7 +89,7 @@ class Result(object):
             The initial error at the start of the fitting procedure.
         """
         if compute_error is None:
-            compute_error = compute_normalise_point_to_point_error
+            compute_error = euclidean_bb_normalised_error
         if self.gt_shape is not None:
             return compute_error(self.initial_shape, self.gt_shape)
         else:
@@ -163,7 +163,7 @@ class IterativeResult(Result):
             The errors at each iteration of the fitting process.
         """
         if compute_error is None:
-            compute_error = compute_normalise_point_to_point_error
+            compute_error = euclidean_bb_normalised_error
         if self.gt_shape is not None:
             return [compute_error(t, self.gt_shape)
                     for t in self.shapes]
@@ -626,91 +626,133 @@ def pointcloud_to_points(wrapped):
     return wrapper
 
 
+def bb_area(shape):
+    # Area = w + h
+    height, width = np.max(shape, axis=0) - np.min(shape, axis=0)
+    return height * width
+
+
+def bb_perimeter(shape):
+    # Area = 2(w + h)
+    height, width = np.max(shape, axis=0) - np.min(shape, axis=0)
+    return 2 * (height + width)
+
+
+def bb_avg_edge_length(shape):
+    # 0.5(w + h) = (2w + 2h) / 4
+    height, width = np.max(shape, axis=0) - np.min(shape, axis=0)
+    return 0.5 * (height + width)
+
+
+def bb_diagonal(shape):
+    # sqrt(w**2 + h**2)
+    height, width = np.max(shape, axis=0) - np.min(shape, axis=0)
+    return np.sqrt(width ** 2 + height ** 2)
+
+
+bb_norm_types = {
+    'avg_edge_length': bb_avg_edge_length,
+    'perimeter': bb_perimeter,
+    'diagonal': bb_diagonal,
+    'area': bb_area
+}
+
+
+@pointcloud_to_points
+def bb_normalised_error(shape_error_f, shape, gt_shape,
+                        norm_shape=None, norm_type='avg_edge_length'):
+    if norm_type not in bb_norm_types:
+        raise ValueError('norm_type must be one of '
+                         '{avg_edge_length, perimeter, diagonal, area}.')
+    if norm_shape is None:
+        norm_shape = gt_shape
+    return (shape_error_f(shape, gt_shape) /
+            bb_norm_types[norm_type](norm_shape))
+
+
+def distance_two_indices(index1, index2, gt_shape):
+    return euclidean_error(gt_shape[index1], gt_shape[index2])
+
+
+@pointcloud_to_points
+def distance_normalised_error(shape_error_f, distance_norm_f, shape, gt_shape):
+    return shape_error_f(shape, gt_shape) / distance_norm_f(shape, gt_shape)
+
+
+@pointcloud_to_points
+def distance_indexed_normalised_error(shape_error_f, index1, index2, shape,
+                                      gt_shape):
+    return shape_error_f(shape, gt_shape) / distance_two_indices(index1, index2,
+                                                                 gt_shape)
+
+
 # TODO: Document me!
 @pointcloud_to_points
-def compute_root_mean_square_error(shape, gt_shape):
+def root_mean_square_error(shape, gt_shape):
     r"""
     """
-    return np.sqrt(np.mean((shape.flatten() - gt_shape.flatten()) ** 2))
+    return np.sqrt(np.mean((shape.ravel() - gt_shape.ravel()) ** 2))
 
 
 # TODO: Document me!
 @pointcloud_to_points
-def compute_point_to_point_error(shape, gt_shape):
+def euclidean_error(shape, gt_shape):
     r"""
     """
     return np.mean(np.sqrt(np.sum((shape - gt_shape) ** 2, axis=-1)))
 
 
 # TODO: Document me!
-@pointcloud_to_points
-def compute_normalise_root_mean_square_error(shape, gt_shape, norm_shape=None):
-    r"""
-    """
-    if norm_shape is None:
-        norm_shape = gt_shape
-    normalizer = np.mean(np.max(norm_shape, axis=0) -
-                         np.min(norm_shape, axis=0))
-    return compute_root_mean_square_error(shape, gt_shape) / normalizer
+root_mean_square_bb_normalised_error = partial(bb_normalised_error,
+                                               root_mean_square_error)
+
+# TODO: Document me!
+euclidean_bb_normalised_error = partial(bb_normalised_error, euclidean_error)
 
 
 # TODO: Document me!
-@pointcloud_to_points
-def compute_normalise_point_to_point_error(shape, gt_shape, norm_shape=None):
-    r"""
-    """
-    if norm_shape is None:
-        norm_shape = gt_shape
-    normalizer = np.mean(np.max(norm_shape, axis=0) -
-                         np.min(norm_shape, axis=0))
-    return compute_point_to_point_error(shape, gt_shape) / normalizer
+root_mean_square_distance_normalised_error = partial(distance_normalised_error,
+                                                     root_mean_square_error)
+
+# TODO: Document me!
+euclidean_distance_normalised_error = partial(distance_normalised_error,
+                                              euclidean_error)
+
+
+compute_normalise_point_to_point_error = euclidean_bb_normalised_error
+compute_root_mean_square_error = root_mean_square_error
+compute_point_to_point_error = euclidean_error
 
 
 # TODO: Document me!
-def compute_cumulative_error(errors, x_axis):
+def compute_cumulative_error(errors, boundaries):
     r"""
     """
     n_errors = len(errors)
-    return [np.count_nonzero([errors <= x]) / n_errors for x in x_axis]
+    return [np.count_nonzero([errors <= x]) / n_errors for x in boundaries]
 
 
-def plot_cumulative_error_distribution(errors, error_range=None,
-                                       figure_id=None, new_figure=False,
-                                       title='Cumulative Error Distribution',
-                                       x_label='Normalized Point-to-Point Error',
-                                       y_label='Images Proportion',
-                                       legend_entries=None, render_lines=True,
-                                       line_colour=None, line_style='-',
-                                       line_width=2, render_markers=True,
-                                       marker_style='s', marker_size=10,
-                                       marker_face_colour='w',
-                                       marker_edge_colour=None,
-                                       marker_edge_width=2, render_legend=True,
-                                       legend_title=None,
-                                       legend_font_name='sans-serif',
-                                       legend_font_style='normal',
-                                       legend_font_size=10,
-                                       legend_font_weight='normal',
-                                       legend_marker_scale=1.,
-                                       legend_location=2,
-                                       legend_bbox_to_anchor=(1.05, 1.),
-                                       legend_border_axes_pad=1.,
-                                       legend_n_columns=1,
-                                       legend_horizontal_spacing=1.,
-                                       legend_vertical_spacing=1.,
-                                       legend_border=True,
-                                       legend_border_padding=0.5,
-                                       legend_shadow=False,
-                                       legend_rounded_corners=False,
-                                       render_axes=True,
-                                       axes_font_name='sans-serif',
-                                       axes_font_size=10,
-                                       axes_font_style='normal',
-                                       axes_font_weight='normal',
-                                       axes_x_limits=None, axes_y_limits=None,
-                                       figure_size=(10, 8),  render_grid=True,
-                                       grid_line_style='--',
-                                       grid_line_width=0.5):
+def plot_cumulative_error_distribution(
+        errors, error_range=None, figure_id=None, new_figure=False,
+        title='Cumulative Error Distribution',
+        x_label='Normalized Point-to-Point Error', y_label='Images Proportion',
+        legend_entries=None, render_lines=True, line_colour=None,
+        line_style='-', line_width=2, render_markers=True, marker_style='s',
+        marker_size=10, marker_face_colour='w', marker_edge_colour=None,
+        marker_edge_width=2, render_legend=True, legend_title=None,
+        legend_font_name='sans-serif', legend_font_style='normal',
+        legend_font_size=10, legend_font_weight='normal',
+        legend_marker_scale=1., legend_location=2,
+        legend_bbox_to_anchor=(1.05, 1.), legend_border_axes_pad=1.,
+        legend_n_columns=1, legend_horizontal_spacing=1.,
+        legend_vertical_spacing=1., legend_border=True,
+        legend_border_padding=0.5, legend_shadow=False,
+        legend_rounded_corners=False, render_axes=True,
+        axes_font_name='sans-serif', axes_font_size=10,
+        axes_font_style='normal', axes_font_weight='normal', axes_x_limits=None,
+        axes_y_limits=None, axes_x_ticks=None, axes_y_ticks=None,
+        figure_size=(10, 8), render_grid=True, grid_line_style='--',
+        grid_line_width=0.5):
     r"""
     Plot the cumulative error distribution (CED) of the provided fitting errors.
 
@@ -864,6 +906,10 @@ def plot_cumulative_error_distribution(errors, error_range=None,
         ``(0., 'errors_max')``.
     axes_y_limits : (`float`, `float`) or ``None``, optional
         The limits of the y axis. If ``None``, it is set to ``(0., 1.)``.
+    axes_x_ticks : `list` or `tuple` or ``None``, optional
+        The ticks of the x axis.
+    axes_y_ticks : `list` or `tuple` or ``None``, optional
+        The ticks of the y axis.
     figure_size : (`float`, `float`) or ``None``, optional
         The size of the figure in inches.
     render_grid : `bool`, optional
@@ -883,7 +929,7 @@ def plot_cumulative_error_distribution(errors, error_range=None,
     viewer : :map:`GraphPlotter`
         The viewer object.
     """
-    from menpo.visualize import GraphPlotter
+    from menpo.visualize import plot_curve
 
     # make sure that errors is a list even with one list member
     if not isinstance(errors[0], list):
@@ -905,13 +951,13 @@ def plot_cumulative_error_distribution(errors, error_range=None,
         axes_y_limits = (0., 1.)
 
     # render
-    return GraphPlotter(figure_id=figure_id, new_figure=new_figure,
-                        x_axis=x_axis, y_axis=ceds, title=title,
-                        legend_entries=legend_entries, x_label=x_label,
-                        y_label=y_label, x_axis_limits=axes_x_limits,
-                        y_axis_limits=axes_y_limits).render(
-        render_lines=render_lines, line_colour=line_colour,
-        line_style=line_style, line_width=line_width,
+    return plot_curve(
+        x_axis=x_axis, y_axis=ceds, figure_id=figure_id, new_figure=new_figure,
+        legend_entries=legend_entries, title=title, x_label=x_label,
+        y_label=y_label, axes_x_limits=axes_x_limits,
+        axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
+        axes_y_ticks=axes_y_ticks, render_lines=render_lines,
+        line_colour=line_colour, line_style=line_style, line_width=line_width,
         render_markers=render_markers, marker_style=marker_style,
         marker_size=marker_size, marker_face_colour=marker_face_colour,
         marker_edge_colour=marker_edge_colour,
@@ -929,7 +975,8 @@ def plot_cumulative_error_distribution(errors, error_range=None,
         legend_border=legend_border,
         legend_border_padding=legend_border_padding,
         legend_shadow=legend_shadow,
-        legend_rounded_corners=legend_rounded_corners, render_axes=render_axes,
+        legend_rounded_corners=legend_rounded_corners,
+        render_axes=render_axes,
         axes_font_name=axes_font_name, axes_font_size=axes_font_size,
         axes_font_style=axes_font_style, axes_font_weight=axes_font_weight,
         figure_size=figure_size, render_grid=render_grid,

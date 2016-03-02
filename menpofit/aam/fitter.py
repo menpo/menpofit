@@ -4,17 +4,10 @@ from copy import deepcopy
 from menpo.transform import AlignmentUniformScale
 from menpo.image import BooleanImage
 from menpofit.fitter import ModelFitter, noisy_shape_from_bounding_box
-from menpofit.modelinstance import OrthoPDM
 from menpofit.sdm import SupervisedDescentFitter
-from menpofit.transform import OrthoMDTransform, LinearOrthoMDTransform
 import menpofit.checks as checks
-from .base import AAM, MaskedAAM, LinearAAM, LinearMaskedAAM, PatchAAM
-from .algorithm.lk import (
-    LucasKanadeStandardInterface, LucasKanadeLinearInterface,
-    LucasKanadePatchInterface, WibergInverseCompositional)
-from .algorithm.sd import (
-    SupervisedDescentStandardInterface, SupervisedDescentLinearInterface,
-    SupervisedDescentPatchInterface, ProjectOutNewton)
+from .algorithm.lk import WibergInverseCompositional
+from .algorithm.sd import ProjectOutNewton
 from .result import AAMFitterResult
 
 
@@ -48,46 +41,12 @@ class LucasKanadeAAMFitter(AAMFitter):
         self._set_up(lk_algorithm_cls)
 
     def _set_up(self, lk_algorithm_cls):
-        self.algorithms = []
-        for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
-                                            self.aam.shape_models,
-                                            self._sampling)):
-
-            template = am.mean()
-            if type(self.aam) is AAM or type(self.aam) is MaskedAAM:
-                # build orthonormal model driven transform
-                md_transform = OrthoMDTransform(
-                    sm, self.aam.transform,
-                    source=am.mean().landmarks['source'].lms)
-                interface = LucasKanadeStandardInterface(am, md_transform,
-                                                         template, sampling=s)
-                algorithm = lk_algorithm_cls(interface)
-            elif (type(self.aam) is LinearAAM or
-                  type(self.aam) is LinearMaskedAAM):
-                # build linear version of orthogonal model driven transform
-                md_transform = LinearOrthoMDTransform(
-                    sm, self.aam.reference_shape)
-                interface = LucasKanadeLinearInterface(am, md_transform,
-                                                       template, sampling=s)
-                algorithm = lk_algorithm_cls(interface)
-            elif type(self.aam) is PatchAAM:
-                # build orthogonal point distribution model
-                pdm = OrthoPDM(sm)
-                interface = LucasKanadePatchInterface(
-                    am, pdm, template, sampling=s,
-                    patch_shape=self.aam.patch_shape[j],
-                    patch_normalisation=self.aam.patch_normalisation)
-                algorithm = lk_algorithm_cls(interface)
-            else:
-                raise ValueError("AAM object must be of one of the "
-                                 "following classes: {}, {}, {}, {}, "
-                                 "{}".format(AAM, MaskedAAM, LinearAAM,
-                                             LinearMaskedAAM, PatchAAM))
-
-            self.algorithms.append(algorithm)
+        interfaces = self.aam.build_fitter_interfaces(self._sampling)
+        self.algorithms = [lk_algorithm_cls(interface)
+                           for interface in interfaces]
 
 
-# TODO: document me!
+# # TODO: document me!
 class SupervisedDescentAAMFitter(SupervisedDescentFitter):
     r"""
     """
@@ -117,46 +76,10 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
             batch_size=batch_size, verbose=verbose)
 
     def _setup_algorithms(self):
-        self.algorithms = []
-        for j, (am, sm, s) in enumerate(zip(self.aam.appearance_models,
-                                            self.aam.shape_models,
-                                            self._sampling)):
-            template = am.mean()
-            if type(self.aam) is AAM or type(self.aam) is MaskedAAM:
-                # build orthonormal model driven transform
-                md_transform = OrthoMDTransform(
-                    sm, self.aam.transform,
-                    source=template.landmarks['source'].lms)
-                interface = SupervisedDescentStandardInterface(
-                    am, md_transform, template, sampling=s)
-                algorithm = self._sd_algorithm_cls(
-                    interface, n_iterations=self.n_iterations[j])
-            elif (type(self.aam) is LinearAAM or
-                  type(self.aam) is LinearMaskedAAM):
-                # Build linear version of orthogonal model driven transform
-                md_transform = LinearOrthoMDTransform(
-                    sm, self.aam.reference_shape)
-                interface = SupervisedDescentLinearInterface(
-                    am, md_transform, template, sampling=s)
-                algorithm = self._sd_algorithm_cls(
-                    interface, n_iterations=self.n_iterations[j])
-            elif type(self.aam) is PatchAAM:
-                # Build orthogonal point distribution model
-                pdm = OrthoPDM(sm)
-                interface = SupervisedDescentPatchInterface(
-                    am, pdm, template, sampling=s,
-                    patch_shape=self.aam.patch_shape[j],
-                    patch_normalisation=self.aam.patch_normalisation)
-                algorithm = self._sd_algorithm_cls(
-                    interface, n_iterations=self.n_iterations[j])
-            else:
-                raise ValueError("AAM object must be of one of the "
-                                 "following classes: {}, {}, {}, {}, "
-                                 "{}".format(AAM, MaskedAAM, LinearAAM,
-                                             LinearMaskedAAM, PatchAAM))
-
-            # append algorithms to list
-            self.algorithms.append(algorithm)
+        interfaces = self.aam.build_fitter_interfaces(self._sampling)
+        self.algorithms = [self._sd_algorithm_cls[j](
+                               interface, n_iterations=self.n_iterations[j])
+                           for j, interface in enumerate(interfaces)]
 
 
 # TODO: Document me!

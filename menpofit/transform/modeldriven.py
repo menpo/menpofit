@@ -1,7 +1,7 @@
 import numpy as np
 from menpo.base import Targetable, Vectorizable
 from menpo.shape import PointCloud
-from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM
+from menpofit.modelinstance import PDM, GlobalPDM, OrthoPDM, ModelInstance
 from menpo.transform.base import Transform, VComposable, VInvertible
 from menpofit.differentiable import DP
 
@@ -37,9 +37,13 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
 
     """
     def __init__(self, model, transform_cls, source=None):
-        self.pdm = PDM(model)
+        self.pdm = model
         self._cached_points, self.dW_dl = None, None
         self.transform = transform_cls(source, self.target)
+
+    def _check_model(self, model):
+        if not isinstance(model, PDM):
+            raise ValueError('Model must be a PDM instance.')
 
     @property
     def n_dims(self):
@@ -122,12 +126,12 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         """
         return self.pdm.as_vector()
 
-    def from_vector_inplace(self, vector):
+    def _from_vector_inplace(self, vector):
         r"""
         Updates the ModelDrivenTransform's state from it's
         vectorized form.
         """
-        self.pdm.from_vector_inplace(vector)
+        self.pdm._from_vector_inplace(vector)
         # By here the pdm has updated our target state, we just need to
         # update the transform
         self.transform.set_target(self.target)
@@ -178,7 +182,7 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
-        self.from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
+        self._from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
 
     @property
     def has_true_inverse(self):
@@ -320,13 +324,6 @@ class GlobalMDTransform(ModelDrivenTransform):
         set to the points generated from the model using the
         provide weights - the source is either given or set to the
         model's mean.
-    global_transform : :class:`menpo.transform.AlignableTransform`
-        A class of :class:`menpo.transform.base.AlignableTransform`
-        The global transform that should be applied to the model output.
-        Doesn't have to have been constructed from the .align() constructor.
-        Note that the GlobalMDTransform isn't guaranteed to hold on to the
-        exact object passed in here - so don't expect external changes to
-        the global_transform to be reflected in the behavior of this object.
     source : :class:`menpo.shape.base.PointCloud`, optional
         The source landmarks of the transform. If no `source` is provided the
         mean of the model is used.
@@ -339,10 +336,13 @@ class GlobalMDTransform(ModelDrivenTransform):
 
         Default: `both`
     """
-    def __init__(self, model, transform_cls, global_transform, source=None):
-        self.pdm = GlobalPDM(model, global_transform)
-        self._cached_points = None
-        self.transform = transform_cls(source, self.target)
+    def __init__(self, model, transform_cls, source=None):
+        super(GlobalMDTransform, self).__init__(model, transform_cls,
+                                                source=source)
+
+    def _check_model(self, model):
+        if not isinstance(model, GlobalPDM):
+            raise ValueError('Model must be a GlobalPDM instance.')
 
     def compose_after_from_vector_inplace(self, delta):
         r"""
@@ -413,7 +413,7 @@ class GlobalMDTransform(ModelDrivenTransform):
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
 
-        self.from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
+        self._from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
 
     def Jp(self):
         r"""
@@ -479,7 +479,6 @@ class GlobalMDTransform(ModelDrivenTransform):
         return Jp
 
 
-# noinspection PyMissingConstructor
 class OrthoMDTransform(GlobalMDTransform):
     r"""
     A transform that couples an alignment transform to a
@@ -508,25 +507,25 @@ class OrthoMDTransform(GlobalMDTransform):
         set to the points generated from the model using the
         provide weights - the source is either given or set to the
         model's mean.
-    global_transform : :class:`menpo.transform.Aligna
-    bleTransform`
-        A class of :class:`menpo.transform.base.AlignableTransform`
-        The global transform that should be applied to the model output.
-        Doesn't have to have been constructed from the .align() constructor.
-        Note that the GlobalMDTransform isn't guaranteed to hold on to the
-        exact object passed in here - so don't expect external changes to
-        the global_transform to be reflected in the behavior of this object.
     source : :class:`menpo.shape.base.PointCloud`, optional
         The source landmarks of the transform. If no `source` is provided the
         mean of the model is used.
     """
+
     def __init__(self, model, transform_cls, source=None):
-        self.pdm = OrthoPDM(model)
-        self._cached_points = None
-        self.transform = transform_cls(source, self.target)
+        super(OrthoMDTransform, self).__init__(model, transform_cls,
+                                               source=source)
+
+    def _check_model(self, model):
+        if not isinstance(model, OrthoPDM):
+            raise ValueError('Model must be an OrthoPDM instance.')
+
+    def pseudoinverse(self):
+        raise NotImplementedError()
 
 
 # TODO: document me!
+# This is pretty hacking - but we basically stole the OrthoPDM's model
 class LinearOrthoMDTransform(OrthoPDM, Transform):
     r"""
     """
@@ -563,4 +562,3 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
 
     def d_dp(self, _):
         return OrthoPDM.d_dp(self, _)[self.n_landmarks:, ...]
-

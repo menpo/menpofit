@@ -397,7 +397,7 @@ class ProjectOutForwardCompositional(ProjectOut):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
@@ -431,7 +431,7 @@ class ProjectOutInverseCompositional(ProjectOut):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
 
 
@@ -542,7 +542,7 @@ class SimultaneousForwardCompositional(Simultaneous):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
@@ -559,7 +559,7 @@ class SimultaneousInverseCompositional(Simultaneous):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
 
 
@@ -680,7 +680,7 @@ class AlternatingForwardCompositional(Alternating):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
@@ -697,7 +697,7 @@ class AlternatingInverseCompositional(Alternating):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
 
 
@@ -801,7 +801,7 @@ class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
@@ -818,7 +818,7 @@ class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)
 
 
@@ -928,7 +928,7 @@ class WibergForwardCompositional(Wiberg):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() + self.dp)
 
 
@@ -945,5 +945,5 @@ class WibergInverseCompositional(Wiberg):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform.from_vector_inplace(
+        self.transform._from_vector_inplace(
             self.transform.as_vector() - self.dp)

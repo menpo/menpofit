@@ -6,4 +6,4 @@ class SupervisedDescentCLMAlgorithm(object):
     r"""
     """
     def __init__(self):
-        raise NotImplementedError
+        raise NotImplementedError()
