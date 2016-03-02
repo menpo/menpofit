@@ -363,22 +363,24 @@ class CLM(object):
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
-    # TODO: Implement me!
-    def view_expert_ensemble_widget(self):
+    def view_expert_ensemble_widget(self, figure_size=(10, 8)):
         r"""
-        Visualizes the ensemble of experts of the CLM object using an interactive
-        widget.
+        Visualizes the ensemble of experts of the CLM object using an
+        interactive widget.
 
         Parameters
         ----------
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu. If ``'multiple'``, a slider is constructed for
-            each parameter.
         figure_size : (`int`, `int`), optional
-            The size of the rendered figure.
+            The size of the plotted figures.
         """
-        raise NotImplementedError()
+        try:
+            from menpowidgets import visualize_expert_ensemble
+            centers = [sp.model.mean() for sp in self.shape_models]
+            visualize_expert_ensemble(self.expert_ensembles, centers,
+                                      figure_size=figure_size)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
 
     def view_clm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
