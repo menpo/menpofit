@@ -244,7 +244,7 @@ class DPMFitter(object):
                     assert(qp.score_neg() - rscore[y, x] < 10**-5)
 
                 if not latent and (qp.lb < 0 or 1-qp.lb/qp.ub > 0.05 or qp.n == np.size(qp.sv)):
-                    model = self._obtimize(model, qp)
+                    model = qp.obtimize(model)
                     filters_all = model.get_filters_weights()
                     unary_scores_all = convolve_python_f(feat, filters_all)
                     defs_all = model.get_defs_weights()
@@ -259,15 +259,15 @@ class DPMFitter(object):
                 boxes = boxes[-1]
         return boxes, model
 
-    @staticmethod
-    def _obtimize(model, qp):
-        if qp.lb < 0 or qp.n == np.size(qp.a):
-            qp.mult()
-            qp.prune()
-        else:
-            qp.one()
-        model = qp.vec2model(model)
-        return model
+    # @staticmethod
+    # def _obtimize(model, qp):
+    #     if qp.lb < 0 or qp.n == np.size(qp.a):
+    #         qp.mult()
+    #         qp.prune()
+    #     else:
+    #         qp.one()
+    #     model = qp.vec2model(model)
+    #     return model
 
 
 # def _extract_from_model(model, field, sub_field):

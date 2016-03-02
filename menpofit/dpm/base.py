@@ -1,15 +1,17 @@
-import menpo.io as mio
-import numpy as np
-import scipy.io
 import time
 import os
-from menpo.feature import hog
-from menpo.feature.gradient import score, lincomb, qp_one_sparse
-from menpo.image import Image
-from .fitter import DPMFitter  # , non_max_suppression_fast, clip_boxes, bb_to_lns
+import numpy as np
 from numpy import size, nonzero
-from menpo.shape import Tree
 from scipy.sparse import csr_matrix
+import scipy.io
+
+import menpo.io as mio
+from menpo.feature import hog
+from menpo.image import Image
+from menpo.shape import Tree
+
+from .fitter import DPMFitter  # , non_max_suppression_fast, clip_boxes, bb_to_lns
+from .utils import score, lincomb, qp_one_sparse
 
 
 class DPMLearner(object):
@@ -197,7 +199,7 @@ class DPMLearner(object):
             fp = os.path.join(pickle_dev, 'defs.pkl')
             defs = mio.import_pickle(fp)
         except ValueError:
-            defs = self.build_mixture_defs(pos, parts_models[0]['maxsize'][0])
+            defs = self.build_mixture_defs(pos, parts_models[0].maxsize[0])
             fp = os.path.join(pickle_dev, 'defs.pkl')
             mio.export_pickle(defs, fp)
 
@@ -299,7 +301,7 @@ class DPMLearner(object):
         model['sbin'] = sbin
 
         model = self._poswarp(model, pos_)
-        return Model.model_from_dict(model)
+        return DPM.model_from_dict(model)
         # c = model['components'][0]
         # c['bias'] = d['w']  # todo: dont think this is needed
 
@@ -352,6 +354,7 @@ class DPMLearner(object):
         nmax = round(maxsize*0.25*10**9/length)
         qp = Qp(model, length, nmax, c, wpos)
         for t in range(iters):
+            # pos = [pos[0]]
             model.delta = self._poslatent(t, model, qp, pos, overlap)
             if model.delta < 0.001:
                 break
@@ -377,9 +380,9 @@ class DPMLearner(object):
         return model
 
     def _poslatent(self, t, model, qp, poses, overlap):
-        num_pos = size(poses)
+        num_pos = np.size(poses)
         model.interval = 5
-        num_positives = np.zeros(size(model.components, ), dtype=int)
+        num_positives = np.zeros(np.size(model.components, ), dtype=int)
         score0 = qp.score_pos()
         qp.n = 0
         old_w = qp.w
@@ -526,10 +529,10 @@ class DPMLearner(object):
             component['tree'] = Tree(tree_matrix, root_vertex=0, skip_checks=True)
             model_['components'].append(component)
 
-        return Model.model_from_dict(model_)
+        return DPM.model_from_dict(model_)
 
 
-class Model(object):
+class DPM(object):
 
     def __init__(self, filters=None, defs=None, components=None, interval=10, sbin=5, maxsize=None, len=-1, lb=0,
                  ub=0, delta=0):
@@ -568,13 +571,13 @@ class Model(object):
             for cv in comp['tree'].vertices:
                 x = self.filters[comp['filter_ids'][cv]]
                 i1 = x['i']
-                i2 = i1 + size(x['w']) - 1
+                i2 = i1 + np.size(x['w']) - 1
                 feats[i1:i2+1] = 1
                 numblocks += 1
 
                 x = self.defs[comp['def_ids'][cv]]
                 i1 = x['i']
-                i2 = i1 + size(x['w']) - 1
+                i2 = i1 + np.size(x['w']) - 1
                 feats[i1:i2+1] = 1
                 numblocks += 1
 
@@ -948,23 +951,24 @@ class Qp(object):
         return np.sum(err)
 
     def vec2model(self, model, debug=False):
-        w = self.actual_w().astype(np.double)
+        original_w = self.actual_w().astype(np.double)
         for i in range(np.size(model.defs)):
             x = model.defs[i]
             s = np.shape(x['w'])
             j = range(int(x['i']), int(x['i'] + np.prod(s)))
-            model.defs[i]['w'] = np.reshape(w[j], s)
+            model.defs[i]['w'] = np.reshape(original_w[j], s)
 
         for i in range(np.size(model.filters)):
             x = model.filters[i]
             if x['i'] >= 0:
                 s = np.shape(x['w'])
                 j = range(int(x['i']), int(x['i'] + np.prod(s)))
-                model.filters[i]['w'] = np.reshape(w[j], s)
+                model.filters[i]['w'] = np.reshape(original_w[j], s)
         if True:  # TODO: fix this. w2 is not in the actual form
             self.model2qp(model)
-            w_from_model = self.actual_w().astype(np.double)
-            assert(np.all(w == w_from_model))
+            w_from_updated_model = self.actual_w().astype(np.double)
+            if not (np.all(np.ab(original_w - w_from_updated_model) < 10**-5)):
+                print np.where(np.ab(original_w - w_from_updated_model) >= 10**-5)
         return model
 
     def model2qp(self, model):
@@ -994,3 +998,12 @@ class Qp(object):
         self.w0 = w0
         self.non_neg = non_neg
         return self
+
+    def obtimize(self, model):
+        if self.lb < 0 or self.n == np.size(self.a):
+            self.mult()
+            self.prune()
+        else:
+            self.one()
+        model = self.vec2model(model)
+        return model

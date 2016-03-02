@@ -4,14 +4,14 @@ import scipy.io
 import sys
 import time
 from menpo.shape import Tree
-from menpofit.dpm import DPMLearner, DPMFitter, Model, non_max_suppression_fast, clip_boxes, bb_to_lns
+from menpofit.dpm import DPMLearner, DPMFitter, DPM, non_max_suppression_fast, clip_boxes, bb_to_lns
 from scipy.sparse import csr_matrix
 from os.path import isdir
 
 
 def debugging():
 
-    # dpm = DPM()
+    # dpm_learner = DPMLearner()
 
     pm = '/vol/atlas/homes/grigoris/external/dpm_ramanan/face-release1.0-basic/'
     assert(isdir(pm))
@@ -36,19 +36,19 @@ def debugging():
     mat_model['filters'] = filters_all
     mat_model['defs'] = defs_all
     mat_model['components'] = components
-    mat_model = Model.model_from_dict(mat_model)
+    mat_model = DPM.model_from_dict(mat_model)
 
     # Uncomment these to use the model learned from python
 
-    pickle_dev = '/vol/atlas/homes/ks3811/pickles/'
-    try:
-        import os
-        fp = os.path.join(pickle_dev, 'final2.pkl')
-        model = mio.import_pickle(fp)
-        model['interval'] = 10  # Use deeper pyramid when detecting actual objects
-        mat_model = Model.model_from_dict(model)
-    except ValueError:  # pickle does not exist
-        pass
+    # pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor'
+    # try:
+    #     import os
+    #     fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
+    #     model = mio.import_pickle(fp)
+    #     model['interval'] = 10  # Use deeper pyramid when detecting actual objects
+    #     mat_model = DPM.model_from_dict(model)
+    # except ValueError:  # pickle does not exist
+    #     pass
 
     start = time.time()
     boxes = DPMFitter().fast_fit_from_model(im, mat_model, thresh)
