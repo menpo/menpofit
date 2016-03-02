@@ -80,6 +80,7 @@ class CLM(object):
         percentage that will be kept. If `list`, then it should
         define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
+        Note that the unused components will be permanently trimmed.
     verbose : `bool`, optional
         If ``True``, then the progress of building the CLM will be printed.
     batch_size : `int` or ``None``, optional

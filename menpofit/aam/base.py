@@ -74,12 +74,14 @@ class AAM(object):
         percentage that will be kept. If `list`, then it should
         define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
+        Note that the unused components will be permanently trimmed.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
         per scale. If a single number, then this will be applied to all
-        scales. If ``None``, then all the components are kept.
+        scales. If ``None``, then all the components are kept. Note that the
+        unused components will be permanently trimmed.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
     batch_size : `int` or ``None``, optional
@@ -650,12 +652,14 @@ class MaskedAAM(AAM):
         percentage that will be kept. If `list`, then it should
         define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
+        Note that the unused components will be permanently trimmed.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
         per scale. If a single number, then this will be applied to all
-        scales. If ``None``, then all the components are kept.
+        scales. If ``None``, then all the components are kept. Note that the
+        unused components will be permanently trimmed.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
     batch_size : `int` or ``None``, optional
@@ -758,12 +762,14 @@ class LinearAAM(AAM):
         percentage that will be kept. If `list`, then it should
         define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
+        Note that the unused components will be permanently trimmed.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
         per scale. If a single number, then this will be applied to all
-        scales. If ``None``, then all the components are kept.
+        scales. If ``None``, then all the components are kept. Note that the
+        unused components will be permanently trimmed.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
     batch_size : `int` or ``None``, optional
@@ -921,12 +927,14 @@ class LinearMaskedAAM(AAM):
         percentage that will be kept. If `list`, then it should
         define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
+        Note that the unused components will be permanently trimmed.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
         per scale. If a single number, then this will be applied to all
-        scales. If ``None``, then all the components are kept.
+        scales. If ``None``, then all the components are kept. Note that the
+        unused components will be permanently trimmed.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
     batch_size : `int` or ``None``, optional
@@ -1092,12 +1100,14 @@ class PatchAAM(AAM):
         percentage that will be kept. If `list`, then it should
         define a value per scale. If a single number, then this will be
         applied to all scales. If ``None``, then all the components are kept.
+        Note that the unused components will be permanently trimmed.
     max_appearance_components : `int`, `float`, `list` of those or ``None``, optional
         The number of appearance components to keep. If `int`, then it sets the
         exact number of components. If `float`, then it defines the variance
         percentage that will be kept. If `list`, then it should define a value
         per scale. If a single number, then this will be applied to all
-        scales. If ``None``, then all the components are kept.
+        scales. If ``None``, then all the components are kept. Note that the
+        unused components will be permanently trimmed.
     verbose : `bool`, optional
         If ``True``, then the progress of building the AAM will be printed.
     batch_size : `int` or ``None``, optional

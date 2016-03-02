@@ -12,7 +12,8 @@ from menpofit.visualize import print_progress
 
 
 def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
-                                         noise_percentage=0.1, rotation=False):
+                                         noise_percentage=0.1,
+                                         allow_alignment_rotation=False):
     r"""
     Constructs and perturbs the optimal similarity transform between the source
     and target shapes by adding noise to its parameters.
@@ -32,7 +33,7 @@ def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
         `float` it must have length 3, where the first, second and third elements
         denote the amount of noise to be applied to the scale, rotation and
         translation parameters, respectively.
-    rotation : `bool`, optional
+    allow_alignment_rotation : `bool`, optional
         If ``False``, then the rotation is not considered when computing the
         optimal similarity transform between source and target.
 
@@ -46,7 +47,8 @@ def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
     elif len(noise_percentage) == 1:
         noise_percentage *= 3
 
-    similarity = AlignmentSimilarity(source, target, rotation=rotation)
+    similarity = AlignmentSimilarity(source, target,
+                                     rotation=allow_alignment_rotation)
 
     if noise_type is 'gaussian':
         s = noise_percentage[0] * (0.5 / 3) * np.asscalar(np.random.randn(1))
@@ -103,7 +105,8 @@ def noisy_target_alignment_transform(source, target,
 
 
 def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
-                                  noise_percentage=0.05, rotation=False):
+                                  noise_percentage=0.05,
+                                  allow_alignment_rotation=False):
     r"""
     Constructs and perturbs the optimal similarity transform between the bounding
     box of the source shape and the target bounding box, by adding noise to its
@@ -125,7 +128,7 @@ def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
         `float` it must have length 3, where the first, second and third elements
         denote the amount of noise to be applied to the scale, rotation and
         translation parameters, respectively.
-    rotation : `bool`, optional
+    allow_alignment_rotation : `bool`, optional
         If ``False``, then the rotation is not considered when computing the
         optimal similarity transform between source and target.
 
@@ -135,17 +138,19 @@ def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
         The noisy shape.
     """
     transform = noisy_alignment_similarity_transform(
-        shape.bounding_box(), bounding_box, noise_type=noise_type,
-        noise_percentage=noise_percentage, rotation=rotation)
+            shape.bounding_box(), bounding_box, noise_type=noise_type,
+            noise_percentage=noise_percentage,
+            allow_alignment_rotation=allow_alignment_rotation)
     return transform.apply(shape)
 
 
 def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
-                           noise_percentage=0.05, rotation=False):
+                           noise_percentage=0.05,
+                           allow_alignment_rotation=False):
     r"""
-    Constructs and perturbs the optimal similarity transform between the provided
-    reference shape and the target shape, by adding noise to its parameters. It
-    returns the noisy version of the reference shape.
+    Constructs and perturbs the optimal similarity transform between the
+    provided reference shape and the target shape, by adding noise to its
+    parameters. It returns the noisy version of the reference shape.
 
     Parameters
     ----------
@@ -162,7 +167,7 @@ def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
         `float` it must have length 3, where the first, second and third elements
         denote the amount of noise to be applied to the scale, rotation and
         translation parameters, respectively.
-    rotation : `bool`, optional
+    allow_alignment_rotation : `bool`, optional
         If ``False``, then the rotation is not considered when computing the
         optimal similarity transform between source and target.
 
@@ -172,8 +177,9 @@ def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
         The noisy reference shape.
     """
     transform = noisy_alignment_similarity_transform(
-        reference_shape, shape, noise_type=noise_type,
-        noise_percentage=noise_percentage, rotation=rotation)
+            reference_shape, shape, noise_type=noise_type,
+            noise_percentage=noise_percentage,
+            allow_alignment_rotation=allow_alignment_rotation)
     return transform.apply(reference_shape)
 
 

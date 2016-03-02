@@ -37,11 +37,16 @@ class GradientDescentCLMFitter(CLMFitter):
         The gradient descent optimisation algorithm that will get applied. The
         possible options are :map:`RegularisedLandmarkMeanShift` and
         :map:`ActiveShapeModel`.
-    n_shape : `int` or `list` or ``None``, optional
-        The number of shape components that will be used. If `int`, then the
-        provided value will be applied on all scales. If `list`, then it
-        defines a value per scale. If ``None``, then all the components will
-        be used.
+    n_shape : `int` or `float` or `list` of those or ``None``, optional
+        The number of shape components that will be used. If `int`, then it
+        defines the exact number of active components. If `float`, then it
+        defines the percentage of variance to keep. If `int` or `float`, then
+        the provided value will be applied for all scales. If `list`, then it
+        defines a value per scale. If ``None``, then all the available
+        components will be used. Note that this simply sets the active
+        components without trimming the unused ones. Also, the available
+        components may have already been trimmed to `max_shape_components`
+        during training.
     """
     def __init__(self, clm, gd_algorithm_cls=RegularisedLandmarkMeanShift,
                  n_shape=None):

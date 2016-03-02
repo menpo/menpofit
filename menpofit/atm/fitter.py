@@ -25,11 +25,17 @@ class LucasKanadeATMFitter(ModelFitter):
         :map:`ForwardCompositional` Forward        Compositional
         :map:`InverseCompositional` Inverse
         =========================== ============== =============
-    n_shape : `int` or `list` or ``None``, optional
-        The number of shape components that will be used. If `int`, then the
-        provided value will be applied on all scales. If `list`, then it
-        defines a value per scale. If ``None``, then all the components will
-        be used.
+
+    n_shape : `int` or `float` or `list` of those or ``None``, optional
+        The number of shape components that will be used. If `int`, then it
+        defines the exact number of active components. If `float`, then it
+        defines the percentage of variance to keep. If `int` or `float`, then
+        the provided value will be applied for all scales. If `list`, then it
+        defines a value per scale. If ``None``, then all the available
+        components will be used. Note that this simply sets the active
+        components without trimming the unused ones. Also, the available
+        components may have already been trimmed to `max_shape_components`
+        during training.
     sampling : `list` of `int` or `ndarray` or ``None``
         It defines a sampling mask per scale. If `int`, then it defines the
         sub-sampling step of the sampling mask. If `ndarray`, then it
