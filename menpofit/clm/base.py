@@ -14,6 +14,7 @@ from menpofit.builder import (compute_features, scale_images,
 from menpofit.modelinstance import OrthoPDM
 
 from .expert import CorrelationFilterExpertEnsemble
+from .expert.ensemble import ConvolutionBasedExpertEnsemble
 
 
 class CLM(object):
@@ -372,7 +373,16 @@ class CLM(object):
         ----------
         figure_size : (`int`, `int`), optional
             The size of the plotted figures.
+
+        Raises
+        ------
+        ValueError
+            Only convolution-based expert ensembles can be visualized.
         """
+        if not isinstance(self.expert_ensembles[0],
+                          ConvolutionBasedExpertEnsemble):
+            raise ValueError('Only convolution-based expert ensembles can be '
+                             'visualized.')
         try:
             from menpowidgets import visualize_expert_ensemble
             centers = [sp.model.mean() for sp in self.shape_models]
@@ -405,7 +415,16 @@ class CLM(object):
             each parameter.
         figure_size : (`int`, `int`), optional
             The size of the rendered figure.
+
+        Raises
+        ------
+        ValueError
+            Only convolution-based expert ensembles can be visualized.
         """
+        if not isinstance(self.expert_ensembles[0],
+                          ConvolutionBasedExpertEnsemble):
+            raise ValueError('Only convolution-based expert ensembles can be '
+                             'visualized.')
         try:
             from menpowidgets import visualize_clm
             visualize_clm(self, n_shape_parameters=n_shape_parameters,

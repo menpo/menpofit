@@ -39,24 +39,6 @@ class ExpertEnsemble(object):
         """
         pass
 
-    @property
-    def spatial_filter_images(self):
-        r"""
-        Returns a `list` of `n_experts` filter images on the spatial domain.
-
-        :type: `list` of `menpo.image.Image`
-        """
-        pass
-
-    @property
-    def frequency_filter_images(self):
-        r"""
-        Returns a `list` of `n_experts` filter images on the frequency domain.
-
-        :type: `list` of `menpo.image.Image`
-        """
-        pass
-
     def predict_response(self, image, shape):
         r"""
         Method for predicting the response of the experts on a given image.
@@ -78,7 +60,9 @@ class ExpertEnsemble(object):
 
     def predict_probability(self, image, shape):
         r"""
-        Method for predicting the response of the experts on a given image.
+        Method for predicting the probability map of the response experts on a
+        given image. Note that the provided shape must have the same number of
+        points as the number of experts.
 
         Parameters
         ----------
@@ -93,7 +77,10 @@ class ExpertEnsemble(object):
         probability_map : ``(n_experts, 1, height, width)`` `ndarray`
             The probability map of the response of each expert.
         """
-        pass
+        # Predict responses
+        responses = self.predict_response(image, shape)
+        # Turn them into proper probability maps
+        return probability_map(responses)
 
 
 # TODO: Should convolutional experts of ensembles support patch features?
@@ -239,30 +226,6 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         # Predict responses
         return fft_convolve2d_sum(patches, self.fft_padded_filters,
                                   fft_filter=True, axis=1)
-
-    def predict_probability(self, image, shape):
-        r"""
-        Method for predicting the probability map of the response experts on a
-        given image. Note that the provided shape must have the same number of
-        points as the number of experts.
-
-        Parameters
-        ----------
-        image : `menpo.image.Image` or `subclass`
-            The test image.
-        shape : `menpo.shape.PointCloud`
-            The shape that corresponds to the image from which the patches
-            will be extracted.
-
-        Returns
-        -------
-        probability_map : ``(n_experts, 1, height, width)`` `ndarray`
-            The probability map of the response of each expert.
-        """
-        # Predict responses
-        responses = self.predict_response(image, shape)
-        # Turn them into proper probability maps
-        return probability_map(responses)
 
     def view_spatial_filter_images_widget(self, figure_size=(10, 8),
                                           style='coloured',
