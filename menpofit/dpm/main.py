@@ -4,14 +4,15 @@ import scipy.io
 import sys
 import time
 from menpo.shape import Tree
-from menpofit.dpm import DPMLearner, DPMFitter, DPM, non_max_suppression_fast, clip_boxes, bb_to_lns
+from menpofit.dpm import DPMLearner, DPMFitter, Model, non_max_suppression_fast, clip_boxes, bb_to_lns
 from scipy.sparse import csr_matrix
 from os.path import isdir
 
 
 def debugging():
 
-    # dpm_learner = DPMLearner()
+    # Uncomment this to start the learner which currently use images and configurations base on original matlab code
+    dpm_learner = DPMLearner()
 
     pm = '/vol/atlas/homes/grigoris/external/dpm_ramanan/face-release1.0-basic/'
     assert(isdir(pm))
@@ -27,7 +28,6 @@ def debugging():
     components, anchors = get_components(mat_model)
     filters_all = get_filters(mat_model)
     defs_all = get_defs(mat_model, anchors)
-    im = mio.import_builtin_asset.takeo_ppm()
 
     mat_model = dict()
     mat_model['maxsize'] = maxsize
@@ -36,21 +36,21 @@ def debugging():
     mat_model['filters'] = filters_all
     mat_model['defs'] = defs_all
     mat_model['components'] = components
-    mat_model = DPM.model_from_dict(mat_model)
+    mat_model = Model.model_from_dict(mat_model)
 
     # Uncomment these to use the model learned from python
-
-    # pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor'
-    # try:
-    #     import os
-    #     fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
-    #     model = mio.import_pickle(fp)
-    #     model['interval'] = 10  # Use deeper pyramid when detecting actual objects
-    #     mat_model = DPM.model_from_dict(model)
-    # except ValueError:  # pickle does not exist
-    #     pass
+    pickle_dev = '/vol/atlas/homes/ks3811/pickles/'
+    try:
+        import os
+        fp = os.path.join(pickle_dev, 'final2.pkl')
+        model = mio.import_pickle(fp)
+        model['interval'] = 10  # Use deeper pyramid when detecting actual objects
+        mat_model = Model.model_from_dict(model)
+    except ValueError:  # pickle does not exist
+        pass
 
     start = time.time()
+    im = mio.import_builtin_asset.takeo_ppm()
     boxes = DPMFitter().fast_fit_from_model(im, mat_model, thresh)
     print 'Found {0} configuration(s) that score above a given threshold: {1}'.format(np.size(boxes), thresh)
     boxes.sort(key=lambda item: item['s'], reverse=True)
@@ -62,27 +62,27 @@ def debugging():
 
 
 def get_components(model):
-    # Component contains informations about filters and defs indexes as well as each component tree structure
+    # Component contains information about filters and defs indexes as well as each component tree structure
     components = []
     comp_m = model['components'][0][0][0] # *_m = * in matlab
     anchors = []
     for c in range(len(comp_m)):    # 13 components
         cm = comp_m[c][0]
-        def_ids = []
         filter_ids = []
+        def_ids = []
         parents = []
-        # def_index = []
-        # filter_index = []
+        # filter_index = []  # indexes are not need for fitting. but just leave it right now
+        # def_index = [] 
         num_parts = len(cm)
         for k in range(num_parts):
-            def_id = cm[k]['defid'][0][0]
-            def_ids.append(def_id - 1)
             filter_id = cm[k]['filterid'][0][0]
-            filter_ids.append(filter_id - 1)
+            filter_ids.append(filter_id - 1)  # -1 due to matlab numbering
+            def_id = cm[k]['defid'][0][0]  # -1 due to matlab numbering
+            def_ids.append(def_id - 1)
             parents.append(cm[k]['parent'][0][0] - 1)
-            # def_index.append(model['defs'][0][0][0][def_id - 1][1][0][0])  # -1 due to python numbering
-            # filter_index.append(model['filters'][0][0][0][filter_id - 1][1][0][0])  # -1 due to python numbering
-            x = model['defs'][0][0][0][def_id - 1]  # -1 due to python numbering
+            # def_index.append(model['defs'][0][0][0][def_id - 1][1][0][0])  # -1 due to matlab numbering
+            # filter_index.append(model['filters'][0][0][0][filter_id - 1][1][0][0])  # -1 due to matlab numbering
+            x = model['defs'][0][0][0][def_id - 1]  # -1 due to matlab numbering
             (ax, ay, ds) = np.copy(x['anchor'][0])
             anchors.append((ax, ay, ds))
         pairs = zip(parents, range(num_parts))
@@ -102,8 +102,8 @@ def get_filters(model):
     ff = model['filters'][0][0][0]
     filters = []
     for i in range(len(ff)):
-        tt = np.rollaxis(ff[i]['w'], 2)  # rollaxis since matlab format is (5, 5, 32) while python hog is (31, 5, 5)
-        tt = tt[:-1, :, :]  # matlab hog is loaded (32 vs 31 feats in python).
+        tt = np.rollaxis(ff[i]['w'], 2)  # rollaxis since matlab format is (5, 5, 32) while menpo hog is (31, 5, 5)
+        tt = tt[:-1, :, :]  # ignore matlab hog last index (32 in matlab vs 31 in menpo).
         tt2 = copy_to_new_array(tt)
         filters.append({'w': tt2})
     return filters

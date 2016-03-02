@@ -1,7 +1,6 @@
 import time
 import os
 import numpy as np
-from numpy import size, nonzero
 from scipy.sparse import csr_matrix
 import scipy.io
 
@@ -10,24 +9,18 @@ from menpo.feature import hog
 from menpo.image import Image
 from menpo.shape import Tree
 
-from .fitter import DPMFitter  # , non_max_suppression_fast, clip_boxes, bb_to_lns
+from .fitter import DPMFitter
 from .utils import score, lincomb, qp_one_sparse
 
 
 class DPMLearner(object):
     def __init__(self, config=None):
-        # assert(isinstance(tree, Tree))
-        # assert(len(filters) == len(tree.vertices) == len(def_coef))
-        # self.components = components
-        # self.filters_all = filters_all
-        # self.defs_all = defs_all
         self.config = config
 
-        # remove when config is passed properly or can be learned from the example.
+        # todo: remove when config is passed properly or can be learned from the example.
         if self.config is None:
             self.config = self._get_face_default_config()
 
-        self.fitter = DPMFitter()
         start = time.time()
         self._model_train()
         stop = time.time()
@@ -36,7 +29,8 @@ class DPMLearner(object):
 
     @staticmethod
     def _get_face_default_config():
-        conf = dict()  # configurations for the mixture components.
+        # configurations for the mixture components.
+        conf = dict()
         conf['sbin'] = 4
         conf['viewpoint'] = range(90, -90-15, -15)  # 90 <-> -90
         conf['partpoolsize'] = 39 + 68 + 39
@@ -80,6 +74,7 @@ class DPMLearner(object):
 
     @staticmethod
     def _get_anno2tree(gmixid):
+        # convert original annotations to match tree structure
         if 0 <= gmixid <= 2:
             anno2tree = np.array(([6, 5, 4, 3, 2, 1,
                                    14, 15, 11, 12, 13,
@@ -249,11 +244,11 @@ class DPMLearner(object):
         return split_pos
 
     def _ln2box(self, pos):
-        # Converts the points in bboxes. (same as point2box.mat in the original code)
+        # Converts the points into bounding boxes.
         for i, p in enumerate(pos):
             parents_lns = self._get_parents_lns(p['gmixid'])
             lengths = np.linalg.norm(abs(p['pts'][1:] - p['pts'][parents_lns[1:]]), axis=1)
-            boxlen = np.percentile(lengths, 80, interpolation='midpoint')  # 0.73% to compensate for the zero norm 34 point.
+            boxlen = np.percentile(lengths, 80, interpolation='midpoint')
             assert(boxlen > 3)  # ensure that boxes are 'big' enough.
             _t = np.clip(p['pts'] - 1 - boxlen/2, 0, np.inf) # -1 for matlab indexes
             p['box_x1'] = np.copy(_t[:, 0])
@@ -267,8 +262,8 @@ class DPMLearner(object):
         areas = np.empty((len(pos_),))
         for i, el in enumerate(pos_):
             areas[i] = (el['box_x2'][0] - el['box_x1'][0] + 1) * (el['box_y2'][0] - el['box_y1'][0] + 1)
-        areas = np.sort(areas)  # Pick 20 percentile area
-        area = areas[np.floor(areas.size * 0.2)]  # todo: return to 0.2. Current value of 0.21 just to make sz 5 and easier to work with
+        areas = np.sort(areas)
+        area = areas[np.floor(areas.size * 0.2)]  # Pick the 20th percentile area
         nw = np.sqrt(area)
 
         im = hog(Image(np.zeros((1, 30, 30))), mode='sparse', algorithm='zhuramanan')  # Calculating HOG features size
@@ -286,8 +281,8 @@ class DPMLearner(object):
         c = dict()
         c['filter_ids'] = [0]
         c['def_ids'] = [0]
-        c['parent'] = -1
-        c['anchors'] = [np.zeros((3,))]
+        # c['parent'] = -1
+        # c['anchors'] = [np.zeros((3,))]
         c['tree'] = Tree(np.array([0]), root_vertex=0, skip_checks=True)  # Independent part is a single node tree.
 
         model = dict()
@@ -301,7 +296,7 @@ class DPMLearner(object):
         model['sbin'] = sbin
 
         model = self._poswarp(model, pos_)
-        return DPM.model_from_dict(model)
+        return Model.model_from_dict(model)
         # c = model['components'][0]
         # c['bias'] = d['w']  # todo: dont think this is needed
 
@@ -348,17 +343,46 @@ class DPMLearner(object):
         return warped
 
     def _train(self, model, pos, negs, iters, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.6):
+        r"""
+        train(improve) the given model by using dual coordinate solver(qp) with the given positive and negative examples
+
+        Parameters
+        ----------
+        model: `DPM`
+            The model which will be improved using the given positive and negative examples
+        pos: `list`
+            A list of positive examples(dictionary) which contain associated image part and bounding boxes
+        negs: `list`
+            A list of negative examples(dictionary) which contain associated image part
+        iters: `int`
+            The maximum iterations that the qp will be executed.
+        c: `double`
+            The coefficient that indicates the importance of each example
+        wpos: `double`
+            The weight of positive example's coeeficient (cpos = c * wpos)
+        wneg: `double`
+            The weight of negative example's coeeficient (cneg = c * wneg)
+        maxsize: `int`
+            The maximum size of the training data cache (in GB)
+        overlap: `double`
+            The minimum overlap ratio in latent positive search
+
+        Returns
+        -------
+        model: `DPM`
+            The model improved by the given positive and negative examples.
+        """
         # the size of vectorized model
-        length = model.sparselen()
+        length = model.sparse_length()
         # Maximum number of model that fitted into the cache
         nmax = round(maxsize*0.25*10**9/length)
         qp = Qp(model, length, nmax, c, wpos)
         for t in range(iters):
-            # pos = [pos[0]]
+            # get positive examples using latent fitting. Found examples are saved to qp.x
             model.delta = self._poslatent(t, model, qp, pos, overlap)
-            if model.delta < 0.001:
+            if model.delta < 0.001:  # terminate if the score doesn't change much
                 break
-            qp.svfix = range(qp.n)
+            qp.svfix = range(qp.n)  # fix positive examples as permanent support vectors
             qp.sv[qp.svfix] = True
             qp.prune()
             qp.opt(0.5)
@@ -368,18 +392,44 @@ class DPMLearner(object):
             for i, neg in enumerate(negs):
                 print 'iter:', t, 'neg:', i, '/', np.size(negs)
                 im = mio.import_image(neg['im'])
-                box, model = self.fitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp)
+                box, model = DPMFitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp)
                 if np.sum(qp.sv) == nmax:
                     break
 
             qp.opt()
             model = qp.vec2model(model)
+            root_scores = np.sort(qp.score_pos())
+            # compute minimum score on positive example (with raw, unscaled features)
+            model.thresh = root_scores[np.ceil[np.size(root_scores)*0.05]]
+            model.interval = 10
             model.lb = qp.lb
             model.ub = qp.ub
 
         return model
 
     def _poslatent(self, t, model, qp, poses, overlap):
+        r"""
+        Get positive examples using latent fitting. A true bbox is used to check the overlapping with the fitting
+        results. The positive examples are saved into qp by calling qp.write
+
+        Parameters
+        ----------
+        t: `int`
+            The number of iteration(s)
+        model: `DPM`
+            The model which will be improved using the given positive and negative examples
+        qp: `Qp`
+            The dual coordinate solver which created by the given model
+        poses: `list`
+            A list of positive examples(dictionary) which contain associated image part and bounding boxes
+        overlap: `double`
+            The minimum overlap ratio in latent positive search
+
+        Returns
+        -------
+        delta: `double`
+            The different of scores before and after the model is trained(improved)
+        """
         num_pos = np.size(poses)
         model.interval = 5
         num_positives = np.zeros(np.size(model.components, ), dtype=int)
@@ -388,8 +438,6 @@ class DPMLearner(object):
         old_w = qp.w
         qp = qp.model2qp(model)
         assert(scipy.linalg.norm(old_w - qp.w) < 10**-5)
-        # w = (model.model2vec()[0] - qp.w0) * qp.wreg
-        # assert(scipy.linalg.norm(w - qp.w) < 10**-5)
 
         for i, pos in enumerate(poses):
             print 'iter:', t, 'pos:', i, '/', num_pos
@@ -398,19 +446,11 @@ class DPMLearner(object):
             bbox['box'] = np.zeros((num_parts, 4))
             bbox['c'] = pos['gmixid'] # to link the index from matlab properly
             for p in range(num_parts):
-                bbox['box'][p, :] = [pos['box_x1'][p], pos['box_y1'][p], pos['box_x2'][p], pos['box_y2'][p]]        #todo : bbox values are weird fixit
+                bbox['box'][p, :] = [pos['box_x1'][p], pos['box_y1'][p], pos['box_x2'][p], pos['box_y2'][p]]
             im = mio.import_image(pos['im'])
             im, bbox['box'] = self._croppos(im, bbox['box'])
-            box, model = self.fitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
+            box, model = DPMFitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
             if np.size(box) > 0:
-                # im.view()     #  for visualization
-                # cc, pick = non_max_suppression_fast(clip_boxes([box]), 0.3)
-                # lns = bb_to_lns([box], pick)
-                # from menpo.shape import PointCloud
-                # im.landmarks['TEST'] = PointCloud(lns[0])
-                # im2 = im.crop_to_landmarks_proportion(0.2, group='TEST')
-                # im2.view_landmarks(render_numbering=True, group='TEST')
-                # assert(False)
                 num_positives[bbox['c']] += 1
         delta = np.inf
         if t > 0:
@@ -426,6 +466,7 @@ class DPMLearner(object):
 
     @staticmethod
     def _croppos(im, box):
+        # crop positive example to speed up latent search.
         x1 = np.min(box[:, 0])
         y1 = np.min(box[:, 1])
         x2 = np.max(box[:, 2])
@@ -443,7 +484,7 @@ class DPMLearner(object):
         return cropped_im, box
 
     def build_mixture_defs(self, pos, maxsize):
-
+        # compute initial deformable coefficients(anchors) by averaging the distance of each positive example's part
         conf = self.config
         pos_len = len(pos)
         gmixids = np.empty((pos_len,), dtype=np.int32)
@@ -460,19 +501,20 @@ class DPMLearner(object):
             if np.size(idx) == 0:
                 defs.append([])
                 continue
-            # assert(idx.shape[0] > 10)  # should have 'some' images in each mixid.
             points = np.empty((nparts, 2, idx.shape[0]))
 
             for j, id_j in enumerate(idx):
                 scale0 = boxsize[id_j]/maxsize
                 points[:, :, j] = pos[id_j]['pts']/scale0
 
-            deftemp = (points[:, :, :] - points[par, :, :])
-            deftemp = np.mean(deftemp, axis=2)
-            defs.append(deftemp[1:, :])
+            def_tmp = (points[:, :, :] - points[par, :, :])
+            def_tmp = np.mean(def_tmp, axis=2)
+            defs.append(def_tmp[1:, :])
         return defs
 
     def build_mixture_model(self, models, defs):
+        # Combine the filters learned independently of each part and defs learned from positive examples into a
+        # mixture model.
         # Diverging from the original code in the sense that the root filter IS NOT in position 0, but
         # in it's position within the ln points. Additionally, there is a new field called root_id, which
         # shows the precise position of that root filter.
@@ -485,7 +527,7 @@ class DPMLearner(object):
         model_['interval'] = models[0].interval
         model_['sbin'] = models[0].sbin
 
-        # add the filters
+        # Combine the filters
         model_['filters'] = []
         for m in models:    # for each possible parts
             if np.size(m) > 0:
@@ -495,6 +537,7 @@ class DPMLearner(object):
                 model_['len'] += np.size(f['w'])
                 model_['filters'].append(f)
 
+        # combine the defs
         model_['defs'] = []
         model_['components'] = []
         for i, def1 in enumerate(defs):  # for each component
@@ -529,10 +572,12 @@ class DPMLearner(object):
             component['tree'] = Tree(tree_matrix, root_vertex=0, skip_checks=True)
             model_['components'].append(component)
 
-        return DPM.model_from_dict(model_)
+        return Model.model_from_dict(model_)
 
 
-class DPM(object):
+# this class will be rename to DPM once the current experiment with ~ 700 positive examples finish otherwise pickle
+# will complain that class Model is undefined. (the experiment was run when the class is still name Model)
+class Model(object):
 
     def __init__(self, filters=None, defs=None, components=None, interval=10, sbin=5, maxsize=None, len=-1, lb=0,
                  ub=0, delta=0):
@@ -549,6 +594,8 @@ class DPM(object):
 
     @classmethod
     def model_from_dict(cls, model):
+        # todo: currently DPM model is convert directly from dict. Change part of the code in DPMLearner so that it
+        # returns the model directly
         filters = model['filters'] if 'filters' in model else None
         defs = model['defs'] if 'defs' in model else None
         components = model['components'] if 'components' in model else None
@@ -560,9 +607,9 @@ class DPM(object):
         ub = model['ub'] if 'ub' in model else 0
         return cls(filters, defs, components, interval, sbin, maxsize, len, lb, ub)
 
-    def sparselen(self):
+    def sparse_length(self):
         # Number of entries needed to encode a block-scarce representation
-        len1 = -1
+        length = -1
         for tempcnt, comp in enumerate(self.components):
             if not comp:
                 continue
@@ -581,9 +628,9 @@ class DPM(object):
                 feats[i1:i2+1] = 1
                 numblocks += 1
 
-            n = 1 + 2 * numblocks + int(np.sum(feats))  # 1 maybe used to encode the length itself
-            len1 = max(len1, n)
-        return len1
+            n = 1 + 2 * numblocks + int(np.sum(feats))  # 1 is used to encode the length itself
+            length = max(length, n)
+        return length
 
     def get_filters_weights(self):
         return self._extract_from_model('filters', 'w')
@@ -609,41 +656,38 @@ class DPM(object):
 
 
 class Qp(object):
-    # def __init__(self, length, nmax, num_id, c, wpos):
-    #     self.x = np.zeros((length, nmax), dtype=np.float32)
-    #     self.i = np.zeros((num_id, nmax), dtype=np.int)
-    #     self.b = np.zeros((nmax,), dtype=np.float32)
-    #     self.d = np.zeros((nmax,))
-    #     self.a = np.zeros((nmax,))
-    #     self.sv = np.zeros((nmax,), dtype=np.bool)
-    #     self.w = np.zeros((length,))
-    #     self.l = np.array([0], dtype=np.double)
-    #     self.n = 0
-    #     self.ub = 0.0
-    #     self.lb = 0.0
-    #     self.svfix = []
-    #     self.cpos = c * wpos
-    #     self.cneg = c
-    #     self.wreg = wreg
-    #     self.w0 = w0
-    #     self.non_neg = non_neg
-    #     self.w = (w - self.w0) * self.wreg
 
     def __init__(self, model, length, nmax, c, wpos):
+        # Define global QP problem
+        #
+        # (Primal) min_{w,e}  .5*||w||^2 + sum_i e_i
+        #               s.t.   w*x_j >= b_j - e_i for j in Set_i, for all i
+        #
+        # (Dual)   max_{a}   -.5*sum_ij a_i*(x_i*x_j)*a_j + sum_i b_i*a_i
+        #               s.t.                  a_i >= 0
+        #                    sum_(j in Set_i) a_j <= 1
+        #
+        #   where w = sum_i a_i*x_i
         num_id = 5  # 5 = [label, id, level, posX, poY]
-        self.x = np.zeros((length, nmax), dtype=np.float32)
-        self.i = np.zeros((num_id, nmax), dtype=np.int)
-        self.b = np.zeros((nmax,), dtype=np.float32)
-        self.d = np.zeros((nmax,))
-        self.a = np.zeros((nmax,))
-        self.sv = np.zeros((nmax,), dtype=np.bool)
-        self.w = np.zeros((length,))
-        self.l = np.array([0], dtype=np.double)
-        self.n = 0
-        self.ub = 0.0
-        self.lb = 0.0
+        self.x = np.zeros((length, nmax), dtype=np.float32)     # x_i
+        self.i = np.zeros((num_id, nmax), dtype=np.int)         # id of each example
+        self.b = np.zeros((nmax,), dtype=np.float32)            # b_i
+        self.d = np.zeros((nmax,))                              # ||x_i||^2
+        self.a = np.zeros((nmax,))                              # a_i
+        self.sv = np.zeros((nmax,), dtype=np.bool)              # indicating if x_i is the support vector
+        self.w = np.zeros((length,))                            # sum_i a_i*x_i
+        self.l = np.array([0], dtype=np.double)                 # sum_i b_i*a_i
+        self.n = 0                                              # number of constraints
+        self.ub = 0.0                                           # .5*||qp.w||^2 + C*sum_i e_i
+        self.lb = 0.0                                           # -.5*sum_ij a_i*(x_i*x_j)*a_j + sum_i b_i*a_i
         self.lb_old = 0.0
-        self.svfix = []
+        self.svfix = []                                         # pointers to examples that are always kept in memory
+
+        # Put a Gaussian regularization or "prior" on w given by (w0, wreg) where mean = w0, cov^(-1/2) = wreg
+        # qp.w = (w - w0)*wreg -> w = qp.w/wreg + w0
+        # qp.x = x*c/wreg      -> x = qp.x*wreg/c
+        # w*x = (qp.w/wreg + w0)*(qp.x*wreg/c)  (w*x give the score)
+        #     = (qp.w + wreg*w0)*qp.x/c
         self.cpos = c * wpos
         self.cneg = c
         self.wreg = []
@@ -652,19 +696,23 @@ class Qp(object):
         self.model2qp(model)
 
     def score_pos(self):
+        # compute the score of each positive examples
         y = self.i[0, 0:self.n]
-        i = np.array(nonzero(y)[0], dtype=np.intc)
+        i = np.array(np.nonzero(y)[0], dtype=np.intc)
         w = self.w + self.w0 * self.wreg
         scores = score(w, self.x, i)/self.cpos
         return scores
 
     def score_neg(self):
+        # compute the score of the most recent negative example
         w = - (self.w + self.w0 * self.wreg)
-        scores = score(w, self.x, np.array([self.n - 1],  dtype=np.intc)) / self.cneg  # -1 bc current n point to the next free space
+        # -1 bc current n point to the next free space
+        scores = score(w, self.x, np.array([self.n - 1],  dtype=np.intc)) / self.cneg
         return scores
 
     @staticmethod
     def slow_score(w, x):
+        # equivalent to score implemented in cpp. used for debugging
         xp = 1
         y = 0
         for b in range(x[0]):
@@ -679,6 +727,7 @@ class Qp(object):
         return y
 
     def write(self, ex):
+        # save the example(configurations) returned by fitting into qp's set of examples(x)
         if self.n == np.size(self.a):
             return
 
@@ -690,7 +739,7 @@ class Qp(object):
         norm = 0
         i = self.n
         j = 0
-        self.x[:, i] = 0    # needed so that x is sparse i.e. zero for filters and defs of other irrelevant components's parts.
+        self.x[:, i] = 0  # zero out filters and defs of other irrelevant components's parts.
         self.x[j, i] = len(ex['blocks'])
 
         for block in ex['blocks']:
@@ -717,11 +766,12 @@ class Qp(object):
         self.n += 1
 
     def prune(self):
+        # when sv is full, only keep the sv where alpha(a) is active.
         if np.all(self.sv):
             self.sv = self.a > 0
             self.sv[self.svfix] = True
 
-        idxs = nonzero(self.sv)[0]
+        idxs = np.where(self.sv)
         n = np.size(idxs)
         assert(n > 0)
 
@@ -766,8 +816,6 @@ class Qp(object):
             i2 = x[j+2]
             y[i1:i2] = x[j+3:j+3+i2-i1]
             j += 3 + i2 - i1 - 1
-        # if x[0] > 0:  not true in the mixture of components case
-        #     assert(i2 == np.size(self.w))
         return y
 
     def opt(self, tol=0.05, iters=1000):
@@ -797,7 +845,7 @@ class Qp(object):
         self.ub = ub
 
     def refresh(self):
-        idxs = nonzero(self.a > 0)[0]
+        idxs = np.where(self.a > 0)
         idxs = idxs[np.argsort(self.a[idxs])] if np.size(idxs) > 0 else np.array([0])
         idxs = np.array(idxs, dtype=np.intc)
         self.l[0] = np.sum(self.b[idxs] * self.a[idxs])
@@ -810,6 +858,7 @@ class Qp(object):
             assert(self.lb > self.lb_old - 10**-5)
 
     def slow_lin_comb(self, ids):
+        # equivalent to lib_comb implemented in cpp. used for debugging
         for i in range(np.size(ids)):
             a = self.a[ids[i]]
         xp = 1
@@ -842,7 +891,8 @@ class Qp(object):
         return np.sum(slack[err])
 
     def one(self):
-        idxs = nonzero(self.sv)[0]
+        # basic building block for optimising qp for the given set of examples
+        idxs = np.where(self.sv)
         np.random.shuffle(idxs)
         idxs = np.array(idxs, dtype=np.intc)
         n = np.size(idxs)
@@ -875,6 +925,7 @@ class Qp(object):
         return self.w / self.wreg + self.w0
 
     def qp_one_sparse(self, c, I):
+        # checkout section 2.2 in http://arxiv.org/pdf/1312.1743v2.pdf
         n = np.size(I)
         err = np.zeros((n,), dtype=np.double)
         idC = np.zeros((n,), dtype=np.double)
@@ -951,6 +1002,7 @@ class Qp(object):
         return np.sum(err)
 
     def vec2model(self, model, debug=False):
+        # convert qp weight(w) to model
         original_w = self.actual_w().astype(np.double)
         for i in range(np.size(model.defs)):
             x = model.defs[i]
@@ -964,7 +1016,7 @@ class Qp(object):
                 s = np.shape(x['w'])
                 j = range(int(x['i']), int(x['i'] + np.prod(s)))
                 model.filters[i]['w'] = np.reshape(original_w[j], s)
-        if True:  # TODO: fix this. w2 is not in the actual form
+        if True:  # todo: change True to debug once tested thoroughly
             self.model2qp(model)
             w_from_updated_model = self.actual_w().astype(np.double)
             if not (np.all(np.ab(original_w - w_from_updated_model) < 10**-5)):
@@ -972,12 +1024,13 @@ class Qp(object):
         return model
 
     def model2qp(self, model):
+        # update qp weight(w) from model
         w = np.zeros((model.len,))
         w0 = np.zeros_like(w)
         wreg = np.ones_like(w0)
         non_neg = []
         for x in model.defs:
-            l = size(x['w'])
+            l = np.size(x['w'])
             j = np.array(range(x['i'], x['i'] + l))
             w[j] = np.copy(x['w'])
             if l == 1:
@@ -989,7 +1042,7 @@ class Qp(object):
                 non_neg.append(j)
         for x in model.filters:
             if x['i'] >= 0:
-                l = size(x['w'])
+                l = np.size(x['w'])
                 j = np.array(range(x['i'], x['i'] + l))
                 w[j] = np.copy(x['w'])
         non_neg = np.array(non_neg, dtype=np.intc).flatten() if np.size(non_neg) > 0 else []
@@ -999,7 +1052,7 @@ class Qp(object):
         self.non_neg = non_neg
         return self
 
-    def obtimize(self, model):
+    def obtimise(self, model):
         if self.lb < 0 or self.n == np.size(self.a):
             self.mult()
             self.prune()

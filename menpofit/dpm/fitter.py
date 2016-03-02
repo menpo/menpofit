@@ -1,36 +1,12 @@
 import numpy as np
+from .utils import convolve_python_f, call_shiftdt
+from math import log as log_m
+from menpo.feature import hog
 
 
 class DPMFitter(object):
+
     r"""
-    """
-
-    def fit(self, image, threshold=-1):
-        padding = (3, 3)  # TODO: param in the future maybe?
-        feats, scales = _featpyramid(image, 5, 4, padding)
-
-        boxes = []  # list with detection boxes (as dictionaries)
-        filters_all = self._model.filters_all
-        defs_all = self._model.defs_all
-        components = self._model.components
-        for c, component in enumerate(components):
-            tree = component['tree']
-            anchors = component['anchors']
-            bias = component['bias']
-            filter_ids = component['filter_ids'];
-            def_ids = component['def_ids'];
-            filters = []
-            defs = []
-            for node in tree.vertices:
-                filters.append(filters_all[filter_ids[node]])
-                if node == tree.root_vertex:  # root is on 0 by default in Ramanan
-                    (w1, w2, w3, w4) = (0., 0., 0., 0.)
-                else:
-                    (w1, w2, w3, w4) = -defs_all[def_ids[node]]
-                defs.append((w1, w2, w3, w4))
-            boxes.extend(self._fit(feats, scales, padding, threshold, filters, defs, anchors, bias, tree))
-        return boxes
-
     def _fit(self, feats, scales, padding, threshold=-1, filters=None, defs=None, anchors=None, bias=None, tree=None):
         from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
 
@@ -100,9 +76,10 @@ class DPMFitter(object):
                     detection_info['xy'] = box
                     boxes.append(dict(detection_info))
         return boxes
+    """
 
-    def fast_fit_from_model(self, image, model, threshold=-10**100):
-        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
+    @staticmethod
+    def fast_fit_from_model(image, model, threshold=-10**100):
         padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
         feats, scales = _featpyramid(image, model.interval, model.sbin, padding)
 
@@ -111,11 +88,13 @@ class DPMFitter(object):
         defs_all = model.get_defs_weights()
         anchors_all = model.get_defs_anchors()
 
-        for level, feat in feats.iteritems():  # for each level in the pyramid
+        for level, feat in feats.iteritems():  # for each level in the feature pyramid
             unary_scores_all = convolve_python_f(feat, filters_all)
             for c, component in enumerate(model.components):
+
                 if not component:
                     continue
+
                 tree = component['tree']
                 filter_ids = component['filter_ids']
                 def_ids = component['def_ids']
@@ -125,32 +104,32 @@ class DPMFitter(object):
                 fsz = np.array(filters_all[filter_ids[tree.root_vertex]].shape)[1:]
 
                 scores = np.array(unary_scores_all)[filter_ids]
-                scores, Ix, Iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
+                scores, ix, iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
                 scale = scales[level]
-                rscore = scores[tree.root_vertex] + bias
-                [Y, X] = np.where(rscore > threshold)
+                root_score = scores[tree.root_vertex] + bias
+                [ys, xs] = np.where(root_score > threshold)
 
-                if X.shape[0] > 0:
-                    XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding)
+                if xs.shape[0] > 0:
+                    xy = _old_backtrack(xs, ys, tree, ix, iy, fsz, scale, padding)
 
-                for i in range(X.shape[0]):
-                    x, y = X[i], Y[i]
+                for i in range(xs.shape[0]):
+                    x, y = xs[i], ys[i]
                     detection_info = dict()
                     detection_info['level'] = level
-                    detection_info['s'] = np.copy(rscore[y, x])
-                    detection_info['xy'] = XY[:, :, i]
+                    detection_info['s'] = np.copy(root_score[y, x])
+                    detection_info['xy'] = xy[:, :, i]
                     boxes.append(dict(detection_info))
 
         return boxes
 
-    def fit_with_bb(self, image, model, threshold=-10**100, bbox=dict(), overlap=0, id=0, label=0, qp=None):
+    @staticmethod
+    def fit_with_bb(image, model, threshold=-10**100, bbox=dict(), overlap=0, id_=0, label=0, qp=None):
         latent = 'box' in bbox and len(bbox['box']) > 0
-        ex = dict()
+        ex = dict()  # ex is the example that will e written to qp. maybe ex can be moved to qp instead
         ex['blocks'] = []
-        ex['id'] = np.array([label, id, 0, 0, 0])
+        ex['id'] = np.array([label, id_, 0, 0, 0])
         padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
         feats, scales = _featpyramid(image, model.interval, model.sbin, padding)
-        from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it.
 
         boxes = []  # list with detection boxes (as dictionaries)
         filters_all = model.get_filters_weights()
@@ -162,6 +141,7 @@ class DPMFitter(object):
         for level, feat in feats.iteritems():  # for each level in the pyramid
             unary_scores_all = convolve_python_f(feat, filters_all)
             for c, component in enumerate(model.components):
+
                 if not component:
                     continue
                 if latent:
@@ -178,6 +158,7 @@ class DPMFitter(object):
                 def_index = np.array(defs_index_all)[def_ids]
                 fsz = np.array(filters_all[filter_ids[tree.root_vertex]].shape)[1:]
 
+                # for positive examples, only allow the configurations that mostly overlap with actual annotations
                 ovmask = {}
                 if latent:
                     skip_flag = False
@@ -195,56 +176,49 @@ class DPMFitter(object):
                     assert(np.any(ov))
                     mask = np.zeros(ov.shape)
                     mask[np.logical_not(ov)] = -999999  # can not be -np.inf because of using distance transform
-                    if np.shape(scores[i]) != np.shape(mask):
-                        print 'false'
                     scores[i] = scores[i] + mask
-                old_scores = np.copy(scores)
 
-                scores, Ix, Iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
+                scores, ix, iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
                 scale = scales[level]
-                rscore = scores[tree.root_vertex] + bias
-
-                # print rscore
-                # import matplotlib.pyplot as plt
-                # plt.pcolor(np.array([[-10, -10], [10, 10]]), cmap=plt.cm.Reds)
-                # plt.show()
-                # plt.close()
+                root_score = scores[tree.root_vertex] + bias
 
                 if latent:
-                    threshold = max(threshold, np.max(rscore))
+                    threshold = max(threshold, np.max(root_score))
 
-                [Y, X] = np.where(rscore >= threshold)
+                [ys, xs] = np.where(root_score >= threshold)
 
+                # todo: test if it faster to use old_backtrack
                 # if X.shape[0] > 0:
                 #     XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
 
-                print 'level :', level, 'component :', c, 'found :', X.shape[0]
+                print 'level :', level, 'component :', c, 'found :', xs.shape[0]
                 diffs = []
-                for i in range(X.shape[0]):
-                    x, y = X[i], Y[i]
+                for i in range(xs.shape[0]):
+                    x, y = xs[i], ys[i]
                     # box = XY[:, :, i]
-                    XY, ptr = _backtrack(x, y, tree, Ix, Iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
+                    xy, ptr = _backtrack(x, y, tree, ix, iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
                     detection_info = dict()
                     detection_info['level'] = level
-                    detection_info['s'] = np.copy(rscore[y, x])
-                    detection_info['xy'] = XY  # box  # XY
+                    detection_info['s'] = np.copy(root_score[y, x])
+                    detection_info['xy'] = xy  # box  # XY
                     boxes.append(dict(detection_info))
                     # ex = create_ex(box, x, y, tree, fsz, padding, ex, level, filter_index, def_index, feat, anchors)
                     if not latent:
                         qp.write(ex)
-                        qp.increment_neg_ub(rscore[y, x])
-                        diffs.append(abs(qp.score_neg() - rscore[y, x]))
+                        qp.increment_neg_ub(root_score[y, x])
+                        diffs.append(abs(qp.score_neg() - root_score[y, x]))
 
-                if not latent and X.shape[0] > 0 and qp.n < np.size(qp.a):
+                if not latent and xs.shape[0] > 0 and qp.n < np.size(qp.a):
+                    # part of the debugging, might need in short future
                     # print qp.score_neg(), rscore[y, x], qp.score_neg() - rscore[y, x]
                     # scores1 = qp.slow_score(-(qp.w + qp.w0 * qp.wreg)/qp.cneg, qp.x[:, qp.n-1])
                     # print 'score1 :', scores1
                     # scores2 = compute_filters_scores_only(old_scores, tree, filter_ids, ptr)
                     # print 'score2 :', scores2
-                    assert(qp.score_neg() - rscore[y, x] < 10**-5)
+                    assert(qp.score_neg() - root_score[y, x] < 10**-5)
 
                 if not latent and (qp.lb < 0 or 1-qp.lb/qp.ub > 0.05 or qp.n == np.size(qp.sv)):
-                    model = qp.obtimize(model)
+                    model = qp.obtimise(model)
                     filters_all = model.get_filters_weights()
                     unary_scores_all = convolve_python_f(feat, filters_all)
                     defs_all = model.get_defs_weights()
@@ -252,6 +226,7 @@ class DPMFitter(object):
 
         if latent:
             qp.write(ex)
+            # part of the debugging, might need in short future
             # scores1 = qp.slow_score((qp.w + qp.w0 * qp.wreg)/qp.cpos, qp.x[:, qp.n-1])
             # scores2 = compute_filters_scores_only(best_old_scores, best_tree, best_filter_ids, ptr)
             # assert(qp.score_pos()[qp.n-1] - best_rscore[y, x] < 10**-5)
@@ -259,40 +234,11 @@ class DPMFitter(object):
                 boxes = boxes[-1]
         return boxes, model
 
-    # @staticmethod
-    # def _obtimize(model, qp):
-    #     if qp.lb < 0 or qp.n == np.size(qp.a):
-    #         qp.mult()
-    #         qp.prune()
-    #     else:
-    #         qp.one()
-    #     model = qp.vec2model(model)
-    #     return model
-
-
-# def _extract_from_model(model, field, sub_field):
-#     sub_fields = []
-#     for f in model[field]:
-#         if f:
-#             sub_fields.append(f[sub_field])
-#     return sub_fields
-
-
-# def copy_to_new_array(arr):
-#     # copies each value of an original array to a new one in the same shape.
-#     # Due to matlab having column-major.
-#     sh = arr.shape
-#     new = np.empty(sh, order='C')
-#     for c in range(sh[0]):
-#         for i in range(sh[1]):
-#             for j in range(sh[2]):
-#                 new[c, i, j] = np.copy(arr[c, i, j])
-#     return new
-
 
 def _test_overlap(fsz, feat, scale, padding, img_size, box, overlap):
+    # return the 2d boolean matrix with the same size of each part score indicating if each position overlap with the
+    # bounding box more than a given threshold
     [bx1, by1, bx2, by2] = box
-    #  (_, dim_y, dim_x) = feat.shape
     (_, dim_y, dim_x) = feat.shape
     (size_x, size_y) = fsz
     (padx, pady) = padding
@@ -320,55 +266,6 @@ def _test_overlap(fsz, feat, scale, padding, img_size, box, overlap):
     return np.asarray(ov > overlap)
 
 
-def _compute_unary_scores(feature_pyramid, filters):
-    from menpo.feature.gradient import convolve_python_f  # TODO: define a more proper file for it
-    unary_scores = []
-    for feat in feature_pyramid:  # for each level in the pyramid
-        resp = convolve_python_f(feat, filters)
-        unary_scores.append(resp)
-    return unary_scores
-
-
-def _compute_pairwise_scores(scores, tree, def_coef, anchor):
-    r"""
-    Given the (unary) scores it computes the pairwise scores by utilising the Generalised Distance
-    Transform.
-
-    Parameters
-    ----------
-    scores: `list`
-        The (unary) scores to which the pairwise score will be added.
-    tree: `:map:`Tree``
-        Tree with the parent/child connections.
-    def_coef: `list`
-        Each element contains a 4-tuple with the deformation coefficients for that part.
-    anchor:
-        Contains the anchor position in relation to the parent of each part.
-
-    Returns
-    -------
-    scores: `ndarray`
-        The (unary + pairwise) scores.
-    Ix: `dict`
-        Contains the coordinates of x for each part from the Generalised Distance Transform.
-    Iy: `dict`
-        Contains the coordinates of y for each part from the Generalised Distance Transform.
-    """
-    from menpo.feature.gradient import call_shiftdt   # TODO: define a more proper file for it.
-    Iy, Ix = {}, {}
-    for depth in range(tree.maximum_depth, 0, -1):
-        for curr_vert in tree.vertices_at_depth(depth):
-            (Ny, Nx) = scores[tree.parent(curr_vert)].shape
-            w = def_coef[curr_vert]
-            cy = anchor[curr_vert][0]
-            cx = anchor[curr_vert][1]
-            msg, Ix1, Iy1 = call_shiftdt(scores[curr_vert], np.array(w), cx, cy, Nx, Ny, 1)
-            scores[tree.parent(curr_vert)] += msg
-            Ix[curr_vert] = np.copy(Ix1)
-            Iy[curr_vert] = np.copy(Iy1)
-    return scores, Ix, Iy
-
-
 def _fast_compute_pairwise_scores(scores, def_coefs, tree, anchors=None, padding=None):
     r"""
     Given the (unary) scores it computes the pairwise scores by utilising the Generalised Distance
@@ -394,29 +291,27 @@ def _fast_compute_pairwise_scores(scores, def_coefs, tree, anchors=None, padding
     Iy: `dict`
         Contains the coordinates of y for each part from the Generalised Distance Transform.
     """
-    from menpo.feature.gradient import call_shiftdt   # TODO: define a more proper file for it.
-    Iy, Ix = {}, {}
+    iy, ix = {}, {}
     for depth in range(tree.maximum_depth, 0, -1):
         for curr_vert in tree.vertices_at_depth(depth):
             parent = tree.parent(curr_vert)
-            (Ny, Nx) = scores[parent].shape
+            (ny, nx) = scores[parent].shape
             w = def_coefs[curr_vert] * -1.00
-            cx = anchors[curr_vert][0]
-            cy = anchors[curr_vert][1]
-            ds = anchors[curr_vert][2]
+            (cx, cy, ds) = anchors[curr_vert]
             step = 2**ds
-            virtpadx = (step - 1)*padding[0]
-            virtpady = (step - 1)*padding[1]
-            startx = cx - virtpadx
-            starty = cy - virtpady
-            msg, Ix1, Iy1 = call_shiftdt(scores[curr_vert], np.array(w, dtype=np.double), startx, starty, Nx, Ny, 1)
+            virt_padx = (step - 1)*padding[0]
+            virt_pady = (step - 1)*padding[1]
+            startx = cx - virt_padx
+            starty = cy - virt_pady
+            msg, ix1, iy1 = call_shiftdt(scores[curr_vert], np.array(w, dtype=np.double), startx, starty, nx, ny, 1)
             scores[parent] += msg
-            Ix[curr_vert] = np.copy(Ix1)
-            Iy[curr_vert] = np.copy(Iy1)
-    return scores, Ix, Iy
+            ix[curr_vert] = np.copy(ix1)
+            iy[curr_vert] = np.copy(iy1)
+    return scores, ix, iy
 
 
 def compute_filters_scores_only(scores, tree, filter_ids, ptr):
+    # might be needed when debugging
     new_scores = []
     for depth in range(0, tree.maximum_depth + 1):
         for curr_vert in tree.vertices_at_depth(depth):
@@ -429,11 +324,9 @@ def compute_filters_scores_only(scores, tree, filter_ids, ptr):
 def _featpyramid(im, m_inter, sbin, pyra_pad):
     # construct the featpyramid. For the time being, it has similar conventions as in
     # Ramanan's code. TODO: In the future, use menpo's gaussian pyramid.
-    from math import log as log_m
-    from menpo.feature import hog
     sc = 2 ** (1. / m_inter)
-    imsize = (im.shape[0], im.shape[1])
-    max_scale = int(log_m(min(imsize)*1./(5*sbin))/log_m(sc)) + 1
+    img_size = (im.shape[0], im.shape[1])
+    max_scale = int(log_m(min(img_size)*1./(5*sbin))/log_m(sc)) + 1
     feats, scales = {}, {}
     for i in range(m_inter):
         sc_l = 1. / sc ** i
@@ -457,7 +350,7 @@ def _featpyramid(im, m_inter, sbin, pyra_pad):
     return feats_np, scales
 
 
-def old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, level=-1, filter_index=None, def_index=None, feat=None, anchors=None):
+def _old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
     r"""
     Backtrack the solution from the root to the children and return the detection coordinates for each part.
     algorithm:
@@ -506,7 +399,6 @@ def old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False
     box[k, 2, :] = box[k, 0, :] + fsz[1] * scale - 1
     box[k, 3, :] = box[k, 1, :] + fsz[0] * scale - 1
 
-
     for depth in range(1, tree.maximum_depth + 1):
         for cv in tree.vertices_at_depth(depth):  # for each vertex in that level
             par = tree.parent(cv)
@@ -516,7 +408,6 @@ def old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False
             ptr[cv, 0, :] = Ix[cv].ravel()[idx]
             ptr[cv, 1, :] = Iy[cv].ravel()[idx]
 
-            # exactly the same as bove:
             box[cv, 0, :] = (ptr[cv, 0, :] - pyra_pad[0]) * scale + 1
             box[cv, 1, :] = (ptr[cv, 1, :] - pyra_pad[1]) * scale + 1
             box[cv, 2, :] = box[cv, 0, :] + fsz[1] * scale - 1
@@ -524,7 +415,42 @@ def old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False
     return box
 
 
-def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, level=-1, filter_index=None, def_index=None, feat=None, anchors=None):
+def _create_ex(box, x, y, tree, fsz, pyra_pad, ex=None, level=-1, filter_index=None, def_index=None, feat=None,
+               anchors=None):
+    # _create_ex can be used with old_backtrack instead of using _backtrack. todo: Need to check which is faster
+    k = tree.root_vertex
+    ex['id'][2:] = [level, round(x + fsz[0]/2), round(y + fsz[1]/2)]
+    ex['blocks'] = []
+    block = dict()
+    block['i'] = def_index[k]
+    block['x'] = 1  # to match with bias i.e. 1 * bias
+    ex['blocks'].append(block)
+    block = dict()
+    block['i'] = filter_index[k]
+    block['x'] = feat[:, y:y+fsz[0], x:x+fsz[1]]
+    ex['blocks'].append(block)
+
+    for depth in range(1, tree.maximum_depth + 1):
+        for cv in tree.vertices_at_depth(depth):  # for each vertex in that level
+            par = tree.parent(cv)
+            x = box[par, 0]
+            y = box[par, 1]
+            block = dict()
+            block['i'] = def_index[cv]
+            block['x'] = _def_vector(x, y, box[cv, 0], box[cv, 1], pyra_pad, anchors[cv])
+            ex['blocks'].append(block)
+            block = dict()
+            x = box[cv, 0]
+            y = box[cv, 1]
+            block['i'] = filter_index[cv]
+            block['x'] = feat[:, y:y+fsz[1], x:x+fsz[0]]
+            ex['blocks'].append(block)
+
+    return ex
+
+
+def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, level=-1, filter_index=None,
+               def_index=None, feat=None, anchors=None):
     r"""
     Backtrack the solution from the root to the children and return the detection coordinates for each part.
 
@@ -580,13 +506,11 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
         ex['blocks'] = []
         block = dict()
         block['i'] = def_index[k]
-        block['x'] = 1
+        block['x'] = 1  # to match with bias i.e. 1 * bias
         ex['blocks'].append(block)
         block = dict()
         block['i'] = filter_index[k]
         block['x'] = feat[:, y:y+fsz[0], x:x+fsz[1]]
-        # print range(x, x+fsz[1]), range(y, y+fsz[0]), np.shape(block['x'])
-        # print np.shape(feat)
         ex['blocks'].append(block)
     for depth in range(1, tree.maximum_depth + 1):
         for cv in tree.vertices_at_depth(depth):  # for each vertex in that level
@@ -597,7 +521,6 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
             ptr[cv, 0] = Ix[cv].ravel()[idx]
             ptr[cv, 1] = Iy[cv].ravel()[idx]
 
-            # exactly the same as above:
             box[cv, 0] = (ptr[cv, 0] - pyra_pad[0]) * scale + 1
             box[cv, 1] = (ptr[cv, 1] - pyra_pad[1]) * scale + 1
             box[cv, 2] = box[cv, 0] + fsz[0] * scale - 1
@@ -606,7 +529,6 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
                 block = dict()
                 block['i'] = def_index[cv]
                 block['x'] = _def_vector(x, y, ptr[cv, 0], ptr[cv, 1], pyra_pad, anchors[cv])
-                # block['x'] = [0, 0, 0, 0]
                 ex['blocks'].append(block)
                 block = dict()
                 block['i'] = filter_index[cv]
@@ -617,40 +539,8 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
     return box, ptr
 
 
-def create_ex(box, x, y, tree, fsz, pyra_pad, ex=None, level=-1, filter_index=None, def_index=None, feat=None, anchors=None):
-    k = tree.root_vertex
-    ex['id'][2:] = [level, round(x + fsz[0]/2), round(y + fsz[1]/2)]
-    ex['blocks'] = []
-    block = dict()
-    block['i'] = def_index[k]
-    block['x'] = 1  # to match with bias i.e. 1 * bias
-    ex['blocks'].append(block)
-    block = dict()
-    block['i'] = filter_index[k]
-    block['x'] = feat[:, y:y+fsz[0], x:x+fsz[1]]
-    ex['blocks'].append(block)
-
-    for depth in range(1, tree.maximum_depth + 1):
-        for cv in tree.vertices_at_depth(depth):  # for each vertex in that level
-            par = tree.parent(cv)
-            x = box[par, 0]
-            y = box[par, 1]
-            block = dict()
-            block['i'] = def_index[cv]
-            block['x'] = _def_vector(x, y, box[cv, 0], box[cv, 1], pyra_pad, anchors[cv])
-            print block['x']
-            ex['blocks'].append(block)
-            block = dict()
-            x = box[cv, 0]
-            y = box[cv, 1]
-            block['i'] = filter_index[cv]
-            block['x'] = feat[:, y:y+fsz[1], x:x+fsz[0]]
-            ex['blocks'].append(block)
-
-    return ex
-
-
 def _def_vector(px, py, x, y, padding, anchor):
+    # calculate distance between a part position and the the part's parent anchor position
     (ax, ay, ds) = anchor
     step = 2**ds
     virt_padx = (step - 1)*padding[0]
@@ -664,7 +554,7 @@ def _def_vector(px, py, x, y, padding, anchor):
     return -dx**2, -dx, -dy**2, -dy
 
 
-def non_max_suppression_fast(boxes, overlapThresh):
+def non_max_suppression_fast(boxes, overlap_thresh):
     # Malisiewicz et al. method.
     # if there are no boxes, return an empty list
     if len(boxes) == 0:
@@ -716,7 +606,7 @@ def non_max_suppression_fast(boxes, overlapThresh):
 
         # delete all indexes from the index list that have
         idxs = np.delete(idxs, np.concatenate(([last],
-                                               np.where(overlap > overlapThresh)[0])))
+                                               np.where(overlap > overlap_thresh)[0])))
 
     # return only the bounding boxes that were picked using the
     # integer data type
