@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from .utils import convolve_python_f, call_shiftdt
 from math import log as log_m
@@ -191,7 +192,7 @@ class DPMFitter(object):
                 # if X.shape[0] > 0:
                 #     XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
 
-                print 'level :', level, 'component :', c, 'found :', xs.shape[0]
+                print('level :', level, 'component :', c, 'found :', xs.shape[0])
                 diffs = []
                 for i in range(xs.shape[0]):
                     x, y = xs[i], ys[i]
@@ -243,8 +244,8 @@ def _test_overlap(fsz, feat, scale, padding, img_size, box, overlap):
     (size_x, size_y) = fsz
     (padx, pady) = padding
     (imgx, imgy) = img_size
-    x1 = (np.array(range(0, dim_x - size_x + 1)) - padx - 1) * scale + 1
-    y1 = (np.array(range(0, dim_y - size_y + 1)) - pady - 1) * scale + 1
+    x1 = (np.array([range(0, dim_x - size_x + 1)]) - padx - 1) * scale + 1
+    y1 = (np.array([range(0, dim_y - size_y + 1)]) - pady - 1) * scale + 1
     x2 = x1 + size_x*scale - 1
     y2 = y1 + size_y*scale - 1
     x1 = np.minimum(np.maximum(x1, np.zeros_like(x1)), np.full_like(x1, imgx-1))
@@ -259,9 +260,9 @@ def _test_overlap(fsz, feat, scale, padding, img_size, box, overlap):
     h = yy2 - yy1 + 1
     w[w < 0] = 0
     h[h < 0] = 0
-    inter = np.dot(np.transpose(np.asmatrix(h)), np.asmatrix(w))
-    area = np.dot(np.transpose(np.asmatrix(y2-y1+1)), np.asmatrix(x2-x1+1))
-    box = np.dot(np.transpose(np.asmatrix(by2-by1+1)), np.asmatrix(bx2-bx1+1))
+    inter = np.dot(h.T, w)
+    area = np.dot((y2-y1+1).T, x2-x1+1)
+    box = np.dot((by2-by1+1).T, bx2-bx1+1)
     ov = inter / (area + box - inter)
     return np.asarray(ov > overlap)
 
