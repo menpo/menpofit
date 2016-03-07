@@ -15,22 +15,144 @@ from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
 from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
                              align_shape_with_bounding_box,
                              generate_perturbations_from_gt)
-from menpofit.result import MultiFitterResult
 import menpofit.checks as checks
 
+from .algorithm import NonParametricNewton
 
-# TODO: document me!
+
 class SupervisedDescentFitter(MultiFitter):
     r"""
+    Class for training a multi-scale Supervised Descent model.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that corresponds to the ground truth shape of each
+        image. If ``None`` and the images only have a single landmark group,
+        then that is the one that will be used. Note that all the training
+        images need to have the specified landmark group.
+    bounding_box_group_glob : `glob` or ``None``, optional
+        Glob that defines the bounding boxes to be used for training. If
+        ``None``, then the bounding boxes of the ground truth shapes are used.
+    sd_algorithm_cls : `class`, optional
+        The Supervised Descent algorithm to be used. The possible algorithms
+        are are separated in the following four categories:
+
+        **Non-parametric:**
+
+        ===================================== ==============================
+        Class                                 Regression
+        ===================================== ==============================
+        :map:`NonParametricNewton`            :map:`IRLRegression`
+        :map:`NonParametricGaussNewton`       :map:`IIRLRegression`
+        :map:`NonParametricPCRRegression`     :map:`PCRRegression`
+        :map:`NonParametricOptimalRegression` :map:`OptimalLinearRegression`
+        :map:`NonParametricOPPRegression`     :map:`OPPRegression`
+        ===================================== ==============================
+
+        **Parametric shape:**
+
+        ======================================= ===================================
+        Class                                   Regression
+        ======================================= ===================================
+        :map:`ParametricShapeNewton`            :map:`IRLRegression`
+        :map:`ParametricShapeGaussNewton`       :map:`IIRLRegression`
+        :map:`ParametricShapePCRRegression`     :map:`PCRRegression`
+        :map:`ParametricShapeOptimalRegression` :map:`OptimalLinearRegression`
+        :map:`ParametricShapeOPPRegression`     :map:`ParametricShapeOPPRegression`
+        ======================================= ===================================
+
+        **Parametric appearance:**
+
+        ================================================== =====================
+        Class                                              Regression
+        ================================================== =====================
+        :map:`ParametricAppearanceProjectOutNewton`        :map:`IRLRegression`
+        :map:`ParametricAppearanceProjectOutGuassNewton`   :map:`IIRLRegression`
+        :map:`ParametricAppearanceMeanTemplateNewton`      :map:`IRLRegression`
+        :map:`ParametricAppearanceMeanTemplateGuassNewton` :map:`IIRLRegression`
+        :map:`ParametricAppearanceWeightsNewton`           :map:`IRLRegression`
+        :map:`ParametricAppearanceWeightsGuassNewton`      :map:`IIRLRegression`
+        ================================================== =====================
+
+        **Parametric shape and appearance:**
+
+        =========================================== =====================
+        Class                                       Regression
+        =========================================== =====================
+        :map:`FullyParametricProjectOutNewton`      :map:`IRLRegression`
+        :map:`FullyParametricProjectOutGaussNewton` :map:`IIRLRegression`
+        :map:`FullyParametricMeanTemplateNewton`    :map:`IRLRegression`
+        :map:`FullyParametricWeightsNewton`         :map:`IRLRegression`
+        :map:`FullyParametricProjectOutOPP`         :map:`OPPRegression`
+        =========================================== =====================
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for normalising the size of the
+        training images. The normalization is performed by rescaling all the
+        training images so that the scale of their ground truth shapes
+        matches the scale of the reference shape. Note that the reference
+        shape is rescaled with respect to the `diagonal` before performing
+        the normalisation. If ``None``, then the mean shape will be used.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    holistic_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
+    patch_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the patches of the training
+        images. Note that, as opposed to `holistic_features`, these features
+        are extracted after extracting the patches. If `list`, then it must
+        define a feature function per scale. Please refer to `menpo.feature`
+        and `menpofit.feature` for a list of potential features.
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    scales : `float` or `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
+    n_iterations : `int` or `list` of `int`, optional
+        The number of iterations (cascades) of each level. If `list`, it must
+        specify a value per scale. If `int`, then it defines the total number of
+        iterations (cascades) over all scales.
+    n_perturbations : `int`, optional
+        The number of perturbations to be generated from each of the bounding
+        boxes using `perturb_from_gt_bounding_box`.
+    perturb_from_gt_bounding_box : `callable`, optional
+        The function that will be used to generate the perturbations from each
+        of the bounding boxes.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    verbose : `bool`, optional
+        If ``True``, then the progress of the training will be printed.
+
+    References
+    ----------
+    .. [1] X. Xiong, and F. De la Torre. "Supervised Descent Method and its
+        applications to face alignment", Proceedings of the IEEE Conference on
+        Computer Vision and Pattern Recognition (CVPR), 2013.
+    .. [2] P. N. Belhumeur, D. W. Jacobs, D. J. Kriegman, and N. Kumar.
+        "Localizing parts of faces using a consensus of exemplars", Proceedings
+        of the IEEE Conference on Computer Vision and Pattern Recognition
+        (CVPR), 2011.
     """
     def __init__(self, images, group=None, bounding_box_group_glob=None,
-                 reference_shape=None, sd_algorithm_cls=None,
+                 sd_algorithm_cls=None, reference_shape=None, diagonal=None,
                  holistic_features=no_op, patch_features=no_op,
-                 patch_shape=(17, 17), diagonal=None, scales=(0.5, 1.0),
-                 n_iterations=3, n_perturbations=30,
+                 patch_shape=(17, 17), scales=(0.5, 1.0), n_iterations=3,
+                 n_perturbations=30,
                  perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
-
         if batch_size is not None:
             raise NotImplementedError('Training an SDM with a batch size '
                                       '(incrementally) is not implemented yet.')
@@ -71,10 +193,6 @@ class SupervisedDescentFitter(MultiFitter):
 
     def _train(self, images, increment=False, group=None,
                bounding_box_group_glob=None, verbose=False, batch_size=None):
-        r"""
-        """
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -199,23 +317,81 @@ class SupervisedDescentFitter(MultiFitter):
                     for k, shape in enumerate(image_shapes):
                         image_shapes[k] = transform.apply(shape)
 
-    def increment(self, images, group=None, bounding_box_group=None,
+    def increment(self, images, group=None, bounding_box_group_glob=None,
                   verbose=False, batch_size=None):
+        r"""
+        Method to increment the trained SDM with a new set of training images.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        group : `str` or ``None``, optional
+            The landmark group that corresponds to the ground truth shape of
+            each image. If ``None`` and the images only have a single
+            landmark group, then that is the one that will be used. Note that
+            all the training images need to have the specified landmark group.
+        bounding_box_group_glob : `glob` or ``None``, optional
+            Glob that defines the bounding boxes to be used for training. If
+            ``None``, then the bounding boxes of the ground truth shapes are
+            used.
+        verbose : `bool`, optional
+            If ``True``, then the progress of training will be printed.
+        batch_size : `int` or ``None``, optional
+            If an `int` is provided, then the training is performed in an
+            incremental fashion on image batches of size equal to the provided
+            value. If ``None``, then the training is performed directly on the
+            all the images.
+        """
         raise NotImplementedError('Incrementing SDM methods is not yet '
                                   'implemented as careful attention must '
                                   'be taken when considering the relationships '
                                   'between cascade levels.')
 
     def perturb_from_bb(self, gt_shape, bb):
+        """
+        Returns a perturbed version of the ground truth shape. The perturbation
+        is applied on the alignment between the ground truth bounding box and
+        the provided bounding box. This is useful for obtaining the initial
+        bounding box of the fitting.
+
+        Parameters
+        ----------
+        gt_shape : `menpo.shape.PointCloud`
+            The ground truth shape.
+        bb : `menpo.shape.PointDirectedGraph`
+            The target bounding box.
+
+        Returns
+        -------
+        perturbed_shape : `menpo.shape.PointCloud`
+            The perturbed shape.
+        """
         return self._perturb_from_gt_bounding_box(gt_shape, bb)
 
     def perturb_from_gt_bb(self, gt_bb):
+        """
+        Returns a perturbed version of the ground truth bounding box. This is
+        useful for obtaining the initial bounding box of the fitting.
+
+        Parameters
+        ----------
+        gt_bb : `menpo.shape.PointDirectedGraph`
+            The ground truth bounding box.
+
+        Returns
+        -------
+        perturbed_bb : `menpo.shape.PointDirectedGraph`
+            The perturbed ground truth bounding box.
+        """
         return self._perturb_from_gt_bounding_box(gt_bb, gt_bb)
 
     def _fitter_result(self, image, algorithm_results, affine_correction,
                        gt_shape=None):
-        return MultiFitterResult(image, self, algorithm_results,
-                                 affine_correction, gt_shape=gt_shape)
+        return self.algorithms[0]._multi_scale_fitter_result(
+                results=algorithm_results, scales=self.scales,
+                affine_correction=affine_correction, image=image,
+                gt_shape=gt_shape)
 
     def __str__(self):
         if self.diagonal is not None:
@@ -225,15 +401,18 @@ class SupervisedDescentFitter(MultiFitter):
             diagonal = np.sqrt(x ** 2 + y ** 2)
         is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
                                   noisy_shape_from_bounding_box)
+        if is_custom_perturb_func:
+            is_custom_perturb_func = name_of_callable(
+                    self._perturb_from_gt_bounding_box)
         regressor_cls = self.algorithms[0]._regressor_cls
 
         # Compute scale info strings
         scales_info = []
-        lvl_str_tmplt = r"""  - Scale {}
-   - {} iterations
-   - Patch shape: {}
-   - Holistic feature: {}
-   - Patch feature: {}"""
+        lvl_str_tmplt = r"""   - Scale {}
+     - {} iterations
+     - Patch shape: {}
+     - Holistic feature: {}
+     - Patch feature: {}"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
                 s, self.n_iterations[k], self.patch_shape[k],
@@ -250,7 +429,7 @@ class SupervisedDescentFitter(MultiFitter):
  - Scales: {scales}
 {scales_info}
 """.format(
-            reg_alg=name_of_callable(self._sd_algorithm_cls),
+            reg_alg=name_of_callable(self._sd_algorithm_cls[0]),
             reg_cls=name_of_callable(regressor_cls),
             n_perturbations=self.n_perturbations,
             diagonal=diagonal,
@@ -259,21 +438,179 @@ class SupervisedDescentFitter(MultiFitter):
             scales_info=scales_info)
         return cls_str
 
+
 # *
 # ************************* Non-Parametric Fitters *****************************
 # *
-from .algorithm import NonParametricNewton
-
 # Aliases for common combinations of supervised descent fitting
-SDM = partial(SupervisedDescentFitter, sd_algorithm_cls=NonParametricNewton)
+class SDM(SupervisedDescentFitter):
+    r"""
+    Class for training a non-parametric multi-scale Supervised Descent model
+    using :map:`NonParametricNewton`.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that corresponds to the ground truth shape of each
+        image. If ``None`` and the images only have a single landmark group,
+        then that is the one that will be used. Note that all the training
+        images need to have the specified landmark group.
+    bounding_box_group_glob : `glob` or ``None``, optional
+        Glob that defines the bounding boxes to be used for training. If
+        ``None``, then the bounding boxes of the ground truth shapes are used.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for normalising the size of the
+        training images. The normalization is performed by rescaling all the
+        training images so that the scale of their ground truth shapes
+        matches the scale of the reference shape. Note that the reference
+        shape is rescaled with respect to the `diagonal` before performing
+        the normalisation. If ``None``, then the mean shape will be used.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    holistic_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
+    patch_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the patches of the training
+        images. Note that, as opposed to `holistic_features`, these features
+        are extracted after extracting the patches. If `list`, then it must
+        define a feature function per scale. Please refer to `menpo.feature`
+        and `menpofit.feature` for a list of potential features.
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    scales : `float` or `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
+    n_iterations : `int` or `list` of `int`, optional
+        The number of iterations (cascades) of each level. If `list`, it must
+        specify a value per scale. If `int`, then it defines the total number of
+        iterations (cascades) over all scales.
+    n_perturbations : `int`, optional
+        The number of perturbations to be generated from each of the bounding
+        boxes using `perturb_from_gt_bounding_box`.
+    perturb_from_gt_bounding_box : `callable`, optional
+        The function that will be used to generate the perturbations from each
+        of the bounding boxes.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    verbose : `bool`, optional
+        If ``True``, then the progress of the training will be printed.
+
+    References
+    ----------
+    .. [1] X. Xiong, and F. De la Torre. "Supervised Descent Method and its
+        applications to face alignment", Proceedings of the IEEE Conference on
+        Computer Vision and Pattern Recognition (CVPR), 2013.
+    """
+    def __init__(self, images, group=None, bounding_box_group_glob=None,
+                 reference_shape=None,  diagonal=None, holistic_features=no_op,
+                 patch_features=no_op, patch_shape=(17, 17), scales=(0.5, 1.0),
+                 n_iterations=3, n_perturbations=30,
+                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
+                 batch_size=None, verbose=False):
+        super(SDM, self).__init__(
+                images, group=group,
+                bounding_box_group_glob=bounding_box_group_glob,
+                reference_shape=reference_shape,
+                sd_algorithm_cls=NonParametricNewton,
+                holistic_features=holistic_features,
+                patch_features=patch_features, patch_shape=patch_shape,
+                diagonal=diagonal, scales=scales, n_iterations=n_iterations,
+                n_perturbations=n_perturbations,
+                perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
+                batch_size=batch_size, verbose=verbose)
 
 
 class RegularizedSDM(SupervisedDescentFitter):
+    r"""
+    Class for training a non-parametric multi-scale Supervised Descent model
+    using :map:`NonParametricNewton` with regularization.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    group : `str` or ``None``, optional
+        The landmark group that corresponds to the ground truth shape of each
+        image. If ``None`` and the images only have a single landmark group,
+        then that is the one that will be used. Note that all the training
+        images need to have the specified landmark group.
+    bounding_box_group_glob : `glob` or ``None``, optional
+        Glob that defines the bounding boxes to be used for training. If
+        ``None``, then the bounding boxes of the ground truth shapes are used.
+    alpha : `float`, optional
+        The regression regularization parameter.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for normalising the size of the
+        training images. The normalization is performed by rescaling all the
+        training images so that the scale of their ground truth shapes
+        matches the scale of the reference shape. Note that the reference
+        shape is rescaled with respect to the `diagonal` before performing
+        the normalisation. If ``None``, then the mean shape will be used.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    holistic_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
+    patch_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the patches of the training
+        images. Note that, as opposed to `holistic_features`, these features
+        are extracted after extracting the patches. If `list`, then it must
+        define a feature function per scale. Please refer to `menpo.feature`
+        and `menpofit.feature` for a list of potential features.
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    scales : `float` or `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
+    n_iterations : `int` or `list` of `int`, optional
+        The number of iterations (cascades) of each level. If `list`, it must
+        specify a value per scale. If `int`, then it defines the total number of
+        iterations (cascades) over all scales.
+    n_perturbations : `int`, optional
+        The number of perturbations to be generated from each of the bounding
+        boxes using `perturb_from_gt_bounding_box`.
+    perturb_from_gt_bounding_box : `callable`, optional
+        The function that will be used to generate the perturbations from each
+        of the bounding boxes.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
+    verbose : `bool`, optional
+        If ``True``, then the progress of the training will be printed.
+
+    References
+    ----------
+    .. [1] X. Xiong, and F. De la Torre. "Supervised Descent Method and its
+        applications to face alignment", Proceedings of the IEEE Conference on
+        Computer Vision and Pattern Recognition (CVPR), 2013.
+    """
     def __init__(self, images, group=None, bounding_box_group_glob=None,
-                 alpha=0.0001, reference_shape=None,
+                 alpha=0.0001, reference_shape=None, diagonal=None,
                  holistic_features=no_op, patch_features=no_op,
-                 patch_shape=(17, 17), diagonal=None, scales=(0.5, 1.0),
-                 n_iterations=6, n_perturbations=30,
+                 patch_shape=(17, 17), scales=(0.5, 1.0), n_iterations=6,
+                 n_perturbations=30,
                  perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
                  batch_size=None, verbose=False):
         super(RegularizedSDM, self).__init__(

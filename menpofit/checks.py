@@ -2,14 +2,31 @@ import warnings
 import collections
 from functools import partial
 import numpy as np
+
+from menpo.base import name_of_callable
 from menpo.shape import TriMesh
 from menpo.transform import PiecewiseAffine
 
 
 def check_diagonal(diagonal):
     r"""
-    Checks the diagonal length used to normalize the images' size that
-    must be >= 20.
+    Checks that the diagonal length used to normalize the images' size is
+    ``>= 20``.
+
+    Parameters
+    ----------
+    diagonal : `int`
+        The value to check.
+
+    Returns
+    -------
+    diagonal : `int`
+        The value if it's correct.
+
+    Raises
+    ------
+    ValueError
+        diagonal must be >= 20
     """
     if diagonal is not None and diagonal < 20:
         raise ValueError("diagonal must be >= 20")
@@ -17,11 +34,49 @@ def check_diagonal(diagonal):
 
 
 def check_landmark_trilist(image, transform, group=None):
+    r"""
+    Checks that the provided image has a triangulated shape (thus an isntance of
+    `menpo.shape.TriMesh`) and the transform is `menpo.transform.PiecewiseAffine`
+
+    Parameters
+    ----------
+    image : `menpo.image.Image` or subclass
+        The input image.
+    transform : `menpo.transform.PiecewiseAffine`
+        The transform object.
+    group : `str` or ``None``, optional
+        The group of the shape to check.
+
+    Raises
+    ------
+    Warning
+        The given images do not have an explicit triangulation applied. A
+        Delaunay Triangulation will be computed and used for warping. This may
+        be suboptimal and cause warping artifacts.
+    """
     shape = image.landmarks[group].lms
     check_trilist(shape, transform)
 
 
 def check_trilist(shape, transform):
+    r"""
+    Checks that the provided shape is triangulated (thus an isntance of
+    `menpo.shape.TriMesh`) and the transform is `menpo.transform.PiecewiseAffine`
+
+    Parameters
+    ----------
+    shape : `menpo.shape.TriMesh`
+        The input shape (usually the reference/mean shape of a model).
+    transform : `menpo.transform.PiecewiseAffine`
+        The transform object.
+
+    Raises
+    ------
+    Warning
+        The given images do not have an explicit triangulation applied. A
+        Delaunay Triangulation will be computed and used for warping. This may
+        be suboptimal and cause warping artifacts.
+    """
     if not isinstance(shape, TriMesh) and isinstance(transform,
                                                      PiecewiseAffine):
         warnings.warn('The given images do not have an explicit triangulation '
@@ -30,8 +85,26 @@ def check_trilist(shape, transform):
                       'warping artifacts.')
 
 
-# TODO: document me!
 def check_scales(scales):
+    r"""
+    Checks that the provided `scales` argument is either `int` or `float` or an
+    iterable of those. It makes sure that it returns a `list` of `scales`.
+
+    Parameters
+    ----------
+    scales : `int` or `float` or `list/tuple` of those
+        The value to check.
+
+    Returns
+    -------
+    scales : `list` of `int` or `float`
+        The scales in a list.
+
+    Raises
+    ------
+    ValueError
+        scales must be an int/float or a list/tuple of int/float
+    """
     if isinstance(scales, (int, float)):
         return [scales]
     elif len(scales) == 1 and isinstance(scales[0], (int, float)):
@@ -44,6 +117,33 @@ def check_scales(scales):
 
 
 def check_multi_scale_param(n_scales, types, param_name, param):
+    r"""
+    General function for checking a parameter defined for multiple scales. It
+    raises an error if the parameter is not an iterable with the correct size and
+    correct types.
+
+    Parameters
+    ----------
+    n_scales : `int`
+        The number of scales.
+    types : `tuple`
+        The `tuple` of variable types that the parameter is allowed to have.
+    param_name : `str`
+        The name of the parameter.
+    param : `types`
+        The parameter value.
+
+    Returns
+    -------
+    param : `list` of `types`
+        The list of values per scale.
+
+    Raises
+    ------
+    ValueError
+        {param_name} must be in {types} or a list/tuple of {types} with the same
+        length as the number of scales
+    """
     error_msg = "{0} must be in {1} or a list/tuple of " \
                 "{1} with the same length as the number " \
                 "of scales".format(param_name, types)
@@ -72,15 +172,21 @@ def check_callable(callables, n_scales):
 
     Parameters
     ----------
-    callables : callable or list of callables
+    callables : `callable` or `list` of `callables`
         The callable to be used per scale.
-    n_scales : int
+    n_scales : `int`
         The number of scales.
 
     Returns
     -------
-    callable_list : list
-        A list of callables.
+    callable_list : `list`
+        A `list` of callables.
+
+    Raises
+    ------
+    ValueError
+        callables must be a callable or a list/tuple of callables with the same
+        length as the number of scales
     """
     if callable(callables):
         return [callables] * n_scales
@@ -95,21 +201,28 @@ def check_callable(callables, n_scales):
                          "of scales")
 
 
-# TODO: document me!
-def check_scale_features(scale_features, features):
-    r"""
-    """
-    if all(f == features[0] for f in features):
-        return scale_features
-    else:
-        warnings.warn('scale_features has been automatically set to False '
-                      'because different types of features are used at each '
-                      'level.')
-        return False
-
-
-# TODO: document me!
 def check_patch_shape(patch_shape, n_scales):
+    r"""
+    Function for checking a multi-scale `patch_shape` parameter value.
+
+    Parameters
+    ----------
+    patch_shape : `list/tuple` of `int/float` or `list` of those
+        The patch shape per scale
+    n_scales : `int`
+        The number of scales.
+
+    Returns
+    -------
+    patch_shape : `list` of `list/tuple` of `int/float`
+        The list of patch shape per scale.
+
+    Raises
+    ------
+    ValueError
+        patch_shape must be a list/tuple of int or a list/tuple of lit/tuple of
+        int/float with the same length as the number of scales
+    """
     if len(patch_shape) == 2 and isinstance(patch_shape[0], int):
         return [patch_shape] * n_scales
     elif len(patch_shape) == 1:
@@ -126,9 +239,29 @@ def check_patch_shape(patch_shape, n_scales):
 
 def check_max_components(max_components, n_scales, var_name):
     r"""
-    Checks the maximum number of components per level either of the shape
-    or the appearance model. It must be None or int or float or a list of
-    those containing 1 or {n_scales} elements.
+    Checks the maximum number of components per scale. It must be ``None`` or
+    `int` or `float` or a `list` of those containing ``1`` or ``{n_scales}``
+    elements.
+
+    Parameters
+    ----------
+    max_components : ``None`` or `int` or `float` or a `list` of those
+        The value to check.
+    n_scales : `int`
+        The number of scales.
+    var_name : `str`
+        The name of the variable.
+
+    Returns
+    -------
+    max_components : `list` of ``None`` or `int` or `float`
+        The list of max components per scale.
+
+    Raises
+    ------
+    ValueError
+        {var_name} must be None or an int > 0 or a 0 <= float <= 1 or a list of
+        those containing 1 or {n_scales} elements
     """
     str_error = ("{} must be None or an int > 0 or a 0 <= float <= 1 or "
                  "a list of those containing 1 or {} elements").format(
@@ -149,8 +282,29 @@ def check_max_components(max_components, n_scales, var_name):
     return max_components_list
 
 
-# TODO: document me!
 def check_max_iters(max_iters, n_scales):
+    r"""
+    Function that checks the value of a `max_iters` parameter defined for
+    multiple scales. It must be `int` or `list` of `int`.
+
+    Parameters
+    ----------
+    max_iters : `int` or `list` of `int`
+        The value to check.
+    n_scales : `int`
+        The number of scales.
+
+    Returns
+    -------
+    max_iters : `list` of `int`
+        The list of values per scale.
+
+    Raises
+    ------
+    ValueError
+        max_iters can be integer, integer list containing 1 or {n_scales}
+        elements or None
+    """
     if type(max_iters) is int:
         max_iters = [np.round(max_iters/n_scales)
                      for _ in range(n_scales)]
@@ -164,8 +318,31 @@ def check_max_iters(max_iters, n_scales):
     return np.require(max_iters, dtype=np.int)
 
 
-# TODO: document me!
 def check_sampling(sampling, n_scales):
+    r"""
+    Function that checks the value of a `sampling` parameter defined for
+    multiple scales. It must be `int` or `ndarray` or `list` of those.
+
+    Parameters
+    ----------
+    sampling : `int` or `ndarray` or `list` of those
+        The value to check.
+    n_scales : `int`
+        The number of scales.
+
+    Returns
+    -------
+    sampling : `list` of `int` or `ndarray`
+        The list of values per scale.
+
+    Raises
+    ------
+    ValueError
+        A sampling list can only contain 1 element or {n_scales} elements
+    ValueError
+        sampling can be an integer or ndarray, a integer or ndarray list
+        containing 1 or {n_scales} elements or None
+    """
     if (isinstance(sampling, (list, tuple)) and
         np.alltrue([isinstance(s, (np.ndarray, np.int)) or sampling is None
                     for s in sampling])):
@@ -187,6 +364,22 @@ def check_sampling(sampling, n_scales):
 
 
 def set_models_components(models, n_components):
+    r"""
+    Function that sets the number of active components to a list of models.
+
+    Parameters
+    ----------
+    models : `list` or `class`
+        The list of models per scale.
+    n_components : `int` or `float` or ``None`` or `list` of those
+        The number of components per model.
+
+    Raises
+    ------
+    ValueError
+        n_components can be an integer or a float or None or a list containing 1
+        or {n_scales} of those
+    """
     if n_components is not None:
         n_scales = len(models)
         if type(n_components) is int or type(n_components) is float:
@@ -204,8 +397,48 @@ def set_models_components(models, n_components):
                              'those'.format(n_scales))
 
 
+def check_model(model, cls):
+    r"""
+    Function that checks whether the provided `class` object is a subclass of
+    the provided base `class`.
+
+    Parameters
+    ----------
+    model : `class`
+        The object.
+    cls : `class`
+        The required base class.
+
+    Raises
+    ------
+    ValueError
+        Model must be a {cls} instance.
+    """
+    if not isinstance(model, cls):
+        raise ValueError('Model must be a {} instance.'.format(
+                name_of_callable(cls)))
+
+
 def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
     r"""
+    Function that checks whether the `list` of `class` objects defined per scale
+    are subclasses of the provided base `class`.
+
+    Parameters
+    ----------
+    algorithm_cls : `class` or `list` of `class`
+        The list of objects per scale.
+    n_scales : `int`
+        The number of scales.
+    base_algorithm_cls : `class`
+        The required base class.
+
+    Raises
+    ------
+    ValueError
+        algorithm_cls must be a subclass of {base_algorithm_cls} or a list/tuple
+        of {base_algorithm_cls} subclasses with the same length as the number of
+        scales {n_scales}
     """
     if (isinstance(algorithm_cls, partial) and
         base_algorithm_cls in algorithm_cls.func.mro()):

@@ -1,55 +1,241 @@
 import numpy as np
+
 from menpo.transform import (Affine, AlignmentAffine, Similarity,
                              AlignmentSimilarity)
+
 from menpofit.differentiable import DP, DX
 
 
 class DifferentiableAffine(Affine, DP, DX):
-
+    r"""
+    Base class for an affine transformation that can compute its own derivative
+    with respect to spatial changes, as well as its parametrisation.
+    """
     def d_dp(self, points):
+        r"""
+        The derivative with respect to the parametrisation changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+            The Jacobian with respect to the parametrisation.
+
+            ``d_dp[i, j, k]`` is the scalar differential change that the
+            ``k``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``j``'th scalar in the parametrisation vector.
+        """
         return affine_d_dp(self, points)
 
     def d_dx(self, points):
+        r"""
+        The first order derivative with respect to spatial changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dx : ``(n_points, n_dims, n_dims)`` `ndarray`
+            The Jacobian wrt spatial changes.
+
+            ``d_dx[i, j, k]`` is the scalar differential change that the
+            ``j``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``k``'th dimension.
+
+            It may be the case that the Jacobian is constant across space -
+            in this case axis zero may have length ``1`` to allow for
+            broadcasting.
+        """
         return affine_d_dx(self)
 
 
 class DifferentiableAlignmentAffine(AlignmentAffine, DP, DX):
-
+    r"""
+    Base class that constructs an affine transformation that is the optimal
+    transform to align the `source` to the `target`. It can compute its own
+    derivative with respect to spatial changes, as well as its parametrisation.
+    """
     def as_non_alignment(self):
+        r"""
+        Returns the non-alignment version of the transform.
+
+        :type: :map:`DifferentiableAffine`
+        """
         return DifferentiableAffine(self.h_matrix, skip_checks=True)
 
     def d_dp(self, points):
+        r"""
+        The derivative with respect to the parametrisation changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+            The Jacobian with respect to the parametrisation.
+
+            ``d_dp[i, j, k]`` is the scalar differential change that the
+            ``k``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``j``'th scalar in the parametrisation vector.
+        """
         return affine_d_dp(self, points)
 
     def d_dx(self, points):
+        r"""
+        The first order derivative with respect to spatial changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dx : ``(n_points, n_dims, n_dims)`` `ndarray`
+            The Jacobian wrt spatial changes.
+
+            ``d_dx[i, j, k]`` is the scalar differential change that the
+            ``j``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``k``'th dimension.
+
+            It may be the case that the Jacobian is constant across space -
+            in this case axis zero may have length ``1`` to allow for
+            broadcasting.
+        """
         return affine_d_dx(self)
 
 
 class DifferentiableSimilarity(Similarity, DP, DX):
-
+    r"""
+    Base class for a similarity transformation that can compute its own
+    derivative  with respect to spatial changes, as well as its parametrisation.
+    """
     def d_dp(self, points):
+        r"""
+        The derivative with respect to the parametrisation changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+            The Jacobian with respect to the parametrisation.
+
+            ``d_dp[i, j, k]`` is the scalar differential change that the
+            ``k``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``j``'th scalar in the parametrisation vector.
+        """
         return similarity_d_dp(self, points)
 
     def d_dx(self, points):
+        r"""
+        The first order derivative with respect to spatial changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dx : ``(n_points, n_dims, n_dims)`` `ndarray`
+            The Jacobian wrt spatial changes.
+
+            ``d_dx[i, j, k]`` is the scalar differential change that the
+            ``j``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``k``'th dimension.
+
+            It may be the case that the Jacobian is constant across space -
+            in this case axis zero may have length ``1`` to allow for
+            broadcasting.
+        """
         return affine_d_dx(self)
 
 
 class DifferentiableAlignmentSimilarity(AlignmentSimilarity, DP, DX):
-
+    r"""
+    Base class that constructs a similarity transformation that is the optimal
+    transform to align the `source` to the `target`. It can compute its own
+    derivative with respect to spatial changes, as well as its parametrisation.
+    """
     def as_non_alignment(self):
+        r"""
+        Returns the non-alignment version of the transform.
+
+        :type: :map:`DifferentiableSimilarity`
+        """
         return DifferentiableSimilarity(self.h_matrix, skip_checks=True)
 
     def d_dp(self, points):
+        r"""
+        The derivative with respect to the parametrisation changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+            The Jacobian with respect to the parametrisation.
+
+            ``d_dp[i, j, k]`` is the scalar differential change that the
+            ``k``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``j``'th scalar in the parametrisation vector.
+        """
         return similarity_d_dp(self, points)
 
     def d_dx(self, points):
+        r"""
+        The first order derivative with respect to spatial changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dx : ``(n_points, n_dims, n_dims)`` `ndarray`
+            The Jacobian wrt spatial changes.
+
+            ``d_dx[i, j, k]`` is the scalar differential change that the
+            ``j``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``k``'th dimension.
+
+            It may be the case that the Jacobian is constant across space -
+            in this case axis zero may have length ``1`` to allow for
+            broadcasting.
+        """
         return affine_d_dx(self)
 
 
 def affine_d_dx(affine):
     r"""
-    The first order derivative of an Affine transform wrt spatial changes
-    evaluated at points.
+    The first order derivative of an Affine transform with respect to spatial
+    changes evaluated at points.
 
     The Jacobian for a given point (for 2D) is of the form::
 
@@ -66,23 +252,22 @@ def affine_d_dx(affine):
 
     Returns
     -------
+    d_dx : ``(1, n_dims, n_dims)`` `ndarray`
+        The Jacobian with respect to spatial changes.
 
-    d_dx: (1, n_dims, n_dims) ndarray
-        The jacobian wrt spatial changes.
+        ``d_dx[0, j, k]`` is the scalar differential change that the
+        ``j``'th dimension of the ``i``'th point experiences due to a first order
+        change in the ``k``'th dimension.
 
-        d_dx[0, j, k] is the scalar differential change that the
-        j'th dimension of the i'th point experiences due to a first order
-        change in the k'th dimension.
-
-        Note that because the jacobian is constant across space the first
-        axis is length 1 to allow for broadcasting.
-
+        Note that because the Jacobian is constant across space the first
+        axis is length ``1`` to allow for broadcasting.
     """
     return affine.linear_component[None, ...]
 
 
 def affine_d_dp(self, points):
-    r"""The first order derivative of this Affine transform wrt parameter
+    r"""
+    The first order derivative of this Affine transform wrt parameter
     changes evaluated at points.
 
     The Jacobian generated (for 2D) is of the form::
@@ -98,15 +283,17 @@ def affine_d_dp(self, points):
 
     Parameters
     ----------
-    points : (n_points, n_dims) ndarray
-        The set of points to calculate the jacobian for.
-
+    points : ``(n_points, n_dims)`` `ndarray`
+        The spatial points at which the derivative should be evaluated.
 
     Returns
     -------
-    (n_points, n_params, n_dims) ndarray
-        The jacobian wrt parametrization
+    d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+        The Jacobian with respect to the parametrisation.
 
+        ``d_dp[i, j, k]`` is the scalar differential change that the
+        ``k``'th dimension of the ``i``'th point experiences due to a first
+        order change in the ``j``'th scalar in the parametrisation vector.
     """
     n_points, points_n_dim = points.shape
     if points_n_dim != self.n_dims:
@@ -153,19 +340,22 @@ def similarity_d_dp(sim, points):
 
     Parameters
     ----------
-    points : (n_points, n_dims) ndarray
-        The set of points to calculate the jacobian for.
+    points : ``(n_points, n_dims)`` `ndarray`
+        The spatial points at which the derivative should be evaluated.
 
     Returns
     -------
-    (n_points, n_params, n_dims) ndarray
-        The jacobian wrt parametrization
+    d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+        The Jacobian with respect to the parametrisation.
+
+        ``d_dp[i, j, k]`` is the scalar differential change that the
+        ``k``'th dimension of the ``i``'th point experiences due to a first
+        order change in the ``j``'th scalar in the parametrisation vector.
 
     Raises
     ------
     DimensionalityError
-        `points.n_dims != self.n_dims` or transform is not 2D
-
+        'points.n_dims != self.n_dim' or transform is not 2D
     """
     n_points, points_n_dim = points.shape
     if points_n_dim != sim.n_dims:

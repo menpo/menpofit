@@ -3,20 +3,24 @@ menpofit - A deformable model toolkit
 State-of-the-art deformable modelling techniques implemented on top of the
 Menpo project. Currently, the techniques that have been implemented include:
 
-  - **Active Appearance Models**
-    - Project Out
-    - Alternating
-    - Simultaneous
+  - **Active Appearance Model**
+    - Holistic, Patch-based, Masked, Linear, Linear Masked
+    - Lucas-Kanade Optimisation (Alternating, Modified Alternating, Project Out, Simultaneous, Wiberg) 
+    - Casaded-Regression Optimisation
   - **Lucas-Kanade Image Alignment**
-    - Forward Additive
-    - Forward Compositional
-    - Inverse Additive
-    - Inverse Compositional
-  - **Active Template Models**
-  - **Constrained Local Models**
+    - Forward Additive, Forward Compositional, Inverse Additive, Inverse Compositional
+  - **Active Template Model**
+    - Holistic, Patch-based, Masked, Linear, Linear Masked
+    - Lucas-Kanade Optimisation (Inverse Compositional, Forward Compositional)
+  - **Constrained Local Model**
     - Active Shape Models
     - Regularized Landmark Mean-Shift
+  - **Ensemble of Regression Trees (ERT)** \[provided by [DLib](http://dlib.net/)\]
   - **Supervised Descent Method**
+    - Non Parametric
+    - Parametric Shape
+    - Parametric Appearance
+    - Fully Parametric
 
 Installation
 ------------

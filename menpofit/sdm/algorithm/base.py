@@ -1,29 +1,78 @@
 from __future__ import division
 from functools import partial
-from menpofit.result import NonParametricAlgorithmResult
 import numpy as np
+import abc
+
 from menpo.visualize import print_dynamic
+
 from menpofit.visualize import print_progress
+from menpofit.result import (NonParametricIterativeResult,
+                             ParametricIterativeResult)
 
 
-# TODO: document me!
 class BaseSupervisedDescentAlgorithm(object):
     r"""
+    Abstract class for defining a Supervised Descent algorithm.
     """
+    @property
+    def _multi_scale_fitter_result(self):
+        raise NotImplementedError()
 
     def train(self, images, gt_shapes, current_shapes, prefix='',
               verbose=False):
+        r"""
+        Method to train the model given a set of initial shapes.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        gt_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of ground truth shapes that correspond to the images.
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images,
+            which will be used as initial shapes.
+        prefix : `str`, optional
+            The prefix to use when printing information.
+        verbose : `bool`, optional
+            If ``True``, then information is printed during training.
+
+        Returns
+        -------
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images.
+        """
         return self._train(images, gt_shapes, current_shapes, increment=False,
                            prefix=prefix, verbose=verbose)
 
     def increment(self, images, gt_shapes, current_shapes, prefix='',
                   verbose=False):
+        r"""
+        Method to increment the model with the set of current shapes.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
+        gt_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of ground truth shapes that correspond to the images.
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images.
+        prefix : `str`, optional
+            The prefix to use when printing information.
+        verbose : `bool`, optional
+            If ``True``, then information is printed during training.
+
+        Returns
+        -------
+        current_shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of current shapes that correspond to the images.
+        """
         return self._train(images, gt_shapes, current_shapes, increment=True,
                            prefix=prefix, verbose=verbose)
 
     def _train(self, images, gt_shapes, current_shapes, increment=False,
                prefix='', verbose=False):
-
         if not increment:
             # Reset the regressors
             self.regressors = []
@@ -85,6 +134,18 @@ class BaseSupervisedDescentAlgorithm(object):
         raise NotImplementedError()
 
     def run(self, image, initial_shape, gt_shape=None, **kwargs):
+        r"""
+        Run the predictor to an image given an initial shape.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the fitting procedure will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape associated to the image.
+        """
         raise NotImplementedError()
 
     def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
@@ -93,38 +154,89 @@ class BaseSupervisedDescentAlgorithm(object):
         raise NotImplementedError()
 
 
-
-# TODO: document me!
 def features_per_patch(image, shape, patch_shape, features_callable):
-    """r
+    r"""
+    Method that first extracts patches and then features from these patches.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image` or subclass
+        The input image.
+    shape : `menpo.shape.PointCloud`
+        The points from which to extract the patches.
+    patch_shape : (`int`, `int`)
+        The shape of the patch to be extracted.
+    features_callable : `callable`
+        The function to be used for extracting features.
+
+    Returns
+    -------
+    features_per_patch : 1D `ndarray`
+        The concatenated features.
     """
     patches = image.extract_patches(shape, patch_shape=patch_shape,
                                     as_single_array=True)
-
     patch_features = [features_callable(p[0]).ravel() for p in patches]
     return np.hstack(patch_features)
 
 
-# TODO: document me!
 def features_per_shapes(image, shapes, patch_shape, features_callable):
-    """r
+    r"""
+    Method that given multiple shapes for an image, it first extracts patches
+    that correspond to the shapes and then features from these patches.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image` or subclass
+        The input image.
+    shapes : `list` of `menpo.shape.PointCloud`
+        The list of shapes from which to extract the patches.
+    patch_shape : (`int`, `int`)
+        The shape of the patch to be extracted.
+    features_callable : `callable`
+        The function to be used for extracting features.
+
+    Returns
+    -------
+    features_per_shapes : ``(n_shapes, n_features)`` `ndarray`
+        The concatenated feature vector per shape.
     """
     patch_features = [features_per_patch(image, s, patch_shape,
                                          features_callable)
                       for s in shapes]
-
     return np.vstack(patch_features)
 
 
-# TODO: document me!
 def features_per_image(images, shapes, patch_shape, features_callable,
                        prefix='', verbose=False):
-    """r
+    r"""
+    Method that given multiple images with multiple shapes per image, it first
+    extracts patches that correspond to the shapes and then features from
+    these patches.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image` or subclass
+        The input images.
+    shapes : `list` of `list` of `menpo.shape.PointCloud`
+        The list of list of shapes per image from which to extract the patches.
+    patch_shape : (`int`, `int`)
+        The shape of the patch to be extracted.
+    features_callable : `callable`
+        The function to be used for extracting features.
+    prefix : `str`, optional
+        The prefix of the printed information.
+    verbose : `bool`, optional
+        If ``True``, then progress information is printed.
+
+    Returns
+    -------
+    features_per_image : ``(n_images * n_shapes, n_features)`` `ndarray`
+        The concatenated feature vector per image and per shape.
     """
     wrap = partial(print_progress,
                    prefix='{}Extracting patches'.format(prefix),
                    end_with_newline=not prefix, verbose=verbose)
-
     patch_features = [features_per_shapes(i, shapes[j], patch_shape,
                                           features_callable)
                       for j, i in enumerate(wrap(images))]
@@ -133,6 +245,23 @@ def features_per_image(images, shapes, patch_shape, features_callable,
 
 def compute_non_parametric_delta_x(gt_shapes, current_shapes):
     r"""
+    Method that computes the difference between a given set of current shapes
+    and the corresponding ground truth shapes.
+
+    Parameters
+    ----------
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The ground truth shapes.
+    current_shapes : `list` of `list` of `menpo.shape.PointCloud`
+        The list of list of current shapes that correspond to each ground truth
+        shape.
+
+    Returns
+    -------
+    delta_x : ``(n_gt_shapes * n_current_shapes, n_features)`` `ndarray`
+        The concatenated difference vectors per ground truth shape.
+    gt_x : ``(n_gt_shapes * n_current_shapes, n_features)`` `ndarray`
+        The ground truth shape vectors.
     """
     n_x = gt_shapes[0].n_parameters
     n_gt_shapes = len(gt_shapes)
@@ -158,6 +287,22 @@ def compute_non_parametric_delta_x(gt_shapes, current_shapes):
 
 def update_non_parametric_estimates(estimated_delta_x, delta_x, gt_x,
                                     current_shapes):
+    r"""
+    Method that updates the current shapes given the current estimation of the
+    increments. Note that the `current_shapes` and `delta_x` get updated inplace.
+
+    Parameters
+    ----------
+    estimated_delta_x : ``(n_gt_shapes * n_current_shapes, n_features)`` `ndarray`
+        The estimated increments of the shapes.
+    delta_x : ``(n_gt_shapes * n_current_shapes, n_features)`` `ndarray`
+        The current shape increments.
+    gt_x : ``(n_gt_shapes * n_current_shapes, n_features)`` `ndarray`
+        The ground truth shape vectors.
+    current_shapes : `list` of `list` of `menpo.shape.PointCloud`
+        The list of list of current shapes that correspond to each ground truth
+        shape.
+    """
     j = 0
     for shapes in current_shapes:
         for s in shapes:
@@ -174,6 +319,30 @@ def update_non_parametric_estimates(estimated_delta_x, delta_x, gt_x,
 def print_non_parametric_info(template_shape, gt_shapes, n_perturbations,
                               delta_x, estimated_delta_x, level_index,
                               compute_error_f, prefix=''):
+    r"""
+    Method that prints information when training a non-parametric cascaded
+    regression algorithm.
+
+    Parameters
+    ----------
+    template_shape : `menpo.shape.PointCloud`
+        The template shape used to construct the shape of increments.
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The ground truth shapes.
+    n_perturbations : `int`
+        The number of perturbations applied on the ground truth shapes.
+    delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the shape increments between the current
+        shapes and the ground truth.
+    estimated_delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the estimated shape increments.
+    level_index : `int`
+        The scale index.
+    compute_error_f : `callable`
+        The function to be used for computing the error.
+    prefix : `str`
+        The prefix attached to the printed information.
+    """
     print_dynamic('{}(Iteration {}) - Calculating errors'.format(
         prefix, level_index))
     errors = []
@@ -193,6 +362,30 @@ def print_non_parametric_info(template_shape, gt_shapes, n_perturbations,
 def print_parametric_info(model, gt_shapes, n_perturbations,
                           delta_x, estimated_delta_x, level_index,
                           compute_error_f, prefix=''):
+    r"""
+    Method that prints information when training a parametric cascaded regression
+    algorithm.
+
+    Parameters
+    ----------
+    model : `menpofit.modelinstance.OrthoPDM`
+        The shape model.
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The ground truth shapes.
+    n_perturbations : `int`
+        The number of perturbations applied on the ground truth shapes.
+    delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the shape increments between the current
+        shapes and the ground truth.
+    estimated_delta_x : `list` of ``(2 * n_points,)`` `ndarray`
+        The `list` of vectors with the estimated shape increments.
+    level_index : `int`
+        The scale index.
+    compute_error_f : `callable`
+        The function to be used for computing the error.
+    prefix : `str`
+        The prefix attached to the printed information.
+    """
     print_dynamic('{}(Iteration {}) - Calculating errors'.format(
         prefix, level_index))
     errors = []
@@ -213,6 +406,29 @@ def print_parametric_info(model, gt_shapes, n_perturbations,
 
 
 def compute_parametric_delta_x(gt_shapes, current_shapes, model):
+    r"""
+    Method that, given a linear parametric model, computes the difference
+    between a set of current shape parameters and the corresponding ground truth
+    shape parameters.
+
+    Parameters
+    ----------
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The ground truth shapes from which the parameters will be extracted.
+    current_shapes : `list` of `list` of `menpo.shape.PointCloud`
+        The list of list of current shapes that correspond to each ground truth
+        shape.
+    model : `menpofit.modelinstance.OrthoPDM`
+        A parametric model used to get the parameters of the ground truth shapes
+        and current shapes.
+
+    Returns
+    -------
+    delta_params : ``(n_gt_shapes * n_current_shapes, n_parameters)`` `ndarray`
+        The concatenated parameters difference vectors per ground truth shape.
+    gt_params : ``(n_gt_shapes * n_current_shapes, n_parameters)`` `ndarray`
+        The ground truth parameters vectors.
+    """
     # initialize current and delta parameters arrays
     n_samples = len(gt_shapes) * len(current_shapes[0])
     gt_params = np.empty((n_samples, model.n_parameters))
@@ -237,6 +453,26 @@ def compute_parametric_delta_x(gt_shapes, current_shapes, model):
 
 def update_parametric_estimates(estimated_delta_x, delta_x, gt_x,
                                 current_shapes, model):
+    r"""
+    Method that updates the current shape parameters given the current estimation
+    of the parameters increments. Note that the `current_shapes` and `delta_x`
+    get updated inplace.
+
+    Parameters
+    ----------
+    estimated_delta_x : ``(n_gt_shapes * n_current_shapes, n_parameters)`` `ndarray`
+        The estimated parameters increments of the shapes.
+    delta_x : ``(n_gt_shapes * n_current_shapes, n_parameters)`` `ndarray`
+        The current shape parameters increments.
+    gt_x : ``(n_gt_shapes * n_current_shapes, n_features)`` `ndarray`
+        The ground truth shape parameters.
+    current_shapes : `list` of `list` of `menpo.shape.PointCloud`
+        The list of list of current shapes that correspond to each ground truth
+        shape.
+    model : `menpofit.modelinstance.OrthoPDM`
+        A parametric model used to get the parameters of the ground truth shapes
+        and current shapes.
+    """
     j = 0
     for shapes in current_shapes:
         for s in shapes:
@@ -256,6 +492,29 @@ def update_parametric_estimates(estimated_delta_x, delta_x, gt_x,
 
 def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
                            appearance_model_cls, verbose=False, prefix=''):
+    r"""
+    Method that builds a parametric patch-based appearance model.
+
+    Parameters
+    ----------
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
+    gt_shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of ground truth shapes that correspond to the training shapes.
+    patch_shape : (`int`, `int`)
+        The shape of the extracted patches.
+    patch_features : `callable`
+        The function to extract features from the patches. Please refer to
+        `menpo.feature` or `menpofit.feature`.
+    appearance_model_cls : `menpo.model.PCAModel`
+        The class that will be used to train the model, e.g.
+        `menpo.model.PCAModel`.
+    verbose : `bool`, optional
+        If ``True``, then information about the training progress will be
+        printed.
+    prefix : `str`, optional
+        The prefix used in the printed information.
+    """
     wrap = partial(print_progress,
                    prefix='{}Extracting ground truth patches'.format(prefix),
                    end_with_newline=not prefix, verbose=verbose)
@@ -263,7 +522,7 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
     # Extract patches from ground truth
     gt_patches = [features_per_patch(im, gt_s, patch_shape,
                                      patch_features)
-                  for gt_s, im in wrap(zip(gt_shapes, images))]
+                  for gt_s, im in wrap(list(zip(gt_shapes, images)))]
     # Calculate appearance model from extracted gt patches
     gt_patches = np.array(gt_patches).reshape([n_images, -1])
     if verbose:
@@ -271,44 +530,89 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
     return appearance_model_cls(gt_patches)
 
 
-def fit_parametric_shape(image, initial_shape, parametric_algo, gt_shape=None):
+def fit_parametric_shape(image, initial_shape, parametric_algorithm,
+                         gt_shape=None):
+    r"""
+    Method that fits a parametric cascaded regression algorithm to an image.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image`
+        The input image.
+    initial_shape : `menpo.shape.PointCloud`
+        The initial estimation of the shape.
+    parametric_algorithm : `class`
+        A cascaded regression algorithm that employs a parametric shape model.
+        Please refer to `menpofit.sdm.algorithm`.
+    gt_shape : `menpo.shape.PointCloud`
+        The ground truth shape that corresponds to the image.
+
+    Returns
+    -------
+    fitting_result : `menpofit.result.ParametricIterativeResult`
+        The final fitting result.
+    """
     # set current shape and initialize list of shapes
-    parametric_algo.shape_model.set_target(initial_shape)
+    parametric_algorithm.shape_model.set_target(initial_shape)
     current_shape = initial_shape.from_vector(
-        parametric_algo.shape_model.target.as_vector().copy())
-    shapes = [current_shape]
+            parametric_algorithm.shape_model.target.as_vector().copy())
+    shapes = []
+    shape_parameters = [parametric_algorithm.shape_model.as_vector()]
 
     # Cascaded Regression loop
-    for r in parametric_algo.regressors:
+    for r in parametric_algorithm.regressors:
         # compute regression features
-        features = parametric_algo._compute_test_features(image, current_shape)
+        features = parametric_algorithm._compute_test_features(image,
+                                                               current_shape)
 
         # solve for increments on the shape vector
         dx = r.predict(features).ravel()
 
         # update current shape
-        p = parametric_algo.shape_model.as_vector() + dx
-        parametric_algo.shape_model._from_vector_inplace(p)
+        p = parametric_algorithm.shape_model.as_vector() + dx
+        parametric_algorithm.shape_model._from_vector_inplace(p)
         current_shape = current_shape.from_vector(
-            parametric_algo.shape_model.target.as_vector().copy())
+                parametric_algorithm.shape_model.target.as_vector().copy())
         shapes.append(current_shape)
+        shape_parameters.append(p)
 
     # return algorithm result
-    return NonParametricAlgorithmResult(image, shapes,
-                                        gt_shape=gt_shape)
+    return ParametricIterativeResult(
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape)
 
 
-def fit_non_parametric_shape(image, initial_shape, non_parametric_algo,
+def fit_non_parametric_shape(image, initial_shape, non_parametric_algorithm,
                              gt_shape=None):
+    r"""
+    Method that fits a non-parametric cascaded regression algorithm to an image.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image`
+        The input image.
+    initial_shape : `menpo.shape.PointCloud`
+        The initial estimation of the shape.
+    non_parametric_algorithm : `class`
+        A cascaded regression algorithm that does not use a parametric shape
+        model. Please refer to `menpofit.sdm.algorithm`.
+    gt_shape : `menpo.shape.PointCloud`
+        The ground truth shape that corresponds to the image.
+
+    Returns
+    -------
+    fitting_result : `menpofit.result.NonParametricIterativeResult`
+        The final fitting result.
+    """
     # set current shape and initialize list of shapes
     current_shape = initial_shape
-    shapes = [initial_shape]
+    shapes = []
 
     # Cascaded Regression loop
-    for r in non_parametric_algo.regressors:
+    for r in non_parametric_algorithm.regressors:
         # compute regression features
-        features = non_parametric_algo._compute_test_features(image,
-                                                              current_shape)
+        features = non_parametric_algorithm._compute_test_features(image,
+                                                                   current_shape)
 
         # solve for increments on the shape vector
         dx = r.predict(features)
@@ -319,5 +623,6 @@ def fit_non_parametric_shape(image, initial_shape, non_parametric_algo,
         shapes.append(current_shape)
 
     # return algorithm result
-    return NonParametricAlgorithmResult(image, shapes,
-                                        gt_shape=gt_shape)
+    return NonParametricIterativeResult(
+            shapes=shapes, initial_shape=initial_shape, image=image,
+            gt_shape=gt_shape)
