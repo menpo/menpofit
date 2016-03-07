@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 import os
 import numpy as np
@@ -24,8 +25,8 @@ class DPMLearner(object):
         start = time.time()
         self._model_train()
         stop = time.time()
-        print stop-start
-        print 'done'
+        print(stop-start)
+        print('done')
 
     @staticmethod
     def _get_face_default_config():
@@ -138,13 +139,13 @@ class DPMLearner(object):
         return pos, neg
 
     def _model_train(self):
-        multipie_mat = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/multipie.mat'
+        multipie_mat = '/vol/atlas/homes/ks3811/matlab/multipie.mat'
         multipie = scipy.io.loadmat(multipie_mat)['multipie'][0]
 
         multipie_dir = '/vol/hci2/Databases/video/MultiPIE'
-        anno_dir = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/my_annotation'
+        anno_dir = '/vol/atlas/homes/ks3811/matlab/my_annotation'
         # negims = '/vol/hmi/projects/christos/Journal_IVC_2013/03_Ramanan/INRIA/'
-        neg_imgs_dir = '/homes/ks3811/Phd/1 year/wildFace/face-release1.0-full/INRIA'
+        neg_imgs_dir = '/vol/atlas/homes/ks3811/matlab/INRIA'
         pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor'
 
         try:  # Check if the data is already existed.
@@ -168,7 +169,7 @@ class DPMLearner(object):
         k = min(len(neg), 200)
         kneg = neg[0:k]
 
-        #todo : Learning each tndependent part can be done in parallel
+        #todo : Learning each independent part can be done in parallel
         #pool = mp.Pool(processes=4)
         #results = pool.map(self._train_model, range(1,7))
         #results = [pool.apply(self._train_model, args=(x,)) for x in range(1, 7)]
@@ -309,9 +310,9 @@ class DPMLearner(object):
 
         for c, im in enumerate(warped):
             feat = hog(im, mode='sparse', algorithm='zhuramanan', cell_size=model['sbin'])
-            feats[:, c] = feat.pixels.flatten()
+            feats[:, c] = feat.pixels.ravel()
 
-        w = np.mean(feats, 1)
+        w = np.mean(feats, axis=1)
         scores = np.sum(w * w)
         w2 = w.reshape(s)
         model['filters'][0]['w'] = np.copy(w2)
@@ -390,7 +391,7 @@ class DPMLearner(object):
             model.interval = 4
 
             for i, neg in enumerate(negs):
-                print 'iter:', t, 'neg:', i, '/', np.size(negs)
+                print('iter:', t, 'neg:', i, '/', np.size(negs))
                 im = mio.import_image(neg['im'])
                 box, model = DPMFitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp)
                 if np.sum(qp.sv) == nmax:
@@ -398,9 +399,9 @@ class DPMLearner(object):
 
             qp.opt()
             model = qp.vec2model(model)
-            root_scores = np.sort(qp.score_pos())
+            root_scores = np.sort(qp.score_pos())[::-1]
             # compute minimum score on positive example (with raw, unscaled features)
-            model.thresh = root_scores[np.ceil[np.size(root_scores)*0.05]]
+            model.thresh = root_scores[np.ceil(np.size(root_scores)*0.05)]
             model.interval = 10
             model.lb = qp.lb
             model.ub = qp.ub
@@ -440,7 +441,7 @@ class DPMLearner(object):
         assert(scipy.linalg.norm(old_w - qp.w) < 10**-5)
 
         for i, pos in enumerate(poses):
-            print 'iter:', t, 'pos:', i, '/', num_pos
+            print('iter:', t, 'pos:', i, '/', num_pos)
             num_parts = np.size(pos['box_x1'])
             bbox = dict()
             bbox['box'] = np.zeros((num_parts, 4))
@@ -749,7 +750,7 @@ class Qp(object):
             ids = range(i1, i2)
             x = np.array(block['x'])
             x = x if label else -x
-            x = x.flatten()  # x.reshape(n, 1)
+            x = x.ravel()  # x.reshape(n, 1)
             bias = bias - np.sum(self.w0[ids] * x)
             x = c*x
             x = x/self.wreg[ids]
@@ -771,7 +772,7 @@ class Qp(object):
             self.sv = self.a > 0
             self.sv[self.svfix] = True
 
-        idxs = np.where(self.sv)
+        idxs = np.where(self.sv)[0]
         n = np.size(idxs)
         assert(n > 0)
 
@@ -845,7 +846,7 @@ class Qp(object):
         self.ub = ub
 
     def refresh(self):
-        idxs = np.where(self.a > 0)
+        idxs = np.where(self.a > 0)[0]
         idxs = idxs[np.argsort(self.a[idxs])] if np.size(idxs) > 0 else np.array([0])
         idxs = np.array(idxs, dtype=np.intc)
         self.l[0] = np.sum(self.b[idxs] * self.a[idxs])
@@ -892,7 +893,7 @@ class Qp(object):
 
     def one(self):
         # basic building block for optimising qp for the given set of examples
-        idxs = np.where(self.sv)
+        idxs = np.where(self.sv)[0]
         np.random.shuffle(idxs)
         idxs = np.array(idxs, dtype=np.intc)
         n = np.size(idxs)
@@ -904,7 +905,7 @@ class Qp(object):
         self.lb_old = self.lb
         self.lb = self.update_lb()
         self.ub = self.update_ub(loss)
-        print 'lb : ', self.lb, 'ub : ', self.ub
+        print('lb : ', self.lb, 'ub : ', self.ub)
         assert(np.all(self.w[self.non_neg] >= 0))
         assert(np.all(self.a[range(self.n)] >= -10**-5))
         assert(np.all(self.a[range(self.n)] <= 1 + 10**-5))
@@ -1019,8 +1020,8 @@ class Qp(object):
         if True:  # todo: change True to debug once tested thoroughly
             self.model2qp(model)
             w_from_updated_model = self.actual_w().astype(np.double)
-            if not (np.all(np.ab(original_w - w_from_updated_model) < 10**-5)):
-                print np.where(np.ab(original_w - w_from_updated_model) >= 10**-5)
+            if not np.all(np.absolute(original_w - w_from_updated_model) < 10**-5):
+                print(np.where(np.absolute(original_w - w_from_updated_model) >= 10**-5))
         return model
 
     def model2qp(self, model):
@@ -1045,7 +1046,7 @@ class Qp(object):
                 l = np.size(x['w'])
                 j = np.array(range(x['i'], x['i'] + l))
                 w[j] = np.copy(x['w'])
-        non_neg = np.array(non_neg, dtype=np.intc).flatten() if np.size(non_neg) > 0 else []
+        non_neg = np.array(non_neg, dtype=np.intc).ravel() if np.size(non_neg) > 0 else []
         self.w = (w - w0) * wreg
         self.wreg = wreg
         self.w0 = w0
