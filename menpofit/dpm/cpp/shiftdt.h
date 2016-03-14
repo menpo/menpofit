@@ -1,6 +1,7 @@
-#define INF 1E20
+//#define INF 1E20
 #include <math.h>
 #include <sys/types.h>
+#include <limits> -> std::numeric_limits<int>::max();
 
 /*
  * shiftdt.h
@@ -19,8 +20,8 @@ void dt1d(double *src, double *dst, int *ptr, int step, int len, double a, doubl
   int k = 0;
   int q = 0;
   v[0] = 0;
-  z[0] = -INF;
-  z[1] = +INF;
+  z[0] = -std::numeric_limits<int>::max();
+  z[1] = +std::numeric_limits<int>::max();
 
   for (q = 1; q <= len-1; q++) {
     float s = ((src[q*step] - src[v[k]*step]) - b*(q - v[k]) + a*(square(q) - square(v[k]))) / (2*a*(q-v[k]));
@@ -31,7 +32,7 @@ void dt1d(double *src, double *dst, int *ptr, int step, int len, double a, doubl
     k++;
     v[k]   = q;
     z[k]   = s;
-    z[k+1] = +INF;
+    z[k+1] = +std::numeric_limits<int>::max();
   }
 
    k = 0;

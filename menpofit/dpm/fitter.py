@@ -193,7 +193,6 @@ class DPMFitter(object):
                 #     XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
 
                 print('level :', level, 'component :', c, 'found :', xs.shape[0])
-                diffs = []
                 for i in range(xs.shape[0]):
                     x, y = xs[i], ys[i]
                     # box = XY[:, :, i]
@@ -207,7 +206,6 @@ class DPMFitter(object):
                     if not latent:
                         qp.write(ex)
                         qp.increment_neg_ub(root_score[y, x])
-                        diffs.append(abs(qp.score_neg() - root_score[y, x]))
 
                 if not latent and xs.shape[0] > 0 and qp.n < np.size(qp.a):
                     # part of the debugging, might need in short future
@@ -405,9 +403,11 @@ def _old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
             par = tree.parent(cv)
             x = ptr[par, 0, :]
             y = ptr[par, 1, :]
-            idx = np.ravel_multi_index((y, x), dims=Ix[cv].shape, order='C')
-            ptr[cv, 0, :] = Ix[cv].ravel()[idx]
-            ptr[cv, 1, :] = Iy[cv].ravel()[idx]
+            # idx = np.ravel_multi_index((y, x), dims=Ix[cv].shape, order='C')
+            # ptr[cv, 0, :] = Ix[cv].ravel()[idx]
+            # ptr[cv, 1, :] = Iy[cv].ravel()[idx]
+            ptr[cv, 0, :] = Ix[cv][y, x]
+            ptr[cv, 1, :] = Iy[cv][y, x]
 
             box[cv, 0, :] = (ptr[cv, 0, :] - pyra_pad[0]) * scale + 1
             box[cv, 1, :] = (ptr[cv, 1, :] - pyra_pad[1]) * scale + 1

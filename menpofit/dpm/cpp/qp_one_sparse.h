@@ -19,7 +19,7 @@ static inline void setMN(int M, int N) {
 
 
 int comp(const void *a, const void *b) {
-  return memcmp((int32_t *)a,(int32_t *)b,m*sizeof(int32_t));
+  return memcmp(a, b, m*sizeof(int32_t));
 }
 
 static inline double c_one_score(const double *W, const float* x) {

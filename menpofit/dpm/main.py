@@ -12,7 +12,7 @@ from os.path import isdir
 def debugging():
 
     # Uncomment this to start the learner which currently use images and configurations base on original matlab code
-    dpm_learner = DPMLearner()
+    # dpm_learner = DPMLearner()
 
     pm = '/vol/atlas/homes/grigoris/external/dpm_ramanan/face-release1.0-basic/'
     assert(isdir(pm))
@@ -39,18 +39,21 @@ def debugging():
     mat_model = Model.model_from_dict(mat_model)
 
     # Uncomment these to use the model learned from python
-    pickle_dev = '/vol/atlas/homes/ks3811/pickles/'
+    pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor'
     try:
         import os
-        fp = os.path.join(pickle_dev, 'final2.pkl')
+        # fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
+        fp = os.path.join(pickle_dev, 'tmp.pkl')
         model = mio.import_pickle(fp)
-        model['interval'] = 10  # Use deeper pyramid when detecting actual objects
-        mat_model = Model.model_from_dict(model)
+        # model['interval'] = 10  # Use deeper pyramid when detecting actual objects
+        model.interval = 10  # Use deeper pyramid when detecting actual objects
+        # mat_model = Model.model_from_dict(model)
+        mat_model = model
     except ValueError:  # pickle does not exist
         pass
 
     start = time.time()
-    im = mio.import_builtin_asset.takeo_ppm()
+    im = mio.import_builtin_asset('takeo.ppm')
     boxes = DPMFitter().fast_fit_from_model(im, mat_model, thresh)
     print 'Found {0} configuration(s) that score above a given threshold: {1}'.format(np.size(boxes), thresh)
     boxes.sort(key=lambda item: item['s'], reverse=True)
