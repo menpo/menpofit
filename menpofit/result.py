@@ -12,7 +12,7 @@ class Result(object):
     r"""
     Class for defining a basic fitting result. It holds the final shape of a
     fitting process and, optionally, the initial shape, ground truth shape
-    and the image.
+    and the image object.
 
     Parameters
     ----------
@@ -23,8 +23,9 @@ class Result(object):
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
     initial_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The initial shape from which the fitting process started. If ``None``,
-        then no initial shape is assigned.
+        The initial shape that was provided to the fitting method to
+        initialise the fitting process. If ``None``, then no initial shape is
+        assigned.
     gt_shape : `menpo.shape.PointCloud` or ``None``, optional
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
@@ -51,8 +52,9 @@ class Result(object):
     @property
     def initial_shape(self):
         r"""
-        Returns the initial shape of the fitting process, if it exists.
-        Otherwise, it returns ``None``.
+        Returns the initial shape that was provided to the fitting method to
+        initialise the fitting process. In case the initial shape does not
+        exist, then ``None`` is returned.
 
         :type: `menpo.shape.PointCloud` or ``None``
         """
@@ -61,8 +63,8 @@ class Result(object):
     @property
     def gt_shape(self):
         r"""
-        Returns the ground truth shape associated with the image. Otherwise, it
-        returns ``None``.
+        Returns the ground truth shape associated with the image. In case there
+        is not an attached ground truth shape, then ``None`` is returned.
 
         :type: `menpo.shape.PointCloud` or ``None``
         """
@@ -81,7 +83,7 @@ class Result(object):
     def final_error(self, compute_error=None):
         r"""
         Returns the final error of the fitting process, if the ground truth
-        shape exists.
+        shape exists. This is the error computed based on the `final_shape`.
 
         Parameters
         ----------
@@ -111,7 +113,8 @@ class Result(object):
     def initial_error(self, compute_error=None):
         r"""
         Returns the initial error of the fitting process, if the ground truth
-        shape exists.
+        shape and initial shape exist. This is the error computed based on the
+        `initial_shape`.
 
         Parameters
         ----------
@@ -206,8 +209,8 @@ class Result(object):
             image will be pixelated. Example options ::
 
                 {none, nearest, bilinear, bicubic, spline16, spline36, hanning,
-                hamming, hermite, kaiser, quadric, catrom, gaussian, bessel,
-                mitchell, sinc, lanczos}
+                 hamming, hermite, kaiser, quadric, catrom, gaussian, bessel,
+                 mitchell, sinc, lanczos}
 
         cmap_name: `str`, optional,
             If ``None``, single channel and three channel images default
@@ -233,7 +236,8 @@ class Result(object):
                 (3, ) ndarray
 
         final_line_colour : See Below, optional
-            The line colour of the final fitting shape. Example options ::
+            The line colour of the final fitting shape.
+            Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
@@ -256,7 +260,8 @@ class Result(object):
                 (3, ) ndarray
 
         initial_line_colour : See Below, optional
-            The line colour of the initial shape. Example options ::
+            The line colour of the initial shape.
+            Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
@@ -279,7 +284,8 @@ class Result(object):
                 (3, ) ndarray
 
         gt_line_colour : See Below, optional
-            The line colour of the ground truth shape. Example options ::
+            The line colour of the ground truth shape.
+            Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
@@ -707,27 +713,29 @@ class NonParametricIterativeResult(Result):
             If ``True``, a new figure is created.
         render_lines : `bool`, optional
             If ``True``, the line will be rendered.
-        line_colour : `colour` or ``None``, optional
+        line_colour : `colour` or ``None`` (See below), optional
             The colour of the line. If ``None``, the colour is sampled from
             the jet colormap.
             Example `colour` options are ::
 
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
 
-        line_style : ``{'-', '--', '-.', ':'}``, optional
-            The style of the lines.
+        line_style : `str` (See below), optional
+            The style of the lines. Example options::
+
+                {-, --, -., :}
+
         line_width : `float`, optional
             The width of the lines.
         render_markers : `bool`, optional
             If ``True``, the markers will be rendered.
-        marker_style : `marker`, optional
+        marker_style : `str` (See below), optional
             The style of the markers.
             Example `marker` options ::
 
-                    {'.', ',', 'o', 'v', '^', '<', '>', '+', 'x', 'D', 'd', 's',
-                     'p', '*', 'h', 'H', '1', '2', '3', '4', '8'}
+                {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
         marker_size : `int`, optional
             The size of the markers in points.
@@ -736,40 +744,43 @@ class NonParametricIterativeResult(Result):
             is sampled from the jet colormap.
             Example `colour` options are ::
 
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
 
         marker_edge_colour : `colour` or ``None``, optional
-            The edge colour of the markers.If ``None``, the colour
+            The edge colour of the markers. If ``None``, the colour
             is sampled from the jet colormap.
             Example `colour` options are ::
 
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
 
         marker_edge_width : `float`, optional
             The width of the markers' edge.
         render_axes : `bool`, optional
             If ``True``, the axes will be rendered.
-        axes_font_name : See below, optional
+        axes_font_name : `str` (See below), optional
             The font of the axes.
             Example options ::
 
-                {'serif', 'sans-serif', 'cursive', 'fantasy', 'monospace'}
+                {serif, sans-serif, cursive, fantasy, monospace}
 
         axes_font_size : `int`, optional
             The font size of the axes.
-        axes_font_style : ``{'normal', 'italic', 'oblique'}``, optional
+        axes_font_style : `str` (See below), optional
             The font style of the axes.
-        axes_font_weight : See below, optional
+            Example options ::
+
+                {normal, italic, oblique}
+
+        axes_font_weight : `str` (See below), optional
             The font weight of the axes.
             Example options ::
 
-                {'ultralight', 'light', 'normal', 'regular', 'book', 'medium',
-                 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy',
-                 'extra bold', 'black'}
+                {ultralight, light, normal, regular, book, medium, roman,
+                 semibold, demibold, demi, bold, heavy, extra bold, black}
 
         axes_x_limits : `float` or (`float`, `float`) or ``None``, optional
             The limits of the x axis. If `float`, then it sets padding on the
@@ -888,27 +899,29 @@ class NonParametricIterativeResult(Result):
             If ``True``, a new figure is created.
         render_lines : `bool`, optional
             If ``True``, the line will be rendered.
-        line_colour : `colour` or ``None``, optional
+        line_colour : `colour` or ``None`` (See below), optional
             The colour of the line. If ``None``, the colour is sampled from
             the jet colormap.
             Example `colour` options are ::
 
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
 
-        line_style : ``{'-', '--', '-.', ':'}``, optional
-            The style of the lines.
+        line_style : `str` (See below), optional
+            The style of the lines. Example options::
+
+                {-, --, -., :}
+
         line_width : `float`, optional
             The width of the lines.
         render_markers : `bool`, optional
             If ``True``, the markers will be rendered.
-        marker_style : `marker`, optional
+        marker_style : `str` (See below), optional
             The style of the markers.
             Example `marker` options ::
 
-                    {'.', ',', 'o', 'v', '^', '<', '>', '+', 'x', 'D', 'd', 's',
-                     'p', '*', 'h', 'H', '1', '2', '3', '4', '8'}
+                {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
         marker_size : `int`, optional
             The size of the markers in points.
@@ -917,40 +930,43 @@ class NonParametricIterativeResult(Result):
             is sampled from the jet colormap.
             Example `colour` options are ::
 
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
 
         marker_edge_colour : `colour` or ``None``, optional
-            The edge colour of the markers.If ``None``, the colour
+            The edge colour of the markers. If ``None``, the colour
             is sampled from the jet colormap.
             Example `colour` options are ::
 
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
 
         marker_edge_width : `float`, optional
             The width of the markers' edge.
         render_axes : `bool`, optional
             If ``True``, the axes will be rendered.
-        axes_font_name : See below, optional
+        axes_font_name : `str` (See below), optional
             The font of the axes.
             Example options ::
 
-                {'serif', 'sans-serif', 'cursive', 'fantasy', 'monospace'}
+                {serif, sans-serif, cursive, fantasy, monospace}
 
         axes_font_size : `int`, optional
             The font size of the axes.
-        axes_font_style : ``{'normal', 'italic', 'oblique'}``, optional
+        axes_font_style : `str` (See below), optional
             The font style of the axes.
-        axes_font_weight : See below, optional
+            Example options ::
+
+                {normal, italic, oblique}
+
+        axes_font_weight : `str` (See below), optional
             The font weight of the axes.
             Example options ::
 
-                {'ultralight', 'light', 'normal', 'regular', 'book', 'medium',
-                 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy',
-                 'extra bold', 'black'}
+                {ultralight, light, normal, regular, book, medium, roman,
+                 semibold, demibold, demi, bold, heavy, extra bold, black}
 
         axes_x_limits : `float` or (`float`, `float`) or ``None``, optional
             The limits of the x axis. If `float`, then it sets padding on the
@@ -1055,8 +1071,18 @@ class NonParametricIterativeResult(Result):
         new_figure : `bool`, optional
             If ``True``, a new figure is created.
         iters : `int` or `list` of `int` or ``None``, optional
-            The iterations to be visualized. If ``None``, then all the iterations
-            are rendered.
+            The iterations to be visualized. If ``None``, then all the
+            iterations are rendered.
+
+            ======= ==================== =============
+            No.     Visualised shape     Description
+            ======= ==================== =============
+            0       `self.initial_shape` Initial shape
+            1       `self.shapes[1]`     Iteration 1
+            i       `self.shapes[i]`     Iteration i
+            n_iters `self.final_shape`   Final shape
+            ======= ==================== =============
+
         render_image : `bool`, optional
             If ``True`` and the image exists, then it gets rendered.
         subplots_enabled : `bool`, optional
@@ -1067,14 +1093,15 @@ class NonParametricIterativeResult(Result):
             rendered. If ``all``, all the channels will be rendered in subplots.
             If ``None`` and the image is RGB, it will be rendered in RGB mode.
             If ``None`` and the image is not RGB, it is equivalent to ``all``.
-        interpolation : See Below, optional
+        interpolation : `str` (See Below), optional
             The interpolation used to render the image. For example, if
             ``bilinear``, the image will be smooth and if ``nearest``, the
-            image will be pixelated. Example options ::
+            image will be pixelated.
+            Example options ::
 
                 {none, nearest, bilinear, bicubic, spline16, spline36, hanning,
-                hamming, hermite, kaiser, quadric, catrom, gaussian, bessel,
-                mitchell, sinc, lanczos}
+                 hamming, hermite, kaiser, quadric, catrom, gaussian, bessel,
+                 mitchell, sinc, lanczos}
 
         cmap_name: `str`, optional,
             If ``None``, single channel and three channel images default
@@ -1087,12 +1114,13 @@ class NonParametricIterativeResult(Result):
             If ``True``, the lines will be rendered. You can either provide a
             single value that will be used for all shapes or a list with a
             different value per iteration shape.
-        line_style : `str` or `list` of `str`, optional
+        line_style : `str` or `list` of `str` (See below), optional
             The style of the lines. You can either provide a single value that
             will be used for all shapes or a list with a different value per
-            iteration shape. Example options::
+            iteration shape.
+            Example options::
 
-                {'-', '--', '-.', ':'}
+                {-, --, -., :}
 
         line_width : `float` or `list` of `float`, optional
             The width of the lines. You can either provide a single value that
@@ -1101,7 +1129,8 @@ class NonParametricIterativeResult(Result):
         line_colour : `colour` or `list` of `colour` (See Below), optional
             The colour of the lines. You can either provide a single value that
             will be used for all shapes or a list with a different value per
-            iteration shape. Example options ::
+            iteration shape.
+            Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
@@ -1111,10 +1140,11 @@ class NonParametricIterativeResult(Result):
             If ``True``, the markers will be rendered. You can either provide a
             single value that will be used for all shapes or a list with a
             different value per iteration shape.
-        marker_style : `str or `list` of `str` (see below), optional
+        marker_style : `str or `list` of `str` (See below), optional
             The style of the markers. You can either provide a single value that
             will be used for all shapes or a list with a different value per
-            iteration shape. Example options ::
+            iteration shape.
+            Example options ::
 
                 {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
@@ -1125,7 +1155,8 @@ class NonParametricIterativeResult(Result):
         marker_edge_colour : `colour` or `list` of `colour` (See Below), optional
             The edge colour of the markers. You can either provide a single
             value that will be used for all shapes or a list with a different
-            value per iteration shape. Example options ::
+            value per iteration shape.
+            Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
@@ -1134,7 +1165,8 @@ class NonParametricIterativeResult(Result):
         marker_face_colour : `colour` or `list` of `colour` (See Below), optional
             The face (filling) colour of the markers. You can either provide a
             single value that will be used for all shapes or a list with a
-            different value per iteration shape. Example options ::
+            different value per iteration shape.
+            Example options ::
 
                 {r, g, b, c, m, k, w}
                 or
@@ -1146,12 +1178,21 @@ class NonParametricIterativeResult(Result):
             value per iteration shape.
         render_numbering : `bool`, optional
             If ``True``, the landmarks will be numbered.
-        numbers_horizontal_align : ``{center, right, left}``, optional
+        numbers_horizontal_align : `str` (See below), optional
             The horizontal alignment of the numbers' texts.
-        numbers_vertical_align : ``{center, top, bottom, baseline}``, optional
+            Example options ::
+
+                {center, right, left}
+
+        numbers_vertical_align : `str` (See below), optional
             The vertical alignment of the numbers' texts.
-        numbers_font_name : See Below, optional
-            The font of the numbers. Example options ::
+            Example options ::
+
+                {center, top, bottom, baseline}
+
+        numbers_font_name : `str` (See below), optional
+            The font of the numbers.
+            Example options ::
 
                 {serif, sans-serif, cursive, fantasy, monospace}
 
@@ -1159,7 +1200,7 @@ class NonParametricIterativeResult(Result):
             The font size of the numbers.
         numbers_font_style : ``{normal, italic, oblique}``, optional
             The font style of the numbers.
-        numbers_font_weight : See Below, optional
+        numbers_font_weight : `str` (See below), optional
             The font weight of the numbers.
             Example options ::
 
@@ -1179,15 +1220,20 @@ class NonParametricIterativeResult(Result):
         legend_title : `str`, optional
             The title of the legend.
         legend_font_name : See below, optional
-            The font of the legend. Example options ::
+            The font of the legend.
+            Example options ::
 
                 {serif, sans-serif, cursive, fantasy, monospace}
 
-        legend_font_style : ``{normal, italic, oblique}``, optional
+        legend_font_style : `str` (See below), optional
             The font style of the legend.
+            Example options ::
+
+                {normal, italic, oblique}
+
         legend_font_size : `int`, optional
             The font size of the legend.
-        legend_font_weight : See Below, optional
+        legend_font_weight : `str` (See below), optional
             The font weight of the legend.
             Example options ::
 
@@ -1233,8 +1279,9 @@ class NonParametricIterativeResult(Result):
             If ``True``, the frame's corners will be rounded (fancybox).
         render_axes : `bool`, optional
             If ``True``, the axes will be rendered.
-        axes_font_name : See Below, optional
-            The font of the axes. Example options ::
+        axes_font_name : `str` (See below), optional
+            The font of the axes.
+            Example options ::
 
                 {serif, sans-serif, cursive, fantasy, monospace}
 
@@ -1242,7 +1289,7 @@ class NonParametricIterativeResult(Result):
             The font size of the axes.
         axes_font_style : ``{normal, italic, oblique}``, optional
             The font style of the axes.
-        axes_font_weight : See Below, optional
+        axes_font_weight : `str` (See below), optional
             The font weight of the axes.
             Example options ::
 
@@ -1252,13 +1299,13 @@ class NonParametricIterativeResult(Result):
         axes_x_limits : `float` or (`float`, `float`) or ``None``, optional
             The limits of the x axis. If `float`, then it sets padding on the
             right and left of the Image as a percentage of the Image's width. If
-            `tuple` or `list`, then it defines the axis limits. If ``None``, then
-            the limits are set automatically.
+            `tuple` or `list`, then it defines the axis limits. If ``None``,
+            then the limits are set automatically.
         axes_y_limits : (`float`, `float`) `tuple` or ``None``, optional
             The limits of the y axis. If `float`, then it sets padding on the
-            top and bottom of the Image as a percentage of the Image's height. If
-            `tuple` or `list`, then it defines the axis limits. If ``None``, then
-            the limits are set automatically.
+            top and bottom of the Image as a percentage of the Image's height.
+            If `tuple` or `list`, then it defines the axis limits. If ``None``,
+            then the limits are set automatically.
         axes_x_ticks : `list` or `tuple` or ``None``, optional
             The ticks of the x axis.
         axes_y_ticks : `list` or `tuple` or ``None``, optional
@@ -1289,6 +1336,9 @@ class NonParametricIterativeResult(Result):
         n_digits = len(str(self.n_iters))
         groups = []
         subplots_titles = {}
+        iters_offset = 1
+        if self.initial_shape is not None:
+            iters_offset = 0
         for j in iters:
             if j == 0 and self.initial_shape is not None:
                 name = 'Initial'
@@ -1297,7 +1347,7 @@ class NonParametricIterativeResult(Result):
                 name = 'Final'
                 image.landmarks[name] = self.final_shape
             else:
-                name = "iteration {:0{}d}".format(j, n_digits)
+                name = "iteration {:0{}d}".format(j + iters_offset, n_digits)
                 image.landmarks[name] = self.shapes[j]
             groups.append(name)
             subplots_titles[name] = name
@@ -1348,48 +1398,483 @@ class NonParametricIterativeResult(Result):
 
 class ParametricIterativeResult(NonParametricIterativeResult):
     r"""
-    Class for defining a parametric iterative fitting result, i.e. the result
-    of a method that optimizes the parameters of a shape model. It holds the
-    shapes and shape parameters of all the iterations of the fitting
-    procedure. It can optionally store the image on which the fitting was
-    applied , as well as its ground truth shape.
+    Class for defining a parametric iterative fitting result, i.e. the
+    result of a method that optimizes the parameters of a shape model. It
+    holds the shapes and shape parameters of all the iterations of the
+    fitting procedure. It can optionally store the image on which the
+    fitting was applied, as well as its ground truth shape.
+
+    .. note:: When using a method with a parametric shape model, it is
+              common that the first step is to **project the initial shape**
+              into the shape model. The generated projected shape is then
+              used as initialisation for the iterative optimisation. This
+              projection step is not counted in the number of iterations.
+              If the initial was indeed projected,
+              then ``initial_shape_was_projected`` must be set to ``True``.
 
     Parameters
     ----------
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of shapes per iteration. Note that the list does not
-        include the initial shape. The last member of the list is the final
-        shape.
-    initial_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The initial shape from which the fitting process started. If ``None``,
-        then no initial shape is assigned.
+        include the initial shape. However, it includes the projection of
+        the initial shape, if it actually happened. The last member of the
+        list is the final shape.
     shape_parameters : `list` of `ndarray`
-        The `list` of shape parameters per iteration.
+        The `list` of shape parameters per iteration. Note that the list
+        includes the parameters of the projection of  the initial shape,
+        if it actually happened. The last member of the list is the final
+        shape. It must have the same length as `shapes`.
+    initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The initial shape from which the fitting process started. If
+        ``None``, then no initial shape is assigned.
+    initial_shape_was_projected : `bool`, optional
+        If ``True``, then it is indicated that the initial shape was
+        projected into the shape model before starting the iterative
+        optimisation. The projected initial shape should then be the
+        first member of `shapes` list.
     image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
         image is assigned.
     gt_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The ground truth shape associated with the image. If ``None``, then no
-        ground truth shape is assigned.
+        The ground truth shape associated with the image. If ``None``, then
+        no ground truth shape is assigned.
     """
     def __init__(self, shapes, shape_parameters, initial_shape=None,
-                 image=None, gt_shape=None):
+                 initial_shape_was_projected=True, image=None, gt_shape=None):
+        # Assign shape parameters
+        self._shape_parameters = shape_parameters
+        # Get projected initial shape and its parameters
+        self._projected_initial_shape = None
+        self._projected_initial_shape_parameters = None
+        if initial_shape_was_projected:
+            self._projected_initial_shape = shapes[0]
+            self._projected_initial_shape_parameters = shape_parameters[0]
+        # Call superclass
         super(ParametricIterativeResult, self).__init__(
                 shapes=shapes, initial_shape=initial_shape, image=image,
                 gt_shape=gt_shape)
-        self._shape_parameters = shape_parameters
+        # Correct n_iters if initial_shape_was_projected is True. The initial
+        # shape's projection should not count in the number of iterations.
+        if initial_shape_was_projected:
+            self._n_iters -= 1
+
+    @property
+    def shapes(self):
+        r"""
+        Returns the `list` of shapes obtained at each iteration of the fitting
+        process. The `list` includes the `initial_shape` (if it exists),
+        `projected_initial_shape` and `final_shape`.
+
+        :type: `list` of `menpo.shape.PointCloud`
+        """
+        return self._shapes
 
     @property
     def shape_parameters(self):
         r"""
         Returns the `list` of shape parameters obtained at each iteration of
         the fitting process. The `list` includes the parameters of the
-        `initial_shape` (if it exists) and `final_shape`.
+        `projected_initial_shape` and `final_shape`.
 
         :type: `list` of ``(n_params,)`` `ndarray`
         """
         return self._shape_parameters
+
+    @property
+    def projected_initial_shape(self):
+        r"""
+        Returns the initial shape's projection into the shape model that was
+        used to initialise the iterative optimisation process. In case the
+        initial shape was not projected, then ``None`` is returned.
+
+        :type: `menpo.shape.PointCloud` or ``None``
+        """
+        return self._projected_initial_shape
+
+    @property
+    def projected_initial_shape_parameters(self):
+        r"""
+        Returns the parameters of the initial shape's projection into the shape
+        model that were used to initialise the iterative optimisation process.
+        In case the  initial shape was not projected, then ``None`` is returned.
+
+        :type: ``(n_params,)`` `ndarray` or ``None``
+        """
+        return self._projected_initial_shape_parameters
+
+    def view_iterations(self, figure_id=None, new_figure=False,
+                        iters=None, render_image=True, subplots_enabled=False,
+                        channels=None, interpolation='bilinear',
+                        cmap_name=None, alpha=1., masked=True, render_lines=True,
+                        line_style='-', line_width=2, line_colour=None,
+                        render_markers=True, marker_edge_colour=None,
+                        marker_face_colour=None, marker_style='o',
+                        marker_size=4, marker_edge_width=1.,
+                        render_numbering=False,
+                        numbers_horizontal_align='center',
+                        numbers_vertical_align='bottom',
+                        numbers_font_name='sans-serif', numbers_font_size=10,
+                        numbers_font_style='normal',
+                        numbers_font_weight='normal',
+                        numbers_font_colour='k', render_legend=True,
+                        legend_title='', legend_font_name='sans-serif',
+                        legend_font_style='normal', legend_font_size=10,
+                        legend_font_weight='normal', legend_marker_scale=None,
+                        legend_location=2, legend_bbox_to_anchor=(1.05, 1.),
+                        legend_border_axes_pad=None, legend_n_columns=1,
+                        legend_horizontal_spacing=None,
+                        legend_vertical_spacing=None, legend_border=True,
+                        legend_border_padding=None, legend_shadow=False,
+                        legend_rounded_corners=False, render_axes=False,
+                        axes_font_name='sans-serif', axes_font_size=10,
+                        axes_font_style='normal', axes_font_weight='normal',
+                        axes_x_limits=None, axes_y_limits=None,
+                        axes_x_ticks=None, axes_y_ticks=None,
+                        figure_size=(10, 8)):
+        """
+        Visualize the iterations of the fitting process.
+
+        Parameters
+        ----------
+        figure_id : `object`, optional
+            The id of the figure to be used.
+        new_figure : `bool`, optional
+            If ``True``, a new figure is created.
+        iters : `int` or `list` of `int` or ``None``, optional
+            The iterations to be visualized. If ``None``, then all the
+            iterations are rendered.
+
+            =========== ============================== =======================
+            No.         Visualised shape               Description
+            =========== ============================== =======================
+            0           `self.initial_shape`           Initial shape
+            1           `self.projected_initial_shape` Projected initial shape
+            2           `self.shapes[2]`               Iteration 1
+            i           `self.shapes[i]`               Iteration i-1
+            n_iters + 1 `self.final_shape`             Final shape
+            =========== ============================== =======================
+
+        render_image : `bool`, optional
+            If ``True`` and the image exists, then it gets rendered.
+        subplots_enabled : `bool`, optional
+            If ``True``, then the requested final, initial and ground truth
+            shapes get rendered on separate subplots.
+        channels : `int` or `list` of `int` or ``all`` or ``None``
+            If `int` or `list` of `int`, the specified channel(s) will be
+            rendered. If ``all``, all the channels will be rendered in subplots.
+            If ``None`` and the image is RGB, it will be rendered in RGB mode.
+            If ``None`` and the image is not RGB, it is equivalent to ``all``.
+        interpolation : `str` (See Below), optional
+            The interpolation used to render the image. For example, if
+            ``bilinear``, the image will be smooth and if ``nearest``, the
+            image will be pixelated.
+            Example options ::
+
+                {none, nearest, bilinear, bicubic, spline16, spline36, hanning,
+                 hamming, hermite, kaiser, quadric, catrom, gaussian, bessel,
+                 mitchell, sinc, lanczos}
+
+        cmap_name: `str`, optional,
+            If ``None``, single channel and three channel images default
+            to greyscale and rgb colormaps respectively.
+        alpha : `float`, optional
+            The alpha blending value, between 0 (transparent) and 1 (opaque).
+        masked : `bool`, optional
+            If ``True``, then the image is rendered as masked.
+        render_lines : `bool` or `list` of `bool`, optional
+            If ``True``, the lines will be rendered. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per iteration shape.
+        line_style : `str` or `list` of `str` (See below), optional
+            The style of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape.
+            Example options::
+
+                {-, --, -., :}
+
+        line_width : `float` or `list` of `float`, optional
+            The width of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape.
+        line_colour : `colour` or `list` of `colour` (See Below), optional
+            The colour of the lines. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape.
+            Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        render_markers : `bool` or `list` of `bool`, optional
+            If ``True``, the markers will be rendered. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per iteration shape.
+        marker_style : `str or `list` of `str` (See below), optional
+            The style of the markers. You can either provide a single value that
+            will be used for all shapes or a list with a different value per
+            iteration shape.
+            Example options ::
+
+                {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
+
+        marker_size : `int` or `list` of `int`, optional
+            The size of the markers in points. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per iteration shape.
+        marker_edge_colour : `colour` or `list` of `colour` (See Below), optional
+            The edge colour of the markers. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per iteration shape.
+            Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        marker_face_colour : `colour` or `list` of `colour` (See Below), optional
+            The face (filling) colour of the markers. You can either provide a
+            single value that will be used for all shapes or a list with a
+            different value per iteration shape.
+            Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        marker_edge_width : `float` or `list` of `float`, optional
+            The width of the markers' edge. You can either provide a single
+            value that will be used for all shapes or a list with a different
+            value per iteration shape.
+        render_numbering : `bool`, optional
+            If ``True``, the landmarks will be numbered.
+        numbers_horizontal_align : `str` (See below), optional
+            The horizontal alignment of the numbers' texts.
+            Example options ::
+
+                {center, right, left}
+
+        numbers_vertical_align : `str` (See below), optional
+            The vertical alignment of the numbers' texts.
+            Example options ::
+
+                {center, top, bottom, baseline}
+
+        numbers_font_name : `str` (See below), optional
+            The font of the numbers.
+            Example options ::
+
+                {serif, sans-serif, cursive, fantasy, monospace}
+
+        numbers_font_size : `int`, optional
+            The font size of the numbers.
+        numbers_font_style : ``{normal, italic, oblique}``, optional
+            The font style of the numbers.
+        numbers_font_weight : `str` (See below), optional
+            The font weight of the numbers.
+            Example options ::
+
+                {ultralight, light, normal, regular, book, medium, roman,
+                 semibold, demibold, demi, bold, heavy, extra bold, black}
+
+        numbers_font_colour : See Below, optional
+            The font colour of the numbers.
+            Example options ::
+
+                {r, g, b, c, m, k, w}
+                or
+                (3, ) ndarray
+
+        render_legend : `bool`, optional
+            If ``True``, the legend will be rendered.
+        legend_title : `str`, optional
+            The title of the legend.
+        legend_font_name : See below, optional
+            The font of the legend.
+            Example options ::
+
+                {serif, sans-serif, cursive, fantasy, monospace}
+
+        legend_font_style : `str` (See below), optional
+            The font style of the legend.
+            Example options ::
+
+                {normal, italic, oblique}
+
+        legend_font_size : `int`, optional
+            The font size of the legend.
+        legend_font_weight : `str` (See below), optional
+            The font weight of the legend.
+            Example options ::
+
+                {ultralight, light, normal, regular, book, medium, roman,
+                 semibold, demibold, demi, bold, heavy, extra bold, black}
+
+        legend_marker_scale : `float`, optional
+            The relative size of the legend markers with respect to the original
+        legend_location : `int`, optional
+            The location of the legend. The predefined values are:
+
+            =============== ==
+            'best'          0
+            'upper right'   1
+            'upper left'    2
+            'lower left'    3
+            'lower right'   4
+            'right'         5
+            'center left'   6
+            'center right'  7
+            'lower center'  8
+            'upper center'  9
+            'center'        10
+            =============== ==
+
+        legend_bbox_to_anchor : (`float`, `float`) `tuple`, optional
+            The bbox that the legend will be anchored.
+        legend_border_axes_pad : `float`, optional
+            The pad between the axes and legend border.
+        legend_n_columns : `int`, optional
+            The number of the legend's columns.
+        legend_horizontal_spacing : `float`, optional
+            The spacing between the columns.
+        legend_vertical_spacing : `float`, optional
+            The vertical space between the legend entries.
+        legend_border : `bool`, optional
+            If ``True``, a frame will be drawn around the legend.
+        legend_border_padding : `float`, optional
+            The fractional whitespace inside the legend border.
+        legend_shadow : `bool`, optional
+            If ``True``, a shadow will be drawn behind legend.
+        legend_rounded_corners : `bool`, optional
+            If ``True``, the frame's corners will be rounded (fancybox).
+        render_axes : `bool`, optional
+            If ``True``, the axes will be rendered.
+        axes_font_name : `str` (See below), optional
+            The font of the axes.
+            Example options ::
+
+                {serif, sans-serif, cursive, fantasy, monospace}
+
+        axes_font_size : `int`, optional
+            The font size of the axes.
+        axes_font_style : ``{normal, italic, oblique}``, optional
+            The font style of the axes.
+        axes_font_weight : `str` (See below), optional
+            The font weight of the axes.
+            Example options ::
+
+                {ultralight, light, normal, regular, book, medium, roman,
+                 semibold, demibold, demi, bold, heavy, extra bold, black}
+
+        axes_x_limits : `float` or (`float`, `float`) or ``None``, optional
+            The limits of the x axis. If `float`, then it sets padding on the
+            right and left of the Image as a percentage of the Image's width. If
+            `tuple` or `list`, then it defines the axis limits. If ``None``,
+            then the limits are set automatically.
+        axes_y_limits : (`float`, `float`) `tuple` or ``None``, optional
+            The limits of the y axis. If `float`, then it sets padding on the
+            top and bottom of the Image as a percentage of the Image's height.
+            If `tuple` or `list`, then it defines the axis limits. If ``None``,
+            then the limits are set automatically.
+        axes_x_ticks : `list` or `tuple` or ``None``, optional
+            The ticks of the x axis.
+        axes_y_ticks : `list` or `tuple` or ``None``, optional
+            The ticks of the y axis.
+        figure_size : (`float`, `float`) `tuple` or ``None`` optional
+            The size of the figure in inches.
+
+        Returns
+        -------
+        renderer : `class`
+            The renderer object.
+        """
+        # Parse iters
+        if not (iters is None or isinstance(iters, int) or
+                isinstance(iters, list)):
+            raise ValueError('iters must be either int or list or None')
+        if iters is None:
+            iters = list(range(len(self.shapes)))
+        if isinstance(iters, int):
+            iters = [iters]
+        # Create image instance
+        if self.image is None:
+            image = Image(np.zeros((10, 10)))
+            render_image = False
+        else:
+            image = Image(self.image.pixels)
+        # Assign pointclouds to image
+        n_digits = len(str(self.n_iters))
+        groups = []
+        subplots_titles = {}
+        iters_offset = 1
+        if self.initial_shape is not None:
+            iters_offset = 0
+        for j in iters:
+            if j == 0 and (self.initial_shape is not None or
+                           self.projected_initial_shape is not None):
+                if self.initial_shape is not None:
+                    name = 'Initial'
+                    image.landmarks[name] = self.initial_shape
+                else:
+                    name = 'Projection'
+                    image.landmarks[name] = self.projected_initial_shape
+            elif (j == 1 and self.initial_shape is not None and
+                  self.projected_initial_shape is not None):
+                name = 'Projection'
+                image.landmarks[name] = self.projected_initial_shape
+            elif j == len(self.shapes) - 1:
+                name = 'Final'
+                image.landmarks[name] = self.final_shape
+            else:
+                name = "iteration {:0{}d}".format(j + iters_offset, n_digits)
+                image.landmarks[name] = self.shapes[j]
+            groups.append(name)
+            subplots_titles[name] = name
+        # Render
+        return view_image_multiple_landmarks(
+                image, groups, with_labels=None, figure_id=figure_id,
+                new_figure=new_figure, subplots_enabled=subplots_enabled,
+                subplots_titles=subplots_titles, render_image=render_image,
+                render_landmarks=True, masked=masked,
+                channels=channels, interpolation=interpolation,
+                cmap_name=cmap_name, alpha=alpha, image_view=True,
+                render_lines=render_lines, line_style=line_style,
+                line_width=line_width, line_colour=line_colour,
+                render_markers=render_markers, marker_style=marker_style,
+                marker_size=marker_size, marker_edge_width=marker_edge_width,
+                marker_edge_colour=marker_edge_colour,
+                marker_face_colour=marker_face_colour,
+                render_numbering=render_numbering,
+                numbers_horizontal_align=numbers_horizontal_align,
+                numbers_vertical_align=numbers_vertical_align,
+                numbers_font_name=numbers_font_name,
+                numbers_font_size=numbers_font_size,
+                numbers_font_style=numbers_font_style,
+                numbers_font_weight=numbers_font_weight,
+                numbers_font_colour=numbers_font_colour,
+                render_legend=render_legend, legend_title=legend_title,
+                legend_font_name=legend_font_name,
+                legend_font_style=legend_font_style,
+                legend_font_size=legend_font_size,
+                legend_font_weight=legend_font_weight,
+                legend_marker_scale=legend_marker_scale,
+                legend_location=legend_location,
+                legend_bbox_to_anchor=legend_bbox_to_anchor,
+                legend_border_axes_pad=legend_border_axes_pad,
+                legend_n_columns=legend_n_columns,
+                legend_horizontal_spacing=legend_horizontal_spacing,
+                legend_vertical_spacing=legend_vertical_spacing,
+                legend_border=legend_border,
+                legend_border_padding=legend_border_padding,
+                legend_shadow=legend_shadow,
+                legend_rounded_corners=legend_rounded_corners,
+                render_axes=render_axes, axes_font_name=axes_font_name,
+                axes_font_size=axes_font_size, axes_font_style=axes_font_style,
+                axes_font_weight=axes_font_weight, axes_x_limits=axes_x_limits,
+                axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
+                axes_y_ticks=axes_y_ticks, figure_size=figure_size)
 
 
 class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
