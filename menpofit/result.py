@@ -1409,8 +1409,8 @@ class ParametricIterativeResult(NonParametricIterativeResult):
               into the shape model. The generated projected shape is then
               used as initialisation for the iterative optimisation. This
               projection step is not counted in the number of iterations.
-              If the initial was indeed projected,
-              then ``initial_shape_was_projected`` must be set to ``True``.
+              If the initial shape was indeed projected, then
+              ``initial_shape_was_projected`` must be set to ``True``.
 
     Parameters
     ----------
@@ -1962,13 +1962,22 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         return self._n_scales
 
 
-class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult):
+class MultiScaleParametricIterativeResult(
+        MultiScaleNonParametricIterativeResult):
     r"""
     Class for defining a multi-scale parametric iterative fitting result, i.e.
     the result of a multi-scale method that optimizes over a parametric shape
     model. It holds the shapes of all the iterations of the fitting procedure,
     as well as the scales. It can optionally store the image on which the
     fitting was applied, as well as its ground truth shape.
+
+    .. note:: When using a method with a parametric shape model, it is
+              common that the first step is to **project the initial shape**
+              into the shape model. The generated projected shape is then
+              used as initialisation for the iterative optimisation. This
+              projection step takes place on each scale and is not counted in
+              the number of iterations. If the initial was indeed projected,
+              then ``initial_shape_was_projected`` must be set to ``True``.
 
     Parameters
     ----------
