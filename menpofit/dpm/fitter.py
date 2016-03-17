@@ -1,5 +1,6 @@
 from __future__ import print_function
 import numpy as np
+import gc
 from .utils import convolve_python_f, call_shiftdt
 from math import log as log_m
 from menpo.feature import hog
@@ -81,8 +82,9 @@ class DPMFitter(object):
 
     @staticmethod
     def fast_fit_from_model(image, model, threshold=-10**100):
+        # fit the DPM model to the given image
         padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
-        feats, scales = _featpyramid(image, model.interval, model.sbin, padding)
+        feats, scales = _feature_pyramid(image, model.interval, model.sbin, padding)
 
         boxes = []
         filters_all = model.get_filters_weights()
@@ -125,12 +127,13 @@ class DPMFitter(object):
 
     @staticmethod
     def fit_with_bb(image, model, threshold=-10**100, bbox=dict(), overlap=0, id_=0, label=0, qp=None):
+        # fit the DPM model to the given image
         latent = 'box' in bbox and len(bbox['box']) > 0
         ex = dict()  # ex is the example that will e written to qp. maybe ex can be moved to qp instead
         ex['blocks'] = []
         ex['id'] = np.array([label, id_, 0, 0, 0])
         padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
-        feats, scales = _featpyramid(image, model.interval, model.sbin, padding)
+        feats, scales = _feature_pyramid(image, model.interval, model.sbin, padding)
 
         boxes = []  # list with detection boxes (as dictionaries)
         filters_all = model.get_filters_weights()
@@ -163,10 +166,11 @@ class DPMFitter(object):
                 ovmask = {}
                 if latent:
                     skip_flag = False
-                    for curr_vert in tree.vertices:
+                    for cv in tree.vertices:
                         # assume each part have a same filter size
-                        ovmask[curr_vert] = _test_overlap(fsz, feat, scales[level], padding, image.shape, bbox['box'][curr_vert, :], overlap)
-                        if not np.any(ovmask[curr_vert]):
+                        ovmask[cv] = _test_overlap(fsz, feat, scales[level], padding, image.shape, bbox['box'][cv, :],
+                                                   overlap)
+                        if not np.any(ovmask[cv]):
                             skip_flag = True
                             break
                     if skip_flag:
@@ -179,44 +183,154 @@ class DPMFitter(object):
                     mask[np.logical_not(ov)] = -999999  # can not be -np.inf because of using distance transform
                     scores[i] = scores[i] + mask
 
-                scores, ix, iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
+                scores, ixs, iys = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
                 scale = scales[level]
                 root_score = scores[tree.root_vertex] + bias
 
-                if latent:
+                if latent:  # only pick the best configuration for positive example
                     threshold = max(threshold, np.max(root_score))
 
                 [ys, xs] = np.where(root_score >= threshold)
 
                 # todo: test if it faster to use old_backtrack
-                # if X.shape[0] > 0:
-                #     XY = old_backtrack(X, Y, tree, Ix, Iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
+                import time
+                start = time.time()
+                if xs.shape[0] > 0:
+                    # Only backtrack examples that can be fitted into qp for this negative image
+                    ex_allowed_num = min(np.size(xs), qp.nmax - qp.n)
+                    rand_choices = np.random.choice(np.size(xs), ex_allowed_num)
+                    xs = xs[rand_choices]
+                    ys = ys[rand_choices]
+                    xys, ids, ex_filters, ex_defs = _batch_backtrack(xs, ys, tree, ixs, iys, fsz, scale, padding, level,
+                                                                     feat, anchors, label, id_)
+
+                print('level :', level, 'component :', c, 'found :', xs.shape[0])
+                if not latent and xs.shape[0] > 0:
+                    qp.write_multiple_exs(ids, filter_index, def_index, ex_filters, ex_defs)
+                for i in range(xs.shape[0]):
+                    x, y = xs[i], ys[i]
+                    box = xys[:, :, i]
+                    detection_info = dict()
+                    detection_info['level'] = level
+                    detection_info['s'] = np.copy(root_score[y, x])
+                    detection_info['xy'] = box  # xy
+                    boxes.append(dict(detection_info))
+                    if not latent:
+                        # qp.write(ex)
+                        qp.increment_neg_ub(root_score[y, x])
+                if xs.shape[0] > 0 and not latent:
+                    del ids, ex_filters, ex_defs
+                    gc.collect()
+                stop = time.time()
+                print('time taken :', stop-start)
+
+                if not latent and xs.shape[0] > 0:  # and qp.n < qp.nmax:
+                    assert(np.allclose(qp.score_neg(), root_score[y, x]))
+
+                if not latent and (qp.lb < 0 or 1-qp.lb/qp.ub > 0.05 or qp.n == qp.nmax):
+                    model = qp.obtimise(model)
+                    filters_all = model.get_filters_weights()
+                    unary_scores_all = convolve_python_f(feat, filters_all)
+                    defs_all = model.get_defs_weights()
+                    anchors_all = model.get_defs_anchors()
+
+        if latent:
+            qp.write_multiple_exs(ids, filter_index, def_index, ex_filters, ex_defs)
+            if np.size(boxes) > 0:
+                boxes = boxes[-1]
+                assert(np.allclose(qp.score_pos()[qp.n-1], boxes['s']))
+        return boxes, model
+
+    @staticmethod
+    def fit_with_bb_less_memory(image, model, threshold=-10**100, bbox=dict(), overlap=0, id_=0, label=0, qp=None):
+        # fit the DPM model to the given image, consume less memory but it is significantly slower than above function.
+        latent = 'box' in bbox and len(bbox['box']) > 0
+        ex = dict()  # ex is the example that will e written to qp. maybe ex can be moved to qp instead
+        ex['blocks'] = []
+        ex['id'] = np.array([label, id_, 0, 0, 0])
+        padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
+        feats, scales = _feature_pyramid(image, model.interval, model.sbin, padding)
+
+        boxes = []  # list with detection boxes (as dictionaries)
+        filters_all = model.get_filters_weights()
+        filters_index_all = model.get_filters_indexes()
+        defs_all = model.get_defs_weights()
+        defs_index_all = model.get_defs_indexes()
+        anchors_all = model.get_defs_anchors()
+
+        for level, feat in feats.iteritems():  # for each level in the pyramid
+            unary_scores_all = convolve_python_f(feat, filters_all)
+            for c, component in enumerate(model.components):
+
+                if not component:
+                    continue
+                if latent:
+                    if c != bbox['c']:
+                        continue
+
+                tree = component['tree']
+                filter_ids = component['filter_ids']
+                def_ids = component['def_ids']
+                defs = np.array(defs_all)[def_ids]
+                bias = defs[tree.root_vertex]
+                anchors = np.array(anchors_all)[def_ids]
+                filter_index = np.array(filters_index_all)[filter_ids]
+                def_index = np.array(defs_index_all)[def_ids]
+                fsz = np.array(filters_all[filter_ids[tree.root_vertex]].shape)[1:]
+
+                # for positive examples, only allow the configurations that mostly overlap with actual annotations
+                ovmask = {}
+                if latent:
+                    skip_flag = False
+                    for cv in tree.vertices:
+                        # assume each part have a same filter size
+                        ovmask[cv] = _test_overlap(fsz, feat, scales[level], padding, image.shape,
+                                                          bbox['box'][cv, :], overlap)
+                        if not np.any(ovmask[cv]):
+                            skip_flag = True
+                            break
+                    if skip_flag:
+                        continue
+
+                scores = np.array(unary_scores_all)[filter_ids]
+                for i, ov in ovmask.iteritems():
+                    assert(np.any(ov))
+                    mask = np.zeros(ov.shape)
+                    mask[np.logical_not(ov)] = -999999  # can not be -np.inf because of using distance transform
+                    scores[i] = scores[i] + mask
+
+                scores, ixs, iys = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
+                scale = scales[level]
+                root_score = scores[tree.root_vertex] + bias
+
+                if latent:  # only pick the best configuration for positive example
+                    threshold = max(threshold, np.max(root_score))
+
+                [ys, xs] = np.where(root_score >= threshold)
+
+                # todo: test if it faster to use old_backtrack
+                import time
+                start = time.time()
 
                 print('level :', level, 'component :', c, 'found :', xs.shape[0])
                 for i in range(xs.shape[0]):
                     x, y = xs[i], ys[i]
-                    # box = XY[:, :, i]
-                    xy, ptr = _backtrack(x, y, tree, ix, iy, fsz, scale, padding, ex, True, level, filter_index, def_index, feat, anchors)
+                    xy = _backtrack(x, y, tree, ixs, iys, fsz, scale, padding, ex, True, level, filter_index, def_index,
+                                    feat, anchors)
                     detection_info = dict()
                     detection_info['level'] = level
                     detection_info['s'] = np.copy(root_score[y, x])
-                    detection_info['xy'] = xy  # box  # XY
+                    detection_info['xy'] = xy
                     boxes.append(dict(detection_info))
-                    # ex = create_ex(box, x, y, tree, fsz, padding, ex, level, filter_index, def_index, feat, anchors)
                     if not latent:
                         qp.write(ex)
-                        qp.increment_neg_ub(root_score[y, x])
+                stop = time.time()
+                print('time taken :', stop-start)
 
-                if not latent and xs.shape[0] > 0 and qp.n < np.size(qp.a):
-                    # part of the debugging, might need in short future
-                    # print qp.score_neg(), rscore[y, x], qp.score_neg() - rscore[y, x]
-                    # scores1 = qp.slow_score(-(qp.w + qp.w0 * qp.wreg)/qp.cneg, qp.x[:, qp.n-1])
-                    # print 'score1 :', scores1
-                    # scores2 = compute_filters_scores_only(old_scores, tree, filter_ids, ptr)
-                    # print 'score2 :', scores2
-                    assert(qp.score_neg() - root_score[y, x] < 10**-5)
+                if not latent and xs.shape[0] > 0 and qp.n < qp.nmax:
+                    assert(np.allclose(qp.score_neg(), root_score[y, x]))
 
-                if not latent and (qp.lb < 0 or 1-qp.lb/qp.ub > 0.05 or qp.n == np.size(qp.sv)):
+                if not latent and (qp.lb < 0 or 1-qp.lb/qp.ub > 0.05 or qp.n == qp.nmax):
                     model = qp.obtimise(model)
                     filters_all = model.get_filters_weights()
                     unary_scores_all = convolve_python_f(feat, filters_all)
@@ -225,12 +339,9 @@ class DPMFitter(object):
 
         if latent:
             qp.write(ex)
-            # part of the debugging, might need in short future
-            # scores1 = qp.slow_score((qp.w + qp.w0 * qp.wreg)/qp.cpos, qp.x[:, qp.n-1])
-            # scores2 = compute_filters_scores_only(best_old_scores, best_tree, best_filter_ids, ptr)
-            # assert(qp.score_pos()[qp.n-1] - best_rscore[y, x] < 10**-5)
             if np.size(boxes) > 0:
                 boxes = boxes[-1]
+                assert(np.allclose(qp.score_pos()[qp.n-1], boxes['s']))
         return boxes, model
 
 
@@ -320,9 +431,9 @@ def compute_filters_scores_only(scores, tree, filter_ids, ptr):
     return new_scores
 
 
-def _featpyramid(im, m_inter, sbin, pyra_pad):
-    # construct the featpyramid. For the time being, it has similar conventions as in
-    # Ramanan's code. TODO: In the future, use menpo's gaussian pyramid.
+def _feature_pyramid(im, m_inter, sbin, pyra_pad):
+    # Construct the feature pyramid. For the time being, it has similar conventions as in Ramanan's code.
+    # TODO: In the future, use menpo's gaussian pyramid.
     sc = 2 ** (1. / m_inter)
     img_size = (im.shape[0], im.shape[1])
     max_scale = int(log_m(min(img_size)*1./(5*sbin))/log_m(sc)) + 1
@@ -349,7 +460,7 @@ def _featpyramid(im, m_inter, sbin, pyra_pad):
     return feats_np, scales
 
 
-def _old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
+def _old_backtrack(x, y, tree, ix, iy, fsz, scale, pyra_pad):
     r"""
     Backtrack the solution from the root to the children and return the detection coordinates for each part.
     algorithm:
@@ -369,9 +480,9 @@ def _old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
         The y coordinates of the detections in the root level.
     tree: `:map:`Tree``
         Tree with the parent/child connections.
-    Ix: `dict`
+    ix: `dict`
         Contains the coordinates of x for each part from the Generalised Distance Transform.
-    Iy: `dict`
+    iy: `dict`
         Contains the coordinates of y for each part from the Generalised Distance Transform.
     fsz: `list`
         The size of the filter in the format of [y, x].
@@ -406,8 +517,8 @@ def _old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
             # idx = np.ravel_multi_index((y, x), dims=Ix[cv].shape, order='C')
             # ptr[cv, 0, :] = Ix[cv].ravel()[idx]
             # ptr[cv, 1, :] = Iy[cv].ravel()[idx]
-            ptr[cv, 0, :] = Ix[cv][y, x]
-            ptr[cv, 1, :] = Iy[cv][y, x]
+            ptr[cv, 0, :] = ix[cv][y, x]
+            ptr[cv, 1, :] = iy[cv][y, x]
 
             box[cv, 0, :] = (ptr[cv, 0, :] - pyra_pad[0]) * scale + 1
             box[cv, 1, :] = (ptr[cv, 1, :] - pyra_pad[1]) * scale + 1
@@ -416,41 +527,113 @@ def _old_backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad):
     return box
 
 
-def _create_ex(box, x, y, tree, fsz, pyra_pad, ex=None, level=-1, filter_index=None, def_index=None, feat=None,
-               anchors=None):
-    # _create_ex can be used with old_backtrack instead of using _backtrack. todo: Need to check which is faster
-    k = tree.root_vertex
-    ex['id'][2:] = [level, round(x + fsz[0]/2), round(y + fsz[1]/2)]
-    ex['blocks'] = []
-    block = dict()
-    block['i'] = def_index[k]
-    block['x'] = 1  # to match with bias i.e. 1 * bias
-    ex['blocks'].append(block)
-    block = dict()
-    block['i'] = filter_index[k]
-    block['x'] = feat[:, y:y+fsz[0], x:x+fsz[1]]
-    ex['blocks'].append(block)
+def _batch_backtrack(xs, ys, tree, ixs, iys, fsz, scale, pyra_pad, level=-1, feat=None, anchors=None, label=-1, ex_id=-1):
+    r"""
+    Backtrack the solution from the root to the children and return the detection coordinates for each part.
+    The backtrack is done for each rot position in parallel making the computationfaster but consume more memory.
+
+    algorithm:
+    (for all points that are greater than the threshold -> vectorised)
+    start from the root
+    save location of the ln point
+    for depth in range(1, max_depth_graph): # traverse tree from the root to the leaves
+        curr_ch_vertext = [vertices in current depth]
+        for each vertex in curr_ch_vertext:
+            find from Ix, Iy the position of the child
+            save ideal location of the ln point
+
+    Parameters
+    ----------
+    xs: `list`
+        The x coordinates of the detections in the root level.
+    ys: `list`
+        The y coordinates of the detections in the root level.
+    tree: `:map:`Tree``
+        Tree with the parent/child connections.
+    ixs: `dict`
+        Contains the coordinates of x for each part from the Generalised Distance Transform.
+    iys: `dict`
+        Contains the coordinates of y for each part from the Generalised Distance Transform.
+    fsz: `list`
+        The size of the filter in the format of [y, x].
+        ASSUMPTION: All filters at this level have the same size. Otherwise,
+        modify the code for a list of filter sizes.
+    scale: `int`
+        The scale of the detections in the feature pyramid.
+    pyra_pad: `list`
+        Padding in the form of [x, y] in the feature pyramid.
+    level: `int`
+        Level of the example in the feature pyramid.
+    feat: `ndarray`
+        Features of the corresponding level in feature pyramid.
+    anchors: `list`
+        A list of anchors of each part(ideal locations of each part reference from its parent).
+    label: `int`
+        A boolean indicating if the examples are positive or negative.
+    ex_id: `int`
+        An id of the current example
+
+    Returns
+    -------
+    box: `ndarray`
+        The x, y coordinates of the detection(s).
+    ids: `ndarray`
+        The corresponding id of each example
+    filters: `ndarray`
+        The filters of each example filters.shape = [num_parts, feature.size (31*5*5), ex_num]
+    defs: `ndarray`
+        The defs of each example defs.shape = [num_parts, defs.size (4), ex_num]
+    """
+    xs = np.array(xs)
+    ys = np.array(ys)
+    ex_num = xs.shape[0]
+    num_parts = len(tree.vertices)
+    ptr = np.empty((num_parts, 2, ex_num), dtype=np.int64)
+    box = np.empty((num_parts, 4, ex_num))
+    cv = tree.root_vertex
+
+    filters = np.zeros((num_parts, np.prod(fsz)*feat.shape[0], ex_num,), dtype=np.float32)
+    defs = np.zeros((num_parts, 4, ex_num,), dtype=np.float32)  # 4 = dx^2, dx, dy^2, dy
+
+    ids = np.zeros((5, np.size(xs)), dtype=np.float32)
+    ids[0, :] = label
+    ids[1, :] = ex_id
+    ids[2, :] = level
+    ids[3] = xs + round(fsz[0]/2)
+    ids[4] = ys + round(fsz[1]/2)
+
+    ptr[cv, 0, :] = np.copy(xs)
+    ptr[cv, 1, :] = np.copy(ys)
+    box[cv, 0, :] = (ptr[cv, 0, :] - pyra_pad[0]) * scale + 1
+    box[cv, 1, :] = (ptr[cv, 1, :] - pyra_pad[1]) * scale + 1
+    box[cv, 2, :] = box[cv, 0, :] + fsz[1] * scale - 1
+    box[cv, 3, :] = box[cv, 1, :] + fsz[0] * scale - 1
+
+    for i in range(np.size(xs)):
+        filters[cv, :, i] = feat[:, ys[i]:ys[i]+fsz[0], xs[i]:xs[i]+fsz[1]].ravel()
 
     for depth in range(1, tree.maximum_depth + 1):
         for cv in tree.vertices_at_depth(depth):  # for each vertex in that level
             par = tree.parent(cv)
-            x = box[par, 0]
-            y = box[par, 1]
-            block = dict()
-            block['i'] = def_index[cv]
-            block['x'] = _def_vector(x, y, box[cv, 0], box[cv, 1], pyra_pad, anchors[cv])
-            ex['blocks'].append(block)
-            block = dict()
-            x = box[cv, 0]
-            y = box[cv, 1]
-            block['i'] = filter_index[cv]
-            block['x'] = feat[:, y:y+fsz[1], x:x+fsz[0]]
-            ex['blocks'].append(block)
+            xs = ptr[par, 0, :]
+            ys = ptr[par, 1, :]
+            ptr[cv, 0, :] = ixs[cv][ys, xs]
+            ptr[cv, 1, :] = iys[cv][ys, xs]
 
-    return ex
+            box[cv, 0, :] = (ptr[cv, 0, :] - pyra_pad[0]) * scale + 1
+            box[cv, 1, :] = (ptr[cv, 1, :] - pyra_pad[1]) * scale + 1
+            box[cv, 2, :] = box[cv, 0, :] + fsz[1] * scale - 1
+            box[cv, 3, :] = box[cv, 1, :] + fsz[0] * scale - 1
+
+            defs[cv, :, :] = _def_vector(xs, ys, ptr[cv, 0, :], ptr[cv, 1, :], pyra_pad, anchors[cv])
+            xs = ptr[cv, 0, :]
+            ys = ptr[cv, 1, :]
+            for i in range(np.size(xs)):
+                filters[cv, :, i] = feat[:, ys[i]:ys[i]+fsz[0], xs[i]:xs[i]+fsz[1]].ravel()
+    return box, ids, filters, defs
 
 
-def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, level=-1, filter_index=None,
+def _backtrack(x, y, tree, ix, iy, fsz, scale, pyra_pad, ex=None, write=False, level=-1, filter_index=None,
                def_index=None, feat=None, anchors=None):
     r"""
     Backtrack the solution from the root to the children and return the detection coordinates for each part.
@@ -473,9 +656,9 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
         The y coordinates of the detections in the root level.
     tree: `:map:`Tree``
         Tree with the parent/child connections.
-    Ix: `dict`
+    ix: `dict`
         Contains the coordinates of x for each part from the Generalised Distance Transform.
-    Iy: `dict`
+    iy: `dict`
         Contains the coordinates of y for each part from the Generalised Distance Transform.
     fsz: `list`
         The size of the filter in the format of [y, x].
@@ -485,6 +668,16 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
         The scale of the detections in the feature pyramid.
     pyra_pad: `list`
         Padding in the form of [x, y] in the feature pyramid.
+    level: `int`
+        Level of the example in the feature pyramid.
+    filter_index: `list`
+        List of corresponding filters index reference to qp.w
+    def_index: `list`
+        List of corresponding defs index reference to qp.w
+    feat: `ndarray`
+        Features of the corresponding level in feature pyramid.
+    anchors: `list`
+        A list of anchors of each part(ideal locations of each part reference from its parent).
 
     Returns
     -------
@@ -518,9 +711,9 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
             par = tree.parent(cv)
             x = ptr[par, 0]
             y = ptr[par, 1]
-            idx = np.ravel_multi_index((y, x), dims=Ix[cv].shape, order='C')
-            ptr[cv, 0] = Ix[cv].ravel()[idx]
-            ptr[cv, 1] = Iy[cv].ravel()[idx]
+            idx = np.ravel_multi_index((y, x), dims=ix[cv].shape, order='C')
+            ptr[cv, 0] = ix[cv].ravel()[idx]
+            ptr[cv, 1] = iy[cv].ravel()[idx]
 
             box[cv, 0] = (ptr[cv, 0] - pyra_pad[0]) * scale + 1
             box[cv, 1] = (ptr[cv, 1] - pyra_pad[1]) * scale + 1
@@ -537,7 +730,7 @@ def _backtrack(x, y, tree, Ix, Iy, fsz, scale, pyra_pad, ex=None, write=False, l
                 y = ptr[cv, 1]
                 block['x'] = feat[:, y:y+fsz[0], x:x+fsz[1]]
                 ex['blocks'].append(block)
-    return box, ptr
+    return box
 
 
 def _def_vector(px, py, x, y, padding, anchor):

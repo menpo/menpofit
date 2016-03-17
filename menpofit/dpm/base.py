@@ -213,15 +213,15 @@ class DPMLearner(object):
             mio.export_pickle(stop-start, fp)
 
         try:
-            fp = os.path.join(pickle_dev, 'final.pkl')
+            fp = os.path.join(pickle_dev, 'final2.pkl')
             model = mio.import_pickle(fp)
         except ValueError:
             start = time.time()
             model = self._train(model, pos, neg, 2)
-            fp = os.path.join(pickle_dev, 'final.pkl')
+            fp = os.path.join(pickle_dev, 'final2.pkl')
             mio.export_pickle(model, fp)
             stop = time.time()
-            fp = os.path.join(pickle_dev, 'final.pkl')
+            fp = os.path.join(pickle_dev, 'final2_time.pkl')
             mio.export_pickle(stop-start, fp)
 
     def _split(self, pos_images):
@@ -629,8 +629,11 @@ class Model(object):
                 feats[i1:i2+1] = 1
                 numblocks += 1
 
-            n = 1 + 2 * numblocks + int(np.sum(feats))  # 1 is used to encode the length itself
-            length = max(length, n)
+            # 1 is used to encode the length itself
+            # 2 * blocks are for each block start and end indexes
+            # int(np.sum(feats)) is sum of this model component filters and defs
+            n = 1 + 2 * numblocks + int(np.sum(feats))
+            length = max(length, n)  # length is the maximum length of any model component length
         return length
 
     def get_filters_weights(self):
@@ -670,6 +673,7 @@ class Qp(object):
         #
         #   where w = sum_i a_i*x_i
         num_id = 5  # 5 = [label, id, level, posX, poY]
+        self.nmax = nmax  # number of maximum examples that can be fitted in memory
         self.x = np.zeros((length, nmax), dtype=np.float32)     # x_i
         self.i = np.zeros((num_id, nmax), dtype=np.int)         # id of each example
         self.b = np.zeros((nmax,), dtype=np.float32)            # b_i
@@ -729,7 +733,7 @@ class Qp(object):
 
     def write(self, ex):
         # save the example(configurations) returned by fitting into qp's set of examples(x)
-        if self.n == np.size(self.a):
+        if self.n >= self.nmax:
             return
 
         label = ex['id'][0] > 0
@@ -765,6 +769,62 @@ class Qp(object):
         self.i[:, i] = ex['id']
         self.sv[i] = True
         self.n += 1
+
+    def write_multiple_exs(self, indexes, filter_index, def_index, filters, defs):
+        # save the examples(configurations) returned by fitting into qp's set of examples(x)
+        # this function consume more memory while significantly reduce the time of writing into qp.x especially
+        # in the case of negative examples where a lot of examples are created
+
+        ex_nums = np.shape(indexes)[1]
+        num_parts = np.size(filter_index)
+
+        # if the number of examples are larger than available space, only chose to fit the first ones.
+        if self.n + ex_nums > self.nmax:
+            ex_nums = np.size(self.a) - self.n
+            indexes.resize(indexes.shape[0], ex_nums, refcheck=False)
+            filters.resize(filters.shape[0], filters.shape[1], ex_nums, refcheck=False)
+            defs.resize(defs.shape[0], defs.shape[1], ex_nums, refcheck=False)
+
+        label = indexes[0][0] > 0
+        c = self.cpos if label else self.cneg
+
+        bias = np.ones((ex_nums,), dtype=np.float32)
+        norm = np.zeros((ex_nums,), dtype=np.float32)
+        i = range(self.n, self.n+ex_nums)
+        j = 0
+        self.x[:, i] = 0  # zero out filters and defs of other irrelevant components's parts.
+        self.x[j, i] = 2*num_parts
+
+        # Special case for the root node where the def is 1 to match with bias. Moved outside the loop for performance
+        cv = 0
+        x = np.ones((1, 1, ex_nums))
+        j, bias, norm = self._create_block(bias, c, cv, def_index, x, i, j, label, norm)
+        j, bias, norm = self._create_block(bias, c, cv, filter_index, filters, i, j, label, norm)
+        for cv in range(1, num_parts):
+            j, bias, norm = self._create_block(bias, c, cv, def_index, defs, i, j, label, norm)
+            j, bias, norm = self._create_block(bias, c, cv, filter_index, filters, i, j, label, norm)
+
+        self.d[i] = norm
+        self.b[i] = c*bias
+        self.i[:, i] = indexes
+        self.sv[i] = True
+        self.n += ex_nums
+
+    def _create_block(self, bias, c, cv, indexes, values, i, j, label, norm):
+        i1 = indexes[cv]
+        i2 = i1 + values.shape[1]
+        ids = range(i1, i2)
+        x = values[cv, :, :]
+        x = x if label else -x
+        bias = bias - np.sum(self.w0[ids][:, np.newaxis] * x, axis=0)
+        x *= c
+        x = x / self.wreg[ids][:, np.newaxis]
+        self.x[j + 1, i] = i1
+        self.x[j + 2, i] = i2
+        self.x[j + 3:j + 3 + i2 - i1, i] = x
+        norm += np.sum(x * x, axis=0)  # np.dot(np.transpose(x), x)
+        j += 3 + i2 - i1 - 1
+        return j, bias, norm
 
     def prune(self):
         # when sv is full, only keep the sv where alpha(a) is active.
