@@ -344,7 +344,8 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
         return _solve_all_ml(H, J, e, self.m)
 
     def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, cost_functions=None,
+                         appearance_parameters=None, initial_shape=None,
+                         initial_shape_was_projected=True, cost_functions=None,
                          gt_shape=None):
         r"""
         Returns an AAM iterative optimization result object.
@@ -374,9 +375,11 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
             The optimization result object.
         """
         return AAMAlgorithmResult(
-                shapes=shapes, shape_parameters=shape_parameters,
-                appearance_parameters=appearance_parameters,
-                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            appearance_parameters=appearance_parameters,
+            initial_shape=initial_shape,
+            initial_shape_was_projected=initial_shape_was_projected,
+            cost_functions=cost_functions, image=image, gt_shape=gt_shape)
 
 
 class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
@@ -394,7 +397,8 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
         return self.transform.model
 
     def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, cost_functions=None,
+                         appearance_parameters=None, initial_shape=None,
+                         initial_shape_was_projected=True, cost_functions=None,
                          gt_shape=None):
         r"""
         Returns an AAM iterative optimization result object.
@@ -429,9 +433,11 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
         shapes = [self.transform.from_vector(p).sparse_target
                   for p in shape_parameters]
         return AAMAlgorithmResult(
-                shapes=shapes, shape_parameters=shape_parameters,
-                appearance_parameters=appearance_parameters,
-                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            appearance_parameters=appearance_parameters,
+            initial_shape=initial_shape,
+            initial_shape_was_projected=initial_shape_was_projected,
+            cost_functions=cost_functions, image=image, gt_shape=gt_shape)
 
 
 class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
@@ -688,7 +694,8 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
         return _solve_all_ml(H, J, e, self.m)
 
     def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, cost_functions=None,
+                         appearance_parameters=None, initial_shape=None,
+                         initial_shape_was_projected=True, cost_functions=None,
                          gt_shape=None):
         r"""
         Returns an AAM iterative optimization result object.
@@ -718,9 +725,11 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
             The optimization result object.
         """
         return AAMAlgorithmResult(
-                shapes=shapes, shape_parameters=shape_parameters,
-                appearance_parameters=appearance_parameters,
-                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            appearance_parameters=appearance_parameters,
+            initial_shape=initial_shape,
+            initial_shape_was_projected=initial_shape_was_projected,
+            cost_functions=cost_functions, image=image, gt_shape=gt_shape)
 
 
 # ----------- ALGORITHMS -----------
@@ -903,6 +912,7 @@ class ProjectOut(LucasKanade):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
+            initial_shape=initial_shape, initial_shape_was_projected=True,
             cost_functions=cost_functions, gt_shape=gt_shape)
 
 
@@ -1073,7 +1083,8 @@ class Simultaneous(LucasKanade):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
-            appearance_parameters=c_list, cost_functions=cost_functions,
+            appearance_parameters=c_list, initial_shape=initial_shape,
+            initial_shape_was_projected=True, cost_functions=cost_functions,
             gt_shape=gt_shape)
 
     def _solve(self, map_inference):
@@ -1258,7 +1269,8 @@ class Alternating(LucasKanade):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
-            cost_functions=cost_functions, appearance_parameters=c_list,
+            appearance_parameters=c_list, initial_shape=initial_shape,
+            initial_shape_was_projected=True, cost_functions=cost_functions,
             gt_shape=gt_shape)
 
 
@@ -1411,7 +1423,8 @@ class ModifiedAlternating(Alternating):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
-            cost_functions=cost_functions, appearance_parameters=c_list,
+            appearance_parameters=c_list, initial_shape=initial_shape,
+            initial_shape_was_projected=True, cost_functions=cost_functions,
             gt_shape=gt_shape)
 
 
@@ -1569,7 +1582,8 @@ class Wiberg(LucasKanade):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
-            cost_functions=cost_functions, appearance_parameters=c_list,
+            appearance_parameters=c_list, initial_shape=initial_shape,
+            initial_shape_was_projected=True, cost_functions=cost_functions,
             gt_shape=gt_shape)
 
 

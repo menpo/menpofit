@@ -30,11 +30,13 @@ class AAMAlgorithmResult(ParametricIterativeResult):
         ground truth shape is assigned.
     """
     def __init__(self, shapes, shape_parameters, appearance_parameters,
+                 initial_shape=None, initial_shape_was_projected=True,
                  cost_functions=None, image=None, gt_shape=None):
         super(AAMAlgorithmResult, self).__init__(
-                shapes=shapes[1:], initial_shape=shapes[0],
-                shape_parameters=shape_parameters,  image=image,
-                gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape,
+            initial_shape_was_projected=initial_shape_was_projected,
+            image=image, gt_shape=gt_shape)
         self._appearance_parameters = appearance_parameters
         self._cost_functions = cost_functions
 

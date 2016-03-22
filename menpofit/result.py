@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 from collections import Iterable
 
@@ -1421,9 +1422,9 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         list is the final shape.
     shape_parameters : `list` of `ndarray`
         The `list` of shape parameters per iteration. Note that the list
-        includes the parameters of the projection of  the initial shape,
-        if it actually happened. The last member of the list is the final
-        shape. It must have the same length as `shapes`.
+        includes the parameters of the projection of the initial shape, if it
+        actually happened. The last member of the list corresponds to the final
+        shape's parameters. It must have the same length as `shapes`.
     initial_shape : `menpo.shape.PointCloud` or ``None``, optional
         The initial shape from which the fitting process started. If
         ``None``, then no initial shape is assigned.
@@ -1887,7 +1888,7 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
 
     Parameters
     ----------
-    results : `list` of `menpofit.result.NonParametricIterativeResult`
+    results : `list` of :map:`NonParametricIterativeResult`
         The `list` of non parametric iterative results per scale.
     scales : `list` of `float`
         The scale values (normally small to high).
@@ -1962,8 +1963,7 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         return self._n_scales
 
 
-class MultiScaleParametricIterativeResult(
-        MultiScaleNonParametricIterativeResult):
+class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult):
     r"""
     Class for defining a multi-scale parametric iterative fitting result, i.e.
     the result of a multi-scale method that optimizes over a parametric shape
@@ -1976,13 +1976,12 @@ class MultiScaleParametricIterativeResult(
               into the shape model. The generated projected shape is then
               used as initialisation for the iterative optimisation. This
               projection step takes place on each scale and is not counted in
-              the number of iterations. If the initial was indeed projected,
-              then ``initial_shape_was_projected`` must be set to ``True``.
+              the number of iterations.
 
     Parameters
     ----------
-    results : `list` of `menpofit.result.ParametricIterativeResult`
-        The `list` of non parametric iterative results per scale.
+    results : `list` of :map:`ParametricIterativeResult`
+        The `list` of parametric iterative results per scale.
     scales : `list` of `float`
         The scale values (normally small to high).
     affine_correction : `menpo.transform.Affine`
@@ -2003,13 +2002,18 @@ class MultiScaleParametricIterativeResult(
                 results=results, scales=scales,
                 affine_correction=affine_correction, image=image,
                 gt_shape=gt_shape)
-        # Create shape parameters list
-        self._shape_parameters = results[0].shape_parameters
-        for r in results[1:]:
-            if r.initial_shape is None:
-                self._shape_parameters += r.shape_parameters
-            else:
-                self._shape_parameters += r.shape_parameters[1:]
+        # Create shape parameters, and projected initial shapes lists
+        self._shape_parameters = []
+        self._projected_initial_shapes = []
+        self._projected_initial_shape_parameters = []
+        for r in results:
+            self._shape_parameters += r.shape_parameters
+            self._projected_initial_shapes.append(r.projected_initial_shape)
+            self._projected_initial_shape_parameters.append(
+                r.projected_initial_shape_parameters)
+        # Correct n_iters if initial shapes got projected.
+        if results[0].projected_initial_shape is not None:
+            self._n_iters -= len(scales)
 
     @property
     def shape_parameters(self):
@@ -2021,6 +2025,30 @@ class MultiScaleParametricIterativeResult(
         :type: `list` of ``(n_params,)`` `ndarray`
         """
         return self._shape_parameters
+
+    @property
+    def projected_initial_shapes(self):
+        r"""
+        Returns the initial shape's projection into the shape model that was
+        used to initialise the iterative optimisation process of each scale. In
+        case the initial shape was not projected at a scale, then ``None`` is
+        returned.
+
+        :type: `list` of `menpo.shape.PointCloud` or ``None``
+        """
+        return self._projected_initial_shapes
+
+    @property
+    def projected_initial_shape_parameters(self):
+        r"""
+        Returns the parameters of the initial shape's projection into the shape
+        model that were used to initialise the iterative optimisation process at
+        each scale. In case the  initial shape was not projected at a scale,
+        then ``None`` is returned.
+
+        :type: `list` of ``(n_params,)`` `ndarray` or ``None``
+        """
+        return self._projected_initial_shape_parameters
 
 
 def _rescale_shapes_to_reference(shapes, scale, affine_correction):
