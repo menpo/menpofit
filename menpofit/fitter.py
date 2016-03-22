@@ -258,22 +258,29 @@ class MultiFitter(object):
             procedure. It can be a :map:`MultiScaleNonParametricIterativeResult`
             or :map:`MultiScaleParametricIterativeResult` or `subclass` of those.
         """
-        # generate the list of images to be fitted
-        images, initial_shapes, gt_shapes = self._prepare_image(
-            image, initial_shape, gt_shape=gt_shape, crop_image=crop_image)
+        # Generate the list of images to be fitted, as well as the correctly
+        # scaled initial and ground truth shapes per level. The function also
+        # returns the lists of affine and scale transforms per level that are
+        # required in order to transform the shapes at the original image
+        # space in the fitting result. The affine transforms refer to the
+        # transform introduced by the rescaling to the reference shape as well
+        # as potential affine transform from the features. The scale
+        # transforms are the Scale objects that correspond to each level's
+        # scale.
+        (images, initial_shapes, gt_shapes, affine_transforms,
+         scale_transforms) = self._prepare_image(image, initial_shape,
+                                                 gt_shape=gt_shape,
+                                                 crop_image=crop_image)
 
-        # work out the affine transform between the initial shape of the
-        # highest pyramidal level and the initial shape of the original image
-        affine_correction = AlignmentAffine(initial_shapes[-1], initial_shape)
+        # Execute multi-scale fitting
+        algorithm_results = self._fit(
+            images, initial_shapes[0], affine_transforms, scale_transforms,
+            max_iters=max_iters, gt_shapes=gt_shapes, **kwargs)
 
-        # run multilevel fitting
-        algorithm_results = self._fit(images, initial_shapes[0],
-                                      max_iters=max_iters,
-                                      gt_shapes=gt_shapes, **kwargs)
-
-        # build multilevel fitting result
+        # Build multi-scale fitting result
         fitter_result = self._fitter_result(
-            image, algorithm_results, affine_correction, gt_shape=gt_shape)
+            image, algorithm_results, affine_transforms, scale_transforms,
+            gt_shape=gt_shape)
 
         return fitter_result
 
@@ -327,9 +334,9 @@ class MultiFitter(object):
         if gt_shape:
             image.landmarks['__gt_shape'] = gt_shape
 
+        # If specified, crop the image
         tmp_image = image
         if crop_image:
-            # If specified, crop the image
             tmp_image = image.crop_to_landmarks_proportion(
                     crop_image, group='__initial_shape')
 
@@ -340,20 +347,40 @@ class MultiFitter(object):
 
         # Compute image representation
         images = []
+        affine_transforms = []
+        scale_transforms = []
         for i in range(self.n_scales):
-            # Handle features
-            if i == 0 or self.holistic_features[i] is not self.holistic_features[i - 1]:
+            # Extract features
+            if (i == 0 or
+                    self.holistic_features[i] != self.holistic_features[i - 1]):
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
                 feature_image = self.holistic_features[i](tmp_image)
 
-            # Handle scales
+                # Until now, we have introduced an affine transform that
+                # consists of the image rescale to the reference shape,
+                # as well as potential rescale (down-sampling) caused by
+                # features. We need to store this transform (estimated by
+                # AlignmentAffine) in order to be able to revert it at the
+                # final fitting result.
+                affine_transforms.append(AlignmentAffine(
+                    feature_image.landmarks['__initial_shape'].lms,
+                    initial_shape))
+            else:
+                affine_transforms.append(affine_transforms[0])
+
+            # Rescale images according to scales
             if self.scales[i] != 1:
                 # Scale feature images only if scale is different than 1
-                scaled_image = feature_image.rescale(self.scales[i])
+                scaled_image, scale_transform = feature_image.rescale(
+                    self.scales[i], return_transform=True)
             else:
                 scaled_image = feature_image
+                scale_transform = Scale(1., initial_shape.n_dims)
+
+            # Add transform to list
+            scale_transforms.append(scale_transform)
 
             # Add scaled image to list
             images.append(scaled_image)
@@ -367,15 +394,16 @@ class MultiFitter(object):
         else:
             gt_shapes = None
 
-        # detach added landmarks from image
+        # Detach added landmarks from image
         del image.landmarks['__initial_shape']
         if gt_shape:
             del image.landmarks['__gt_shape']
 
-        return images, initial_shapes, gt_shapes
+        return (images, initial_shapes, gt_shapes, affine_transforms,
+                scale_transforms)
 
-    def _fit(self, images, initial_shape, gt_shapes=None, max_iters=20,
-             **kwargs):
+    def _fit(self, images, initial_shape, affine_transforms, scale_transforms,
+             gt_shapes=None, max_iters=20, **kwargs):
         # Perform check
         max_iters = checks.check_max_iters(max_iters, self.n_scales)
 
@@ -399,10 +427,25 @@ class MultiFitter(object):
             algorithm_results.append(algorithm_result)
 
             # Prepare this scale's final shape for the next scale
-            shape = algorithm_result.final_shape
-            if self.scales[i] != self.scales[-1]:
-                shape = Scale(self.scales[i + 1] / self.scales[i],
-                              n_dims=shape.n_dims).apply(shape)
+            if i < self.n_scales - 1:
+                shape = algorithm_result.final_shape
+                if self.holistic_features[i + 1] != self.holistic_features[i]:
+                    t1 = \
+                        scale_transforms[i].compose_after(affine_transforms[i])
+                    t2 = \
+                        affine_transforms[i + 1].pseudoinverse().compose_after(t1)
+                    transform = \
+                        scale_transforms[i + 1].pseudoinverse().compose_after(t2)
+                    shape = transform.apply(shape)
+                elif (self.holistic_features[i + 1] == self.holistic_features[i]
+                        and self.scales[i] != self.scales[i + 1]):
+                    transform = \
+                        scale_transforms[i + 1].pseudoinverse().compose_after(
+                            scale_transforms[i])
+                    shape = transform.apply(shape)
+            # if self.scales[i] != self.scales[-1]:
+            #     shape = Scale(self.scales[i + 1] / self.scales[i],
+            #                   n_dims=shape.n_dims).apply(shape)
 
         # Return list of algorithm results
         return algorithm_results

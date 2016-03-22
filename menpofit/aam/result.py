@@ -227,12 +227,11 @@ class AAMResult(MultiScaleParametricIterativeResult):
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, results, scales, affine_correction, image=None,
-                 gt_shape=None):
+    def __init__(self, results, scales, affine_transforms, scale_transforms,
+                 image=None, gt_shape=None):
         super(AAMResult, self).__init__(
-                results=results, scales=scales,
-                affine_correction=affine_correction, image=image,
-                gt_shape=gt_shape)
+            results=results, scales=scales, affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
         # Create appearance parameters list
         self._appearance_parameters = None
         if results[0].appearance_parameters is not None:

@@ -29,10 +29,11 @@ class AAMFitter(ModelFitter):
         """
         return self._model
 
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
+    def _fitter_result(self, image, algorithm_results, affine_transforms,
+                       scale_transforms, gt_shape=None):
         return AAMResult(results=algorithm_results, scales=self.aam.scales,
-                         affine_correction=affine_correction, image=image,
+                         affine_transforms=affine_transforms,
+                         scale_transforms=scale_transforms, image=image,
                          gt_shape=gt_shape)
 
 

@@ -3,7 +3,6 @@ import numpy as np
 from collections import Iterable
 
 from menpo.image import Image
-from menpo.transform import Scale
 
 from menpofit.visualize import view_image_multiple_landmarks
 from menpofit.error import euclidean_bb_normalised_error
@@ -595,8 +594,8 @@ class NonParametricIterativeResult(Result):
     """
     def __init__(self, shapes, initial_shape=None, image=None, gt_shape=None):
         super(NonParametricIterativeResult, self).__init__(
-                final_shape=shapes[-1], image=image,
-                initial_shape=initial_shape, gt_shape=gt_shape)
+            final_shape=shapes[-1], image=image, initial_shape=initial_shape,
+            gt_shape=gt_shape)
         self._n_iters = len(shapes)
         # If initial shape is provided, then add it in the beginning of shapes
         self._shapes = shapes
@@ -1903,8 +1902,8 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, results, scales, affine_correction, image=None,
-                 gt_shape=None):
+    def __init__(self, results, scales, affine_transforms, scale_transforms,
+                 image=None, gt_shape=None):
         # Make sure results and scales are iterable
         if not isinstance(results, Iterable):
             results = [results]
@@ -1918,23 +1917,26 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         initial_shape = None
         if results[0].initial_shape is not None:
             initial_shape = _rescale_shapes_to_reference(
-                    shapes=[results[0].initial_shape], scale=scales[0],
-                    affine_correction=affine_correction)[0]
+                shapes=[results[0].initial_shape], scale=scales[0],
+                affine_transform=affine_transforms[0],
+                scale_transform=scale_transforms[0])[0]
         # Create shapes list and n_iters_per_scale
         # If the result object has an initial shape, then it has to be
         # removed from the final shapes list
         n_iters_per_scale = []
         shapes = []
-        for (r, scale) in zip(results, scales):
-            n_iters_per_scale.append(r.n_iters)
-            if r.initial_shape is None:
+        for i in list(range(len(scales))):
+            n_iters_per_scale.append(results[i].n_iters)
+            if results[i].initial_shape is None:
                 shapes += _rescale_shapes_to_reference(
-                        shapes=r.shapes, scale=scale,
-                        affine_correction=affine_correction)
+                    shapes=results[i].shapes, scale=scales[i],
+                    affine_transform=affine_transforms[i],
+                    scale_transform=scale_transforms[i])
             else:
                 shapes += _rescale_shapes_to_reference(
-                        shapes=r.shapes[1:], scale=scale,
-                        affine_correction=affine_correction)
+                    shapes=results[i].shapes[1:], scale=scales[i],
+                    affine_transform=affine_transforms[i],
+                    scale_transform=scale_transforms[i])
         # Call superclass
         super(MultiScaleNonParametricIterativeResult, self).__init__(
                 shapes=shapes, initial_shape=initial_shape, image=image,
@@ -1942,7 +1944,6 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         # Get attributes
         self._n_iters_per_scale = n_iters_per_scale
         self._n_scales = len(scales)
-        self._affine_correction = affine_correction
 
     @property
     def n_iters_per_scale(self):
@@ -1995,13 +1996,12 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, results, scales, affine_correction, image=None,
-                 gt_shape=None):
+    def __init__(self, results, scales, affine_transforms, scale_transforms,
+                 image=None, gt_shape=None):
         # Call superclass
         super(MultiScaleParametricIterativeResult, self).__init__(
-                results=results, scales=scales,
-                affine_correction=affine_correction, image=image,
-                gt_shape=gt_shape)
+            results=results, scales=scales, affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
         # Create shape parameters, and projected initial shapes lists
         self._shape_parameters = []
         self._projected_initial_shapes = []
@@ -2051,10 +2051,11 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
         return self._projected_initial_shape_parameters
 
 
-def _rescale_shapes_to_reference(shapes, scale, affine_correction):
+def _rescale_shapes_to_reference(shapes, scale, affine_transform,
+                                 scale_transform):
     rescaled_shapes = []
-    transform = Scale(1. / scale, shapes[0].n_dims)
+    #transform = Scale(1. / scale, shapes[0].n_dims)
     for shape in shapes:
-        shape = transform.apply(shape)
-        rescaled_shapes.append(affine_correction.apply(shape))
+        shape = scale_transform.apply(shape)
+        rescaled_shapes.append(affine_transform.apply(shape))
     return rescaled_shapes
