@@ -1880,7 +1880,7 @@ class ParametricIterativeResult(NonParametricIterativeResult):
 class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
     r"""
     Class for defining a multi-scale non-parametric iterative fitting result,
-    i.e. the result of a multi-scale method that does not optimize over a
+    i.e. the result of a multi-scale method that does not optimise over a
     parametric shape model. It holds the shapes of all the iterations of
     the fitting procedure, as well as the scales. It can optionally store the
     image on which the fitting was applied, as well as its ground truth shape.
