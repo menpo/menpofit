@@ -77,7 +77,7 @@ class AAMFitter(MultiScaleParametricFitter):
             The multi-scale fitting result containing the result of the fitting
             procedure.
         """
-        return AAMResult(results=algorithm_results, scales=self.aam.scales,
+        return AAMResult(results=algorithm_results, scales=self.scales,
                          affine_transforms=affine_transforms,
                          scale_transforms=scale_transforms, image=image,
                          gt_shape=gt_shape)

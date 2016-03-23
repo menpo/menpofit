@@ -1,5 +1,3 @@
-from __future__ import division
-
 from menpofit.result import (ParametricIterativeResult,
                              MultiScaleParametricIterativeResult)
 

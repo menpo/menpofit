@@ -31,6 +31,7 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
                 transform, template, sampling=sampling)
 
     def algorithm_result(self, image, shapes, shape_parameters,
+                         appearance_parameters=None, initial_shape=None,
                          cost_functions=None, gt_shape=None):
         r"""
         Returns an ATM iterative optimization result object.
@@ -43,6 +44,9 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
             The `list` of shapes per iteration.
         shape_parameters : `list` of `ndarray`
             The `list` of shape parameters per iteration.
+        initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The initial shape from which the fitting process started. If
+            ``None``, then no initial shape is assigned.
         cost_functions : `list` of `closures` or ``None``, optional
             The `list` of functions that compute the cost per iteration. If
             ``None``, then it is assumed that the cost computation for that
@@ -56,8 +60,9 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
             The optimization result object.
         """
         return ATMAlgorithmResult(
-                shapes=shapes, shape_parameters=shape_parameters,
-                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            image=image, gt_shape=gt_shape)
 
 
 class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
@@ -75,6 +80,7 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
         return self.transform.model
 
     def algorithm_result(self, image, shapes, shape_parameters,
+                         appearance_parameters=None, initial_shape=None,
                          cost_functions=None, gt_shape=None):
         r"""
         Returns an ATM iterative optimization result object.
@@ -87,6 +93,9 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
             The `list` of sparse shapes per iteration.
         shape_parameters : `list` of `ndarray`
             The `list` of shape parameters per iteration.
+        initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The initial shape from which the fitting process started. If
+            ``None``, then no initial shape is assigned.
         cost_functions : `list` of `closures` or ``None``, optional
             The `list` of functions that compute the cost per iteration. If
             ``None``, then it is assumed that the cost computation for that
@@ -105,8 +114,9 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
         shapes = [self.transform.from_vector(p).sparse_target
                   for p in shape_parameters]
         return ATMAlgorithmResult(
-                shapes=shapes, shape_parameters=shape_parameters,
-                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            image=image, gt_shape=gt_shape)
 
 
 class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
@@ -115,6 +125,7 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     `menpofit.atm.PatchATM`.
     """
     def algorithm_result(self, image, shapes, shape_parameters,
+                         appearance_parameters=None, initial_shape=None,
                          cost_functions=None, gt_shape=None):
         r"""
         Returns an ATM iterative optimization result object.
@@ -127,6 +138,13 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
             The `list` of shapes per iteration.
         shape_parameters : `list` of `ndarray`
             The `list` of shape parameters per iteration.
+        appearance_parameters : `list` of `ndarray` or ``None``, optional
+            The `list` of appearance parameters per iteration. If ``None``,
+            then it is assumed that the optimization did not solve for the
+            appearance parameters.
+        initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The initial shape from which the fitting process started. If
+            ``None``, then no initial shape is assigned.
         cost_functions : `list` of `closures` or ``None``, optional
             The `list` of functions that compute the cost per iteration. If
             ``None``, then it is assumed that the cost computation for that
@@ -140,8 +158,9 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
             The optimization result object.
         """
         return ATMAlgorithmResult(
-                shapes=shapes, shape_parameters=shape_parameters,
-                cost_functions=cost_functions, image=image, gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            image=image, gt_shape=gt_shape)
 
 
 # ----------- ALGORITHMS -----------
@@ -291,8 +310,9 @@ class Compositional(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-                image=image, shapes=shapes, shape_parameters=p_list,
-                cost_functions=cost_functions, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            gt_shape=gt_shape)
 
 
 class ForwardCompositional(Compositional):
