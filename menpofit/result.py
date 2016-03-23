@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 from collections import Iterable
 
@@ -6,6 +5,30 @@ from menpo.image import Image
 
 from menpofit.visualize import view_image_multiple_landmarks
 from menpofit.error import euclidean_bb_normalised_error
+
+
+def _rescale_shapes_to_reference(shapes, affine_transform, scale_transform):
+    rescaled_shapes = []
+    for shape in shapes:
+        shape = scale_transform.apply(shape)
+        rescaled_shapes.append(affine_transform.apply(shape))
+    return rescaled_shapes
+
+
+def _parse_iters(iters, n_shapes):
+    if not (iters is None or isinstance(iters, int) or
+                isinstance(iters, list)):
+        raise ValueError('iters must be either int or list or None')
+    if iters is None:
+        iters = list(range(n_shapes))
+    if isinstance(iters, int):
+        iters = [iters]
+    return iters
+
+
+def _get_scale_of_iter(iter_i, reconstruction_indices):
+    ids = np.array(reconstruction_indices)
+    return np.nonzero(iter_i >= ids)[0][-1]
 
 
 class Result(object):
@@ -813,7 +836,7 @@ class NonParametricIterativeResult(Result):
         from menpo.visualize import plot_curve
         errors = self.errors(compute_error=compute_error)
         return plot_curve(
-                x_axis=range(len(errors)), y_axis=[errors], figure_id=figure_id,
+                x_axis=list(range(len(errors))), y_axis=[errors], figure_id=figure_id,
                 new_figure=new_figure, title='Fitting Errors per Iteration',
                 x_label='Iteration', y_label='Fitting Error',
                 axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
@@ -1015,7 +1038,7 @@ class NonParametricIterativeResult(Result):
         # plot
         displacements = self.displacements_stats(stat_type=stat_type)
         return plot_curve(
-                x_axis=range(len(displacements)), y_axis=[displacements],
+                x_axis=list(range(len(displacements))), y_axis=[displacements],
                 figure_id=figure_id, new_figure=new_figure, title=title,
                 x_label='Iteration', y_label=y_label,
                 axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
@@ -1319,13 +1342,7 @@ class NonParametricIterativeResult(Result):
             The renderer object.
         """
         # Parse iters
-        if not (iters is None or isinstance(iters, int) or
-                isinstance(iters, list)):
-            raise ValueError('iters must be either int or list or None')
-        if iters is None:
-            iters = list(range(len(self.shapes)))
-        if isinstance(iters, int):
-            iters = [iters]
+        iters = _parse_iters(iters, len(self.shapes))
         # Create image instance
         if self.image is None:
             image = Image(np.zeros((10, 10)))
@@ -1404,34 +1421,26 @@ class ParametricIterativeResult(NonParametricIterativeResult):
     fitting procedure. It can optionally store the image on which the
     fitting was applied, as well as its ground truth shape.
 
-    .. note:: When using a method with a parametric shape model, it is
-              common that the first step is to **project the initial shape**
-              into the shape model. The generated projected shape is then
-              used as initialisation for the iterative optimisation. This
-              projection step is not counted in the number of iterations.
-              If the initial shape was indeed projected, then
-              ``initial_shape_was_projected`` must be set to ``True``.
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step is not counted in the number
+              of iterations.
 
     Parameters
     ----------
     shapes : `list` of `menpo.shape.PointCloud`
         The `list` of shapes per iteration. Note that the list does not
-        include the initial shape. However, it includes the projection of
-        the initial shape, if it actually happened. The last member of the
-        list is the final shape.
+        include the initial shape. However, it includes the reconstruction of
+        the initial shape. The last member of the list is the final shape.
     shape_parameters : `list` of `ndarray`
         The `list` of shape parameters per iteration. Note that the list
-        includes the parameters of the projection of the initial shape, if it
-        actually happened. The last member of the list corresponds to the final
-        shape's parameters. It must have the same length as `shapes`.
+        includes the parameters of the projection of the initial shape. The last
+        member of the list corresponds to the final shape's parameters. It must
+        have the same length as `shapes`.
     initial_shape : `menpo.shape.PointCloud` or ``None``, optional
         The initial shape from which the fitting process started. If
         ``None``, then no initial shape is assigned.
-    initial_shape_was_projected : `bool`, optional
-        If ``True``, then it is indicated that the initial shape was
-        projected into the shape model before starting the iterative
-        optimisation. The projected initial shape should then be the
-        first member of `shapes` list.
     image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
@@ -1440,31 +1449,26 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         The ground truth shape associated with the image. If ``None``, then
         no ground truth shape is assigned.
     """
-    def __init__(self, shapes, shape_parameters, initial_shape=None,
-                 initial_shape_was_projected=True, image=None, gt_shape=None):
+    def __init__(self, shapes, shape_parameters, initial_shape=None, image=None,
+                 gt_shape=None):
         # Assign shape parameters
         self._shape_parameters = shape_parameters
-        # Get projected initial shape and its parameters
-        self._projected_initial_shape = None
-        self._projected_initial_shape_parameters = None
-        if initial_shape_was_projected:
-            self._projected_initial_shape = shapes[0]
-            self._projected_initial_shape_parameters = shape_parameters[0]
+        # Get reconstructed initial shape
+        self._reconstructed_initial_shape = shapes[0]
         # Call superclass
         super(ParametricIterativeResult, self).__init__(
                 shapes=shapes, initial_shape=initial_shape, image=image,
                 gt_shape=gt_shape)
-        # Correct n_iters if initial_shape_was_projected is True. The initial
-        # shape's projection should not count in the number of iterations.
-        if initial_shape_was_projected:
-            self._n_iters -= 1
+        # Correct n_iters. The initial shape's reconstruction should not count
+        # in the number of iterations.
+        self._n_iters -= 1
 
     @property
     def shapes(self):
         r"""
         Returns the `list` of shapes obtained at each iteration of the fitting
         process. The `list` includes the `initial_shape` (if it exists),
-        `projected_initial_shape` and `final_shape`.
+        `reconstructed_initial_shape` and `final_shape`.
 
         :type: `list` of `menpo.shape.PointCloud`
         """
@@ -1475,33 +1479,37 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         r"""
         Returns the `list` of shape parameters obtained at each iteration of
         the fitting process. The `list` includes the parameters of the
-        `projected_initial_shape` and `final_shape`.
+        `reconstructed_initial_shape` and `final_shape`.
 
         :type: `list` of ``(n_params,)`` `ndarray`
         """
         return self._shape_parameters
 
     @property
-    def projected_initial_shape(self):
+    def reconstructed_initial_shape(self):
         r"""
-        Returns the initial shape's projection into the shape model that was
-        used to initialise the iterative optimisation process. In case the
-        initial shape was not projected, then ``None`` is returned.
+        Returns the initial shape's reconstruction with the shape model that was
+        used to initialise the iterative optimisation process.
 
-        :type: `menpo.shape.PointCloud` or ``None``
+        :type: `menpo.shape.PointCloud`
         """
-        return self._projected_initial_shape
+        if self.initial_shape is not None:
+            return self.shapes[1]
+        else:
+            return self.shapes[0]
 
     @property
-    def projected_initial_shape_parameters(self):
+    def _reconstruction_indices(self):
         r"""
-        Returns the parameters of the initial shape's projection into the shape
-        model that were used to initialise the iterative optimisation process.
-        In case the  initial shape was not projected, then ``None`` is returned.
+        Returns a list with the indices of reconstructed shapes in the `shapes`
+        list.
 
-        :type: ``(n_params,)`` `ndarray` or ``None``
+        :type: `list` of `int`
         """
-        return self._projected_initial_shape_parameters
+        if self.initial_shape is not None:
+            return [1]
+        else:
+            return [0]
 
     def view_iterations(self, figure_id=None, new_figure=False,
                         iters=None, render_image=True, subplots_enabled=False,
@@ -1545,15 +1553,15 @@ class ParametricIterativeResult(NonParametricIterativeResult):
             The iterations to be visualized. If ``None``, then all the
             iterations are rendered.
 
-            =========== ============================== =======================
-            No.         Visualised shape               Description
-            =========== ============================== =======================
-            0           `self.initial_shape`           Initial shape
-            1           `self.projected_initial_shape` Projected initial shape
-            2           `self.shapes[2]`               Iteration 1
-            i           `self.shapes[i]`               Iteration i-1
-            n_iters + 1 `self.final_shape`             Final shape
-            =========== ============================== =======================
+            ========= ==================================== ======================
+            No.       Visualised shape                     Description
+            ========= ==================================== ======================
+            0           `self.initial_shape`               Initial shape
+            1           `self.reconstructed_initial_shape` Reconstructed initial
+            2           `self.shapes[2]`                   Iteration 1
+            i           `self.shapes[i]`                   Iteration i-1
+            n_iters+1 `self.final_shape`                   Final shape
+            ========= ==================================== ======================
 
         render_image : `bool`, optional
             If ``True`` and the image exists, then it gets rendered.
@@ -1791,13 +1799,7 @@ class ParametricIterativeResult(NonParametricIterativeResult):
             The renderer object.
         """
         # Parse iters
-        if not (iters is None or isinstance(iters, int) or
-                isinstance(iters, list)):
-            raise ValueError('iters must be either int or list or None')
-        if iters is None:
-            iters = list(range(len(self.shapes)))
-        if isinstance(iters, int):
-            iters = [iters]
+        iters = _parse_iters(iters, len(self.shapes))
         # Create image instance
         if self.image is None:
             image = Image(np.zeros((10, 10)))
@@ -1808,27 +1810,22 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         n_digits = len(str(self.n_iters))
         groups = []
         subplots_titles = {}
-        iters_offset = 1
+        iters_offset = 0
         if self.initial_shape is not None:
-            iters_offset = 0
+            iters_offset = 1
         for j in iters:
-            if j == 0 and (self.initial_shape is not None or
-                           self.projected_initial_shape is not None):
-                if self.initial_shape is not None:
-                    name = 'Initial'
-                    image.landmarks[name] = self.initial_shape
-                else:
-                    name = 'Projection'
-                    image.landmarks[name] = self.projected_initial_shape
-            elif (j == 1 and self.initial_shape is not None and
-                  self.projected_initial_shape is not None):
-                name = 'Projection'
-                image.landmarks[name] = self.projected_initial_shape
+            if j == 0 and self.initial_shape is not None:
+                name = 'Initial'
+                image.landmarks[name] = self.initial_shape
+            elif j in self._reconstruction_indices:
+                name = 'Reconstruction'
+                image.landmarks[name] = self.shapes[j]
             elif j == len(self.shapes) - 1:
                 name = 'Final'
                 image.landmarks[name] = self.final_shape
             else:
-                name = "iteration {:0{}d}".format(j + iters_offset, n_digits)
+                s = _get_scale_of_iter(j, self._reconstruction_indices)
+                name = "iteration {:0{}d}".format(j - s + iters_offset, n_digits)
                 image.landmarks[name] = self.shapes[j]
             groups.append(name)
             subplots_titles[name] = name
@@ -1891,9 +1888,11 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         The `list` of non parametric iterative results per scale.
     scales : `list` of `float`
         The scale values (normally small to high).
-    affine_correction : `menpo.transform.Affine`
-        An affine transform from transforming shapes into the original image
-        space.
+    affine_transforms : `list` of `menpo.transform.Affine`
+        The list of affine transforms per scale that transform the shapes into
+        the original image space.
+    scale_transforms : `list` of `menpo.shape.Scale`
+        The list of scaling transforms per scale.
     image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
@@ -1917,7 +1916,7 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         initial_shape = None
         if results[0].initial_shape is not None:
             initial_shape = _rescale_shapes_to_reference(
-                shapes=[results[0].initial_shape], scale=scales[0],
+                shapes=[results[0].initial_shape],
                 affine_transform=affine_transforms[0],
                 scale_transform=scale_transforms[0])[0]
         # Create shapes list and n_iters_per_scale
@@ -1929,12 +1928,12 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
             n_iters_per_scale.append(results[i].n_iters)
             if results[i].initial_shape is None:
                 shapes += _rescale_shapes_to_reference(
-                    shapes=results[i].shapes, scale=scales[i],
+                    shapes=results[i].shapes,
                     affine_transform=affine_transforms[i],
                     scale_transform=scale_transforms[i])
             else:
                 shapes += _rescale_shapes_to_reference(
-                    shapes=results[i].shapes[1:], scale=scales[i],
+                    shapes=results[i].shapes[1:],
                     affine_transform=affine_transforms[i],
                     scale_transform=scale_transforms[i])
         # Call superclass
@@ -1972,12 +1971,11 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
     as well as the scales. It can optionally store the image on which the
     fitting was applied, as well as its ground truth shape.
 
-    .. note:: When using a method with a parametric shape model, it is
-              common that the first step is to **project the initial shape**
-              into the shape model. The generated projected shape is then
-              used as initialisation for the iterative optimisation. This
-              projection step takes place on each scale and is not counted in
-              the number of iterations.
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step is not counted in the number
+              of iterations.
 
     Parameters
     ----------
@@ -1985,9 +1983,11 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
         The `list` of parametric iterative results per scale.
     scales : `list` of `float`
         The scale values (normally small to high).
-    affine_correction : `menpo.transform.Affine`
-        An affine transform from transforming shapes into the original image
-        space.
+    affine_transforms : `list` of `menpo.transform.Affine`
+        The list of affine transforms per scale that transform the shapes into
+        the original image space.
+    scale_transforms : `list` of `menpo.shape.Scale`
+        The list of scaling transforms per scale.
     image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
@@ -2002,18 +2002,12 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
         super(MultiScaleParametricIterativeResult, self).__init__(
             results=results, scales=scales, affine_transforms=affine_transforms,
             scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
-        # Create shape parameters, and projected initial shapes lists
+        # Create shape parameters, and reconstructed initial shapes lists
         self._shape_parameters = []
-        self._projected_initial_shapes = []
-        self._projected_initial_shape_parameters = []
         for r in results:
             self._shape_parameters += r.shape_parameters
-            self._projected_initial_shapes.append(r.projected_initial_shape)
-            self._projected_initial_shape_parameters.append(
-                r.projected_initial_shape_parameters)
-        # Correct n_iters if initial shapes got projected.
-        if results[0].projected_initial_shape is not None:
-            self._n_iters -= len(scales)
+        # Correct n_iters
+        self._n_iters -= len(scales)
 
     @property
     def shape_parameters(self):
@@ -2027,35 +2021,32 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
         return self._shape_parameters
 
     @property
-    def projected_initial_shapes(self):
+    def reconstructed_initial_shapes(self):
         r"""
-        Returns the initial shape's projection into the shape model that was
-        used to initialise the iterative optimisation process of each scale. In
-        case the initial shape was not projected at a scale, then ``None`` is
-        returned.
+        Returns the result of the reconstruction step that takes place at each
+        scale before applying the iterative optimisation.
 
-        :type: `list` of `menpo.shape.PointCloud` or ``None``
+        :type: `list` of `menpo.shape.PointCloud`
         """
-        return self._projected_initial_shapes
+        ids = self._reconstruction_indices
+        return [self.shapes[i] for i in ids]
 
     @property
-    def projected_initial_shape_parameters(self):
+    def _reconstruction_indices(self):
         r"""
-        Returns the parameters of the initial shape's projection into the shape
-        model that were used to initialise the iterative optimisation process at
-        each scale. In case the  initial shape was not projected at a scale,
-        then ``None`` is returned.
+        Returns a list with the indices of reconstructed shapes in the `shapes`
+        list.
 
-        :type: `list` of ``(n_params,)`` `ndarray` or ``None``
+        :type: `list` of `int`
         """
-        return self._projected_initial_shape_parameters
-
-
-def _rescale_shapes_to_reference(shapes, scale, affine_transform,
-                                 scale_transform):
-    rescaled_shapes = []
-    #transform = Scale(1. / scale, shapes[0].n_dims)
-    for shape in shapes:
-        shape = scale_transform.apply(shape)
-        rescaled_shapes.append(affine_transform.apply(shape))
-    return rescaled_shapes
+        initial_val = 0
+        if self.initial_shape is not None:
+            initial_val = 1
+        ids = []
+        for i in list(range(self.n_scales)):
+            if i == 0:
+                ids.append(initial_val)
+            else:
+                previous_val = ids[i - 1]
+                ids.append(previous_val + self.n_iters_per_scale[i - 1] + 1)
+        return ids
