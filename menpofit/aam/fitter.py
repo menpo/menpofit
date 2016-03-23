@@ -6,7 +6,8 @@ from menpo.base import name_of_callable
 from menpo.transform import AlignmentUniformScale
 from menpo.image import BooleanImage
 
-from menpofit.fitter import ModelFitter, noisy_shape_from_bounding_box
+from menpofit.fitter import (MultiScaleParametricFitter,
+                             noisy_shape_from_bounding_box)
 from menpofit.sdm import SupervisedDescentFitter
 import menpofit.checks as checks
 from menpofit.result import MultiScaleParametricIterativeResult
@@ -16,10 +17,31 @@ from .algorithm.sd import ProjectOutNewton
 from .result import AAMResult
 
 
-class AAMFitter(ModelFitter):
+class AAMFitter(MultiScaleParametricFitter):
     r"""
     Abstract class for defining an AAM fitter.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step takes place at each scale
+              and it is not considered as an iteration, thus it is not counted
+              for the provided `max_iters`.
+
+    Parameters
+    ----------
+    aam : :map:`AAM` or `subclass`
+        The trained AAM model.
+    algorithms : `list` of `class`
+        The list of algorithm objects that will perform the fitting per scale.
     """
+    def __init__(self, aam, algorithms):
+        self._model = aam
+        # Call superclass
+        super(AAMFitter, self).__init__(
+            scales=aam.scales, reference_shape=aam.reference_shape,
+            holistic_features=aam.holistic_features, algorithms=algorithms)
+
     @property
     def aam(self):
         r"""
@@ -31,6 +53,30 @@ class AAMFitter(ModelFitter):
 
     def _fitter_result(self, image, algorithm_results, affine_transforms,
                        scale_transforms, gt_shape=None):
+        r"""
+        Function the creates the multi-scale fitting result object.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image that was fitted.
+        algorithm_results : `list` of :map:`AAMAlgorithmResult` or subclass
+            The list of fitting result per scale.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result : :map:`AAMResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
+        """
         return AAMResult(results=algorithm_results, scales=self.aam.scales,
                          affine_transforms=affine_transforms,
                          scale_transforms=scale_transforms, image=image,
@@ -39,7 +85,14 @@ class AAMFitter(ModelFitter):
 
 class LucasKanadeAAMFitter(AAMFitter):
     r"""
-    Class for defining an AAM fitter using the Lucas-Kanade optimization.
+    Class for defining an AAM fitter using the Lucas-Kanade optimisation.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step takes place at each scale
+              and it is not considered as an iteration, thus it is not counted
+              for the provided `max_iters`.
 
     Parameters
     ----------
@@ -92,18 +145,18 @@ class LucasKanadeAAMFitter(AAMFitter):
     """
     def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
                  n_shape=None, n_appearance=None, sampling=None):
-        self._model = aam
         # Check parameters
         checks.set_models_components(aam.shape_models, n_shape)
         checks.set_models_components(aam.appearance_models, n_appearance)
         self._sampling = checks.check_sampling(sampling, aam.n_scales)
-        # Set up algorithm
-        self._set_up(lk_algorithm_cls)
 
-    def _set_up(self, lk_algorithm_cls):
-        interfaces = self.aam.build_fitter_interfaces(self._sampling)
-        self.algorithms = [lk_algorithm_cls(interface)
-                           for interface in interfaces]
+        # Get list of algorithm objects per scale
+        interfaces = aam.build_fitter_interfaces(self._sampling)
+        algorithms = [lk_algorithm_cls(interface) for interface in interfaces]
+
+        # Call superclass
+        super(LucasKanadeAAMFitter, self).__init__(aam=aam,
+                                                   algorithms=algorithms)
 
     def appearance_reconstructions(self, appearance_parameters,
                                    n_iters_per_scale):

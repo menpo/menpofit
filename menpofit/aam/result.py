@@ -6,7 +6,13 @@ from menpofit.result import (ParametricIterativeResult,
 
 class AAMAlgorithmResult(ParametricIterativeResult):
     r"""
-    Class for storing the iterative result of an AAM optimization algorithm.
+    Class for storing the iterative result of an AAM optimisation algorithm.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step is not counted in the number
+              of iterations.
 
     Parameters
     ----------
@@ -19,6 +25,9 @@ class AAMAlgorithmResult(ParametricIterativeResult):
     appearance_parameters : `list` of ``(n_appearance_parameters,)`` `ndarray`
         The `list` of appearance parameters per iteration. The first and last
         members correspond to the initial and final shapes, respectively.
+    initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The initial shape from which the fitting process started. If
+        ``None``, then no initial shape is assigned.
     cost_functions : `list` of `callable` or ``None``, optional
         The `list` of methods that compute the cost per iteration.
     image : `menpo.image.Image` or `subclass` or ``None``, optional
@@ -30,13 +39,11 @@ class AAMAlgorithmResult(ParametricIterativeResult):
         ground truth shape is assigned.
     """
     def __init__(self, shapes, shape_parameters, appearance_parameters,
-                 initial_shape=None, initial_shape_was_projected=True,
-                 cost_functions=None, image=None, gt_shape=None):
+                 initial_shape=None,  cost_functions=None, image=None,
+                 gt_shape=None):
         super(AAMAlgorithmResult, self).__init__(
             shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape,
-            initial_shape_was_projected=initial_shape_was_projected,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape)
         self._appearance_parameters = appearance_parameters
         self._cost_functions = cost_functions
 
@@ -181,7 +188,7 @@ class AAMAlgorithmResult(ParametricIterativeResult):
         costs = self.costs
         if costs is not None:
             return plot_curve(
-                    x_axis=range(len(costs)), y_axis=[costs],
+                    x_axis=list(range(len(costs))), y_axis=[costs],
                     figure_id=figure_id, new_figure=new_figure,
                     title='Cost per Iteration', x_label='Iteration',
                     y_label='Cost Function', axes_x_limits=axes_x_limits,
@@ -210,15 +217,23 @@ class AAMResult(MultiScaleParametricIterativeResult):
     holds the shapes, shape parameters, appearance parameters and costs per
     iteration.
 
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step is not counted in the number
+              of iterations.
+
     Parameters
     ----------
     results : `list` of :map:`AAMAlgorithmResult`
         The `list` of optimization results per scale.
     scales : `list` or `tuple`
         The `list` of scale values per scale (low to high).
-    affine_correction : `menpo.transform.homogeneous.affine.AlignmentAffine`
-        The affine transform that transfers the per-scale shapes to the image
-        scale.
+    affine_transforms : `list` of `menpo.transform.Affine`
+        The list of affine transforms per scale that transform the shapes into
+        the original image space.
+    scale_transforms : `list` of `menpo.shape.Scale`
+        The list of scaling transforms per scale.
     image : `menpo.image.Image` or `subclass` or ``None``, optional
         The image on which the fitting process was applied. Note that a copy
         of the image will be assigned as an attribute. If ``None``, then no
@@ -235,15 +250,15 @@ class AAMResult(MultiScaleParametricIterativeResult):
         # Create appearance parameters list
         self._appearance_parameters = None
         if results[0].appearance_parameters is not None:
-            self._appearance_parameters = results[0].appearance_parameters
-            for r in results[1:]:
-                self._appearance_parameters += r.appearance_parameters[1:]
+            self._appearance_parameters = []
+            for r in results:
+                self._appearance_parameters += r.appearance_parameters
         # Create costs list
         self._costs = None
         if results[0].costs is not None:
-            self._costs = results[0].costs
-            for r in results[1:]:
-                self._costs += r.costs[1:]
+            self._costs = []
+            for r in results:
+                self._costs += r.costs
 
     @property
     def appearance_parameters(self):

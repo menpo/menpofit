@@ -255,6 +255,45 @@ class LucasKanadeBaseInterface(object):
         # compute and return ML solution
         return -np.linalg.solve(H, J.T.dot(e))
 
+    def algorithm_result(self, image, shapes, shape_parameters,
+                         appearance_parameters=None, initial_shape=None,
+                         cost_functions=None, gt_shape=None):
+        r"""
+        Returns an AAM iterative optimization result object.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image on which the optimization is applied.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of shapes per iteration.
+        shape_parameters : `list` of `ndarray`
+            The `list` of shape parameters per iteration.
+        appearance_parameters : `list` of `ndarray` or ``None``, optional
+            The `list` of appearance parameters per iteration. If ``None``,
+            then it is assumed that the optimization did not solve for the
+            appearance parameters.
+        initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The initial shape from which the fitting process started. If
+            ``None``, then no initial shape is assigned.
+        cost_functions : `list` of `closures` or ``None``, optional
+            The `list` of functions that compute the cost per iteration. If
+            ``None``, then it is assumed that the cost computation for that
+            particular algorithm is not well defined.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape that corresponds to the test image.
+
+        Returns
+        -------
+        result : :map:`AAMAlgorithmResult`
+            The optimization result object.
+        """
+        return AAMAlgorithmResult(
+            shapes=shapes, shape_parameters=shape_parameters,
+            appearance_parameters=appearance_parameters,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            image=image, gt_shape=gt_shape)
+
 
 class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
     r"""
@@ -343,44 +382,6 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
         """
         return _solve_all_ml(H, J, e, self.m)
 
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, initial_shape=None,
-                         initial_shape_was_projected=True, cost_functions=None,
-                         gt_shape=None):
-        r"""
-        Returns an AAM iterative optimization result object.
-
-        Parameters
-        ----------
-        image : `menpo.image.Image` or subclass
-            The image on which the optimization is applied.
-        shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of shapes per iteration.
-        shape_parameters : `list` of `ndarray`
-            The `list` of shape parameters per iteration.
-        appearance_parameters : `list` of `ndarray` or ``None``, optional
-            The `list` of appearance parameters per iteration. If ``None``,
-            then it is assumed that the optimization did not solve for the
-            appearance parameters.
-        cost_functions : `list` of `closures` or ``None``, optional
-            The `list` of functions that compute the cost per iteration. If
-            ``None``, then it is assumed that the cost computation for that
-            particular algorithm is not well defined.
-        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
-            The ground truth shape that corresponds to the test image.
-
-        Returns
-        -------
-        result : :map:`AAMAlgorithmResult`
-            The optimization result object.
-        """
-        return AAMAlgorithmResult(
-            shapes=shapes, shape_parameters=shape_parameters,
-            appearance_parameters=appearance_parameters,
-            initial_shape=initial_shape,
-            initial_shape_was_projected=initial_shape_was_projected,
-            cost_functions=cost_functions, image=image, gt_shape=gt_shape)
-
 
 class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
     r"""
@@ -398,8 +399,7 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
 
     def algorithm_result(self, image, shapes, shape_parameters,
                          appearance_parameters=None, initial_shape=None,
-                         initial_shape_was_projected=True, cost_functions=None,
-                         gt_shape=None):
+                         cost_functions=None, gt_shape=None):
         r"""
         Returns an AAM iterative optimization result object.
 
@@ -415,6 +415,9 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
             The `list` of appearance parameters per iteration. If ``None``,
             then it is assumed that the optimization did not solve for the
             appearance parameters.
+        initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The initial shape from which the fitting process started. If
+            ``None``, then no initial shape is assigned.
         cost_functions : `list` of `closures` or ``None``, optional
             The `list` of functions that compute the cost per iteration. If
             ``None``, then it is assumed that the cost computation for that
@@ -435,9 +438,8 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
         return AAMAlgorithmResult(
             shapes=shapes, shape_parameters=shape_parameters,
             appearance_parameters=appearance_parameters,
-            initial_shape=initial_shape,
-            initial_shape_was_projected=initial_shape_was_projected,
-            cost_functions=cost_functions, image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            image=image, gt_shape=gt_shape)
 
 
 class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
@@ -693,44 +695,6 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
         """
         return _solve_all_ml(H, J, e, self.m)
 
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, initial_shape=None,
-                         initial_shape_was_projected=True, cost_functions=None,
-                         gt_shape=None):
-        r"""
-        Returns an AAM iterative optimization result object.
-
-        Parameters
-        ----------
-        image : `menpo.image.Image` or subclass
-            The image on which the optimization is applied.
-        shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of shapes per iteration.
-        shape_parameters : `list` of `ndarray`
-            The `list` of shape parameters per iteration.
-        appearance_parameters : `list` of `ndarray` or ``None``, optional
-            The `list` of appearance parameters per iteration. If ``None``,
-            then it is assumed that the optimization did not solve for the
-            appearance parameters.
-        cost_functions : `list` of `closures` or ``None``, optional
-            The `list` of functions that compute the cost per iteration. If
-            ``None``, then it is assumed that the cost computation for that
-            particular algorithm is not well defined.
-        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
-            The ground truth shape that corresponds to the test image.
-
-        Returns
-        -------
-        result : :map:`AAMAlgorithmResult`
-            The optimization result object.
-        """
-        return AAMAlgorithmResult(
-            shapes=shapes, shape_parameters=shape_parameters,
-            appearance_parameters=appearance_parameters,
-            initial_shape=initial_shape,
-            initial_shape_was_projected=initial_shape_was_projected,
-            cost_functions=cost_functions, image=image, gt_shape=gt_shape)
-
 
 # ----------- ALGORITHMS -----------
 class LucasKanade(object):
@@ -912,8 +876,8 @@ class ProjectOut(LucasKanade):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, initial_shape_was_projected=True,
-            cost_functions=cost_functions, gt_shape=gt_shape)
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            gt_shape=gt_shape)
 
 
 class ProjectOutForwardCompositional(ProjectOut):
@@ -1084,8 +1048,7 @@ class Simultaneous(LucasKanade):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            initial_shape_was_projected=True, cost_functions=cost_functions,
-            gt_shape=gt_shape)
+            cost_functions=cost_functions, gt_shape=gt_shape)
 
     def _solve(self, map_inference):
         # compute masked Jacobian
@@ -1270,8 +1233,7 @@ class Alternating(LucasKanade):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            initial_shape_was_projected=True, cost_functions=cost_functions,
-            gt_shape=gt_shape)
+            cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 class AlternatingForwardCompositional(Alternating):
@@ -1424,8 +1386,7 @@ class ModifiedAlternating(Alternating):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            initial_shape_was_projected=True, cost_functions=cost_functions,
-            gt_shape=gt_shape)
+            cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
@@ -1583,8 +1544,7 @@ class Wiberg(LucasKanade):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            initial_shape_was_projected=True, cost_functions=cost_functions,
-            gt_shape=gt_shape)
+            cost_functions=cost_functions, gt_shape=gt_shape)
 
 
 class WibergForwardCompositional(Wiberg):

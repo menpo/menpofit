@@ -644,6 +644,8 @@ class MultiScaleNonParametricFitter(object):
                                    max_iters=max_iters, gt_shape=gt_shape,
                                    crop_image=crop_image, **kwargs)
 
+MultiFitter = MultiScaleNonParametricFitter
+
 
 class MultiScaleParametricFitter(MultiScaleNonParametricFitter):
     r"""
@@ -707,6 +709,8 @@ class MultiScaleParametricFitter(MultiScaleNonParametricFitter):
             results=algorithm_results, scales=self.scales,
             affine_transforms=affine_transforms,
             scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+
+ModelFitter = MultiScaleParametricFitter
 
 
 def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
