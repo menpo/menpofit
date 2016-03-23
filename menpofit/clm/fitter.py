@@ -1,14 +1,35 @@
-from menpofit.fitter import ModelFitter
+from menpofit.fitter import MultiScaleParametricFitter
 from menpofit import checks
 
 from .algorithm import RegularisedLandmarkMeanShift
 from .result import CLMResult
 
 
-class CLMFitter(ModelFitter):
+class CLMFitter(MultiScaleParametricFitter):
     r"""
     Abstract class for defining a CLM fitter.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step takes place at each scale
+              and it is not considered as an iteration, thus it is not counted
+              for the provided `max_iters`.
+
+    Parameters
+    ----------
+    clm : :map:`CLM` or `subclass`
+        The trained CLM model.
+    algorithms : `list` of `class`
+        The list of algorithm objects that will perform the fitting per scale.
     """
+    def __init__(self, clm, algorithms):
+        self._model = clm
+        # Call superclass
+        super(CLMFitter, self).__init__(
+            scales=clm.scales, reference_shape=clm.reference_shape,
+            holistic_features=clm.holistic_features, algorithms=algorithms)
+
     @property
     def clm(self):
         r"""
@@ -18,16 +39,48 @@ class CLMFitter(ModelFitter):
         """
         return self._model
 
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
-        return CLMResult(results=algorithm_results, scales=self.clm.scales,
-                         affine_correction=affine_correction, image=image,
+    def _fitter_result(self, image, algorithm_results, affine_transforms,
+                       scale_transforms, gt_shape=None):
+        r"""
+        Function the creates the multi-scale fitting result object.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image that was fitted.
+        algorithm_results : `list` of :map:`AAMAlgorithmResult` or subclass
+            The list of fitting result per scale.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result : :map:`CLMResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
+        """
+        return CLMResult(results=algorithm_results, scales=self.scales,
+                         affine_transforms=affine_transforms,
+                         scale_transforms=scale_transforms, image=image,
                          gt_shape=gt_shape)
 
 
 class GradientDescentCLMFitter(CLMFitter):
     r"""
     Class for defining an CLM fitter using gradient descent optimization.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step takes place at each scale
+              and it is not considered as an iteration, thus it is not counted
+              for the provided `max_iters`.
 
     Parameters
     ----------
@@ -50,14 +103,20 @@ class GradientDescentCLMFitter(CLMFitter):
     """
     def __init__(self, clm, gd_algorithm_cls=RegularisedLandmarkMeanShift,
                  n_shape=None):
+        # Store CLM trained model
         self._model = clm
-        checks.set_models_components(clm.shape_models, n_shape)
-        self._set_up(gd_algorithm_cls)
 
-    def _set_up(self, gd_algorithm_cls ):
-        self.algorithms = [gd_algorithm_cls(self.clm.expert_ensembles[i],
-                                            self.clm.shape_models[i])
-                           for i in range(self.clm.n_scales)]
+        # Check parameter
+        checks.set_models_components(clm.shape_models, n_shape)
+
+        # Get list of algorithm objects per scale
+        algorithms = [gd_algorithm_cls(clm.expert_ensembles[i],
+                                       clm.shape_models[i])
+                      for i in range(clm.n_scales)]
+
+        # Call superclass
+        super(GradientDescentCLMFitter, self).__init__(clm=clm,
+                                                       algorithms=algorithms)
 
     def __str__(self):
         # Compute scale info strings

@@ -1,5 +1,3 @@
-from __future__ import division
-
 from menpofit import checks
 from menpofit.fitter import MultiScaleParametricFitter
 
