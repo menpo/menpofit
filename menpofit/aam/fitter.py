@@ -338,12 +338,36 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
                                interface, n_iterations=self.n_iterations[j])
                            for j, interface in enumerate(interfaces)]
 
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
+    def _fitter_result(self, image, algorithm_results, affine_transforms,
+                       scale_transforms, gt_shape=None):
+        r"""
+        Function the creates the multi-scale fitting result object.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image that was fitted.
+        algorithm_results : `list` of :map:`ParametricIterativeResult` or subclass
+            The list of fitting result per scale.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result : :map:`MultiScaleParametricIterativeResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
+        """
         return MultiScaleParametricIterativeResult(
-                results=algorithm_results, scales=self.aam.scales,
-                affine_correction=affine_correction, image=image,
-                gt_shape=gt_shape)
+            results=algorithm_results, scales=self.scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
 
     def warped_images(self, image, shapes):
         r"""
@@ -461,7 +485,7 @@ def holistic_sampling_from_step(aam, step=8):
 
     n_true_pixels = reference.n_true_pixels()
     true_positions = np.zeros(n_true_pixels, dtype=np.bool)
-    sampling = xrange(0, n_true_pixels, step)
+    sampling = range(0, n_true_pixels, step)
     true_positions[sampling] = True
 
     modified_mask = reference.mask.copy()

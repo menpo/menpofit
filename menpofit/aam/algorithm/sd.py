@@ -146,8 +146,8 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
 
         # return algorithm result
         return self.interface.algorithm_result(
-                image=image, shapes=shapes, shape_parameters=p_list,
-                gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            initial_shape=initial_shape, gt_shape=gt_shape)
 
 
 class MeanTemplate(ParametricSupervisedDescentAlgorithm):

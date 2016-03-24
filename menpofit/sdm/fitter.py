@@ -3,7 +3,6 @@ import numpy as np
 from functools import partial
 import warnings
 
-from menpo.transform import Scale
 from menpo.feature import no_op
 from menpo.base import name_of_callable
 
@@ -12,7 +11,8 @@ from menpofit.base import batch
 from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
                               compute_reference_shape, MenpoFitBuilderWarning,
                               compute_features)
-from menpofit.fitter import (MultiFitter, noisy_shape_from_bounding_box,
+from menpofit.fitter import (MultiScaleNonParametricFitter,
+                             noisy_shape_from_bounding_box,
                              align_shape_with_bounding_box,
                              generate_perturbations_from_gt)
 import menpofit.checks as checks
@@ -20,7 +20,7 @@ import menpofit.checks as checks
 from .algorithm import NonParametricNewton
 
 
-class SupervisedDescentFitter(MultiFitter):
+class SupervisedDescentFitter(MultiScaleNonParametricFitter):
     r"""
     Class for training a multi-scale Supervised Descent model.
 
@@ -156,7 +156,7 @@ class SupervisedDescentFitter(MultiFitter):
         if batch_size is not None:
             raise NotImplementedError('Training an SDM with a batch size '
                                       '(incrementally) is not implemented yet.')
-        # check parameters
+        # Check parameters
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
@@ -164,19 +164,22 @@ class SupervisedDescentFitter(MultiFitter):
         sd_algorithm_cls = checks.check_callable(sd_algorithm_cls, n_scales)
         holistic_features = checks.check_callable(holistic_features, n_scales)
         patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-        # set parameters
-        self.algorithms = []
-        self.reference_shape = reference_shape
+
+        # Call superclass
+        super(SupervisedDescentFitter, self).__init__(
+            scales=scales, reference_shape=reference_shape,
+            holistic_features=holistic_features, algorithms=[])
+
+        # Set parameters
         self._sd_algorithm_cls = sd_algorithm_cls
-        self.holistic_features = holistic_features
         self.patch_features = patch_features
         self.patch_shape = patch_shape
         self.diagonal = diagonal
-        self.scales = scales
         self.n_perturbations = n_perturbations
         self.n_iterations = checks.check_max_iters(n_iterations, n_scales)
         self._perturb_from_gt_bounding_box = perturb_from_gt_bounding_box
-        # set up algorithms
+
+        # Set up algorithms
         self._setup_algorithms()
 
         # Now, train the model!
@@ -185,11 +188,10 @@ class SupervisedDescentFitter(MultiFitter):
                     verbose=verbose, batch_size=batch_size)
 
     def _setup_algorithms(self):
-        for j in range(self.n_scales):
-            self.algorithms.append(self._sd_algorithm_cls[j](
-                patch_features=self.patch_features[j],
-                patch_shape=self.patch_shape[j],
-                n_iterations=self.n_iterations[j]))
+        self.algorithms = [self._sd_algorithm_cls[j](
+            patch_features=self.patch_features[j],
+            patch_shape=self.patch_shape[j], n_iterations=self.n_iterations[j])
+                           for j in range(self.n_scales)]
 
     def _train(self, images, increment=False, group=None,
                bounding_box_group_glob=None, verbose=False, batch_size=None):
@@ -214,7 +216,7 @@ class SupervisedDescentFitter(MultiFitter):
                                       'not representative of the true mean, '
                                       'this may cause issues.',
                                       MenpoFitBuilderWarning)
-                    self.reference_shape = compute_reference_shape(
+                    self._reference_shape = compute_reference_shape(
                         [i.landmarks[group].lms for i in image_batch],
                         self.diagonal, verbose=verbose)
             # We set landmarks on the images to archive the perturbations, so
@@ -238,19 +240,22 @@ class SupervisedDescentFitter(MultiFitter):
 
     def _train_batch(self, image_batch, increment=False, group=None,
                      bounding_box_group_glob=None, verbose=False):
-        # Rescale to existing reference shape
+        # Rescale images wrt the scale factor between the existing
+        # reference_shape and their ground truth (group) shapes
         image_batch = rescale_images_to_reference_shape(
             image_batch, group, self.reference_shape,
             verbose=verbose)
 
+        # Create a callable that generates perturbations of the bounding boxes
+        # of the provided images.
         generated_bb_func = generate_perturbations_from_gt(
             image_batch, self.n_perturbations,
             self._perturb_from_gt_bounding_box, gt_group=group,
             bb_group_glob=bounding_box_group_glob, verbose=verbose)
 
-        # for each scale (low --> high)
-        current_shapes = []
+        # For each scale (low --> high)
         for j in range(self.n_scales):
+            # Print progress if asked
             if verbose:
                 if len(self.scales) > 1:
                     scale_prefix = '  - Scale {}: '.format(j)
@@ -259,11 +264,14 @@ class SupervisedDescentFitter(MultiFitter):
             else:
                 scale_prefix = None
 
-            # Handle holistic features
+            # Extract features. Features are extracted only if we are at the
+            # first scale or if the features of the current scale are different
+            # than the ones extracted at the previous scale.
             if j == 0 and self.holistic_features[j] == no_op:
                 # Saves a lot of memory
                 feature_images = image_batch
-            elif j == 0 or self.holistic_features[j] is not self.holistic_features[j - 1]:
+            elif (j == 0 or
+                  self.holistic_features[j] != self.holistic_features[j - 1]):
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
@@ -271,24 +279,30 @@ class SupervisedDescentFitter(MultiFitter):
                                                   self.holistic_features[j],
                                                   prefix=scale_prefix,
                                                   verbose=verbose)
-            # handle scales
-            if self.scales[j] != 1:
-                # Scale feature images only if scale is different than 1
-                scaled_images = scale_images(feature_images, self.scales[j],
-                                             prefix=scale_prefix,
-                                             verbose=verbose)
-            else:
-                scaled_images = feature_images
+
+            # Rescale images according to scales. Note that scale_images is smart
+            # enough in order not to rescale the images if the current scale
+            # factor equals to 1.
+            scaled_images, scale_transforms = scale_images(
+                feature_images, self.scales[j], prefix=scale_prefix,
+                return_transforms=True, verbose=verbose)
 
             # Extract scaled ground truth shapes for current scale
             scaled_shapes = [i.landmarks[group].lms for i in scaled_images]
 
+            # Get shape estimations of current scale. If we are at the first
+            # scale, this is done by aligning the reference shape with the
+            # perturbed bounding boxes. If we are at the rest of the scales,
+            # then the current shapes are attached on the scaled_images with
+            # key '__sdm_current_shape_{}'.
+            current_shapes = []
             if j == 0:
+                # At the first scale, the current shapes are created by aligning
+                # the reference shape to the perturbed bounding boxes.
                 msg = '{}Aligning reference shape with bounding boxes.'.format(
                     scale_prefix)
                 wrap = partial(print_progress, prefix=msg,
                                end_with_newline=False, verbose=verbose)
-
                 # Extract perturbations at the very bottom level
                 for ii in wrap(scaled_images):
                     c_shapes = []
@@ -297,8 +311,22 @@ class SupervisedDescentFitter(MultiFitter):
                             self.reference_shape, bbox)
                         c_shapes.append(c_s)
                     current_shapes.append(c_shapes)
+            else:
+                # At the rest of the scales, extract the current shapes that
+                # were attached to the images
+                msg = '{}Extracting shape estimations from previous ' \
+                      'scale.'.format(scale_prefix)
+                wrap = partial(print_progress, prefix=msg,
+                               end_with_newline=False, verbose=verbose)
+                for ii in wrap(scaled_images):
+                    c_shapes = []
+                    for k in list(range(self.n_perturbations)):
+                        c_key = '__sdm_current_shape_{}'.format(k)
+                        c_shapes.append(ii.landmarks[c_key].lms)
+                    current_shapes.append(c_shapes)
 
-            # train supervised descent algorithm
+            # Train supervised descent algorithm. This returns the shape
+            # estimations for the next scale.
             if not increment:
                 current_shapes = self.algorithms[j].train(
                     scaled_images, scaled_shapes, current_shapes,
@@ -308,14 +336,36 @@ class SupervisedDescentFitter(MultiFitter):
                     scaled_images, scaled_shapes, current_shapes,
                     prefix=scale_prefix, verbose=verbose)
 
-            # Scale current shapes to next resolution, don't bother
-            # scaling final level
-            if j != (self.n_scales - 1):
-                transform = Scale(self.scales[j + 1] / self.scales[j],
-                                  n_dims=2)
-                for image_shapes in current_shapes:
-                    for k, shape in enumerate(image_shapes):
-                        image_shapes[k] = transform.apply(shape)
+            # Scale the current shape estimations for the next level. This
+            # doesn't have to be done for the last scale. The only thing we need
+            # to do at the last scale is to remove any attached landmarks from
+            # the training images.
+            if j < (self.n_scales - 1):
+                if self.holistic_features[j + 1] != self.holistic_features[j]:
+                    # Features will be extracted, thus attach current_shapes on
+                    # the training images (image_batch)
+                    for jj, image_shapes in enumerate(current_shapes):
+                        for k, shape in enumerate(image_shapes):
+                            c_key = '__sdm_current_shape_{}'.format(k)
+                            image_batch[jj].landmarks[c_key] = \
+                                scale_transforms[jj].apply(shape)
+                else:
+                    # Features won't be extracted;. the same feature_images will
+                    # be used for the next scale, thus attach current_shapes on
+                    # them.
+                    for jj, image_shapes in enumerate(current_shapes):
+                        for k, shape in enumerate(image_shapes):
+                            c_key = '__sdm_current_shape_{}'.format(k)
+                            feature_images[jj].landmarks[c_key] = \
+                                scale_transforms[jj].apply(shape)
+            else:
+                # Check if original training image (image_batch) got some current
+                # shape estimations attached. If yes, delete them.
+                if '__sdm_current_shape_0' in image_batch[0].landmarks.keys():
+                    for image in image_batch:
+                        for k in list(range(self.n_perturbations)):
+                            c_key = '__sdm_current_shape_{}'.format(k)
+                            del image.landmarks[c_key]
 
     def increment(self, images, group=None, bounding_box_group_glob=None,
                   verbose=False, batch_size=None):
@@ -348,50 +398,36 @@ class SupervisedDescentFitter(MultiFitter):
                                   'be taken when considering the relationships '
                                   'between cascade levels.')
 
-    def perturb_from_bb(self, gt_shape, bb):
-        """
-        Returns a perturbed version of the ground truth shape. The perturbation
-        is applied on the alignment between the ground truth bounding box and
-        the provided bounding box. This is useful for obtaining the initial
-        bounding box of the fitting.
+    def _fitter_result(self, image, algorithm_results, affine_transforms,
+                       scale_transforms, gt_shape=None):
+        r"""
+        Function the creates the multi-scale fitting result object.
 
         Parameters
         ----------
-        gt_shape : `menpo.shape.PointCloud`
-            The ground truth shape.
-        bb : `menpo.shape.PointDirectedGraph`
-            The target bounding box.
+        image : `menpo.image.Image` or subclass
+            The image that was fitted.
+        algorithm_results : `list` of :map:`NonParametricIterativeResult` or subclass
+            The list of fitting result per scale.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
 
         Returns
         -------
-        perturbed_shape : `menpo.shape.PointCloud`
-            The perturbed shape.
+        fitting_result : :map:`MultiScaleNonParametricIterativeResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
         """
-        return self._perturb_from_gt_bounding_box(gt_shape, bb)
-
-    def perturb_from_gt_bb(self, gt_bb):
-        """
-        Returns a perturbed version of the ground truth bounding box. This is
-        useful for obtaining the initial bounding box of the fitting.
-
-        Parameters
-        ----------
-        gt_bb : `menpo.shape.PointDirectedGraph`
-            The ground truth bounding box.
-
-        Returns
-        -------
-        perturbed_bb : `menpo.shape.PointDirectedGraph`
-            The perturbed ground truth bounding box.
-        """
-        return self._perturb_from_gt_bounding_box(gt_bb, gt_bb)
-
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
         return self.algorithms[0]._multi_scale_fitter_result(
-                results=algorithm_results, scales=self.scales,
-                affine_correction=affine_correction, image=image,
-                gt_shape=gt_shape)
+            results=algorithm_results, scales=self.scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
 
     def __str__(self):
         if self.diagonal is not None:

@@ -164,9 +164,11 @@ def compute_features(images, features, prefix='', verbose=False):
     return [features(i) for i in wrap(images)]
 
 
-def scale_images(images, scale, prefix='', verbose=False):
+def scale_images(images, scale, prefix='', return_transforms=False,
+                 verbose=False):
     r"""
-    Function that rescales a list of images.
+    Function that rescales a list of images and optionally returns the scale
+    transforms.
 
     Parameters
     ----------
@@ -176,24 +178,49 @@ def scale_images(images, scale, prefix='', verbose=False):
         The scale factor. If a tuple, the scale to apply to each dimension.
         If a single `float`, the scale will be applied uniformly across
         each dimension.
-    prefix : `str`
+    prefix : `str`, optional
         The prefix of the printed information.
-    verbose : `bool`, Optional
+    return_transforms : `bool`, optional
+        If ``True``, then a `list` with the `menpo.transform.Scale` objects that
+        were used to perform the rescale for each image  is also returned.
+    verbose : `bool`, optional
         Flag that controls information and progress printing.
 
     Returns
     -------
     scaled_images : `list` of `menpo.image.Image`
         The list of rescaled images.
+    scale_transforms : `list` of `menpo.transform.Scale`
+        The list of scale transforms that were used. It is returned only if
+        `return_transforms` is ``True``.
     """
     wrap = partial(print_progress,
                    prefix='{}Scaling images'.format(prefix),
                    end_with_newline=not prefix, verbose=verbose)
-
     if not np.allclose(scale, 1):
-        return [i.rescale(scale) for i in wrap(images)]
+        # initialise scaled images and transforms lists
+        scaled_images = []
+        scale_transforms = []
+        # for each image
+        for i in wrap(images):
+            if return_transforms:
+                # store scaled image and transform, if asked
+                sc_image, tr = i.rescale(scale, return_transform=True)
+                scaled_images.append(sc_image)
+                scale_transforms.append(tr)
+            else:
+                # store only scaled image
+                scaled_images.append(i.rescale(scale))
+        if return_transforms:
+            return scaled_images, scale_transforms
+        else:
+            return scaled_images
     else:
-        return images
+        if return_transforms:
+            scale_transforms = [Scale(1., images[0].n_dims)] * len(images)
+            return images, scale_transforms
+        else:
+            return images
 
 
 def warp_images(images, shapes, reference_frame, transform, prefix='',

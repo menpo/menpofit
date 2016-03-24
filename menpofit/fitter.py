@@ -487,7 +487,7 @@ class MultiScaleNonParametricFitter(object):
                         scale_transforms[i + 1].pseudoinverse().compose_after(t2)
                     shape = transform.apply(shape)
                 elif (self.holistic_features[i + 1] == self.holistic_features[i]
-                        and self.scales[i] != self.scales[i + 1]):
+                          and self.scales[i] != self.scales[i + 1]):
                     # If the features function of the current scale is the same
                     # as the one of the next scale, this means that the affine
                     # transform is the same as well, and thus can be omitted.
