@@ -30,8 +30,8 @@ implemented methods. For example, all deformable models are trained in
 *multiple scales* and the fitting procedure is, in most cases, *iterative*.
 MenpoFit's key interfaces are:
 
-- :map:`MultiFitter` - multi-scale fitting class
-- :map:`ModelFitter` - fitting class using a multi-scale model
+- :map:`MultiScaleNonParametricFitter` - multi-scale fitting class
+- :map:`MultiScaleParametricFitter` - multi-scale fitting class that uses a parametric shape model
 - :map:`MultiScaleNonParametricIterativeResult` - multi-scale result of an iterative fitting
 - :map:`MultiScaleParametricIterativeResult` - multi-scale result of an iterative fitting using a parametric shape model
 
