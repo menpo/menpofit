@@ -1511,6 +1511,37 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         else:
             return [0]
 
+    def reconstructed_initial_error(self, compute_error=None):
+        r"""
+        Returns the error of the reconstructed initial shape of the fitting
+        process, if the ground truth shape exists. This is the error computed
+        based on the `reconstructed_initial_shape`.
+
+        Parameters
+        ----------
+        compute_error: `callable`, optional
+            Callable that computes the error between the reconstructed initial
+            and ground truth shapes.
+
+        Returns
+        -------
+        reconstructed_initial_error : `float`
+            The error that corresponds to the initial shape's reconstruction.
+
+        Raises
+        ------
+        ValueError
+            Ground truth shape has not been set, so the reconstructed initial
+            error cannot be computed
+        """
+        if compute_error is None:
+            compute_error = euclidean_bb_normalised_error
+        if self.gt_shape is None:
+            raise ValueError('Ground truth shape has not been set, so the '
+                             'reconstructed initial error cannot be computed')
+        else:
+            return compute_error(self.reconstructed_initial_shape, self.gt_shape)
+
     def view_iterations(self, figure_id=None, new_figure=False,
                         iters=None, render_image=True, subplots_enabled=False,
                         channels=None, interpolation='bilinear',
@@ -2050,6 +2081,38 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
                 previous_val = ids[i - 1]
                 ids.append(previous_val + self.n_iters_per_scale[i - 1] + 1)
         return ids
+
+    def reconstructed_initial_error(self, compute_error=None):
+        r"""
+        Returns the error of the reconstructed initial shape of the fitting
+        process, if the ground truth shape exists. This is the error computed
+        based on the `reconstructed_initial_shapes[0]`.
+
+        Parameters
+        ----------
+        compute_error: `callable`, optional
+            Callable that computes the error between the reconstructed initial
+            and ground truth shapes.
+
+        Returns
+        -------
+        reconstructed_initial_error : `float`
+            The error that corresponds to the initial shape's reconstruction.
+
+        Raises
+        ------
+        ValueError
+            Ground truth shape has not been set, so the reconstructed initial
+            error cannot be computed
+        """
+        if compute_error is None:
+            compute_error = euclidean_bb_normalised_error
+        if self.gt_shape is None:
+            raise ValueError('Ground truth shape has not been set, so the '
+                             'reconstructed initial error cannot be computed')
+        else:
+            return compute_error(self.reconstructed_initial_shapes[0],
+                                 self.gt_shape)
 
     def view_iterations(self, figure_id=None, new_figure=False,
                         iters=None, render_image=True, subplots_enabled=False,
