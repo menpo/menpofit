@@ -76,7 +76,7 @@ class LucasKanadeATMFitter(MultiScaleParametricFitter):
         ----------
         image : `menpo.image.Image` or subclass
             The image that was fitted.
-        algorithm_results : `list` of :map:`AAMAlgorithmResult` or subclass
+        algorithm_results : `list` of :map:`ATMAlgorithmResult` or subclass
             The list of fitting result per scale.
         affine_transforms : `list` of `menpo.transform.Affine`
             The list of affine transforms per scale that are the inverses of the
