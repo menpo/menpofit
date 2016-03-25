@@ -64,6 +64,15 @@ class Result(object):
             self._image = Image(image.pixels)
 
     @property
+    def is_iterative(self):
+        r"""
+        Flag whether the object is an iterative fitting result.
+
+        :type: `bool`
+        """
+        return False
+
+    @property
     def final_shape(self):
         r"""
         Returns the final shape of the fitting process.
@@ -624,6 +633,15 @@ class NonParametricIterativeResult(Result):
         self._shapes = shapes
         if self.initial_shape is not None:
             self._shapes = [self.initial_shape] + self._shapes
+
+    @property
+    def is_iterative(self):
+        r"""
+        Flag whether the object is an iterative fitting result.
+
+        :type: `bool`
+        """
+        return True
 
     @property
     def shapes(self):
