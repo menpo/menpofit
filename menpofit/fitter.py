@@ -741,10 +741,10 @@ def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
         n_bbs = 1
     else:
         def bb_glob(im):
-            for k, v in im.landmarks.items_matching(bb_group_glob):
-                yield v.lms.bounding_box()
+            return [v.lms.bounding_box()
+                    for _, v in im.landmarks.items_matching(bb_group_glob)]
         bb_generator = bb_glob
-        n_bbs = len(list(bb_glob(images[0])))
+        n_bbs = len(bb_glob(images[0]))
 
     if n_bbs == 0:
         raise ValueError('Must provide a valid bounding box glob - no bounding '
