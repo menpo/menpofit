@@ -479,15 +479,12 @@ class MultiScaleNonParametricFitter(object):
                     #    S_{i+1} : scaling transform of next scale
                     #    A_i : affine transform of current scale
                     #    A_{i+1} : affine transform of next scale
-                    t1 = \
-                        scale_transforms[i].compose_after(affine_transforms[i])
-                    t2 = \
-                        affine_transforms[i + 1].pseudoinverse().compose_after(t1)
-                    transform = \
-                        scale_transforms[i + 1].pseudoinverse().compose_after(t2)
+                    t1 = scale_transforms[i].compose_after(affine_transforms[i])
+                    t2 = affine_transforms[i + 1].pseudoinverse().compose_after(t1)
+                    transform = scale_transforms[i + 1].pseudoinverse().compose_after(t2)
                     shape = transform.apply(shape)
-                elif (self.holistic_features[i + 1] == self.holistic_features[i]
-                          and self.scales[i] != self.scales[i + 1]):
+                elif (self.holistic_features[i + 1] == self.holistic_features[i] and
+                      self.scales[i] != self.scales[i + 1]):
                     # If the features function of the current scale is the same
                     # as the one of the next scale, this means that the affine
                     # transform is the same as well, and thus can be omitted.
@@ -499,9 +496,7 @@ class MultiScaleNonParametricFitter(object):
                     # where:
                     #    S_i : scaling transform of current scale
                     #    S_{i+1} : scaling transform of next scale
-                    transform = \
-                        scale_transforms[i + 1].pseudoinverse().compose_after(
-                            scale_transforms[i])
+                    transform = scale_transforms[i + 1].pseudoinverse().compose_after(scale_transforms[i])
                     shape = transform.apply(shape)
 
         # Return list of algorithm results

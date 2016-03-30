@@ -361,7 +361,7 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             else:
                 # Check if original training image (image_batch) got some current
                 # shape estimations attached. If yes, delete them.
-                if '__sdm_current_shape_0' in image_batch[0].landmarks.keys():
+                if '__sdm_current_shape_0' in image_batch[0].landmarks:
                     for image in image_batch:
                         for k in list(range(self.n_perturbations)):
                             c_key = '__sdm_current_shape_{}'.format(k)

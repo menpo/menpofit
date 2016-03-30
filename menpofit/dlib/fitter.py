@@ -150,7 +150,7 @@ class DlibERT(MultiScaleNonParametricFitter):
         # Set parameters
         self.diagonal = diagonal
         self.n_perturbations = n_perturbations
-        self.n_iterations = checks.check_max_iters(n_iterations, len(scales))
+        self.n_iterations = checks.check_max_iters(n_iterations, n_scales)
         self._perturb_from_gt_bounding_box = perturb_from_gt_bounding_box
 
         # DLib options
