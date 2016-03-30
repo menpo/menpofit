@@ -1,11 +1,11 @@
-from __future__ import division
 import numpy as np
 
 from menpo.feature import no_op
 from menpo.base import name_of_callable
 
 from menpofit.transform import DifferentiableAlignmentAffine
-from menpofit.fitter import MultiFitter, noisy_shape_from_bounding_box
+from menpofit.fitter import (MultiScaleNonParametricFitter,
+                             noisy_shape_from_bounding_box)
 from menpofit import checks
 
 from .algorithm import InverseCompositional
@@ -13,7 +13,7 @@ from .residual import SSD
 from .result import LucasKanadeResult
 
 
-class LucasKanadeFitter(MultiFitter):
+class LucasKanadeFitter(MultiScaleNonParametricFitter):
     r"""
     Class for defining a multi-scale Lucas-Kanade fitter that performs alignment
     with respect to a homogeneous transform. Please see the references for a
@@ -93,68 +93,76 @@ class LucasKanadeFitter(MultiFitter):
         holistic_features = checks.check_callable(holistic_features,
                                                   len(scales))
         # Assign attributes
-        self.holistic_features = holistic_features
         self.transform_cls = transform
         self.diagonal = diagonal
-        self.scales = list(scales)
+
         # Make template masked for warping
         template = template.as_masked(copy=False)
 
+        # Get reference shape
         if self.diagonal:
             template = template.rescale_landmarks_to_diagonal_range(
                 self.diagonal, group=group)
-        self.reference_shape = template.landmarks[group].lms
+        reference_shape = template.landmarks[group].lms
 
+        # Call superclass
+        super(LucasKanadeFitter, self).__init__(
+            scales=list(scales), reference_shape=reference_shape,
+            holistic_features=holistic_features, algorithms=[])
+
+        # Create templates
         self.templates, self.sources = self._prepare_template(template,
                                                               group=group)
-        self._set_up(algorithm_cls, residual_cls)
 
-    def _set_up(self, algorithm_cls, residual_cls):
+        # Get list of algorithm objects per scale
         self.algorithms = []
         for j, (t, s) in enumerate(zip(self.templates, self.sources)):
             transform = self.transform_cls(s, s)
             residual = residual_cls()
-            algorithm = algorithm_cls(t, transform, residual)
-            self.algorithms.append(algorithm)
+            self.algorithms.append(algorithm_cls(t, transform, residual))
 
     def _prepare_template(self, template, group=None):
         gt_shape = template.landmarks[group].lms
-        templates, _, sources = self._prepare_image(template, gt_shape,
-                                                    gt_shape=gt_shape)
+        templates, _, sources, _, _ = self._prepare_image(template, gt_shape,
+                                                          gt_shape=gt_shape)
         return templates, sources
 
-    def perturb_from_gt_bb(self, gt_bb,
-                           perturb_func=noisy_shape_from_bounding_box):
-        """
-        Returns a perturbed version of the ground truth bounding box. This is
-        useful for obtaining the initial bounding box of the fitting.
+    def _fitter_result(self, image, algorithm_results, affine_transforms,
+                       scale_transforms, gt_shape=None):
+        r"""
+        Function the creates the multi-scale fitting result object.
 
         Parameters
         ----------
-        gt_bb : `menpo.shape.PointDirectedGraph`
-            The ground truth bounding box.
-        perturb_func : `callable`, optional
-            The function that will be used for generating the perturbations.
+        image : `menpo.image.Image` or subclass
+            The image that was fitted.
+        algorithm_results : `list` of :map:`LucasKanadeAlgorithmResult` or subclass
+            The list of fitting result per scale.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
 
         Returns
         -------
-        perturbed_bb : `menpo.shape.PointDirectedGraph`
-            The perturbed ground truth bounding box.
+        fitting_result : :map:`LucasKanadeResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
         """
-        return perturb_func(gt_bb, gt_bb)
-
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
         return LucasKanadeResult(
-                results=algorithm_results, scales=self.scales,
-                affine_correction=affine_correction, image=image,
-                gt_shape=gt_shape)
+            results=algorithm_results, scales=self.scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
 
     def warped_images(self, image, shapes):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        fitting procedure stored within a `LucasKanadeResult`.
+        fitting procedure stored within a :map:`LucasKanadeResult`.
 
         Parameters
         ----------

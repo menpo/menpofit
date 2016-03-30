@@ -9,13 +9,12 @@ Fitter Classes
 .. toctree::
     :maxdepth: 1
 
-    ModelFitter
-    MultiFitter
+    MultiScaleNonParametricFitter
+    MultiScaleParametricFitter
 
-Fitting Functions
+Perturb Functions
 -----------------
-Collection of functions that are commonly-used during fitting of most deformable
-model.
+Collection of functions that perform a kind of perturbation on a shape or bounding box.
 
 .. toctree::
     :maxdepth: 1

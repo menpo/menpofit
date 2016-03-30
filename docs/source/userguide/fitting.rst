@@ -6,10 +6,15 @@ Fitting Models
 Fitter Objects
 --------------
 MenpoFit has specialised classes for performing a fitting process that are
-called `Fitters`. All `Fitter` objects are subclasses of :map:`MultiFitter` and
-:map:`ModelFitter` and their behaviour differs depending on the deformable
-model. For example, a Lucas-Kanade AAM fitter (:map:`LucasKanadeAAMFitter`)
-assumes that you have trained an AAM model (assume the `aam` we trained in the
+called `Fitters`. All `Fitter` objects are subclasses of 
+:map:`MultiScaleNonParametricFitter` and :map:`MultiScaleParametricFitter`. 
+The main difference between those two is that a :map:`MultiScaleParametricFitter`
+optimises over the parameters of a statistical shape model, whereas 
+:map:`MultiScaleNonParametricFitter` optimises directly the coordinates of a shape.
+
+Their behaviour can differ depending on the deformable model. For example, 
+a Lucas-Kanade AAM fitter (:map:`LucasKanadeAAMFitter`) assumes that you 
+have trained an AAM model (assume the `aam` we trained in the 
 :ref:`Building <ug-building>` section) and can be created as:
 
 .. code-block:: python

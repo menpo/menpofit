@@ -189,8 +189,9 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return CLMAlgorithmResult(image=image, shapes=shapes,
-                                  shape_parameters=p_list, gt_shape=gt_shape)
+        return CLMAlgorithmResult(shapes=shapes, shape_parameters=p_list,
+                                  initial_shape=initial_shape, image=image,
+                                  gt_shape=gt_shape)
 
     def __str__(self):
         return "Active Shape Model Algorithm"
@@ -316,8 +317,9 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return CLMAlgorithmResult(image=image, shapes=shapes,
-                                  shape_parameters=p_list, gt_shape=gt_shape)
+        return CLMAlgorithmResult(shapes=shapes, shape_parameters=p_list,
+                                  initial_shape=initial_shape, image=image,
+                                  gt_shape=gt_shape)
 
     def __str__(self):
         return "Regularised Landmark Mean Shift Algorithm"

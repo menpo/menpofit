@@ -1,13 +1,11 @@
-from __future__ import division
-
 from menpofit import checks
-from menpofit.fitter import ModelFitter
+from menpofit.fitter import MultiScaleParametricFitter
 
 from .algorithm import InverseCompositional
 from .result import ATMResult
 
 
-class LucasKanadeATMFitter(ModelFitter):
+class LucasKanadeATMFitter(MultiScaleParametricFitter):
     r"""
     Class for defining an ATM fitter using the Lucas-Kanade optimization.
 
@@ -44,12 +42,21 @@ class LucasKanadeATMFitter(ModelFitter):
     """
     def __init__(self, atm, lk_algorithm_cls=InverseCompositional,
                  n_shape=None, sampling=None):
+        # Store model
         self._model = atm
+
         # Check parameters
         checks.set_models_components(atm.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, atm.n_scales)
-        # Set up algorithm
-        self._set_up(lk_algorithm_cls)
+
+        # Get list of algorithm objects per scale
+        interfaces = atm.build_fitter_interfaces(self._sampling)
+        algorithms = [lk_algorithm_cls(interface) for interface in interfaces]
+
+        # Call superclass
+        super(LucasKanadeATMFitter, self).__init__(
+            scales=atm.scales, reference_shape=atm.reference_shape,
+            holistic_features=atm.holistic_features, algorithms=algorithms)
 
     @property
     def atm(self):
@@ -60,15 +67,35 @@ class LucasKanadeATMFitter(ModelFitter):
         """
         return self._model
 
-    def _set_up(self, lk_algorithm_cls):
-        interfaces = self.atm.build_fitter_interfaces(self._sampling)
-        self.algorithms = [lk_algorithm_cls(interface)
-                           for interface in interfaces]
+    def _fitter_result(self, image, algorithm_results, affine_transforms,
+                       scale_transforms, gt_shape=None):
+        r"""
+        Function the creates the multi-scale fitting result object.
 
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
-        return ATMResult(results=algorithm_results, scales=self.atm.scales,
-                         affine_correction=affine_correction, image=image,
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image that was fitted.
+        algorithm_results : `list` of :map:`ATMAlgorithmResult` or subclass
+            The list of fitting result per scale.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result : :map:`ATMResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
+        """
+        return ATMResult(results=algorithm_results, scales=self.scales,
+                         affine_transforms=affine_transforms,
+                         scale_transforms=scale_transforms, image=image,
                          gt_shape=gt_shape)
 
     def warped_images(self, image, shapes):

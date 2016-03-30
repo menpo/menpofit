@@ -155,5 +155,4 @@ class DlibAlgorithm(object):
         pred = dlib_full_object_detection_to_pointcloud(
                 self.dlib_model(pix, rect))
         return NonParametricIterativeResult(
-                shapes=[pred], initial_shape=None, image=image,
-                gt_shape=gt_shape)
+            shapes=[pred], initial_shape=None, image=image, gt_shape=gt_shape)
