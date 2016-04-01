@@ -4,23 +4,41 @@ from menpofit.differentiable import DL, DX
 
 
 class DifferentiablePiecewiseAffine(PiecewiseAffine, DL, DX):
+    r"""
+    A differentiable Piecewise Affine Transformation.
+
+    This is composed of a number of triangles defined be a set of `source` and
+    `target` vertices. These vertices are related by a common triangle `list`.
+    No limitations on the nature of the triangle `list` are imposed. Points can
+    then be mapped via barycentric coordinates from the `source` to the `target`
+    space. Trying to map points that are not contained by any source triangle
+    throws a `TriangleContainmentError`, which contains diagnostic information.
+
+    The transform can compute its own derivative with respect to spatial changes,
+    as well as anchor landmark changes.
+    """
 
     def d_dl(self, points):
-        """
-        Returns the jacobian of the warp at each point given in relation to the
-        source points for a PiecewiseAffine transform
+        r"""
+        The derivative of the warp with respect to spatial changes in anchor
+        landmark points or centres, evaluated at points.
 
         Parameters
         ----------
-        points : (n_points, 2) ndarray
-            The points to calculate the Jacobian for.
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
 
         Returns
         -------
-        d_dl : (n_points, n_centres, 2) ndarray
-            The Jacobian for each of the given points over each point in
-            the source points.
+        d_dl : ``(n_points, n_centres, n_dims)`` `ndarray`
+            The Jacobian wrt landmark changes.
 
+            ``d_dl[i, k, m]`` is the scalar differential change that the
+            any dimension of the ``i``'th point experiences due to a first order
+            change in the ``m``'th dimension of the ``k``'th landmark point.
+
+            Note that at present this assumes that the change in every
+            dimension is equal.
         """
         tri_index, alpha_i, beta_i = self.index_alpha_beta(points)
         # for the jacobian we only need
@@ -60,31 +78,32 @@ class DifferentiablePiecewiseAffine(PiecewiseAffine, DL, DX):
         return jac
 
     def d_dx(self, points):
-        """
-        Calculates the first order spatial derivative of PWA at points.
+        r"""
+        The first order derivative of the warp with respect to spatial changes
+        evaluated at points.
 
-        The nature of this derivative is complicated by the piecewise nature
-        of this transform. For points close to the source points of the
-        transform the derivative is ill-defined. In these cases, an identity
-        jacobian is returned.
-
-        In all other cases the jacobian is equal to the containing triangle's
-        d_dx.
-
-        WARNING - presently the above behavior is only valid at the source
-        points.
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
 
         Returns
         -------
-        d_dx: (n_points, n_dims, n_dims) ndarray
-            The first order spatial derivative of this transform
+        d_dx : ``(n_points, n_dims, n_dims)`` `ndarray`
+            The Jacobian wrt spatial changes.
+
+            ``d_dx[i, j, k]`` is the scalar differential change that the
+            ``j``'th dimension of the ``i``'th point experiences due to a first
+            order change in the ``k``'th dimension.
+
+            It may be the case that the Jacobian is constant across space -
+            in this case axis zero may have length ``1`` to allow for
+            broadcasting.
 
         Raises
         ------
         TriangleContainmentError:
             If any point is outside any triangle of this PWA.
-
-
         """
         # TODO check for position and return true d_dx (see docstring)
         # for the time being we assume the points are on the source landmarks

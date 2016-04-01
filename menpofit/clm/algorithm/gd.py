@@ -1,52 +1,46 @@
 from __future__ import division
 import numpy as np
+
 from menpofit.base import build_grid
 from menpofit.clm.result import CLMAlgorithmResult
 
 multivariate_normal = None  # expensive, from scipy.stats
 
 
-# TODO: document me!
 class GradientDescentCLMAlgorithm(object):
     r"""
-    """
+    Abstract class for a Gradient-Descent optimization algorithm.
 
-
-# TODO: Document me!
-class ActiveShapeModel(GradientDescentCLMAlgorithm):
-    r"""
-    Active Shape Model (ASM) algorithm
+    Parameters
+    ----------
+    expert_ensemble : `subclass` of :map:`ExpertEnsemble`
+        The ensemble of experts object, e.g.
+        :map:`CorrelationFilterExpertEnsemble`.
+    shape_model : `subclass` of :map:`PDM`, optional
+        The shape model object, e.g. :map:`OrthoPDM`.
+    eps : `float`, optional
+        Value for checking the convergence of the optimization.
     """
-    def __init__(self, expert_ensemble, shape_model, gaussian_covariance=10,
-                 eps=10**-5):
+    def __init__(self, expert_ensemble, shape_model, eps=10**-5):
         # Set parameters
-        self.expert_ensemble, = expert_ensemble,
+        self.expert_ensemble = expert_ensemble
         self.transform = shape_model
-        self.gaussian_covariance = gaussian_covariance
         self.eps = eps
         # Perform pre-computations
         self._precompute()
 
     def _precompute(self):
-        r"""
-        """
         # Import multivariate normal distribution from scipy
         global multivariate_normal
         if multivariate_normal is None:
             from scipy.stats import multivariate_normal  # expensive
 
         # Build grid associated to size of the search space
-        search_size = self.expert_ensemble.search_size
-        self.half_search_size = np.round(
-            np.asarray(self.expert_ensemble.search_size) / 2)
-        self.search_grid = build_grid(search_size)[None, None]
+        search_shape = self.expert_ensemble.search_shape
+        self.search_grid = build_grid(search_shape)
 
         # set rho2
         self.rho2 = self.transform.model.noise_variance()
-
-        # Compute Gaussian-KDE grid
-        self.mvn = multivariate_normal(mean=np.zeros(2),
-                                       cov=self.gaussian_covariance)
 
         # Compute shape model prior
         sim_prior = np.zeros((4,))
@@ -62,13 +56,83 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
         self.pinv_J = np.linalg.solve(self.JJ, self.J.T)
         self.inv_JJ_prior = np.linalg.inv(self.JJ + np.diag(self.rho2_inv_L))
 
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None,
+
+class ActiveShapeModel(GradientDescentCLMAlgorithm):
+    r"""
+    Active Shape Model (ASM) algorithm.
+
+    Parameters
+    ----------
+    expert_ensemble : `subclass` of :map:`ExpertEnsemble`
+        The ensemble of experts object, e.g.
+        :map:`CorrelationFilterExpertEnsemble`.
+    shape_model : `subclass` of :map:`PDM`, optional
+        The shape model object, e.g. :map:`OrthoPDM`.
+    gaussian_covariance : `int` or `float`, optional
+        The covariance of the Gaussian kernel.
+    eps : `float`, optional
+        Value for checking the convergence of the optimization.
+
+    References
+    ----------
+    .. [1] T. F. Cootes, and C. J. Taylor. "Active shape models-'smart snakes'",
+        British Machine Vision Conference, pp. 266-275, 1992.
+    .. [2] T. F. Cootes, C. J. Taylor, D. H. Cooper, and J. Graham. "Active
+        Shape Models - their training and application", Computer Vision and Image
+        Understanding (CVIU), 61(1): 38-59, 1995.
+    .. [3] A. Blake, and M. Isard. "Active Shape Models", Active Contours,
+        Springer, pp. 25-37, 1998.
+    """
+    def __init__(self, expert_ensemble, shape_model, gaussian_covariance=10,
+                 eps=10**-5):
+        self.gaussian_covariance = gaussian_covariance
+        super(ActiveShapeModel, self).__init__(expert_ensemble=expert_ensemble,
+                                               shape_model=shape_model, eps=eps)
+
+    def _precompute(self):
+        # Call super method
+        super(ActiveShapeModel, self)._precompute()
+
+        # Build grid associated to size of the search space
+        self.half_search_shape = np.round(
+            np.asarray(self.expert_ensemble.search_shape) / 2).astype(np.int64)
+        self.search_grid = self.search_grid[None, None]
+
+        # Compute Gaussian-KDE grid
+        self.mvn = multivariate_normal(mean=np.zeros(2),
+                                       cov=self.gaussian_covariance)
+
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
         r"""
+        Execute the optimization algorithm.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+        map_inference : `bool`, optional
+            If ``True``, then the solution will be given after performing MAP
+            inference.
+
+        Returns
+        -------
+        fitting_result : :map:`CLMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # Initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # Initialize iteration counter and epsilon
         k = 0
@@ -85,14 +149,13 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
 
             # Compute responses
             responses = self.expert_ensemble.predict_probability(image, target)
-
             # Approximate responses using isotropic Gaussian
             max_indices = np.argmax(
                 responses.reshape(responses.shape[:2] + (-1,)), axis=-1)
             max_indices = np.unravel_index(max_indices, responses.shape)[-2:]
             max_indices = np.hstack((max_indices[0], max_indices[1]))
             max_indices = max_indices[:, None, None, None, ...]
-            max_indices -= self.half_search_size
+            max_indices -= self.half_search_shape
             gaussian_responses = self.mvn.pdf(max_indices + self.search_grid)
             # Normalise smoothed responses
             gaussian_responses /= np.sum(gaussian_responses,
@@ -115,8 +178,9 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
 
             # Update pdm
             s_k = self.transform.target.points
-            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
+            self.transform._from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # Test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -125,65 +189,82 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return CLMAlgorithmResult(image, self.transform, p_list,
+        return CLMAlgorithmResult(shapes=shapes, shape_parameters=p_list,
+                                  initial_shape=initial_shape, image=image,
                                   gt_shape=gt_shape)
 
+    def __str__(self):
+        return "Active Shape Model Algorithm"
 
-# TODO: Document me!
+
 class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
     r"""
-    Regularized Landmark Mean-Shift (RLMS) algorithm
+    Regularized Landmark Mean-Shift (RLMS) algorithm.
+
+    Parameters
+    ----------
+    expert_ensemble : `subclass` of :map:`ExpertEnsemble`
+        The ensemble of experts object, e.g.
+        :map:`CorrelationFilterExpertEnsemble`.
+    shape_model : `subclass` of :map:`PDM`, optional
+        The shape model object, e.g. :map:`OrthoPDM`.
+    kernel_covariance : `int` or `float`, optional
+        The covariance of the kernel.
+    eps : `float`, optional
+        Value for checking the convergence of the optimization.
+
+    References
+    ----------
+    .. [1] J.M. Saragih, S. Lucey, and J. F. Cohn. "Deformable model fitting by
+        regularized landmark mean-shift", International Journal of Computer
+        Vision (IJCV), 91(2): 200-215, 2011.
     """
     def __init__(self, expert_ensemble, shape_model, kernel_covariance=10,
                  eps=10**-5):
-        # Set parameters
-        self.expert_ensemble, = expert_ensemble,
-        self.transform = shape_model
         self.kernel_covariance = kernel_covariance
-        self.eps = eps
-        # Perform pre-computations
-        self._precompute()
+        super(RegularisedLandmarkMeanShift, self).__init__(
+                expert_ensemble=expert_ensemble, shape_model=shape_model,
+                eps=eps)
 
     def _precompute(self):
-        r"""
-        """
-        # Import multivariate normal distribution from scipy
-        global multivariate_normal
-        if multivariate_normal is None:
-            from scipy.stats import multivariate_normal  # expensive
-
-        # Build grid associated to size of the search space
-        search_size = self.expert_ensemble.search_size
-        self.search_grid = build_grid(search_size)
-
-        # set rho2
-        self.rho2 = self.transform.model.noise_variance()
+        # Call super method
+        super(RegularisedLandmarkMeanShift, self)._precompute()
 
         # Compute Gaussian-KDE grid
         mvn = multivariate_normal(mean=np.zeros(2), cov=self.kernel_covariance)
         self.kernel_grid = mvn.pdf(self.search_grid)[None, None]
 
-        # Compute shape model prior
-        sim_prior = np.zeros((4,))
-        pdm_prior = self.rho2 / self.transform.model.eigenvalues
-        self.rho2_inv_L = np.hstack((sim_prior, pdm_prior))
-
-        # Compute Jacobian
-        J = np.rollaxis(self.transform.d_dp(None), -1, 1)
-        self.J = J.reshape((-1, J.shape[-1]))
-        # Compute inverse Hessian
-        self.JJ = self.J.T.dot(self.J)
-        # Compute Jacobian pseudo-inverse
-        self.pinv_J = np.linalg.solve(self.JJ, self.J.T)
-        self.inv_JJ_prior = np.linalg.inv(self.JJ + np.diag(self.rho2_inv_L))
-
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None,
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             map_inference=False):
         r"""
+        Execute the optimization algorithm.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+        map_inference : `bool`, optional
+            If ``True``, then the solution will be given after performing MAP
+            inference.
+
+        Returns
+        -------
+        fitting_result : :map:`CLMAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # Initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # Initialize iteration counter and epsilon
         k = 0
@@ -225,8 +306,9 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
 
             # Update pdm
             s_k = self.transform.target.points
-            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
+            self.transform._from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # Test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -235,4 +317,9 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return CLMAlgorithmResult(image, self, p_list, gt_shape=gt_shape)
+        return CLMAlgorithmResult(shapes=shapes, shape_parameters=p_list,
+                                  initial_shape=initial_shape, image=image,
+                                  gt_shape=gt_shape)
+
+    def __str__(self):
+        return "Regularised Landmark Mean Shift Algorithm"

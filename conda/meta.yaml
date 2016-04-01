@@ -10,13 +10,14 @@ requirements:
   run:
     - python
     - menpo 0.6.*
-    - scikit-learn 0.16.*
+    - scikit-learn >=0.17,<0.18
     - dlib 18.16
+    - pandas 0.17.*
 
 test:
   requires:
     - nose
-    - mock 1.0.1
+    - mock
 
   imports:
     - menpofit

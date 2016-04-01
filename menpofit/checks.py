@@ -3,46 +3,72 @@ import collections
 from functools import partial
 import numpy as np
 
-from menpo.shape import TriMesh, DirectedGraph, UndirectedGraph, Tree
+from menpo.base import name_of_callable
+from menpo.shape import TriMesh
 from menpo.transform import PiecewiseAffine
 
 
 def check_diagonal(diagonal):
     r"""
-    Checks the diagonal length that is used to normalize the images' size. It
-    must be >= 20 or ``None``.
+    Checks that the diagonal length used to normalize the images' size is
+    ``>= 20``.
 
     Parameters
     ----------
-    diagonal : `int` or `float` or ``None``
-        The diagonal value to check.
+    diagonal : `int`
+        The value to check.
 
     Returns
     -------
-    diagonal : `int` or `float` or ``None``
-        The diagonal value if no errors were raised.
+    diagonal : `int`
+        The value if it's correct.
 
     Raises
     ------
     ValueError
-        diagonal must be >= 20 or None.
+        diagonal must be >= 20
     """
     if diagonal is not None and diagonal < 20:
         raise ValueError("diagonal must be >= 20 or None.")
     return diagonal
 
 
-def check_trilist(shape, transform):
+def check_landmark_trilist(image, transform, group=None):
     r"""
-    Checks if the combination of a shape and a transform is :map:`TriMesh`
-    and :map:`PiecewiseAffine`, respectively. If not, it raises a warning.
+    Checks that the provided image has a triangulated shape (thus an isntance of
+    `menpo.shape.TriMesh`) and the transform is `menpo.transform.PiecewiseAffine`
 
     Parameters
     ----------
-    shape : :map:`TriMesh`
-        The shape to check.
-    transform : :map:`PiecewiseAffine`
-        The transform to check.
+    image : `menpo.image.Image` or subclass
+        The input image.
+    transform : `menpo.transform.PiecewiseAffine`
+        The transform object.
+    group : `str` or ``None``, optional
+        The group of the shape to check.
+
+    Raises
+    ------
+    Warning
+        The given images do not have an explicit triangulation applied. A
+        Delaunay Triangulation will be computed and used for warping. This may
+        be suboptimal and cause warping artifacts.
+    """
+    shape = image.landmarks[group].lms
+    check_trilist(shape, transform)
+
+
+def check_trilist(shape, transform):
+    r"""
+    Checks that the provided shape is triangulated (thus an isntance of
+    `menpo.shape.TriMesh`) and the transform is `menpo.transform.PiecewiseAffine`
+
+    Parameters
+    ----------
+    shape : `menpo.shape.TriMesh`
+        The input shape (usually the reference/mean shape of a model).
+    transform : `menpo.transform.PiecewiseAffine`
+        The transform object.
 
     Raises
     ------
@@ -59,49 +85,25 @@ def check_trilist(shape, transform):
                       'warping artifacts.')
 
 
-def check_landmark_trilist(image, transform, group=None):
-    r"""
-    Checks if the combination of the shape of an image and a transform is
-    :map:`TriMesh` and :map:`PiecewiseAffine`, respectively. If not,
-    it raises a warning.
-
-    Parameters
-    ----------
-    image : :map:`Image`
-        The image from which to check the shape.
-    transform : :map:`PiecewiseAffine`
-        The transform to check.
-
-    Raises
-    ------
-    Warning
-        The given images do not have an explicit triangulation applied. A
-        Delaunay Triangulation will be computed and used for warping. This may
-        be suboptimal and cause warping artifacts.
-    """
-    shape = image.landmarks[group].lms
-    check_trilist(shape, transform)
-
-
 def check_scales(scales):
     r"""
-    Checks the provided scales. Scales must be either `int` or `float` or a
-    `list`/`tuple` of those.
+    Checks that the provided `scales` argument is either `int` or `float` or an
+    iterable of those. It makes sure that it returns a `list` of `scales`.
 
     Parameters
     ----------
-    scales : `int` or `float` or a `list`/`tuple` of those
-        The scales to check.
+    scales : `int` or `float` or `list/tuple` of those
+        The value to check.
 
     Returns
     -------
-    scales : `int` or `float` or a `list`/`tuple` of those
-        The scales value if no errors were raised.
+    scales : `list` of `int` or `float`
+        The scales in a list.
 
     Raises
     ------
     ValueError
-        scales must be an int/float or a list/tuple of int/float.
+        scales must be an int/float or a list/tuple of int/float
     """
     if isinstance(scales, (int, float)):
         return [scales]
@@ -116,31 +118,31 @@ def check_scales(scales):
 
 def check_multi_scale_param(n_scales, types, param_name, param):
     r"""
-    Checks a parameter that is supposed to be defined for different scales.
-    The parameter must be among the provided `types` or a `list`/`tuple` of
-    those.
+    General function for checking a parameter defined for multiple scales. It
+    raises an error if the parameter is not an iterable with the correct size and
+    correct types.
 
     Parameters
     ----------
     n_scales : `int`
         The number of scales.
     types : `tuple`
-        A `tuple` of types that are allowed for the param, e.g. `int` or `float`
+        The `tuple` of variable types that the parameter is allowed to have.
     param_name : `str`
         The name of the parameter.
-    param : `types` or a `list`/`tuple` of those
-        The actual parameter value to check.
+    param : `types`
+        The parameter value.
 
     Returns
     -------
     param : `list` of `types`
-        The parameter value per scale in a `list`.
+        The list of values per scale.
 
     Raises
     ------
     ValueError
-        {param_name} must be in {types} or a list/tuple of {types} with the
-        same length as the number of scales
+        {param_name} must be in {types} or a list/tuple of {types} with the same
+        length as the number of scales
     """
     error_msg = "{0} must be in {1} or a list/tuple of " \
                 "{1} with the same length as the number " \
@@ -164,93 +166,56 @@ def check_multi_scale_param(n_scales, types, param_name, param):
         raise ValueError(error_msg)
 
 
-def check_features(features, n_scales, param_name):
+def check_callable(callables, n_scales):
     r"""
-    Checks the feature type per level. Features must be a callable or a
-    `list`/`tuple` of `callables`.
+    Checks the callable type per level.
 
     Parameters
     ----------
-    features : `callable` or `list` of `callables`
-        The features to check.
+    callables : `callable` or `list` of `callables`
+        The callable to be used per scale.
     n_scales : `int`
-        The number of pyramid levels.
-    param_name : `str`
-        The features parameter name.
+        The number of scales.
 
     Returns
     -------
-    feature_list : `list`
-        The `list` of `callables` per pyramidal level.
+    callable_list : `list`
+        A `list` of callables.
 
     Raises
     ------
     ValueError
-        {param_name} must be a callable or a list/tuple of callables with the
-        same length as the number of scales
+        callables must be a callable or a list/tuple of callables with the same
+        length as the number of scales
     """
-    if callable(features):
-        return [features] * n_scales
-    elif len(features) == 1 and np.alltrue([callable(f) for f in features]):
-        return list(features) * n_scales
-    elif len(features) == n_scales and np.alltrue([callable(f)
-                                                   for f in features]):
-        return list(features)
+    if callable(callables):
+        return [callables] * n_scales
+    elif len(callables) == 1 and np.alltrue([callable(f) for f in callables]):
+        return list(callables) * n_scales
+    elif len(callables) == n_scales and np.alltrue([callable(f)
+                                                    for f in callables]):
+        return list(callables)
     else:
-        raise ValueError("{} must be a callable or a list/tuple of "
+        raise ValueError("callables must be a callable or a list/tuple of "
                          "callables with the same length as the number "
-                         "of scales".format(param_name))
-
-
-def check_scale_features(scale_features, features):
-    r"""
-    Checks the combination between features and scale_features.
-
-    Parameters
-    ----------
-    scale_features : `bool`
-        The features to check.
-    features : `list` of `callables`
-        The `list` of features per pyramidal level.
-
-    Returns
-    -------
-    scale_features : `bool`
-        ``False`` if different types of features are used at each pyramidal
-        level.
-
-    Raises
-    ------
-    Warning
-        scale_features has been automatically set to False because different
-        types of features are used at each level.
-    """
-    if all(f == features[0] for f in features):
-        return scale_features
-    else:
-        warnings.warn('scale_features has been automatically set to False '
-                      'because different types of features are used at each '
-                      'level.')
-        return False
+                         "of scales")
 
 
 def check_patch_shape(patch_shape, n_scales):
     r"""
-    Checks the patch shape per level. Patch_shape must be a `list`/`tuple` of
-    `int` or a `list`/`tuple` of `lit`/`tuple` of `int`/`float` with the same
-    length as the number of scales.
+    Function for checking a multi-scale `patch_shape` parameter value.
 
     Parameters
     ----------
-    patch_shape : `int/float/tuple` or `list/tuple` of those
-        The patch_shape to check.
+    patch_shape : `list/tuple` of `int/float` or `list` of those
+        The patch shape per scale
     n_scales : `int`
-        The number of pyramid levels.
+        The number of scales.
 
     Returns
     -------
-    patch_shape : `list` of `tuple`
-        The `list` of `tuple` patch shape per pyramidal level.
+    patch_shape : `list` of `list/tuple` of `int/float`
+        The list of patch shape per scale.
 
     Raises
     ------
@@ -274,29 +239,29 @@ def check_patch_shape(patch_shape, n_scales):
 
 def check_max_components(max_components, n_scales, param_name):
     r"""
-    Checks the provided maximum number of components per level. It must be
-    ``None`` or `int` or `float` or a `list` of those containing ``1`` or
-    {``n_scales``} elements.
+    Checks the maximum number of components per scale. It must be ``None`` or
+    `int` or `float` or a `list` of those containing ``1`` or ``{n_scales}``
+    elements.
 
     Parameters
     ----------
-    max_components : `int`/`float`/``None`` or `list` of those
-        The max_components to check.
+    max_components : ``None`` or `int` or `float` or a `list` of those
+        The value to check.
     n_scales : `int`
-        The number of pyramid levels.
-    param_name : `str`
-        The name of the parameter.
+        The number of scales.
+    var_name : `str`
+        The name of the variable.
 
     Returns
     -------
-    max_components : `list` of `int`/`float`
-        The `list` of max_components per level.
+    max_components : `list` of ``None`` or `int` or `float`
+        The list of max components per scale.
 
     Raises
     ------
     ValueError
-        {param_name} must be None or an int > 0 or a 0 <= float <= 1 or a list
-        of those containing 1 or {n_scales} elements
+        {var_name} must be None or an int > 0 or a 0 <= float <= 1 or a list of
+        those containing 1 or {n_scales} elements
     """
     str_error = ("{} must be None or an int > 0 or a 0 <= float <= 1 or "
                  "a list of those containing 1 or {} elements").format(
@@ -319,20 +284,20 @@ def check_max_components(max_components, n_scales, param_name):
 
 def check_max_iters(max_iters, n_scales):
     r"""
-    Checks the maximum number of iterations per level. Max_iters must be a
-    `int` or a `list`/`tuple` of `int`.
+    Function that checks the value of a `max_iters` parameter defined for
+    multiple scales. It must be `int` or `list` of `int`.
 
     Parameters
     ----------
     max_iters : `int` or `list` of `int`
-        The max_iters to check.
+        The value to check.
     n_scales : `int`
-        The number of pyramid levels.
+        The number of scales.
 
     Returns
     -------
     max_iters : `list` of `int`
-        The `list` of max_iters per pyramidal level.
+        The list of values per scale.
 
     Raises
     ------
@@ -355,20 +320,20 @@ def check_max_iters(max_iters, n_scales):
 
 def check_sampling(sampling, n_scales):
     r"""
-    Checks the sampling parameter per level. Sampling must be an `int` or
-    `ndarray` or a `list` of those or ``None``.
+    Function that checks the value of a `sampling` parameter defined for
+    multiple scales. It must be `int` or `ndarray` or `list` of those.
 
     Parameters
     ----------
-    sampling : `int`/`ndarray` or `list` of `int`/`ndarray`
-        The sampling to check.
+    sampling : `int` or `ndarray` or `list` of those
+        The value to check.
     n_scales : `int`
-        The number of pyramid levels.
+        The number of scales.
 
     Returns
     -------
-    sampling : `list` of `int`/`ndarray`
-        The `list` of sampling per pyramidal level.
+    sampling : `list` of `int` or `ndarray`
+        The list of values per scale.
 
     Raises
     ------
@@ -400,21 +365,20 @@ def check_sampling(sampling, n_scales):
 
 def set_models_components(models, n_components):
     r"""
-    Checks and sets the provided number of components per level to the
-    provided models.
+    Function that sets the number of active components to a list of models.
 
     Parameters
     ----------
-    models : `list` of :map:`PCAModel` or :map:`PCAInstanceModel`
-        The list of PCA models.
-    n_components : `int`/`float`/`None` or `list` of those
-        The number of components to set as active.
+    models : `list` or `class`
+        The list of models per scale.
+    n_components : `int` or `float` or ``None`` or `list` of those
+        The number of components per model.
 
     Raises
     ------
     ValueError
-        n_components can be an integer or a float or None or a list containing
-        1 or {n_scales} of those
+        n_components can be an integer or a float or None or a list containing 1
+        or {n_scales} of those
     """
     if n_components is not None:
         n_scales = len(models)
@@ -433,31 +397,48 @@ def set_models_components(models, n_components):
                              'those'.format(n_scales))
 
 
+def check_model(model, cls):
+    r"""
+    Function that checks whether the provided `class` object is a subclass of
+    the provided base `class`.
+
+    Parameters
+    ----------
+    model : `class`
+        The object.
+    cls : `class`
+        The required base class.
+
+    Raises
+    ------
+    ValueError
+        Model must be a {cls} instance.
+    """
+    if not isinstance(model, cls):
+        raise ValueError('Model must be a {} instance.'.format(
+                name_of_callable(cls)))
+
+
 def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
     r"""
-    Checks the algorithm class per level. Algorithm must be a `class` or a
-    `list` of `class`.
+    Function that checks whether the `list` of `class` objects defined per scale
+    are subclasses of the provided base `class`.
 
     Parameters
     ----------
     algorithm_cls : `class` or `list` of `class`
-        The selected algorithm class(es) to check.
+        The list of objects per scale.
     n_scales : `int`
-        The number of pyramid levels.
+        The number of scales.
     base_algorithm_cls : `class`
-        The `class` that must be a `superclass` of `algorithm_cls`.
-
-    Returns
-    -------
-    algorithm_cls : `list` of `class`
-        The `list` of `class` per pyramidal level.
+        The required base class.
 
     Raises
     ------
     ValueError
         algorithm_cls must be a subclass of {base_algorithm_cls} or a list/tuple
-        of {base_algorithm_cls} subclasses with the same length as the number
-        of scales {n_scales}
+        of {base_algorithm_cls} subclasses with the same length as the number of
+        scales {n_scales}
     """
     if (isinstance(algorithm_cls, partial) and
             base_algorithm_cls in algorithm_cls.func.mro()):

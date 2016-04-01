@@ -1,5 +1,6 @@
 import dlib
 import numpy as np
+
 from menpo.shape import PointCloud, bounding_box
 
 
