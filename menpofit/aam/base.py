@@ -4,7 +4,7 @@ import numpy as np
 
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic
-from menpo.model import PCAInstanceModel
+from menpo.model import PCAModel
 from menpo.transform import Scale
 from menpo.shape import mean_pointcloud
 from menpo.base import name_of_callable
@@ -187,7 +187,8 @@ class AAM(object):
                      appearance_forgetting_factor=1.0):
         # Rescale to existing reference shape
         image_batch = rescale_images_to_reference_shape(
-            image_batch, group, self.reference_shape, verbose=verbose)
+            image_batch, group, self.reference_shape,
+            verbose=verbose)
 
         # build models at each scale
         if verbose:
@@ -208,8 +209,7 @@ class AAM(object):
             if j == 0 and self.holistic_features[j] == no_op:
                 # Saves a lot of memory
                 feature_images = image_batch
-            elif (j == 0 or self.holistic_features[j] is not
-                  self.holistic_features[j - 1]):
+            elif j == 0 or self.holistic_features[j] is not self.holistic_features[j - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
@@ -256,7 +256,7 @@ class AAM(object):
                     scale_prefix))
 
             if not increment:
-                appearance_model = PCAInstanceModel(warped_images)
+                appearance_model = PCAModel(warped_images)
                 # trim appearance model if required
                 if self.max_appearance_components is not None:
                     appearance_model.trim_components(
