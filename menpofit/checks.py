@@ -26,10 +26,10 @@ def check_diagonal(diagonal):
     Raises
     ------
     ValueError
-        diagonal must be >= 20
+        diagonal must be >= 20 or None
     """
     if diagonal is not None and diagonal < 20:
-        raise ValueError("diagonal must be >= 20 or None.")
+        raise ValueError("diagonal must be >= 20 or None")
     return diagonal
 
 
@@ -237,7 +237,7 @@ def check_patch_shape(patch_shape, n_scales):
                          "same length as the number of scales")
 
 
-def check_max_components(max_components, n_scales, param_name):
+def check_max_components(max_components, n_scales, var_name):
     r"""
     Checks the maximum number of components per scale. It must be ``None`` or
     `int` or `float` or a `list` of those containing ``1`` or ``{n_scales}``
@@ -265,7 +265,7 @@ def check_max_components(max_components, n_scales, param_name):
     """
     str_error = ("{} must be None or an int > 0 or a 0 <= float <= 1 or "
                  "a list of those containing 1 or {} elements").format(
-        param_name, n_scales)
+        var_name, n_scales)
     if not isinstance(max_components, (list, tuple)):
         max_components_list = [max_components] * n_scales
     elif len(max_components) == 1:
