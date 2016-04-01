@@ -15,6 +15,10 @@ implemented include:
   * Lucas-Kanade Optimisation
   * Cascaded-Regression Optimisation
 
+* :ref:`Active Pictorial Structures (APS) <api-aps-index>`
+
+  * Weighted Gauss-Newton Optimisation with fixed Jacobian and Hessian
+
 * :ref:`Active Template Model (ATM) <api-atm-index>`
 
   * :ref:`Holistic <menpofit-atm-HolisticATM>`, :ref:`Patch-based <menpofit-atm-PatchATM>`, :ref:`Masked <menpofit-atm-MaskedATM>`, :ref:`Linear <menpofit-atm-LinearATM>`, :ref:`Linear Masked <menpofit-atm-LinearMaskedATM>`
