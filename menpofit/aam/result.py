@@ -396,7 +396,7 @@ class AAMResult(MultiScaleParametricIterativeResult):
         costs = self.costs
         if costs is not None:
             return plot_curve(
-                    x_axis=range(len(costs)), y_axis=[costs],
+                    x_axis=list(range(len(costs))), y_axis=[costs],
                     figure_id=figure_id, new_figure=new_figure,
                     title='Cost per Iteration', x_label='Iteration',
                     y_label='Cost Function', axes_x_limits=axes_x_limits,
