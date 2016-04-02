@@ -460,30 +460,6 @@ def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
                                  n_scales))
 
 
-def check_precision(precision):
-    r"""
-    Checks the provided numerical precision. It must be 'single' or 'double'.
-
-    Parameters
-    ----------
-    precision : {``'single', 'double'``}
-        The precision value to check.
-
-    Returns
-    -------
-    precision : {``'single', 'double'``}
-        The precision value if no errors were raised.
-
-    Raises
-    ------
-    ValueError
-        precision can be either ''single or ''double''
-    """
-    if precision != 'single' and precision != 'double':
-        raise ValueError('precision can be either ''single or ''double''')
-    return precision
-
-
 def check_graph(graph, graph_types, param_name, n_scales):
     r"""
     Checks the provided graph per pyramidal level. The graph must be a

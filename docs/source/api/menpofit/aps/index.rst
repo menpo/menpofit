@@ -5,10 +5,11 @@
 
 Active Pictorial Structures
 ---------------------------
-APS is a generative model that consists of a statistical parametric model of
-the shape and the appearance of an object. MenpoFit has several AAMs which
-differ in the manner that they compute the warp (thus represent the
-appearance features).
+APS is a model that utilises a Gaussian Markov Random Field (GMRF) for 
+learning an appearance model with pairwise distributions based on a graph.
+It also has a parametric statitical shape model (either using PCA or GMRF),
+as well as a spring-like deformation prior term. The optimisation is performed
+using a weighted Gauss-Newton algorithm with fixed Jacobian and Hessian.
 
 .. toctree::
     :maxdepth: 1
@@ -17,7 +18,6 @@ appearance features).
 
 Fitters
 -------
-An APS can be optimised in a gradient descent manner.
 
 .. toctree::
     :maxdepth: 1

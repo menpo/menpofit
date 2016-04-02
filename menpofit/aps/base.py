@@ -1,82 +1,100 @@
 from __future__ import division
-from copy import deepcopy
 import warnings
 import numpy as np
 from scipy.stats import multivariate_normal
 
+from menpo.base import name_of_callable
 from menpo.feature import no_op
 from menpo.visualize import print_dynamic, print_progress
-from menpo.model import PCAInstanceModel, GMRFInstanceModel
+from menpo.model import GMRFModel
 from menpo.shape import (DirectedGraph, UndirectedGraph, Tree, PointTree,
                          PointDirectedGraph, PointUndirectedGraph)
 
 from menpofit import checks
 from menpofit.base import batch
+from menpofit.modelinstance import OrthoPDM
 from menpofit.builder import (compute_features, scale_images, align_shapes,
                               rescale_images_to_reference_shape,
                               extract_patches, MenpoFitBuilderWarning,
                               compute_reference_shape)
 
+
 class GenerativeAPS(object):
     r"""
-    Class for building a Generative Active Pictorial Structures Model.
+    Class for training a multi-scale Generative Active Pictorial Structures
+    model.  Please see the references for a basic list of relevant papers.
 
     Parameters
     ----------
-    images : `list` or `generator` of :map:`Image` objects.
-        The batch of training images.
+    images : `list` of `menpo.image.Image`
+        The `list` of training images.
     group : `str` or ``None``, optional
-        The :map:`LandmarkGroup` of the images to be used for training.
+        The landmark group that will be used to train the AAM. If ``None`` and
+        the images only have a single landmark group, then that is the one
+        that will be used. Note that all the training images need to have the
+        specified landmark group.
     appearance_graph : `list` of graphs or a single graph or ``None``, optional
-        The graph to be used for the appearance :map:`GMRFInstanceModel`
-        training. It must be an :map:`UndirectedGraph`. If ``None``, then ...
+        The graph to be used for the appearance `menpo.model.GMRFModel` training.
+        It must be a `menpo.shape.UndirectedGraph`. If ``None``, then a
+        `menpo.model.PCAModel` is used instead.
     shape_graph : `list` of graphs or a single graph or ``None``, optional
-        The graph to be used for the shape :map:`GMRFInstanceModel` training.
-        It must be an :map:`UndirectedGraph`. If ``None``, then the shape
-        model is built using :map:`PCAInstanceModel`.
+        The graph to be used for the shape `menpo.model.GMRFModel` training. It
+        must be a `menpo.shape.UndirectedGraph`. If ``None``, then the shape
+        model is built using `menpo.model.PCAModel`.
     deformation_graph : `list` of graphs or a single graph or ``None``, optional
-        The graph to be used for the deformation :map:`GMRFInstanceModel`
-        training. It must be either a :map:`DirectedGraph` or a :map:`Tree`.
-        If ``None``, then the minimum spanning tree of the data is computed.
-    reference_shape : :map:`PointCloud` or ``None``, optional
-        The reference shape that will be used for normalizing the size of the
-        images. If ``None``, then the mean pointcloud will be used.
-    holistic_features : `list` of `callable` or a single `callable`, optional
-        If `list`, then it must have length equal to the number of scales. If a
-        single feature `callable`, then this is the one applied to all scales.
+        The graph to be used for the deformation `menpo.model.GMRFModel`
+        training. It must be either a `menpo.shape.DirectedGraph` or a
+        `menpo.shape.Tree`. If ``None``, then the minimum spanning tree of the
+        data is computed.
+    holistic_features : `closure` or `list` of `closure`, optional
+        The features that will be extracted from the training images. Note
+        that the features are extracted before warping the images to the
+        reference shape. If `list`, then it must define a feature function per
+        scale. Please refer to `menpo.feature` for a list of potential features.
+    reference_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The reference shape that will be used for building the APS. The purpose
+        of the reference shape is to normalise the size of the training images.
+        The normalization is performed by rescaling all the training images
+        so that the scale of their ground truth shapes matches the scale of
+        the reference shape. Note that the reference shape is rescaled with
+        respect to the `diagonal` before performing the normalisation. If
+        ``None``, then the mean shape will be used.
+    diagonal : `int` or ``None``, optional
+        This parameter is used to rescale the reference shape so that the
+        diagonal of its bounding box matches the provided value. In other
+        words, this parameter controls the size of the model at the highest
+        scale. If ``None``, then the reference shape does not get rescaled.
+    scales : `float` or `tuple` of `float`, optional
+        The scale value of each scale. They must provided in ascending order,
+        i.e. from lowest to highest scale. If `float`, then a single scale is
+        assumed.
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
     patch_normalisation : `list` of `callable` or a single `callable`, optional
-        If `list`, then it must have length equal to the number of scales. If a
+        The normalisation function to be applied on the extracted patches. If
+        `list`, then it must have length equal to the number of scales. If a
         single patch normalization `callable`, then this is the one applied to
         all scales.
-    diagonal : `int` or ``None``, optional
-        If not ``None``, then the reference shape is rescaled so that the
-        diagonal of its bounding box matches the provided value. If ``None``,
-        then no rescaling is performed.
-    scales : `tuple` of `float`, optional
-        The scales of the pyramid. The `float` scales are defined with
-        respect to the initial scale of the images and must be provided from
-        low level to high level.
-    patch_shape : `list` of `tuple` or a single `tuple`, optional
-        If `list`, then it must have length equal to the number of scales. If a
-        single patch shape `tuple`, then this is the one applied to all
-        scales. The `tuple` must have two `int` numbers corresponding to the
-        height and width of the patch, i.e. ``(int, int)``.
     use_procrustes : `bool`, optional
         If ``True``, then Generalized Procrustes Alignment is applied before
-        building the shape and deformation models.
-    precision_dtype : {``'single', 'double'``}, optional
-        The numerical precision of the appearance GMRF precision matrix. Even
-        though the precision matrix is stored as a `scipy.sparse` matrix,
-        this parameter has a big impact on the amount of memory required by
-        the model.
-    max_shape_components : `list` of `int` or `int` or ``None``, optional
-        The maximum number of shape components to be kept in the shape
-        :map:`PCAInstanceModel`. If `list`, then it must have length equal to
-        the number of scales. If a single `int`, then this is the one applied
-        to all scales. If ``None``, then all the components are kept.
+        building the deformation model.
+    precision_dtype : `numpy.dtype`, optional
+        The data type of the appearance GMRF's precision matrix. For example, it
+        can be set to `numpy.float32` for single precision or to `numpy.float64`
+        for double precision. Even though the precision matrix is stored as a
+        `scipy.sparse` matrix, this parameter has a big impact on the amount of
+        memory required by the model.
+    max_shape_components : `int`, `float`, `list` of those or ``None``, optional
+        The number of shape components to keep. If `int`, then it sets the exact
+        number of components. If `float`, then it defines the variance
+        percentage that will be kept. If `list`, then it should
+        define a value per scale. If a single number, then this will be
+        applied to all scales. If ``None``, then all the components are kept.
+        Note that the unused components will be permanently trimmed.
     n_appearance_components : `list` of `int` or `int` or ``None``, optional
         The number of appearance components used for building the appearance
-        :map:`GMRFInstanceModel`. If `list`, then it must have length equal to
+        `menpo.shape.GMRFModel`. If `list`, then it must have length equal to
         the number of scales. If a single `int`, then this is the one applied
         to all scales. If ``None``, the covariance matrix of each edge is
         inverted using `np.linalg.inv`. If `int`, it is inverted using
@@ -84,14 +102,15 @@ class GenerativeAPS(object):
     can_be_incremented : `bool`, optional
         In case you intend to incrementally update the model in the future,
         then this flag must be set to ``True`` from the first place. Note
-        that if ``True``, the appearance and deformation
-        :map:`GMRFInstanceModel` models will occupy double memory.
-    batch_size : `int` or ``None``, optional
-        If `int`, then `images` may be a `generator`, else, if ``None``,
-        we assume that `images` is a `list`.
+        that if ``True``, the appearance and deformation `menpo.shape.GMRFModel`
+        models will occupy double memory.
     verbose : `bool`, optional
-        If ``True``, information related to the training progress will be
-        printed.
+        If ``True``, then the progress of building the APS will be printed.
+    batch_size : `int` or ``None``, optional
+        If an `int` is provided, then the training is performed in an
+        incremental fashion on image batches of size equal to the provided
+        value. If ``None``, then the training is performed directly on the
+        all the images.
 
     References
     ----------
@@ -101,29 +120,38 @@ class GenerativeAPS(object):
         June 2015.
     """
     def __init__(self, images, group=None, appearance_graph=None,
-                 shape_graph=None, deformation_graph=None, reference_shape=None,
-                 holistic_features=no_op, patch_normalisation=no_op,
-                 diagonal=None, scales=(0.5, 1.0), patch_shape=(17, 17),
-                 use_procrustes=True, precision_dtype='single',
-                 max_shape_components=None, n_appearance_components=None,
-                 can_be_incremented=False, batch_size=None, verbose=False):
-        # Check arguments
-        self.diagonal = checks.check_diagonal(diagonal)
-        self.scales = checks.check_scales(scales)
-        n_scales = len(self.scales)
-        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-        self.precision_dtype = checks.check_precision(precision_dtype)
-        self.holistic_features = checks.check_features(
-            holistic_features, n_scales, 'holistic_features')
-        self.patch_normalisation = checks.check_features(
-            patch_normalisation, n_scales, 'patch_normalisation')
-        self.max_shape_components = checks.check_max_components(
+                 shape_graph=None, deformation_graph=None,
+                 holistic_features=no_op, reference_shape=None, diagonal=None,
+                 scales=(0.5, 1.0), patch_shape=(17, 17),
+                 patch_normalisation=no_op, use_procrustes=True,
+                 precision_dtype=np.float32, max_shape_components=None,
+                 n_appearance_components=None, can_be_incremented=False,
+                 verbose=False, batch_size=None):
+        # Check parameters
+        checks.check_diagonal(diagonal)
+        scales = checks.check_scales(scales)
+        n_scales = len(scales)
+        holistic_features = checks.check_callable(holistic_features, n_scales)
+        patch_shape = checks.check_patch_shape(patch_shape, n_scales)
+        patch_normalisation = checks.check_callable(patch_normalisation,
+                                                    n_scales)
+        max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, 'max_shape_components')
-        self.n_appearance_components = checks.check_max_components(
+        n_appearance_components = checks.check_max_components(
             n_appearance_components, n_scales, 'n_appearance_components')
-        self.is_incremental = can_be_incremented
+
+        # Assign attributes
+        self.diagonal = diagonal
+        self.scales = scales
+        self.holistic_features = holistic_features
+        self.patch_shape = patch_shape
+        self.patch_normalisation = patch_normalisation
         self.reference_shape = reference_shape
         self.use_procrustes = use_procrustes
+        self.is_incremental = can_be_incremented
+        self.precision_dtype = precision_dtype
+        self.max_shape_components = max_shape_components
+        self.n_appearance_components = n_appearance_components
 
         # Check provided graphs
         self.appearance_graph = checks.check_graph(
@@ -140,8 +168,8 @@ class GenerativeAPS(object):
         self.deformation_models = []
 
         # Train APS
-        self._train(images, increment=False, group=group,
-                    batch_size=batch_size, verbose=verbose)
+        self._train(images, increment=False, group=group, batch_size=batch_size,
+                    verbose=verbose)
 
     def _train(self, images, increment=False, group=None, batch_size=None,
                verbose=False):
@@ -236,22 +264,17 @@ class GenerativeAPS(object):
             # Extract potentially rescaled shapes
             scale_shapes = [i.landmarks[group].lms for i in scaled_images]
 
-            # Apply procrustes to align the shapes if asked
-            if self.use_procrustes:
-                aligned_shapes = align_shapes(scale_shapes)
-            else:
-                aligned_shapes = scale_shapes
+            # Apply procrustes to align the shapes
+            aligned_shapes = align_shapes(scale_shapes)
 
-            # Build the shape model
+            # Build the shape model using the aligned shapes
             if verbose:
                 print_dynamic('{}Building shape model'.format(scale_prefix))
+
             if not increment:
-                if j == 0:
-                    shape_model = self._build_shape_model(
-                        aligned_shapes, self.shape_graph[j], verbose=verbose)
-                    self.shape_models.append(shape_model)
-                else:
-                    self.shape_models.append(deepcopy(shape_model))
+                self.shape_models.append(self._build_shape_model(
+                    aligned_shapes, self.shape_graph[j],
+                    self.max_shape_components[j], verbose=verbose))
             else:
                 self.shape_models[j].increment(aligned_shapes, verbose=verbose)
 
@@ -259,16 +282,18 @@ class GenerativeAPS(object):
             if verbose:
                 print_dynamic('{}Building deformation model'.format(
                     scale_prefix))
-            if not increment:
-                if j == 0:
-                    deformation_model = self._build_deformation_model(
-                        aligned_shapes, self.deformation_graph[j],
-                        verbose=verbose)
-                    self.deformation_models.append(deformation_model)
-                else:
-                    self.deformation_models.append(deepcopy(deformation_model))
+
+            if self.use_procrustes:
+                deformation_shapes = aligned_shapes
             else:
-                self.deformation_models[j].increment(aligned_shapes,
+                deformation_shapes = scale_shapes
+
+            if not increment:
+                self.deformation_models.append(self._build_deformation_model(
+                    deformation_shapes, self.deformation_graph[j],
+                    verbose=verbose))
+            else:
+                self.deformation_models[j].increment(deformation_shapes,
                                                      verbose=verbose)
 
             # Obtain warped images
@@ -279,6 +304,7 @@ class GenerativeAPS(object):
             if verbose:
                 print_dynamic('{}Building appearance model'.format(
                     scale_prefix))
+
             if not increment:
                 self.appearance_models.append(self._build_appearance_model(
                     warped_images, self.appearance_graph[j],
@@ -291,62 +317,56 @@ class GenerativeAPS(object):
             if verbose:
                 print_dynamic('{}Done\n'.format(scale_prefix))
 
-        # Because we just copy the shape model, we need to wait to trim
-        # it after building each model. This ensures we can have a different
-        # number of components per level
-        for j, sm in enumerate(self.shape_models):
-            max_sc = self.max_shape_components[j]
-            if max_sc is not None:
-                sm.trim_components(max_sc)
-
     def increment(self, images, group=None, batch_size=None, verbose=False):
         r"""
-        Method that incrementally updates the model with a new batch of
+        Method that incrementally updates the APS model with a new batch of
         training images.
 
         Parameters
         ----------
-        images : `list` or `generator` of :map:`Image` objects.
-            The batch of training images.
+        images : `list` of `menpo.image.Image`
+            The `list` of training images.
         group : `str` or ``None``, optional
-            The :map:`LandmarkGroup` of the images to be used for training.
+            The landmark group that will be used to train the APS. If ``None``
+            and the images only have a single landmark group, then that is the
+            one that will be used. Note that all the training images need to
+            have the specified landmark group.
         batch_size : `int` or ``None``, optional
-            If `int`, then `images` may be a `generator`, else, if ``None``,
-            we assume that `images` is a `list`.
+            If an `int` is provided, then the training is performed in an
+            incremental fashion on image batches of size equal to the provided
+            value. If ``None``, then the training is performed directly on the
+            all the images.
         verbose : `bool`, optional
-            If ``True``, information related to the training progress will be
-            printed.
+            If ``True``, then the progress of building the APS will be printed.
         """
         return self._train(images, increment=True, group=group,
                            verbose=verbose, batch_size=batch_size)
 
-    def _build_shape_model(self, shapes, shape_graph, verbose=False):
+    def _build_shape_model(self, shapes, shape_graph, max_shape_components,
+                           verbose=False):
         # if the provided graph is None, then apply PCA, else use the GMRF
         if shape_graph is not None:
-            return GMRFInstanceModel(
+            pca_model = GMRFModel(
                 shapes, shape_graph, mode='concatenation', n_components=None,
-                single_precision=False, sparse=False,
-                incremental=self.is_incremental,
-                verbose=verbose).principal_components_analysis(
-                apply_on_precision=False)
+                dtype=np.float64, sparse=False, incremental=self.is_incremental,
+                verbose=verbose).principal_components_analysis()
+            return OrthoPDM(pca_model, max_n_components=max_shape_components)
         else:
-            return PCAInstanceModel(shapes)
+            return OrthoPDM(shapes, max_n_components=max_shape_components)
 
     def _build_deformation_model(self, shapes, deformation_graph,
                                  verbose=False):
-        return GMRFInstanceModel(
-            shapes, deformation_graph, mode='subtraction', n_components=None,
-            single_precision=False, sparse=False,
-            incremental=self.is_incremental, verbose=verbose)
+        return GMRFModel(shapes, deformation_graph, mode='subtraction',
+                         n_components=None, dtype=np.float64, sparse=False,
+                         incremental=self.is_incremental, verbose=verbose)
 
     def _build_appearance_model(self, images, appearance_graph,
                                 n_appearance_components, verbose=False):
         if appearance_graph is not None:
-            return GMRFInstanceModel(
-                images, appearance_graph, mode='concatenation',
-                n_components=n_appearance_components,
-                single_precision=self.precision_dtype, sparse=True,
-                incremental=self.is_incremental, verbose=verbose)
+            return GMRFModel(images, appearance_graph, mode='concatenation',
+                             n_components=n_appearance_components,
+                             dtype=self.precision_dtype, sparse=True,
+                             incremental=self.is_incremental, verbose=verbose)
         else:
             raise NotImplementedError('The full appearance model is not '
                                       'implemented yet.')
@@ -368,7 +388,7 @@ class GenerativeAPS(object):
     @property
     def n_scales(self):
         """
-        The number of scales of the Generative APS.
+        Returns the number of scales.
 
         :type: `int`
         """
@@ -389,25 +409,21 @@ class GenerativeAPS(object):
 
         Parameters
         ----------
-        shape_weights : `list` or ``None``, optional
-            The weights to be applied on the shape model. If ``None``,
-            then the weights are all equal to zero.
+        shape_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the shape model that will be used to create a novel
+            shape instance. If ``None``, the weights are assumed to be zero,
+            thus the mean shape is used.
         scale_index : `int`, optional
-            Defines the scale level, the shape model of which will be used.
+            The scale to be used.
         as_graph : `bool`, optional
             If ``True``, then the instance will be returned as a
-            :map:`PointTree` or a :map:`PointDirectedGraph`, depending on the
-            type of the deformation graph.
+            `menpo.shape.PointTree` or a `menpo.shape.PointDirectedGraph`,
+            depending on the type of the deformation graph.
         """
-        sm = self.shape_models[scale_index]
-
-        # TODO: this bit of logic should to be transferred down to PCAModel
         if shape_weights is None:
             shape_weights = [0]
-        n_shape_weights = len(shape_weights)
-        shape_weights *= sm.eigenvalues[:n_shape_weights] ** 0.5
-        shape_instance = sm.instance(shape_weights)
-
+        sm = self.shape_models[scale_index].model
+        shape_instance = sm.instance(shape_weights, normalized_weights=True)
         if as_graph:
             if isinstance(self.deformation_graph[scale_index], Tree):
                 shape_instance = PointTree(
@@ -422,62 +438,54 @@ class GenerativeAPS(object):
 
     def random_instance(self, scale_index=-1, as_graph=False):
         r"""
-        Generates an instance of the shape model with random weights.
+        Generates a random instance of the APS.
 
         Parameters
         ----------
         scale_index : `int`, optional
-            Defines the scale level, the shape model of which will be used.
+            The scale to be used.
         as_graph : `bool`, optional
             If ``True``, then the instance will be returned as a
-            :map:`PointTree` or a :map:`PointDirectedGraph`, depending on the
-            type of the deformation graph.
+            `menpo.shape.PointTree` or a `menpo.shape.PointDirectedGraph`,
+            depending on the type of the deformation graph.
         """
-        sm = self.shape_models[scale_index]
-
-        # TODO: this bit of logic should to be transferred down to PCAModel
-        shape_weights = (np.random.randn(sm.n_active_components) *
-                         sm.eigenvalues[:sm.n_active_components]**0.5)
-        shape_instance = sm.instance(shape_weights)
-
-        if as_graph:
-            if isinstance(self.deformation_graph[scale_index], Tree):
-                shape_instance = PointTree(
-                    shape_instance.points,
-                    self.deformation_graph[scale_index].adjacency_matrix,
-                    self.deformation_graph[scale_index].root_vertex)
-            else:
-                shape_instance = PointDirectedGraph(
-                    shape_instance.points,
-                    self.deformation_graph[scale_index].adjacency_matrix)
-        return shape_instance
+        shape_weights = np.random.randn(
+            self.shape_models[scale_index].n_active_components)
+        return self.instance(shape_weights, scale_index=scale_index,
+                             as_graph=as_graph)
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
                                  mode='multiple', figure_size=(10, 8)):
         r"""
-        Visualize the shape model using an interactive widget.
+        Visualizes the shape models of the APS object using an interactive
+        widget.
 
         Parameters
         ----------
-        n_parameters : `int`, optional
-            The number of parameters that will be visible to change on the
-            widget.
-        parameters_bounds : ``(`float`, `float`)``, optional
-            The minimum and maximum values of the parameters' sliders.
-        mode : {``'single', 'multiple'``}, optional
-            If 'multiple', then each parameter will have its own slider. If
-            'single', then there will be a single slider and a drop down menu to
-            select the parameters.
-        figure_size : (`float`, `float`) `tuple` or ``None`` optional
-            The size of the figure in inches.
+        n_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
         """
         try:
             from menpowidgets import visualize_shape_model
-            visualize_shape_model(self.shape_models, n_parameters=n_parameters,
-                                  parameters_bounds=parameters_bounds,
-                                  figure_size=figure_size, mode=mode)
-        except:
+            visualize_shape_model(
+                [sm.model for sm in self.shape_models],
+                n_parameters=n_parameters, parameters_bounds=parameters_bounds,
+                figure_size=figure_size, mode=mode)
+        except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
@@ -488,9 +496,9 @@ class GenerativeAPS(object):
         Parameters
         ----------
         scale_index : `int`, optional
-            Defines the scale level, the shape model of which will be used.
-        figure_size : (`float`, `float`) `tuple` or ``None`` optional
-            The size of the figure in inches.
+            The scale to be used.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
 
         Raises
         ------
@@ -500,7 +508,7 @@ class GenerativeAPS(object):
         """
         if self.shape_graph[scale_index] is not None:
             PointUndirectedGraph(
-                self.shape_models[scale_index].mean().points,
+                self.shape_models[scale_index].model.mean().points,
                 self.shape_graph[scale_index].adjacency_matrix).view_widget(
                 figure_size=figure_size)
         else:
@@ -515,22 +523,19 @@ class GenerativeAPS(object):
         Parameters
         ----------
         scale_index : `int`, optional
-            Defines the scale level, the deformation model of which will be
-            used.
-        figure_size : (`float`, `float`) `tuple` or ``None`` optional
-            The size of the figure in inches.
+            The scale to be used.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
         """
         if isinstance(self.deformation_graph[scale_index], Tree):
-            PointTree(
-                self.shape_models[scale_index].mean().points,
-                self.deformation_graph[scale_index].adjacency_matrix,
-                self.deformation_graph[scale_index].root_vertex).view_widget(
-                figure_size=figure_size)
+            dg = PointTree(self.shape_models[scale_index].model.mean().points,
+                           self.deformation_graph[scale_index].adjacency_matrix,
+                           self.deformation_graph[scale_index].root_vertex)
         else:
-            PointDirectedGraph(
-                self.shape_models[scale_index].mean().points,
-                self.deformation_graph[scale_index].adjacency_matrix).\
-                view_widget(figure_size=figure_size)
+            dg = PointDirectedGraph(
+                self.shape_models[scale_index].model.mean().points,
+                self.deformation_graph[scale_index].adjacency_matrix)
+        dg.view_widget(figure_size=figure_size)
 
     def view_appearance_graph_widget(self, scale_index=-1, figure_size=(10, 8)):
         r"""
@@ -539,9 +544,9 @@ class GenerativeAPS(object):
         Parameters
         ----------
         scale_index : `int`, optional
-            Defines the scale level, the appearance model of which will be used.
-        figure_size : (`float`, `float`) `tuple` or ``None`` optional
-            The size of the figure in inches.
+            The scale to be used.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
 
         Raises
         ------
@@ -551,7 +556,7 @@ class GenerativeAPS(object):
         """
         if self.appearance_graph[scale_index] is not None:
             PointUndirectedGraph(
-                self.shape_models[scale_index].mean().points,
+                self.shape_models[scale_index].model.mean().points,
                 self.appearance_graph[scale_index].adjacency_matrix).\
                 view_widget(figure_size=figure_size)
         else:
@@ -566,7 +571,7 @@ class GenerativeAPS(object):
                                graph_line_width=1., ellipse_line_colour='r',
                                ellipse_line_style='-', ellipse_line_width=1.,
                                render_markers=True, marker_style='o',
-                               marker_size=20, marker_face_colour='k',
+                               marker_size=5, marker_face_colour='k',
                                marker_edge_colour='k', marker_edge_width=1.,
                                render_axes=False,
                                axes_font_name='sans-serif', axes_font_size=10,
@@ -580,8 +585,7 @@ class GenerativeAPS(object):
         Parameters
         ----------
         scale_index : `int`, optional
-            Defines the scale level, the deformation model of which will be
-            used.
+            The scale to be used.
         n_std : `float`, optional
             This defines the size of the ellipses in terms of number of standard
             deviations.
@@ -634,7 +638,7 @@ class GenerativeAPS(object):
                 {., ,, o, v, ^, <, >, +, x, D, d, s, p, *, h, H, 1, 2, 3, 4, 8}
 
         marker_size : `int`, optional
-            The size of the centers of the ellipses in points^2.
+            The size of the centers of the ellipses in points.
         marker_face_colour : See Below, optional
             The face (filling) colour of the centers of the ellipses.
             Example options ::
@@ -669,7 +673,7 @@ class GenerativeAPS(object):
             Example options ::
 
                 {ultralight, light, normal, regular, book, medium, roman,
-                semibold,demibold, demi, bold, heavy, extra bold, black}
+                 semibold,demibold, demi, bold, heavy, extra bold, black}
 
         crop_proportion : `float`, optional
             The proportion to be left around the centers' pointcloud.
@@ -678,7 +682,7 @@ class GenerativeAPS(object):
         """
         from menpo.visualize import plot_gaussian_ellipses
 
-        mean_shape = self.shape_models[scale_index].mean().points
+        mean_shape = self.shape_models[scale_index].model.mean().points
         deformation_graph = self.deformation_graph[scale_index]
 
         # get covariance matrices
@@ -754,7 +758,7 @@ class GenerativeAPS(object):
         return renderer
 
     def __str__(self):
-        return self._str_title
+        return _aps_str(self)
 
 
 def _compute_minimum_spanning_tree(shapes, root_vertex=0, prefix='',
@@ -798,3 +802,59 @@ def _compute_minimum_spanning_tree(shapes, root_vertex=0, prefix='',
 
     # compute minimum spanning graph
     return complete_graph.minimum_spanning_tree(root_vertex)
+
+
+def _aps_str(aps):
+    if aps.diagonal is not None:
+        diagonal = aps.diagonal
+    else:
+        y, x = aps.reference_shape.range()
+        diagonal = np.sqrt(x ** 2 + y ** 2)
+
+    # Compute scale info strings
+    scales_info = []
+    lvl_str_tmplt = r"""   - Scale {}
+     - Holistic feature: {}
+     - Patch shape: {}
+     - Appearance model class: {}
+       - {}
+       - {} features per point ({} in total)
+       - {}
+     - Shape model class: {}
+       - {}
+       - {} shape components
+       - {} similarity transform parameters
+     - Deformation model class: {}
+       - {}"""
+    for k, s in enumerate(aps.scales):
+        comp_str = "No SVD used"
+        if aps.appearance_models[k].n_components is not None:
+            comp_str = "{} SVD components".format(aps.appearance_models[k].n_components)
+        shape_model_str = "Trained using PCA"
+        if aps.shape_graph[k] is not None:
+            shape_model_str = "Trained using GMRF: {}".format(aps.shape_graph[k].__str__())
+        scales_info.append(lvl_str_tmplt.format(
+            s, name_of_callable(aps.holistic_features[k]),
+            aps.patch_shape[k],
+            name_of_callable(aps.appearance_models[k]),
+            aps.appearance_models[k].graph.__str__(),
+            aps.appearance_models[k].n_features_per_vertex,
+            aps.appearance_models[k].n_features,
+            comp_str,
+            name_of_callable(aps.shape_models[k]),
+            shape_model_str,
+            aps.shape_models[k].model.n_components,
+            aps.shape_models[k].n_global_parameters,
+            name_of_callable(aps.deformation_models[k]),
+            aps.deformation_models[k].graph.__str__()))
+    scales_info = '\n'.join(scales_info)
+
+    cls_str = r"""{class_title}
+ - Images scaled to diagonal: {diagonal:.2f}
+ - Scales: {scales}
+{scales_info}
+""".format(class_title=aps._str_title,
+           diagonal=diagonal,
+           scales=aps.scales,
+           scales_info=scales_info)
+    return cls_str

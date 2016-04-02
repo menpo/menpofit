@@ -187,10 +187,9 @@ class AAM(object):
                      appearance_forgetting_factor=1.0):
         # Rescale to existing reference shape
         image_batch = rescale_images_to_reference_shape(
-            image_batch, group, self.reference_shape,
-            verbose=verbose)
+            image_batch, group, self.reference_shape, verbose=verbose)
 
-        # build models at each scale
+        # Build models at each scale
         if verbose:
             print_dynamic('- Building models\n')
 
@@ -1089,8 +1088,11 @@ class PatchAAM(AAM):
     patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
         The shape of the patches to be extracted. If a `list` is provided,
         then it defines a patch shape per scale.
-    patch_normalisation : `callable`, optional
-        The normalisation function to be applied on the extracted patches.
+    patch_normalisation : `list` of `callable` or a single `callable`, optional
+        The normalisation function to be applied on the extracted patches. If
+        `list`, then it must have length equal to the number of scales. If a
+        single patch normalization `callable`, then this is the one applied to
+        all scales.
     shape_model_cls : `subclass` of :map:`PDM`, optional
         The class to be used for building the shape model. The most common
         choice is :map:`OrthoPDM`.
@@ -1124,7 +1126,8 @@ class PatchAAM(AAM):
                  batch_size=None):
         n_scales = len(checks.check_scales(scales))
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
-        self.patch_normalisation = patch_normalisation
+        self.patch_normalisation = checks.check_callable(patch_normalisation,
+                                                         n_scales)
 
         super(PatchAAM, self).__init__(
             images, group=group, verbose=verbose,
@@ -1145,9 +1148,10 @@ class PatchAAM(AAM):
 
     def _warp_images(self, images, shapes, reference_shape, scale_index,
                      prefix, verbose):
-        return extract_patches(images, shapes, self.patch_shape[scale_index],
-                               normalise_function=self.patch_normalisation,
-                               prefix=prefix, verbose=verbose)
+        return extract_patches(
+            images, shapes, self.patch_shape[scale_index],
+            normalise_function=self.patch_normalisation[scale_index],
+            prefix=prefix, verbose=verbose)
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         return shape_instance, appearance_instance
@@ -1256,7 +1260,7 @@ class PatchAAM(AAM):
             interface = LucasKanadePatchInterface(
                 am, sm, template, sampling=s,
                 patch_shape=self.patch_shape[j],
-                patch_normalisation=self.patch_normalisation)
+                patch_normalisation=self.patch_normalisation[j])
             interfaces.append(interface)
         return interfaces
 
@@ -1310,10 +1314,10 @@ def _aam_str(aam):
     lvl_str_tmplt = r"""   - Scale {}
      - Holistic feature: {}
      - Appearance model class: {}
-     - {} appearance components
+       - {} appearance components
      - Shape model class: {}
-     - {} shape components
-     - {} similarity transform parameters"""
+       - {} shape components
+       - {} similarity transform parameters"""
     for k, s in enumerate(aam.scales):
         scales_info.append(lvl_str_tmplt.format(
             s, name_of_callable(aam.holistic_features[k]),
