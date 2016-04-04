@@ -1,34 +1,87 @@
-from __future__ import division
-
-from menpofit.fitter import ModelFitter
+from menpofit.fitter import MultiScaleParametricFitter
 from menpofit.modelinstance import OrthoPDM, PDM
 import menpofit.checks as checks
 
-from .result import APSFitterResult
+from .result import APSResult
 from .algorithm.gn import GaussNewtonBaseInterface, Inverse
 
-class APSFitter(ModelFitter):
+
+class APSFitter(MultiScaleParametricFitter):
     r"""
-    Abstract class of an APS Fitter.
+    Abstract class for defining an APS fitter.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step takes place at each scale
+              and it is not considered as an iteration, thus it is not counted
+              for the provided `max_iters`.
+
+    Parameters
+    ----------
+    aps : :map:`GenerativeAPS` or `subclass`
+        The trained APS model.
+    algorithms : `list` of `class`
+        The list of algorithm objects that will perform the fitting per scale.
     """
+    def __init__(self, aps, algorithms):
+        self._model = aps
+        # Call superclass
+        super(APSFitter, self).__init__(
+            scales=aps.scales, reference_shape=aps.reference_shape,
+            holistic_features=aps.holistic_features, algorithms=algorithms)
+
     @property
     def aps(self):
         r"""
-        The APS model.
+        The trained APS model.
 
         :type: :map:`GenerativeAPS` or subclass
         """
         return self._model
 
-    def _fitter_result(self, image, algorithm_results, affine_correction,
-                       gt_shape=None):
-        return APSFitterResult(image, self, algorithm_results,
-                               affine_correction, gt_shape=gt_shape)
+    def _fitter_result(self, image, algorithm_results, affine_transforms,
+                       scale_transforms, gt_shape=None):
+        r"""
+        Function the creates the multi-scale fitting result object.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image that was fitted.
+        algorithm_results : `list` of :map:`APSAlgorithmResult` or subclass
+            The list of fitting result per scale.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
+
+        Returns
+        -------
+        fitting_result : :map:`APSResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
+        """
+        return APSResult(results=algorithm_results, scales=self.scales,
+                         affine_transforms=affine_transforms,
+                         scale_transforms=scale_transforms, image=image,
+                         gt_shape=gt_shape)
 
 
 class GaussNewtonAPSFitter(APSFitter):
     r"""
     A class for fitting an APS model with Gauss-Newton optimization.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step takes place at each scale
+              and it is not considered as an iteration, thus it is not counted
+              for the provided `max_iters`.
 
     Parameters
     ----------
@@ -36,17 +89,24 @@ class GaussNewtonAPSFitter(APSFitter):
         The trained model.
     gn_algorithm_cls : subclass of :map:`GaussNewton`
         The Gauss-Newton algorithm class to be used.
-    n_shape : `int`/`float` or `list` of `int`/`float` or ``None``, optional
-        The number of active shape components. If `list`, then a value must
-        be specified per level. If `int`/`float`, then this value is applied
-        to all levels. If `int`, then the exact number of components is
-        defined. If `float`, then the components are defined as a percentage
-        of the variance. If ``None``, then all the components are employed.
+    n_shape : `int` or `float` or `list` of those or ``None``, optional
+        The number of shape components that will be used. If `int`, then it
+        defines the exact number of active components. If `float`, then it
+        defines the percentage of variance to keep. If `int` or `float`, then
+        the provided value will be applied for all scales. If `list`, then it
+        defines a value per scale. If ``None``, then all the available
+        components will be used. Note that this simply sets the active
+        components without trimming the unused ones. Also, the available
+        components may have already been trimmed to `max_shape_components`
+        during training.
     use_deformation_cost : `bool`, optional
         If ``True``, then the deformation cost is also included in the
         Hessian calculation.
-    sampling : `ndarray` or ``None``
-        Defines a sampling map to be applied on the patches.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it
+        explicitly defines the sampling mask. If ``None``, then no
+        sub-sampling is applied.
     """
     def __init__(self, aps, gn_algorithm_cls=Inverse, n_shape=None,
                  use_deformation_cost=True, sampling=None):
