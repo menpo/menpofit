@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 
 from menpo.feature import gradient as fast_gradient
@@ -6,24 +7,28 @@ from menpofit.modelinstance import OrthoPDM
 
 from ..result import APSAlgorithmResult
 
+
+# ----------- INTERFACE -----------
 class GaussNewtonBaseInterface(object):
     r"""
     Base interface for Gauss-Newton optimization of APS.
 
     Parameters
     ----------
-    appearance_model : :map:`GMRFInstanceModel`
+    appearance_model : `menpo.model.GMRFModel`
         The trained appearance GMRF model.
-    deformation_model : :map:`GMRFInstanceModel`
+    deformation_model : `menpo.model.GMRFModel`
         The trained deformation GMRF model.
-    transform : :map:`OrhtoPDM` or `PDM`
-        The motion model.
+    transform : :map:`OrthoPDM`
+        The motion (shape) model.
     use_deformation_cost : `bool`
         Whether to use the deformation model during the optimization.
-    template : :map:`Image`
+    template : `menpo.image.Image`
         The template (in this case it is the mean appearance).
-    sampling : `ndarray`
-        The sampling mask.
+    sampling : `list` of `int` or `ndarray` or ``None``
+        It defines a sampling mask per scale. If `int`, then it defines the
+        sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
+        defines the sampling mask. If ``None``, then no sub-sampling is applied.
     patch_shape : (`int`, `int`)
         The patch shape.
     patch_normalisation : `callable`
@@ -217,38 +222,51 @@ class GaussNewtonBaseInterface(object):
         # Q_a: (parts x offsets x ch x w x h) x (parts x offsets x ch x w x h)
         return Q_a.dot(J_a).T
 
-    def algorithm_result(self, image, shape_parameters, cost_functions=None,
-                         gt_shape=None):
+    def algorithm_result(self, image, shapes, shape_parameters,
+                         initial_shape=None, cost_functions=None, gt_shape=None):
         r"""
-        Returns an instance of the algorithm fitting result.
+        Returns an APS iterative optimization result object.
 
         Parameters
         ----------
-        image : :map:`Image: or subclass
-            The test image.
+        image : `menpo.image.Image` or subclass
+            The image on which the optimization is applied.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The `list` of shapes per iteration.
         shape_parameters : `list` of `ndarray`
-            A `list` with the shape parameters per iteration. These are used to
-            generate the fitted shapes.
-        cost_functions : `list` of `callable` or ``None``, optional
-            The `list` of `callable` that compute the cost per iteration.
-        gt_shape : :map:`PointCloud` or ``None``, optional
-            The ground truth shape of the image.
+            The `list` of shape parameters per iteration.
+        initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The initial shape from which the fitting process started. If
+            ``None``, then no initial shape is assigned.
+        cost_functions : `list` of `closures` or ``None``, optional
+            The `list` of functions that compute the cost per iteration. If
+            ``None``, then it is assumed that the cost computation for that
+            particular algorithm is not well defined.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape that corresponds to the test image.
+
+        Returns
+        -------
+        result : :map:`APSAlgorithmResult`
+            The optimization result object.
         """
         return APSAlgorithmResult(
-            image, self, shape_parameters, cost_functions=cost_functions,
-            gt_shape=gt_shape)
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            image=image, gt_shape=gt_shape)
 
 
+# ----------- ALGORITHMS -----------
 class GaussNewton(object):
     r"""
-    Base algorithm for Gauss-Newton optimization of APS.
+    Abstract class for a Gauss-Newton optimization of APS.
 
     Parameters
     ----------
     aps_interface : `GaussNewtonBaseInterface` or subclass
         The Gauss-Newton interface object.
     eps : `float`, optional
-        The error threshold to stop the optimization.
+        Value for checking the convergence of the optimization.
     """
     def __init__(self, aps_interface, eps=10**-5):
         self.eps = eps
@@ -260,7 +278,7 @@ class GaussNewton(object):
         r"""
         Returns the appearance GMRF model.
 
-        :type: :map:`GMRFInstanceModel`
+        :type: `menpo.model.GMRFModel`
         """
         return self.interface.appearance_model
 
@@ -269,7 +287,7 @@ class GaussNewton(object):
         r"""
         Returns the deformation GMRF model.
 
-        :type: :map:`GMRFInstanceModel`
+        :type: `menpo.model.GMRFModel`
         """
         return self.interface.deformation_model
 
@@ -287,7 +305,7 @@ class GaussNewton(object):
         r"""
         Returns the template (usually the mean appearance).
 
-        :type: :map:`Image`
+        :type: `menpo.image.Image`
         """
         return self.interface.template
 
@@ -311,7 +329,7 @@ class GaussNewton(object):
 
 class Inverse(GaussNewton):
     r"""
-    Inverse Gauss-Newton optimization of APS.
+    Inverse Gauss-Newton algorithm for APS.
     """
     def _precompute(self):
         # call super method
@@ -337,25 +355,31 @@ class Inverse(GaussNewton):
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20):
         r"""
-        Run the optimization.
+        Execute the optimization algorithm.
 
         Parameters
         ----------
-        image : :map:`Image`
-            The test image.
-        initial_shape : :map:`PointCloud`
-            The shape to start from.
-        gt_shape : :map:`PointCloud` or ``None``
-            The ground truth shape of the image. If ``None``, then the
-            fitting errors are not computed.
-        max_iters : `int` or `list` of `int`
-            The maximum number of iterations. If `list`, then a value is
-            specified per level. If `int`, then this value will be used for
-            all levels.
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+
+        Returns
+        -------
+        fitting_result : :map:`APSAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # initialize iteration counter and epsilon
         k = 0
@@ -389,6 +413,7 @@ class Inverse(GaussNewton):
             s_k = self.transform.target.points
             self.transform.from_vector_inplace(self.transform.as_vector() - dp)
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # warp image
             self.i = self.interface.warp(image)
@@ -407,14 +432,20 @@ class Inverse(GaussNewton):
             # increase iteration counter
             k += 1
 
-        # return fitting result
+        # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            gt_shape=gt_shape)
 
 
 class Forward(GaussNewton):
     r"""
-    Forward Gauss-Newton optimization of APS.
+    Forward Gauss-Newton algorithm for APS.
+
+    .. note:: The Forward optimization is too slow. It is not recommended to be
+              used for fitting an APS and is only included for comparison
+              purposes. Use `Inverse` instead.
     """
     def _precompute(self):
         # call super method
@@ -431,25 +462,31 @@ class Forward(GaussNewton):
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20):
         r"""
-        Run the optimization.
+        Execute the optimization algorithm.
 
         Parameters
         ----------
-        image : :map:`Image`
-            The test image.
-        initial_shape : :map:`PointCloud`
-            The shape to start from.
-        gt_shape : :map:`PointCloud` or ``None``
-            The ground truth shape of the image. If ``None``, then the
-            fitting errors are not computed.
-        max_iters : `int` or `list` of `int`
-            The maximum number of iterations. If `list`, then a value is
-            specified per level. If `int`, then this value will be used for
-            all levels.
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+
+        Returns
+        -------
+        fitting_result : :map:`APSAlgorithmResult`
+            The parametric iterative fitting result.
         """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
         # initialize iteration counter and epsilon
         k = 0
@@ -498,6 +535,7 @@ class Forward(GaussNewton):
             s_k = self.transform.target.points
             self.transform.from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # warp image
             i = self.interface.warp(image)
@@ -516,6 +554,8 @@ class Forward(GaussNewton):
             # increase iteration counter
             k += 1
 
-        # return fitting result
+        # return algorithm result
         return self.interface.algorithm_result(
-            image, p_list, cost_functions=cost_functions, gt_shape=gt_shape)
+            image=image, shapes=shapes, shape_parameters=p_list,
+            initial_shape=initial_shape, cost_functions=cost_functions,
+            gt_shape=gt_shape)

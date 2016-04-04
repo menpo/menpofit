@@ -46,7 +46,7 @@ class APSAlgorithmResult(ParametricIterativeResult):
         Returns a `list` with the warped image per iteration. Note that the
         images are patch-based.
 
-        :type: `list` of :map:`Image`
+        :type: `list` of `menpo.image.Image`
         """
         if self._warped_images is None:
             self._warped_images = []
@@ -257,7 +257,7 @@ class APSResult(MultiScaleParametricIterativeResult):
         Returns a `list` with the warped image per iteration. Note that the
         images are patch-based.
 
-        :type: `list` of :map:`Image`
+        :type: `list` of `menpo.image.Image`
         """
         if self._warped_images is None:
             algorithm = self.algorithm_results[-1].algorithm
