@@ -320,8 +320,7 @@ class DlibERT(MultiScaleNonParametricFitter):
                         images[jj].landmarks[c_key] = \
                             scale_transforms[jj].apply(bbox)
 
-    def fit_from_shape(self, image, initial_shape, gt_shape=None,
-                       crop_image=None):
+    def fit_from_shape(self, image, initial_shape, gt_shape=None):
         r"""
         Fits the model to an image. Note that it is not possible to
         initialise the fitting process from a shape. Thus, this method raises a
@@ -338,13 +337,6 @@ class DlibERT(MultiScaleNonParametricFitter):
             bounding box.
         gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
-        crop_image : ``None`` or `float`, optional
-            If `float`, it specifies the proportion of the border wrt the
-            initial shape to which the image will be internally cropped around
-            the initial shape range. If ``None``, no cropping is performed.
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image.
 
         Returns
         -------
@@ -355,10 +347,9 @@ class DlibERT(MultiScaleNonParametricFitter):
                       'Dlib - therefore we are falling back to the tightest '
                       'bounding box from the given initial_shape')
         tightest_bb = initial_shape.bounding_box()
-        return self.fit_from_bb(image, tightest_bb, gt_shape=gt_shape,
-                                crop_image=crop_image)
+        return self.fit_from_bb(image, tightest_bb, gt_shape=gt_shape)
 
-    def fit_from_bb(self, image, bounding_box, gt_shape=None, crop_image=None):
+    def fit_from_bb(self, image, bounding_box, gt_shape=None):
         r"""
         Fits the model to an image given an initial bounding box.
 
@@ -371,13 +362,6 @@ class DlibERT(MultiScaleNonParametricFitter):
             will start.
         gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
-        crop_image : ``None`` or `float`, optional
-            If `float`, it specifies the proportion of the border wrt the
-            initial shape to which the image will be internally cropped around
-            the initial shape range. If ``None``, no cropping is performed.
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image.
 
         Returns
         -------
@@ -395,8 +379,7 @@ class DlibERT(MultiScaleNonParametricFitter):
         # scale.
         (images, bounding_boxes, gt_shapes, affine_transforms,
          scale_transforms) = self._prepare_image(image, bounding_box,
-                                                 gt_shape=gt_shape,
-                                                 crop_image=crop_image)
+                                                 gt_shape=gt_shape)
 
         # Execute multi-scale fitting
         algorithm_results = self._fit(images=images,
