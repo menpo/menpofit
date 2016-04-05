@@ -277,8 +277,7 @@ class MultiScaleNonParametricFitter(object):
         """
         return self._holistic_features
 
-    def _prepare_image(self, image, initial_shape, gt_shape=None,
-                       crop_image=0.5):
+    def _prepare_image(self, image, initial_shape, gt_shape=None):
         r"""
         Function the performs pre-processing on the image to be fitted. This
         involves the following steps:
@@ -301,13 +300,6 @@ class MultiScaleNonParametricFitter(object):
             will start.
         gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
-        crop_image : ``None`` or `float`, optional
-            If `float`, it specifies the proportion of the border wrt the
-            initial shape to which the image will be internally cropped around
-            the initial shape range. If ``None``, no cropping is performed.
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image.
 
         Returns
         -------
@@ -329,16 +321,10 @@ class MultiScaleNonParametricFitter(object):
         if gt_shape:
             image.landmarks['__gt_shape'] = gt_shape
 
-        # If specified, crop the image
-        tmp_image = image
-        if crop_image:
-            tmp_image = image.crop_to_landmarks_proportion(
-                crop_image, group='__initial_shape')
-
         # Rescale image wrt the scale factor between reference_shape and
         # initial_shape
-        tmp_image = tmp_image.rescale_to_pointcloud(self.reference_shape,
-                                                    group='__initial_shape')
+        tmp_image = image.rescale_to_pointcloud(self.reference_shape,
+                                                group='__initial_shape')
 
         # For each scale:
         #     1. Compute features
@@ -534,7 +520,7 @@ class MultiScaleNonParametricFitter(object):
             scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
 
     def fit_from_shape(self, image, initial_shape, max_iters=20, gt_shape=None,
-                       crop_image=None, **kwargs):
+                       **kwargs):
         r"""
         Fits the multi-scale fitter to an image given an initial shape.
 
@@ -551,13 +537,6 @@ class MultiScaleNonParametricFitter(object):
             then specifies the maximum number of iterations per scale.
         gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
-        crop_image : ``None`` or `float`, optional
-            If `float`, it specifies the proportion of the border wrt the
-            initial shape to which the image will be internally cropped around
-            the initial shape range. If ``None``, no cropping is performed.
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image.
         kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
             implementations.
@@ -579,8 +558,7 @@ class MultiScaleNonParametricFitter(object):
         # scale.
         (images, initial_shapes, gt_shapes, affine_transforms,
          scale_transforms) = self._prepare_image(image, initial_shape,
-                                                 gt_shape=gt_shape,
-                                                 crop_image=crop_image)
+                                                 gt_shape=gt_shape)
 
         # Execute multi-scale fitting
         algorithm_results = self._fit(images=images,
@@ -598,7 +576,7 @@ class MultiScaleNonParametricFitter(object):
                                    gt_shape=gt_shape)
 
     def fit_from_bb(self, image, bounding_box, max_iters=20, gt_shape=None,
-                    crop_image=None, **kwargs):
+                    **kwargs):
         r"""
         Fits the multi-scale fitter to an image given an initial bounding box.
 
@@ -616,13 +594,6 @@ class MultiScaleNonParametricFitter(object):
             then specifies the maximum number of iterations per scale.
         gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
-        crop_image : ``None`` or `float`, optional
-            If `float`, it specifies the proportion of the border wrt the
-            initial shape to which the image will be internally cropped around
-            the initial shape range. If ``None`` , no cropping is performed.
-            This will limit the fitting algorithm search region but is
-            likely to speed up its running time, specially when the
-            modeled object occupies a small portion of the image.
         kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
             implementations.
@@ -637,7 +608,7 @@ class MultiScaleNonParametricFitter(object):
                                                       bounding_box)
         return self.fit_from_shape(image=image, initial_shape=initial_shape,
                                    max_iters=max_iters, gt_shape=gt_shape,
-                                   crop_image=crop_image, **kwargs)
+                                   **kwargs)
 
 
 class MultiScaleParametricFitter(MultiScaleNonParametricFitter):

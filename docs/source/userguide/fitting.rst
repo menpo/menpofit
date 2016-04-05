@@ -61,14 +61,14 @@ the model to an image:
 .. code-block:: python
 
     result = fitter.fit_from_shape(image, initial_shape, max_iters=20, gt_shape=None,
-                                   crop_image=None, "**"kwargs)
+                                   **kwargs)
 
 or
 
 .. code-block:: python
 
     result = fitter.fit_from_bb(image, bounding_box, max_iters=20, gt_shape=None,
-                                crop_image=None, "**"kwargs)
+                                **kwargs)
 
 They only differ on the type of initialisation. ``fit_from_shape`` expects a
 `PointCloud` as the `initial_shape`. On the other hand, the `bounding_box`
@@ -90,12 +90,6 @@ methods of **menpodetect**. The rest of the options are:
   The ground truth shape associated to the image. This is *only* useful to
   compute the final fitting error. It is *not* used, of course, at any
   internal stage of the optimisation.
-**crop_image** (`None` or `float`)
-  If `float`, it specifies the proportion of the border wrt the initial shape
-  to which the image will be internally cropped around the initial shape
-  range. If `None` , no cropping is performed. This limits the fitting
-  algorithm search region but is likely to speed up its running time,
-  specially when the modeled object occupies a small portion of the image.
 **kwargs** (`dict`)
   Additional keyword arguments that can be passed to specific models.
 
