@@ -1,5 +1,4 @@
 from menpofit.fitter import MultiScaleParametricFitter
-from menpofit.modelinstance import OrthoPDM, PDM
 import menpofit.checks as checks
 
 from .result import APSResult
@@ -87,8 +86,11 @@ class GaussNewtonAPSFitter(APSFitter):
     ----------
     aps : :map:`GenerativeAPS` or subclass
         The trained model.
-    gn_algorithm_cls : subclass of :map:`GaussNewton`
-        The Gauss-Newton algorithm class to be used.
+    gn_algorithm_cls : `class`, optional
+        The Gauss-Newton optimisation algorithm that will get applied. The
+        possible algorithms are :map:`Inverse` and :map:`Forward`. Note that
+        the :map:`Forward` algorithm is too slow. It is not recommended to be
+        used for fitting an APS and is only included for comparison purposes.
     n_shape : `int` or `float` or `list` of those or ``None``, optional
         The number of shape components that will be used. If `int`, then it
         defines the exact number of active components. If `float`, then it
@@ -110,29 +112,23 @@ class GaussNewtonAPSFitter(APSFitter):
     """
     def __init__(self, aps, gn_algorithm_cls=Inverse, n_shape=None,
                  use_deformation_cost=True, sampling=None):
-        self._model = aps
-        self._check_n_shape(n_shape)
+        # Check parameters
+        checks.set_models_components(aps.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, aps.n_scales)
-        self._set_up(gn_algorithm_cls, use_deformation_cost)
 
-    def _set_up(self, gn_algorithm_cls, use_deformation_cost):
-        self.algorithms = []
-        for j, (am, sm, dm, s) in enumerate(zip(self.aps.appearance_models,
-                                                self.aps.shape_models,
-                                                self.aps.deformation_models,
-                                                self._sampling)):
-            template = am.mean()
-
-            # build orthogonal point distribution model
-            if self._model.use_procrustes:
-                pdm = OrthoPDM(sm)
-            else:
-                pdm = PDM(sm)
-
+        # Get list of algorithm objects per scale
+        algorithms = []
+        for j in list(range(aps.n_scales)):
             # create the interface object
             interface = GaussNewtonBaseInterface(
-                am, dm, pdm, use_deformation_cost, template, s,
-                self.aps.patch_shape[j], self.aps.patch_normalisation[j])
+                aps.appearance_models[j], aps.deformation_models[j],
+                aps.shape_models[j], use_deformation_cost,
+                aps.appearance_models[j].mean(), self._sampling[j],
+                aps.patch_shape[j], aps.patch_normalisation[j])
 
             # create the algorithm object and append it
-            self.algorithms.append(gn_algorithm_cls(interface))
+            algorithms.append(gn_algorithm_cls(interface))
+
+        # Call superclass
+        super(GaussNewtonAPSFitter, self).__init__(aps=aps,
+                                                   algorithms=algorithms)
