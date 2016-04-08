@@ -56,156 +56,13 @@ class LucasKanadeAlgorithmResult(NonParametricIterativeResult):
         return self._homogeneous_parameters
 
     @property
-    def costs(self):
+    def cost_functions(self):
         r"""
-        Returns a `list` with the cost per iteration.
+        Returns a `list` with the cost closure per iteration.
 
-        :type: `list` of `float`
+        :type: `list` of `closure`
         """
-        if self._cost_functions is not None:
-            return [f() for f in self._cost_functions]
-        else:
-            return None
-
-    def plot_costs(self, figure_id=None, new_figure=False, render_lines=True,
-                   line_colour='b', line_style='-', line_width=2,
-                   render_markers=True, marker_style='o', marker_size=4,
-                   marker_face_colour='b', marker_edge_colour='k',
-                   marker_edge_width=1., render_axes=True,
-                   axes_font_name='sans-serif', axes_font_size=10,
-                   axes_font_style='normal', axes_font_weight='normal',
-                   axes_x_limits=0., axes_y_limits=None, axes_x_ticks=None,
-                   axes_y_ticks=None, figure_size=(10, 6),
-                   render_grid=True, grid_line_style='--',
-                   grid_line_width=0.5):
-        r"""
-        Plots the cost function evolution at each fitting iteration.
-
-        Parameters
-        ----------
-        figure_id : `object`, optional
-            The id of the figure to be used.
-        new_figure : `bool`, optional
-            If ``True``, a new figure is created.
-        render_lines : `bool`, optional
-            If ``True``, the line will be rendered.
-        line_colour : `colour` or ``None``, optional
-            The colour of the line. If ``None``, the colour is sampled from
-            the jet colormap.
-            Example `colour` options are ::
-
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
-
-        line_style : ``{'-', '--', '-.', ':'}``, optional
-            The style of the lines.
-        line_width : `float`, optional
-            The width of the lines.
-        render_markers : `bool`, optional
-            If ``True``, the markers will be rendered.
-        marker_style : `marker`, optional
-            The style of the markers.
-            Example `marker` options ::
-
-                    {'.', ',', 'o', 'v', '^', '<', '>', '+', 'x', 'D', 'd', 's',
-                     'p', '*', 'h', 'H', '1', '2', '3', '4', '8'}
-
-        marker_size : `int`, optional
-            The size of the markers in points.
-        marker_face_colour : `colour` or ``None``, optional
-            The face (filling) colour of the markers. If ``None``, the colour
-            is sampled from the jet colormap.
-            Example `colour` options are ::
-
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
-
-        marker_edge_colour : `colour` or ``None``, optional
-            The edge colour of the markers.If ``None``, the colour
-            is sampled from the jet colormap.
-            Example `colour` options are ::
-
-                    {'r', 'g', 'b', 'c', 'm', 'k', 'w'}
-                    or
-                    (3, ) ndarray
-
-        marker_edge_width : `float`, optional
-            The width of the markers' edge.
-        render_axes : `bool`, optional
-            If ``True``, the axes will be rendered.
-        axes_font_name : See below, optional
-            The font of the axes.
-            Example options ::
-
-                {'serif', 'sans-serif', 'cursive', 'fantasy', 'monospace'}
-
-        axes_font_size : `int`, optional
-            The font size of the axes.
-        axes_font_style : ``{'normal', 'italic', 'oblique'}``, optional
-            The font style of the axes.
-        axes_font_weight : See below, optional
-            The font weight of the axes.
-            Example options ::
-
-                {'ultralight', 'light', 'normal', 'regular', 'book', 'medium',
-                 'roman', 'semibold', 'demibold', 'demi', 'bold', 'heavy',
-                 'extra bold', 'black'}
-
-        axes_x_limits : `float` or (`float`, `float`) or ``None``, optional
-            The limits of the x axis. If `float`, then it sets padding on the
-            right and left of the graph as a percentage of the curves' width. If
-            `tuple` or `list`, then it defines the axis limits. If ``None``,
-            then the limits are set automatically.
-        axes_y_limits : `float` or (`float`, `float`) or ``None``, optional
-            The limits of the y axis. If `float`, then it sets padding on the
-            top and bottom of the graph as a percentage of the curves' height.
-            If `tuple` or `list`, then it defines the axis limits. If ``None``,
-            then the limits are set automatically.
-        axes_x_ticks : `list` or `tuple` or ``None``, optional
-            The ticks of the x axis.
-        axes_y_ticks : `list` or `tuple` or ``None``, optional
-            The ticks of the y axis.
-        figure_size : (`float`, `float`) or ``None``, optional
-            The size of the figure in inches.
-        render_grid : `bool`, optional
-            If ``True``, the grid will be rendered.
-        grid_line_style : ``{'-', '--', '-.', ':'}``, optional
-            The style of the grid lines.
-        grid_line_width : `float`, optional
-            The width of the grid lines.
-
-        Returns
-        -------
-        renderer : `menpo.visualize.GraphPlotter`
-            The renderer object.
-        """
-        from menpo.visualize import plot_curve
-        costs = self.costs
-        if costs is not None:
-            return plot_curve(
-                    x_axis=list(range(len(costs))), y_axis=[costs],
-                    figure_id=figure_id, new_figure=new_figure,
-                    title='Cost per Iteration', x_label='Iteration',
-                    y_label='Cost Function', axes_x_limits=axes_x_limits,
-                    axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-                    axes_y_ticks=axes_y_ticks, render_lines=render_lines,
-                    line_colour=line_colour, line_style=line_style,
-                    line_width=line_width, render_markers=render_markers,
-                    marker_style=marker_style, marker_size=marker_size,
-                    marker_face_colour=marker_face_colour,
-                    marker_edge_colour=marker_edge_colour,
-                    marker_edge_width=marker_edge_width, render_legend=False,
-                    render_axes=render_axes, axes_font_name=axes_font_name,
-                    axes_font_size=axes_font_size,
-                    axes_font_style=axes_font_style,
-                    axes_font_weight=axes_font_weight, figure_size=figure_size,
-                    render_grid=render_grid,  grid_line_style=grid_line_style,
-                    grid_line_width=grid_line_width)
-        else:
-            raise ValueError('costs is not well defined for the chosen ATM '
-                             'algorithm')
+        return self._cost_functions
 
     @property
     def _reconstruction_indices(self):
@@ -619,12 +476,12 @@ class LucasKanadeResult(MultiScaleNonParametricIterativeResult):
                 self._homogeneous_parameters += r.homogeneous_parameters
             else:
                 self._homogeneous_parameters += r.homogeneous_parameters[1:]
-        # Create costs list
-        self._costs = None
-        if results[0].costs is not None:
-            self._costs = []
+        # Create cost functions list
+        self._cost_functions = None
+        if results[0].cost_functions is not None:
+            self._cost_functions = []
             for r in results:
-                self._costs += r.costs
+                self._cost_functions += r.cost_functions
 
     @property
     def homogeneous_parameters(self):
@@ -645,7 +502,10 @@ class LucasKanadeResult(MultiScaleNonParametricIterativeResult):
 
         :type: `list` of `float`
         """
-        return self._costs
+        if self._cost_functions is not None:
+            return [f() for f in self._cost_functions]
+        else:
+            return None
 
     def plot_costs(self, figure_id=None, new_figure=False, render_lines=True,
                    line_colour='b', line_style='-', line_width=2,
