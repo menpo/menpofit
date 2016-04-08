@@ -41,21 +41,6 @@ class APSAlgorithmResult(ParametricIterativeResult):
         self._cost_functions = cost_functions
 
     @property
-    def warped_images(self):
-        r"""
-        Returns a `list` with the warped image per iteration. Note that the
-        images are patch-based.
-
-        :type: `list` of `menpo.image.Image`
-        """
-        if self._warped_images is None:
-            self._warped_images = []
-            for p in self.shape_parameters:
-                self.algorithm.transform.from_vector_inplace(p)
-                self._warped_images.append(self.algorithm.warp(self.image))
-        return self._warped_images
-
-    @property
     def costs(self):
         r"""
         Returns a `list` with the cost per iteration.
@@ -250,22 +235,6 @@ class APSResult(MultiScaleParametricIterativeResult):
             self._costs = []
             for r in results:
                 self._costs += r.costs
-
-    @property
-    def warped_images(self):
-        r"""
-        Returns a `list` with the warped image per iteration. Note that the
-        images are patch-based.
-
-        :type: `list` of `menpo.image.Image`
-        """
-        if self._warped_images is None:
-            algorithm = self.algorithm_results[-1].algorithm
-            self._warped_images = []
-            for s in self.shapes:
-                algorithm.transform.set_target(s)
-                self._warped_images.append(algorithm.warp(self.image))
-        return self._warped_images
 
     @property
     def costs(self):

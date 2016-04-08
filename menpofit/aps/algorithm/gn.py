@@ -3,7 +3,6 @@ import numpy as np
 
 from menpo.feature import gradient as fast_gradient
 from menpo.image import Image
-from menpofit.modelinstance import OrthoPDM
 
 from ..result import APSAlgorithmResult
 
@@ -222,6 +221,31 @@ class GaussNewtonBaseInterface(object):
         # Q_a: (parts x offsets x ch x w x h) x (parts x offsets x ch x w x h)
         return Q_a.dot(J_a).T
 
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `ndarray`
+            The warped images.
+        """
+        warped_images = []
+        for s in shapes:
+            self.transform.set_target(s)
+            warped_images.append(self.warp(image).pixels)
+        return warped_images
+
     def algorithm_result(self, image, shapes, shape_parameters,
                          initial_shape=None, cost_functions=None, gt_shape=None):
         r"""
@@ -343,7 +367,7 @@ class Inverse(GaussNewton):
         # transposed appearance jacobian and precision dot product
         self._J_a_T_Q_a = self.interface.J_a_T_Q_a(J_a, self.Q_a)
         # compute hessian inverse
-        self._H_S = None
+        self._H_s = None
         H = self._J_a_T_Q_a.dot(J_a)
         if self.interface.use_deformation_cost:
             self._H_s = self.interface.H_s()
@@ -404,8 +428,7 @@ class Inverse(GaussNewton):
             b = self._J_a_T_Q_a.dot(self.e_m)
             p = p_list[-1].copy()
             if self._H_s is not None:
-                if isinstance(self.transform, OrthoPDM):
-                    p[0:4] = 0
+                p[0:4] = 0
                 b += self._H_s.dot(p)
             dp = self._inv_H.dot(b)
 
@@ -438,6 +461,10 @@ class Inverse(GaussNewton):
             image=image, shapes=shapes, shape_parameters=p_list,
             initial_shape=initial_shape, cost_functions=cost_functions,
             gt_shape=gt_shape)
+
+    def __str__(self):
+        return "Inverse Weighted Gauss-Newton Algorithm with fixed Jacobian " \
+               "and Hessian"
 
 
 class Forward(GaussNewton):
@@ -527,8 +554,7 @@ class Forward(GaussNewton):
             b = J_a_T_Q_a.dot(self.e_m)
             p = p_list[-1].copy()
             if self._H_s is not None:
-                if isinstance(self.transform, OrthoPDM):
-                    p[0:4] = 0
+                p[0:4] = 0
                 b += self._H_s.dot(p)
             dp = -np.linalg.solve(H, b)
 
@@ -561,3 +587,6 @@ class Forward(GaussNewton):
             image=image, shapes=shapes, shape_parameters=p_list,
             initial_shape=initial_shape, cost_functions=cost_functions,
             gt_shape=gt_shape)
+
+    def __str__(self):
+        return "Forward Gauss-Newton Algorithm"

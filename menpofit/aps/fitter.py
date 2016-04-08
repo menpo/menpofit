@@ -39,6 +39,28 @@ class APSFitter(MultiScaleParametricFitter):
         """
         return self._model
 
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure stored within an :map:`AAMResult`.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or `subclass`
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
+            The warped images.
+        """
+        return self.algorithms[-1].interface.warped_images(image=image,
+                                                           shapes=shapes)
+
     def _fitter_result(self, image, algorithm_results, affine_transforms,
                        scale_transforms, gt_shape=None):
         r"""
@@ -115,6 +137,7 @@ class GaussNewtonAPSFitter(APSFitter):
         # Check parameters
         checks.set_models_components(aps.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, aps.n_scales)
+        self.use_deformation_cost = use_deformation_cost
 
         # Get list of algorithm objects per scale
         algorithms = []
@@ -132,3 +155,27 @@ class GaussNewtonAPSFitter(APSFitter):
         # Call superclass
         super(GaussNewtonAPSFitter, self).__init__(aps=aps,
                                                    algorithms=algorithms)
+
+    def __str__(self):
+        # Compute scale info strings
+        scales_info = []
+        lvl_str_tmplt = r"""   - Scale {}
+     - {} active shape components
+     - {} similarity transform components
+     - {}"""
+        for k, s in enumerate(self.scales):
+            def_cost = "Deformation prior is disabled."
+            if self.use_deformation_cost:
+                def_cost = "Deformation prior is employed."
+            scales_info.append(lvl_str_tmplt.format(
+                s, self.aps.shape_models[k].n_active_components,
+                self.aps.shape_models[k].n_global_parameters, def_cost))
+        scales_info = '\n'.join(scales_info)
+
+        cls_str = r"""{class_title}
+ - Scales: {scales}
+{scales_info}
+    """.format(class_title=self.algorithms[0].__str__(),
+               scales=self.scales,
+               scales_info=scales_info)
+        return self.aps.__str__() + cls_str
