@@ -643,6 +643,215 @@ class MultiScaleParametricFitter(MultiScaleNonParametricFitter):
             scales=scales, reference_shape=reference_shape,
             holistic_features=holistic_features, algorithms=algorithms)
 
+    def _fit(self, images, initial_shape, affine_transforms, scale_transforms,
+             gt_shapes=None, max_iters=20, return_costs=False, **kwargs):
+        r"""
+        Function the applies the multi-scale fitting procedure on an image,
+        given the initial shape.
+
+        Parameters
+        ----------
+        images : `list` of `menpo.image.Image`
+            The list of images per scale.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape estimate from which the fitting procedure
+            will start.
+        affine_transforms : `list` of `menpo.transform.Affine`
+            The list of affine transforms per scale that are the inverses of the
+            transformations introduced by the rescale wrt the reference shape as
+            well as the feature extraction.
+        scale_transforms : `list` of `menpo.shape.Scale`
+            The list of inverse scaling transforms per scale.
+        gt_shapes : `list` of `menpo.shape.PointCloud`
+            The list of ground truth shapes per scale.
+        max_iters : `int` or `list` of `int`, optional
+            The maximum number of iterations. If `int`, then it specifies the
+            maximum number of iterations over all scales. If `list` of `int`,
+            then specifies the maximum number of iterations per scale.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
+        kwargs : `dict`, optional
+            Additional keyword arguments that can be passed to specific
+            implementations.
+
+        Returns
+        -------
+        algorithm_results : `list` of :map:`ParametricIterativeResult` or subclass
+            The list of fitting result per scale.
+        """
+        # Check max iters
+        max_iters = checks.check_max_iters(max_iters, self.n_scales)
+
+        # Set initial and ground truth shapes
+        shape = initial_shape
+        gt_shape = None
+
+        # Initialize list of algorithm results
+        algorithm_results = []
+        for i in range(self.n_scales):
+            # Handle ground truth shape
+            if gt_shapes is not None:
+                gt_shape = gt_shapes[i]
+
+            # Run algorithm
+            algorithm_result = self.algorithms[i].run(images[i], shape,
+                                                      gt_shape=gt_shape,
+                                                      max_iters=max_iters[i],
+                                                      return_costs=return_costs,
+                                                      **kwargs)
+            # Add algorithm result to the list
+            algorithm_results.append(algorithm_result)
+
+            # Prepare this scale's final shape for the next scale
+            if i < self.n_scales - 1:
+                # This should not be done for the last scale.
+                shape = algorithm_result.final_shape
+                if self.holistic_features[i + 1] != self.holistic_features[i]:
+                    # If the features function of the current scale is different
+                    # than the one of the next scale, this means that the affine
+                    # transform is different as well. Thus we need to do the
+                    # following composition:
+                    #
+                    #    S_{i+1} \circ A_{i+1} \circ inv(A_i) \circ inv(S_i)
+                    #
+                    # where:
+                    #    S_i : scaling transform of current scale
+                    #    S_{i+1} : scaling transform of next scale
+                    #    A_i : affine transform of current scale
+                    #    A_{i+1} : affine transform of next scale
+                    t1 = scale_transforms[i].compose_after(affine_transforms[i])
+                    t2 = affine_transforms[i + 1].pseudoinverse().compose_after(t1)
+                    transform = scale_transforms[i + 1].pseudoinverse().compose_after(t2)
+                    shape = transform.apply(shape)
+                elif (self.holistic_features[i + 1] == self.holistic_features[i] and
+                      self.scales[i] != self.scales[i + 1]):
+                    # If the features function of the current scale is the same
+                    # as the one of the next scale, this means that the affine
+                    # transform is the same as well, and thus can be omitted.
+                    # Given that the scale factors are different, we need to do
+                    # the # following composition:
+                    #
+                    #    S_{i+1} \circ inv(S_i)
+                    #
+                    # where:
+                    #    S_i : scaling transform of current scale
+                    #    S_{i+1} : scaling transform of next scale
+                    transform = scale_transforms[i + 1].pseudoinverse().compose_after(scale_transforms[i])
+                    shape = transform.apply(shape)
+
+        # Return list of algorithm results
+        return algorithm_results
+
+    def fit_from_shape(self, image, initial_shape, max_iters=20, gt_shape=None,
+                       return_costs=False, **kwargs):
+        r"""
+        Fits the multi-scale fitter to an image given an initial shape.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape estimate from which the fitting procedure
+            will start.
+        max_iters : `int` or `list` of `int`, optional
+            The maximum number of iterations. If `int`, then it specifies the
+            maximum number of iterations over all scales. If `list` of `int`,
+            then specifies the maximum number of iterations per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
+        kwargs : `dict`, optional
+            Additional keyword arguments that can be passed to specific
+            implementations.
+
+        Returns
+        -------
+        fitting_result : :map:`MultiScaleParametricIterativeResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
+        """
+        # Generate the list of images to be fitted, as well as the correctly
+        # scaled initial and ground truth shapes per level. The function also
+        # returns the lists of affine and scale transforms per level that are
+        # required in order to transform the shapes at the original image
+        # space in the fitting result. The affine transforms refer to the
+        # transform introduced by the rescaling to the reference shape as well
+        # as potential affine transform from the features. The scale
+        # transforms are the Scale objects that correspond to each level's
+        # scale.
+        (images, initial_shapes, gt_shapes, affine_transforms,
+         scale_transforms) = self._prepare_image(image, initial_shape,
+                                                 gt_shape=gt_shape)
+
+        # Execute multi-scale fitting
+        algorithm_results = self._fit(images=images,
+                                      initial_shape=initial_shapes[0],
+                                      affine_transforms=affine_transforms,
+                                      scale_transforms=scale_transforms,
+                                      max_iters=max_iters, gt_shapes=gt_shapes,
+                                      return_costs=return_costs, **kwargs)
+
+        # Return multi-scale fitting result
+        return self._fitter_result(image=image,
+                                   algorithm_results=algorithm_results,
+                                   affine_transforms=affine_transforms,
+                                   scale_transforms=scale_transforms,
+                                   gt_shape=gt_shape)
+
+    def fit_from_bb(self, image, bounding_box, max_iters=20, gt_shape=None,
+                    return_costs=False, **kwargs):
+        r"""
+        Fits the multi-scale fitter to an image given an initial bounding box.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        bounding_box : `menpo.shape.PointDirectedGraph`
+            The initial bounding box from which the fitting procedure will
+            start. Note that the bounding box is used in order to align the
+            model's reference shape.
+        max_iters : `int` or `list` of `int`, optional
+            The maximum number of iterations. If `int`, then it specifies the
+            maximum number of iterations over all scales. If `list` of `int`,
+            then specifies the maximum number of iterations per scale.
+        gt_shape : `menpo.shape.PointCloud`, optional
+            The ground truth shape associated to the image.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
+        kwargs : `dict`, optional
+            Additional keyword arguments that can be passed to specific
+            implementations.
+
+        Returns
+        -------
+        fitting_result : :map:`MultiScaleParametricIterativeResult` or subclass
+            The multi-scale fitting result containing the result of the fitting
+            procedure.
+        """
+        initial_shape = align_shape_with_bounding_box(self.reference_shape,
+                                                      bounding_box)
+        return self.fit_from_shape(image=image, initial_shape=initial_shape,
+                                   max_iters=max_iters, gt_shape=gt_shape,
+                                   return_costs=return_costs, **kwargs)
+
     def _fitter_result(self, image, algorithm_results, affine_transforms,
                        scale_transforms, gt_shape=None):
         r"""
