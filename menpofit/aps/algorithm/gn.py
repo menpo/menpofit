@@ -599,7 +599,6 @@ class Forward(GaussNewton):
             costs = [appearance_costs[-1] + deformation_costs[-1]]
 
         while k < max_iters and eps > self.eps:
-
             # compute image gradient
             nabla_i = self.interface.gradient(i)
 
@@ -610,16 +609,14 @@ class Forward(GaussNewton):
             J_a_T_Q_a = self.interface.J_a_T_Q_a(Ja, self.Q_a)
 
             # compute hessian
-            H = J_a_T_Q_a.dot(Ja)
-            if self.interface.use_deformation_cost:
-                H += self._H_s
+            H = J_a_T_Q_a.dot(Ja) + self._H_s
 
             # compute gauss-newton parameter updates
             b = J_a_T_Q_a.dot(self.e_m)
             p = p_list[-1].copy()
-            if self._H_s is not None:
+            if self.interface.use_procrustes:
                 p[0:4] = 0
-                b += self._H_s.dot(p)
+            b += self._H_s.dot(p)
             dp = -np.linalg.solve(H, b)
 
             # update warp
