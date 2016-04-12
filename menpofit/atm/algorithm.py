@@ -1,10 +1,9 @@
 from __future__ import division
 import numpy as np
 
+from menpofit.result import ParametricIterativeResult
 from menpofit.aam.algorithm.lk import (LucasKanadeBaseInterface,
                                        LucasKanadePatchBaseInterface)
-
-from .result import ATMAlgorithmResult
 
 
 # ----------- INTERFACES -----------
@@ -31,8 +30,7 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
                 transform, template, sampling=sampling)
 
     def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, initial_shape=None,
-                         cost_functions=None, gt_shape=None):
+                         initial_shape=None, gt_shape=None, costs=None):
         r"""
         Returns an ATM iterative optimization result object.
 
@@ -47,22 +45,22 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
         initial_shape : `menpo.shape.PointCloud` or ``None``, optional
             The initial shape from which the fitting process started. If
             ``None``, then no initial shape is assigned.
-        cost_functions : `list` of `closures` or ``None``, optional
-            The `list` of functions that compute the cost per iteration. If
-            ``None``, then it is assumed that the cost computation for that
-            particular algorithm is not well defined.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape that corresponds to the test image.
+        costs : `list` of `float` or ``None``, optional
+            The `list` of costs per iteration. If ``None``, then it is
+            assumed that the cost computation for that particular algorithm
+            is not well defined.
 
         Returns
         -------
-        result : :map:`ATMAlgorithmResult`
+        result : :map:`ParametricIterativeResult`
             The optimization result object.
         """
-        return ATMAlgorithmResult(
+        return ParametricIterativeResult(
             shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
 
 class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
@@ -80,8 +78,7 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
         return self.transform.model
 
     def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, initial_shape=None,
-                         cost_functions=None, gt_shape=None):
+                         initial_shape=None, costs=None, gt_shape=None):
         r"""
         Returns an ATM iterative optimization result object.
 
@@ -96,16 +93,16 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
         initial_shape : `menpo.shape.PointCloud` or ``None``, optional
             The initial shape from which the fitting process started. If
             ``None``, then no initial shape is assigned.
-        cost_functions : `list` of `closures` or ``None``, optional
-            The `list` of functions that compute the cost per iteration. If
-            ``None``, then it is assumed that the cost computation for that
-            particular algorithm is not well defined.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape that corresponds to the test image.
+        costs : `list` of `float` or ``None``, optional
+            The `list` of costs per iteration. If ``None``, then it is
+            assumed that the cost computation for that particular algorithm
+            is not well defined.
 
         Returns
         -------
-        result : :map:`ATMAlgorithmResult`
+        result : :map:`ParametricIterativeResult`
             The optimization result object.
         """
         # TODO: Separate result for linear ATM that stores both the sparse
@@ -113,10 +110,10 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
         # This means that the linear ATM will only store the sparse shapes
         shapes = [self.transform.from_vector(p).sparse_target
                   for p in shape_parameters]
-        return ATMAlgorithmResult(
+        return ParametricIterativeResult(
             shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
 
 class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
@@ -125,8 +122,7 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     `menpofit.atm.PatchATM`.
     """
     def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, initial_shape=None,
-                         cost_functions=None, gt_shape=None):
+                         initial_shape=None, costs=None, gt_shape=None):
         r"""
         Returns an ATM iterative optimization result object.
 
@@ -138,29 +134,25 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
             The `list` of shapes per iteration.
         shape_parameters : `list` of `ndarray`
             The `list` of shape parameters per iteration.
-        appearance_parameters : `list` of `ndarray` or ``None``, optional
-            The `list` of appearance parameters per iteration. If ``None``,
-            then it is assumed that the optimization did not solve for the
-            appearance parameters.
         initial_shape : `menpo.shape.PointCloud` or ``None``, optional
             The initial shape from which the fitting process started. If
             ``None``, then no initial shape is assigned.
-        cost_functions : `list` of `closures` or ``None``, optional
-            The `list` of functions that compute the cost per iteration. If
-            ``None``, then it is assumed that the cost computation for that
-            particular algorithm is not well defined.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape that corresponds to the test image.
+        costs : `list` of `float` or ``None``, optional
+            The `list` of costs per iteration. If ``None``, then it is
+            assumed that the cost computation for that particular algorithm
+            is not well defined.
 
         Returns
         -------
-        result : :map:`ATMAlgorithmResult`
+        result : :map:`ParametricIterativeResult`
             The optimization result object.
         """
-        return ATMAlgorithmResult(
+        return ParametricIterativeResult(
             shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
 
 # ----------- ALGORITHMS -----------
@@ -229,7 +221,7 @@ class Compositional(LucasKanade):
     Abstract class for defining Compositional ATM optimization algorithms.
     """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -246,18 +238,25 @@ class Compositional(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
 
         Returns
         -------
-        fitting_result : :map:`ATMAlgorithmResult`
+        fitting_result : :map:`ParametricIterativeResult`
             The parametric iterative fitting result.
         """
         # define cost closure
         def cost_closure(x):
-            return lambda: x.T.dot(x)
+            return x.T.dot(x)
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -278,8 +277,10 @@ class Compositional(LucasKanade):
         # compute masked error
         self.e_m = i_m - self.t_m
 
-        # update cost
-        cost_functions = [cost_closure(self.e_m)]
+        # update costs
+        costs = None
+        if return_costs:
+            costs = [cost_closure(self.e_m)]
 
         while k < max_iters and eps > self.eps:
             # solve for increments on the shape parameters
@@ -299,8 +300,9 @@ class Compositional(LucasKanade):
             # compute masked error
             self.e_m = i_m - self.t_m
 
-            # update cost
-            cost_functions.append(cost_closure(self.e_m))
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(self.e_m))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -311,8 +313,7 @@ class Compositional(LucasKanade):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            gt_shape=gt_shape)
+            initial_shape=initial_shape, gt_shape=gt_shape, costs=costs)
 
 
 class ForwardCompositional(Compositional):

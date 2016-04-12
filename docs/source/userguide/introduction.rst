@@ -39,6 +39,7 @@ Deformable Models
 -----------------
 - :map:`AAM`, :map:`LucasKanadeAAMFitter`, :map:`SupervisedDescentAAMFitter` - Active Appearance Model builder and fitters
 - :map:`ATM`, :map:`LucasKanadeATMFitter` - Active Template Model builder and fitter
+- :map:`GenerativeAPS`, :map:`GaussNewtonAPSFitter` - Active Pictorial Structures builder and fitter
 - :map:`CLM`, :map:`GradientDescentCLMFitter` - Constrained Local Model builder and fitter
 - :map:`LucasKanadeFitter` - Lucas-Kanade Image Alignment
 - :map:`SupervisedDescentFitter` - Supervised Descent Method builder and fitter

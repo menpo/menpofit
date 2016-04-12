@@ -60,7 +60,8 @@ class ParametricShapeSDAlgorithm(BaseSupervisedDescentAlgorithm):
         return features_per_patch(image, current_shape,
                                   self.patch_shape, self.patch_features)
 
-    def run(self, image, initial_shape, gt_shape=None, **kwargs):
+    def run(self, image, initial_shape, gt_shape=None, return_costs=False,
+            **kwargs):
         r"""
         Run the algorithm to an image given an initial shape.
 
@@ -72,6 +73,13 @@ class ParametricShapeSDAlgorithm(BaseSupervisedDescentAlgorithm):
             The initial shape from which the fitting procedure will start.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape associated to the image.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that this
+            argument currently has no effect and will raise a warning if set
+            to ``True``. This is because it is not possible to evaluate the
+            cost function of this algorithm.*
 
         Returns
         -------
@@ -79,7 +87,8 @@ class ParametricShapeSDAlgorithm(BaseSupervisedDescentAlgorithm):
             The result of the fitting procedure.
         """
         return fit_parametric_shape(image, initial_shape, self,
-                                    gt_shape=gt_shape)
+                                    gt_shape=gt_shape,
+                                    return_costs=return_costs)
 
     def _print_regression_info(self, _, gt_shapes, n_perturbations,
                                delta_x, estimated_delta_x, level_index,

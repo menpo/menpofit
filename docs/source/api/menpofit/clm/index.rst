@@ -48,11 +48,3 @@ Discriminative experts
 
     IncrementalCorrelationFilterThinWrapper
 
-Fitting Result
---------------
-
-.. toctree::
-    :maxdepth: 1
-
-    CLMResult
-    CLMAlgorithmResult

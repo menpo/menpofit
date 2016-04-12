@@ -37,11 +37,3 @@ Lucas-Kanade Optimisation Algorithms
     ForwardCompositional
     InverseCompositional
 
-Fitting Result
---------------
-
-.. toctree::
-    :maxdepth: 1
-
-    ATMResult
-    ATMAlgorithmResult

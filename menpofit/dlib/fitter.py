@@ -385,7 +385,7 @@ class DlibERT(MultiScaleNonParametricFitter):
                                       initial_shape=bounding_boxes[0],
                                       affine_transforms=affine_transforms,
                                       scale_transforms=scale_transforms,
-                                      gt_shapes=gt_shapes)
+                                      return_costs=False, gt_shapes=gt_shapes)
 
         # Return multi-scale fitting result
         return self._fitter_result(image=image,

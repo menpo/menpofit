@@ -2,7 +2,8 @@ from __future__ import division
 import numpy as np
 
 from menpofit.base import build_grid
-from menpofit.clm.result import CLMAlgorithmResult
+from menpofit.fitter import raise_costs_warning
+from menpofit.result import ParametricIterativeResult
 
 multivariate_normal = None  # expensive, from scipy.stats
 
@@ -103,7 +104,7 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
                                        cov=self.gaussian_covariance)
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -120,15 +121,26 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that this
+            argument currently has no effect and will raise a warning if set
+            to ``True``. This is because it is not possible to evaluate the
+            cost function of this algorithm.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
 
         Returns
         -------
-        fitting_result : :map:`CLMAlgorithmResult`
+        fitting_result : :map:`ParametricIterativeResult`
             The parametric iterative fitting result.
         """
+        # costs warning
+        if return_costs:
+            raise_costs_warning(self)
+
         # Initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -189,9 +201,9 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return CLMAlgorithmResult(shapes=shapes, shape_parameters=p_list,
-                                  initial_shape=initial_shape, image=image,
-                                  gt_shape=gt_shape)
+        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
+                                         initial_shape=initial_shape,
+                                         image=image, gt_shape=gt_shape)
 
     def __str__(self):
         return "Active Shape Model Algorithm"
@@ -235,7 +247,7 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
         self.kernel_grid = mvn.pdf(self.search_grid)[None, None]
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -252,15 +264,26 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that this
+            argument currently has no effect and will raise a warning if set
+            to ``True``. This is because it is not possible to evaluate the
+            cost function of this algorithm.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
 
         Returns
         -------
-        fitting_result : :map:`CLMAlgorithmResult`
+        fitting_result : :map:`ParametricIterativeResult`
             The parametric iterative fitting result.
         """
+        # costs warning
+        if return_costs:
+            raise_costs_warning(self)
+
         # Initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -317,9 +340,9 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return CLMAlgorithmResult(shapes=shapes, shape_parameters=p_list,
-                                  initial_shape=initial_shape, image=image,
-                                  gt_shape=gt_shape)
+        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
+                                         initial_shape=initial_shape,
+                                         image=image, gt_shape=gt_shape)
 
     def __str__(self):
         return "Regularised Landmark Mean Shift Algorithm"

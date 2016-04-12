@@ -373,7 +373,8 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         r"""
         Given an input test image and a list of shapes, it warps the image
         into the shapes. This is useful for generating the warped images of a
-        fitting procedure stored within an :map:`AAMResult`.
+        fitting procedure stored within a
+        :map:`MultiScaleParametricIterativeResult`.
 
         Parameters
         ----------

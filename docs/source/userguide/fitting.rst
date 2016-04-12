@@ -61,14 +61,14 @@ the model to an image:
 .. code-block:: python
 
     result = fitter.fit_from_shape(image, initial_shape, max_iters=20, gt_shape=None,
-                                   **kwargs)
+                                   return_costs=False, **kwargs)
 
 or
 
 .. code-block:: python
 
     result = fitter.fit_from_bb(image, bounding_box, max_iters=20, gt_shape=None,
-                                **kwargs)
+                                return_costs=False, **kwargs)
 
 They only differ on the type of initialisation. ``fit_from_shape`` expects a
 `PointCloud` as the `initial_shape`. On the other hand, the `bounding_box`
@@ -90,6 +90,13 @@ methods of **menpodetect**. The rest of the options are:
   The ground truth shape associated to the image. This is *only* useful to
   compute the final fitting error. It is *not* used, of course, at any
   internal stage of the optimisation.
+**return_costs** (`bool`)
+  If ``True``, then the cost function values will be computed  during the 
+  fitting procedure. Then these cost values will be assigned to the returned 
+  `fitting_result`. Note that the costs computation increases the computational 
+  cost of the fitting. The additional computation cost depends on the fitting 
+  method. Thus, this option should only be used for research purposes. Finally, 
+  this argument does not apply to all deformable models.
 **kwargs** (`dict`)
   Additional keyword arguments that can be passed to specific models.
 

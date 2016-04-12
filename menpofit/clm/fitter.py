@@ -2,7 +2,6 @@ from menpofit.fitter import MultiScaleParametricFitter
 from menpofit import checks
 
 from .algorithm import RegularisedLandmarkMeanShift
-from .result import CLMResult
 
 
 class CLMFitter(MultiScaleParametricFitter):
@@ -38,37 +37,6 @@ class CLMFitter(MultiScaleParametricFitter):
         :type: :map:`CLM` or `subclass`
         """
         return self._model
-
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
-        r"""
-        Function the creates the multi-scale fitting result object.
-
-        Parameters
-        ----------
-        image : `menpo.image.Image` or subclass
-            The image that was fitted.
-        algorithm_results : `list` of :map:`CLMAlgorithmResult` or subclass
-            The list of fitting result per scale.
-        affine_transforms : `list` of `menpo.transform.Affine`
-            The list of affine transforms per scale that are the inverses of the
-            transformations introduced by the rescale wrt the reference shape as
-            well as the feature extraction.
-        scale_transforms : `list` of `menpo.shape.Scale`
-            The list of inverse scaling transforms per scale.
-        gt_shape : `menpo.shape.PointCloud`, optional
-            The ground truth shape associated to the image.
-
-        Returns
-        -------
-        fitting_result : :map:`CLMResult` or subclass
-            The multi-scale fitting result containing the result of the fitting
-            procedure.
-        """
-        return CLMResult(results=algorithm_results, scales=self.scales,
-                         affine_transforms=affine_transforms,
-                         scale_transforms=scale_transforms, image=image,
-                         gt_shape=gt_shape)
 
 
 class GradientDescentCLMFitter(CLMFitter):
