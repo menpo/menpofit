@@ -123,9 +123,11 @@ class GaussNewtonAPSFitter(APSFitter):
         components without trimming the unused ones. Also, the available
         components may have already been trimmed to `max_shape_components`
         during training.
-    use_deformation_cost : `bool`, optional
-        If ``True``, then the deformation cost is also included in the
-        Hessian calculation.
+    weight : `float` or `list` of `float`, optional
+        The weight between the appearance cost and the deformation cost. The
+        provided value gets multiplied with the deformation cost. If `float`,
+        then the provided value will be used for all scales. If `list`,
+        then it should define a value per scale.
     sampling : `list` of `int` or `ndarray` or ``None``
         It defines a sampling mask per scale. If `int`, then it defines the
         sub-sampling step of the sampling mask. If `ndarray`, then it
@@ -133,11 +135,12 @@ class GaussNewtonAPSFitter(APSFitter):
         sub-sampling is applied.
     """
     def __init__(self, aps, gn_algorithm_cls=Inverse, n_shape=None,
-                 use_deformation_cost=True, sampling=None):
+                 weight=200., sampling=None):
         # Check parameters
         checks.set_models_components(aps.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, aps.n_scales)
-        self.use_deformation_cost = use_deformation_cost
+        self.weight = checks.check_multi_scale_param(
+            aps.n_scales, (float, int), 'weight', weight)
 
         # Get list of algorithm objects per scale
         algorithms = []
@@ -145,7 +148,7 @@ class GaussNewtonAPSFitter(APSFitter):
             # create the interface object
             interface = GaussNewtonBaseInterface(
                 aps.appearance_models[j], aps.deformation_models[j],
-                aps.shape_models[j], use_deformation_cost,
+                aps.shape_models[j], self.weight[j],
                 aps.appearance_models[j].mean(), self._sampling[j],
                 aps.patch_shape[j], aps.patch_normalisation[j])
 
@@ -162,14 +165,11 @@ class GaussNewtonAPSFitter(APSFitter):
         lvl_str_tmplt = r"""   - Scale {}
      - {} active shape components
      - {} similarity transform components
-     - {}"""
+     - Weight: {:.1f}"""
         for k, s in enumerate(self.scales):
-            def_cost = "Deformation prior is disabled."
-            if self.use_deformation_cost:
-                def_cost = "Deformation prior is employed."
             scales_info.append(lvl_str_tmplt.format(
                 s, self.aps.shape_models[k].n_active_components,
-                self.aps.shape_models[k].n_global_parameters, def_cost))
+                self.aps.shape_models[k].n_global_parameters, self.weight[k]))
         scales_info = '\n'.join(scales_info)
 
         cls_str = r"""{class_title}

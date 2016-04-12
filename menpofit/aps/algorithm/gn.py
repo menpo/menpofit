@@ -20,8 +20,11 @@ class GaussNewtonBaseInterface(object):
         The trained deformation GMRF model.
     transform : :map:`OrthoPDM`
         The motion (shape) model.
-    use_deformation_cost : `bool`
-        Whether to use the deformation model during the optimization.
+    weight : `float`
+        The weight between the appearance cost and the deformation cost. The
+        provided value gets multiplied with the deformation cost.
+    use_procrustes : `bool`
+        Whether the shapes were aligned before training the deformation model.
     template : `menpo.image.Image`
         The template (in this case it is the mean appearance).
     sampling : `list` of `int` or `ndarray` or ``None``
@@ -34,11 +37,12 @@ class GaussNewtonBaseInterface(object):
         The method for normalizing the patches.
     """
     def __init__(self, appearance_model, deformation_model, transform,
-                 use_deformation_cost, template, sampling, patch_shape,
+                 weight, use_procrustes, template, sampling, patch_shape,
                  patch_normalisation):
         self.appearance_model = appearance_model
         self.deformation_model = deformation_model
-        self.use_deformation_cost = use_deformation_cost
+        self.weight = weight
+        self.use_procrustes = use_procrustes
         self.patch_shape = patch_shape
         self.patch_normalisation = patch_normalisation
         self.transform = transform
@@ -111,7 +115,7 @@ class GaussNewtonBaseInterface(object):
         :type: `ndarray`
         """
         tmp = self.ds_dp_vectorized().T.dot(self.Q_d())
-        return tmp.dot(self.ds_dp_vectorized())
+        return tmp.dot(self.ds_dp_vectorized()) * self.weight
 
     def warp(self, image):
         r"""
@@ -378,11 +382,8 @@ class Inverse(GaussNewton):
         # transposed appearance jacobian and precision dot product
         self._J_a_T_Q_a = self.interface.J_a_T_Q_a(J_a, self.Q_a)
         # compute hessian inverse
-        self._H_s = None
-        H = self._J_a_T_Q_a.dot(J_a)
-        if self.interface.use_deformation_cost:
-            self._H_s = self.interface.H_s()
-            H += self._H_s
+        self._H_s = self.interface.H_s()
+        H = self._J_a_T_Q_a.dot(J_a) + self._H_s
         self._inv_H = np.linalg.inv(H)
 
     def _algorithm_str(self):
@@ -427,10 +428,11 @@ class Inverse(GaussNewton):
         def deformation_cost_closure(x):
             tmp_shape = x.from_vector(x.as_vector() -
                                       self.deformation_model.mean_vector)
-            return self.deformation_model.mahalanobis_distance(
+            cost = self.deformation_model.mahalanobis_distance(
                 tmp_shape, subtract_mean=False, square_root=False)
+            return cost * self.interface.weight
 
-        # initialize transform
+            # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
         shapes = [self.transform.target]
@@ -462,9 +464,9 @@ class Inverse(GaussNewton):
             # compute gauss-newton parameter updates
             b = self._J_a_T_Q_a.dot(self.e_m)
             p = p_list[-1].copy()
-            if self._H_s is not None:
+            if self.interface.use_procrustes:
                 p[0:4] = 0
-                b += self._H_s.dot(p)
+            b += self._H_s.dot(p)
             dp = self._inv_H.dot(b)
 
             # update warp
@@ -520,9 +522,7 @@ class Forward(GaussNewton):
         # compute shape jacobian
         self._ds_dp = self.interface.ds_dp()
         # compute shape hessian
-        self._H_s = None
-        if self.interface.use_deformation_cost:
-            self._H_s = self.interface.H_s()
+        self._H_s = self.interface.H_s()
 
     def _algorithm_str(self):
         return 'Forward Gauss-Newton'
@@ -566,8 +566,9 @@ class Forward(GaussNewton):
         def deformation_cost_closure(x):
             tmp_shape = x.from_vector(x.as_vector() -
                                       self.deformation_model.mean_vector)
-            return self.deformation_model.mahalanobis_distance(
+            cost = self.deformation_model.mahalanobis_distance(
                 tmp_shape, subtract_mean=False, square_root=False)
+            return cost * self.interface.weight
 
         # initialize transform
         self.transform.set_target(initial_shape)
