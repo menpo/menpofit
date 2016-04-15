@@ -23,6 +23,10 @@ def _convert_68_to_49(shape):
     return PointCloud(sp)
 
 
+def _convert_66_to_49(shape):
+    return PointCloud(shape.points[17:])
+
+
 def _convert_51_to_49(shape):
     sp = shape.points.copy()
     sp = np.delete(sp, 47, 0)
@@ -107,9 +111,9 @@ def mean_pupil_49_error(shape, gt_shape):
     ----------
     shape : `menpo.shape.PointCloud`
         The input shape (e.g. the final shape of a fitting procedure). It
-        must have either 68 or 51 or 49 points.
+        must have either 68 or 66 or 51 or 49 points.
     gt_shape : `menpo.shape.PointCloud`
-        The ground truth shape. It must have either 68 or 51 or 49 points.
+        The ground truth shape. It must have either 68 or 66 or 51 or 49 points.
 
     Returns
     -------
@@ -119,14 +123,15 @@ def mean_pupil_49_error(shape, gt_shape):
     Raises
     ------
     ValueError
-        Final shape must have 68 or 51 or 49 points
+        Final shape must have 68 or 66 or 51 or 49 points
     ValueError
-        Ground truth shape must have 68 or 51 or 49 points
+        Ground truth shape must have 68 or 66 or 51 or 49 points
     """
-    if shape.n_points not in [68, 51, 49]:
-        raise ValueError('Final shape must have 68 or 51 or 49 points')
-    if gt_shape.n_points not in [68, 51, 49]:
-        raise ValueError('Ground truth shape must have 68 or 51 or 49 points')
+    if shape.n_points not in [68, 66, 51, 49]:
+        raise ValueError('Final shape must have 68 or 66 or 51 or 49 points')
+    if gt_shape.n_points not in [68, 66, 51, 49]:
+        raise ValueError('Ground truth shape must have 68 or 66 or 51 or 49 '
+                         'points')
 
     def pupil_dist(_, s):
         _, mapping = face_ibug_49_to_face_ibug_49(s, include_mapping=True)
@@ -134,10 +139,14 @@ def mean_pupil_49_error(shape, gt_shape):
                                np.mean(s[mapping['right_eye']], axis=0))
     if shape.n_points == 68:
         shape = _convert_68_to_49(shape)
+    elif shape.n_points == 66:
+        shape = _convert_66_to_49(shape)
     elif shape.n_points == 51:
         shape = _convert_51_to_49(shape)
     if gt_shape.n_points == 68:
         gt_shape = _convert_68_to_49(gt_shape)
+    elif gt_shape.n_points == 66:
+        gt_shape = _convert_66_to_49(gt_shape)
     elif gt_shape.n_points == 51:
         gt_shape = _convert_51_to_49(gt_shape)
     return distance_normalised_error(euclidean_error, pupil_dist, shape,
@@ -268,9 +277,9 @@ def outer_eye_corner_49_euclidean_error(shape, gt_shape):
     ----------
     shape : `menpo.shape.PointCloud`
         The input shape (e.g. the final shape of a fitting procedure). It
-        must 68 or 51 or 49 points.
+        must 68 or 66 or 51 or 49 points.
     gt_shape : `menpo.shape.PointCloud`
-        The ground truth shape. It must have 68 or 51 or 49 points.
+        The ground truth shape. It must have 68 or 66 or 51 or 49 points.
 
     Returns
     -------
@@ -280,20 +289,25 @@ def outer_eye_corner_49_euclidean_error(shape, gt_shape):
     Raises
     ------
     ValueError
-        Final shape must have 68 or 51 or 49 points
+        Final shape must have 68 or 66 or 51 or 49 points
     ValueError
-        Ground truth shape must have 68 or 51 or 49 points
+        Ground truth shape must have 68 or 66 or 51 or 49 points
     """
-    if shape.n_points not in [68, 51, 49]:
-        raise ValueError('Final shape must have 68 or 51 or 49 points')
-    if gt_shape.n_points not in [68, 51, 49]:
-        raise ValueError('Ground truth shape must have 68 or 51 or 49 points')
+    if shape.n_points not in [68, 66, 51, 49]:
+        raise ValueError('Final shape must have 68 or 66 or 51 or 49 points')
+    if gt_shape.n_points not in [68, 66, 51, 49]:
+        raise ValueError('Ground truth shape must have 68 or 66 or 51 or 49 '
+                         'points')
     if shape.n_points == 68:
         shape = _convert_68_to_49(shape)
+    elif shape.n_points == 66:
+        shape = _convert_66_to_49(shape)
     elif shape.n_points == 51:
         shape = _convert_51_to_49(shape)
     if gt_shape.n_points == 68:
         gt_shape = _convert_68_to_49(gt_shape)
+    elif gt_shape.n_points == 66:
+        gt_shape = _convert_66_to_49(gt_shape)
     elif gt_shape.n_points == 51:
         gt_shape = _convert_51_to_49(gt_shape)
     return distance_indexed_normalised_error(euclidean_error, 19, 28, shape,
@@ -374,7 +388,7 @@ def bb_avg_edge_length_49_euclidean_error(shape, gt_shape):
     ----------
     shape : `menpo.shape.PointCloud`
         The input shape (e.g. the final shape of a fitting procedure). It
-        must have 68 or 51 or 49 points.
+        must have 68 or 66 or 51 or 49 points.
     gt_shape : `menpo.shape.PointCloud`
         The ground truth shape. It must have 68 points.
 
@@ -390,12 +404,14 @@ def bb_avg_edge_length_49_euclidean_error(shape, gt_shape):
     ValueError
         Ground truth shape must have 68 points
     """
-    if shape.n_points not in [68, 51, 49]:
-        raise ValueError('Final shape must have 68 or 51 or 49 points')
+    if shape.n_points not in [68, 66, 51, 49]:
+        raise ValueError('Final shape must have 68 or 66 or 51 or 49 points')
     if gt_shape.n_points != 68:
         raise ValueError('Ground truth shape must have 68 points')
     if shape.n_points == 68:
         shape = _convert_68_to_49(shape)
+    elif shape.n_points == 66:
+        shape = _convert_66_to_49(shape)
     elif shape.n_points == 51:
         shape = _convert_51_to_49(shape)
     gt_shape_68 = gt_shape.copy()

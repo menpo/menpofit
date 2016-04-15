@@ -147,10 +147,14 @@ class GaussNewtonAPSFitter(APSFitter):
         for j in list(range(aps.n_scales)):
             # create the interface object
             interface = GaussNewtonBaseInterface(
-                aps.appearance_models[j], aps.deformation_models[j],
-                aps.shape_models[j], self.weight[j],
-                aps.appearance_models[j].mean(), self._sampling[j],
-                aps.patch_shape[j], aps.patch_normalisation[j])
+                appearance_model=aps.appearance_models[j],
+                deformation_model=aps.deformation_models[j],
+                transform=aps.shape_models[j], weight=self.weight[j],
+                use_procrustes=aps.use_procrustes,
+                template=aps.appearance_models[j].mean(),
+                sampling=self._sampling[j],
+                patch_shape=aps.patch_shape[j],
+                patch_normalisation=aps.patch_normalisation[j])
 
             # create the algorithm object and append it
             algorithms.append(gn_algorithm_cls(interface))
