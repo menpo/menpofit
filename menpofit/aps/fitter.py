@@ -132,7 +132,13 @@ class GaussNewtonAPSFitter(APSFitter):
         It defines a sampling mask per scale. If `int`, then it defines the
         sub-sampling step of the sampling mask. If `ndarray`, then it
         explicitly defines the sampling mask. If ``None``, then no
-        sub-sampling is applied.
+        sub-sampling is applied. Note that depending on the model and the
+        size of the appearance precision matrix, the sub-sampling may be
+        impossible to be applied due to insufficient memory. This is because
+        the sub-sampling of the appearance precision matrix involves converting
+        it to `scipy.sparse.lil_matrix`, sub-sampling it and re-convert it
+        back to `scipy.sparse.bsr_matrix`, which is a memory intensive
+        procedure.
     """
     def __init__(self, aps, gn_algorithm_cls=Inverse, n_shape=None,
                  weight=200., sampling=None):
@@ -152,8 +158,7 @@ class GaussNewtonAPSFitter(APSFitter):
                 transform=aps.shape_models[j], weight=self.weight[j],
                 use_procrustes=aps.use_procrustes,
                 template=aps.appearance_models[j].mean(),
-                sampling=self._sampling[j],
-                patch_shape=aps.patch_shape[j],
+                sampling=self._sampling[j], patch_shape=aps.patch_shape[j],
                 patch_normalisation=aps.patch_normalisation[j])
 
             # create the algorithm object and append it

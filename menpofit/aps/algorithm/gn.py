@@ -63,6 +63,7 @@ class GaussNewtonBaseInterface(object):
             image_mask[None, ...], (2, 1, 1, 1, 1, 1)))
         self.gradient2_mask = np.nonzero(np.tile(
             image_mask[None, None, ...], (2, 2, 1, 1, 1, 1, 1)))
+        self.sampling = sampling
 
     def ds_dp(self):
         r"""
@@ -354,11 +355,11 @@ class GaussNewton(object):
 
         # grab appearance model precision
         self.Q_a = self.appearance_model.precision
-        # mask it
-        # TODO: UNCOMMENT THIS TO ENABLE MASKING
-        # x, y = np.meshgrid(self.interface.i_mask,
-        #                    self.interface.i_mask)
-        # self.Q_a = self.Q_a[x, y]
+        # mask it only if the sampling mask is not all True
+        if not np.all(self.interface.sampling):
+            x, y = np.meshgrid(self.interface.i_mask, self.interface.i_mask)
+            tmp = self.Q_a.tolil()[x, y]
+            self.Q_a = tmp.tobsr()
 
         # grab appearance model mean
         self.a_bar = self.appearance_model.mean()

@@ -586,8 +586,7 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
         """
         # reshape nabla
         # nabla: dims x parts x off x ch x (h x w)
-        nabla = nabla[self.gradient_mask].reshape(
-            nabla.shape[:-2] + (-1,))
+        nabla = nabla[self.gradient_mask].reshape(nabla.shape[:-2] + (-1,))
         # compute steepest descent images
         # nabla: dims x parts x off x ch x (h x w)
         # ds_dp:    dims x parts x                             x params
