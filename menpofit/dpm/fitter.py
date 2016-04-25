@@ -4,6 +4,8 @@ import gc
 from .utils import convolve_python_f, call_shiftdt
 from math import log as log_m
 from menpo.feature import hog
+# todo: might have to revisit to test fft for fast conv
+# from menpofit.math.fft_utils import fft2, ifft2, pad, crop, ifftshift
 
 
 class DPMFitter(object):
@@ -91,8 +93,26 @@ class DPMFitter(object):
         defs_all = model.get_defs_weights()
         anchors_all = model.get_defs_anchors()
 
+        # todo: might have to revisit to test fft for fast conv
+        # largest_shape = np.array(feats[0].shape[-2:])
+        # filter_shape = np.array(filters_all[0].shape[-2:])
+        # filters_all_copy = []
+        # for filters in filters_all:
+        #     filters = filters[:, ::-1, ::-1]
+        #     ext_f = pad(filters, largest_shape)
+        #     fft_ext_f = fft2(ext_f)
+        #     filters_all_copy.append(fft_ext_f)
+
         for level, feat in feats.iteritems():  # for each level in the feature pyramid
             unary_scores_all = convolve_python_f(feat, filters_all)
+            # todo: might have to revisit to test fft for fast conv
+            # unary_scores_all = []
+            # fft_ext_x = fft2(pad(feat, largest_shape))
+            # for fft_ext_f in filters_all_copy:
+            #     fft_ext_c = np.sum(fft_ext_f * fft_ext_x, axis=0)
+            #     ext_c = np.real(ifftshift(ifft2(fft_ext_c), axes=(-2, -1)))
+            #     unary_scores_all.append(crop(ext_c, np.array(feat.shape[-2:])-np.array(filters.shape[-2:])+1))
+
             for c, component in enumerate(model.components):
 
                 if not component:
@@ -110,7 +130,7 @@ class DPMFitter(object):
                 scores, ix, iy = _fast_compute_pairwise_scores(scores, defs, tree, anchors, padding)
                 scale = scales[level]
                 root_score = scores[tree.root_vertex] + bias
-                [ys, xs] = np.where(root_score > threshold)
+                [ys, xs] = np.where(root_score >= threshold)
 
                 if xs.shape[0] > 0:
                     xy = _old_backtrack(xs, ys, tree, ix, iy, fsz, scale, padding)
@@ -149,7 +169,7 @@ class DPMFitter(object):
                 if not component:
                     continue
                 if latent:
-                    if c != bbox['c']:
+                    if len(model.components) > 1 and c != bbox['c']:
                         continue
 
                 tree = component['tree']
@@ -192,9 +212,6 @@ class DPMFitter(object):
 
                 [ys, xs] = np.where(root_score >= threshold)
 
-                # todo: test if it faster to use old_backtrack
-                import time
-                start = time.time()
                 if xs.shape[0] > 0:
                     # Only backtrack examples that can be fitted into qp for this negative image
                     ex_allowed_num = min(np.size(xs), qp.nmax - qp.n)
@@ -204,7 +221,7 @@ class DPMFitter(object):
                     xys, ids, ex_filters, ex_defs = _batch_backtrack(xs, ys, tree, ixs, iys, fsz, scale, padding, level,
                                                                      feat, anchors, label, id_)
 
-                print('level :', level, 'component :', c, 'found :', xs.shape[0])
+                print('level :', level, 'component :', bbox['c'] if latent else c, 'found :', xs.shape[0])
                 if not latent and xs.shape[0] > 0:
                     qp.write_multiple_exs(ids, filter_index, def_index, ex_filters, ex_defs)
                 for i in range(xs.shape[0]):
@@ -221,11 +238,9 @@ class DPMFitter(object):
                 if xs.shape[0] > 0 and not latent:
                     del ids, ex_filters, ex_defs
                     gc.collect()
-                stop = time.time()
-                print('time taken :', stop-start)
 
                 if not latent and xs.shape[0] > 0:  # and qp.n < qp.nmax:
-                    assert(np.allclose(qp.score_neg(), root_score[y, x]))
+                    assert(np.allclose(qp.score_neg(), root_score[y, x], atol=1e-5))
 
                 if not latent and (qp.lb < 0 or 1-qp.lb/qp.ub > 0.05 or qp.n == qp.nmax):
                     model = qp.obtimise(model)
@@ -238,7 +253,7 @@ class DPMFitter(object):
             qp.write_multiple_exs(ids, filter_index, def_index, ex_filters, ex_defs)
             if np.size(boxes) > 0:
                 boxes = boxes[-1]
-                assert(np.allclose(qp.score_pos()[qp.n-1], boxes['s']))
+                assert(np.allclose(qp.score_pos()[qp.n-1], boxes['s'], atol=1e-5))
         return boxes, model
 
     @staticmethod
@@ -308,10 +323,6 @@ class DPMFitter(object):
 
                 [ys, xs] = np.where(root_score >= threshold)
 
-                # todo: test if it faster to use old_backtrack
-                import time
-                start = time.time()
-
                 print('level :', level, 'component :', c, 'found :', xs.shape[0])
                 for i in range(xs.shape[0]):
                     x, y = xs[i], ys[i]
@@ -324,8 +335,6 @@ class DPMFitter(object):
                     boxes.append(dict(detection_info))
                     if not latent:
                         qp.write(ex)
-                stop = time.time()
-                print('time taken :', stop-start)
 
                 if not latent and xs.shape[0] > 0 and qp.n < qp.nmax:
                     assert(np.allclose(qp.score_neg(), root_score[y, x]))
@@ -454,8 +463,8 @@ def _feature_pyramid(im, m_inter, sbin, pyra_pad):
     feats_np = {}  # final feats (keep only numpy array, get rid of the image)
     for k, val in scales.iteritems():
         scales[k] = sbin * 1. / val
-        feats_np[k] = np.pad(feats[k].pixels, ((0, 0), (pyra_pad[1] + 1, pyra_pad[1] + 1),
-                                               (pyra_pad[0] + 1, pyra_pad[0] + 1)), 'constant')
+        feats_np[k] = np.pad(feats[k].pixels, ((0, 0), (int(pyra_pad[1]), int(pyra_pad[1])),
+                                               (int(pyra_pad[0]), int(pyra_pad[0]))), 'constant')
 
     return feats_np, scales
 

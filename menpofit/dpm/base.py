@@ -23,7 +23,8 @@ class DPMLearner(object):
             self.config = self._get_face_default_config()
 
         start = time.time()
-        self._model_train()
+        pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor/'
+        # self._model_train(pickle_dev)
         stop = time.time()
         print(stop-start)
         print('done')
@@ -105,48 +106,14 @@ class DPMLearner(object):
         return anno2tree - 1  # -1 to change matlab indexes
 
     @staticmethod
-    def _get_pie_image_info(pos_data, pos_data_dir, anno_dir, neg_data_dir):
-        pos = []
-        train_list = [50, 50, 50, 50, 50, 50, 300, 50, 50, 50, 50, 50, 50]
-        print('Collecting info for the positive images.')
-        for gmixid, poses in enumerate(pos_data):
-            count = 0
-            for img in poses['images']:
-                if count >= train_list[gmixid]:
-                    break
-                img_name = img[0][0]
-                [sub_id, ses_id, rec_id, cam_id, _] = img_name.split('_')
-                cam1_id = cam_id[0:2]
-                cam2_id = cam_id[2]
-                file_name = '{0}/session{1}/png/{2}/{3}/{4}_{5}/{6}.png'.format(pos_data_dir, ses_id, sub_id, rec_id, cam1_id, cam2_id, img_name)
-                anno_file_name = '{0}/{1}_lm.mat'.format(anno_dir, img_name)
-                if not os.path.isfile(file_name) or not os.path.isfile(anno_file_name):
-                    continue
-                count += 1
-                aux = dict()
-                aux['pts'] = scipy.io.loadmat(anno_file_name)['pts'][DPMLearner._get_anno2tree(gmixid), :]
-                aux['im'] = file_name
-                aux['gmixid'] = gmixid
-                pos.append(aux)
-        print('Collecting info for the negative images.')
-        l1 = sorted(os.listdir(neg_data_dir))
-        neg = []
-        for elem in l1:
-            if elem[elem.rfind('.') + 1:] in ['jpg', 'png', 'jpeg']:
-                aux = dict()
-                aux['im'] = os.path.join(neg_data_dir, elem)
-                neg.append(dict(aux))
-        return pos, neg
-
-    def _model_train(self):
+    def _get_pie_image_info(pickle_dev):
         multipie_mat = '/vol/atlas/homes/ks3811/matlab/multipie.mat'
-        multipie = scipy.io.loadmat(multipie_mat)['multipie'][0]
+        pos_data = scipy.io.loadmat(multipie_mat)['multipie'][0]
 
-        multipie_dir = '/vol/hci2/Databases/video/MultiPIE'
+        pos_data_dir = '/vol/hci2/Databases/video/MultiPIE'
         anno_dir = '/vol/atlas/homes/ks3811/matlab/my_annotation'
-        # negims = '/vol/hmi/projects/christos/Journal_IVC_2013/03_Ramanan/INRIA/'
-        neg_imgs_dir = '/vol/atlas/homes/ks3811/matlab/INRIA'
-        pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor'
+
+        neg_data_dir = '/vol/atlas/homes/ks3811/matlab/INRIA'
 
         try:  # Check if the data is already existed.
             fp = os.path.join(pickle_dev, 'data.pkl')
@@ -155,7 +122,37 @@ class DPMLearner(object):
             neg = _c['neg']
         except ValueError:  # Data in pickle does not exist
             start = time.time()
-            pos, neg = self._get_pie_image_info(multipie, multipie_dir, anno_dir, neg_imgs_dir)
+            pos = []
+            train_list = [50, 50, 50, 50, 50, 50, 300, 50, 50, 50, 50, 50, 50]
+            print('Collecting info for the positive images.')
+            for gmixid, poses in enumerate(pos_data):
+                count = 0
+                for img in poses['images']:
+                    if count >= train_list[gmixid]:
+                        break
+                    img_name = img[0][0]
+                    [sub_id, ses_id, rec_id, cam_id, _] = img_name.split('_')
+                    cam1_id = cam_id[0:2]
+                    cam2_id = cam_id[2]
+                    file_name = '{0}/session{1}/png/{2}/{3}/{4}_{5}/{6}.png'.format(pos_data_dir, ses_id, sub_id,
+                                                                                    rec_id, cam1_id, cam2_id, img_name)
+                    anno_file_name = '{0}/{1}_lm.mat'.format(anno_dir, img_name)
+                    if not os.path.isfile(file_name) or not os.path.isfile(anno_file_name):
+                        continue
+                    count += 1
+                    aux = dict()
+                    aux['pts'] = scipy.io.loadmat(anno_file_name)['pts'][DPMLearner._get_anno2tree(gmixid), :]
+                    aux['im'] = file_name
+                    aux['gmixid'] = gmixid
+                    pos.append(aux)
+            print('Collecting info for the negative images.')
+            l1 = sorted(os.listdir(neg_data_dir))
+            neg = []
+            for elem in l1:
+                if elem[elem.rfind('.') + 1:] in ['jpg', 'png', 'jpeg']:
+                    aux = dict()
+                    aux['im'] = os.path.join(neg_data_dir, elem)
+                    neg.append(dict(aux))
             _c = dict()
             _c['pos'] = pos
             _c['neg'] = neg
@@ -163,21 +160,21 @@ class DPMLearner(object):
             stop = time.time()
             fp = os.path.join(pickle_dev, 'data_time.pkl')
             mio.export_pickle(stop-start, fp)
+        return pos, neg
+
+    def _model_train(self, pickle_dev):
+        pos, neg = self._get_pie_image_info(pickle_dev)
 
         pos = self._ln2box(pos)
         spos = self._split(pos)
         k = min(len(neg), 200)
         kneg = neg[0:k]
 
-        #todo : Learning each independent part can be done in parallel
-        #pool = mp.Pool(processes=4)
-        #results = pool.map(self._train_model, range(1,7))
-        #results = [pool.apply(self._train_model, args=(x,)) for x in range(1, 7)]
-        #print results
-
+        file_name = 'actual_parts_model_fast'
+        parts_models_file_name, parts_models_time_file_name = self._get_files_names(file_name)
         parts_models = []
         try:
-            fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
+            fp = os.path.join(pickle_dev, parts_models_file_name)
             parts_models = mio.import_pickle(fp)
         except ValueError:
             start = time.time()
@@ -185,44 +182,58 @@ class DPMLearner(object):
                 assert(len(spos[i]) > 0)
                 init_model = self._init_model(spos[i], self.config['sbin'])
                 parts_models.append(self._train(init_model, spos[i], kneg, iters=4))
-            fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
+            fp = os.path.join(pickle_dev,  parts_models_file_name)
             mio.export_pickle(parts_models, fp)
             stop = time.time()
-            fp = os.path.join(pickle_dev, 'actual_parts_model_fast_time.pkl')
+            fp = os.path.join(pickle_dev, parts_models_time_file_name)
             mio.export_pickle(stop-start, fp)
 
+        file_name = 'defs'
+        defs_file_name, _ = self._get_files_names(file_name)
         try:  # todo: if independent parts are learned in parallel, need to wait for all results before continuing.
-            fp = os.path.join(pickle_dev, 'defs.pkl')
+            fp = os.path.join(pickle_dev, defs_file_name)
             defs = mio.import_pickle(fp)
         except ValueError:
             defs = self.build_mixture_defs(pos, parts_models[0].maxsize[0])
-            fp = os.path.join(pickle_dev, 'defs.pkl')
+            fp = os.path.join(pickle_dev, defs_file_name)
             mio.export_pickle(defs, fp)
 
+        file_name = 'mix'
+        mix_file_name, mix_time_file_name = self._get_files_names(file_name)
         try:
-            fp = os.path.join(pickle_dev, 'mix.pkl')
+            fp = os.path.join(pickle_dev, mix_file_name)
             model = mio.import_pickle(fp)
         except ValueError:
             model = self.build_mixture_model(parts_models, defs)
             start = time.time()
             model = self._train(model, pos, kneg, 1)
-            fp = os.path.join(pickle_dev, 'mix.pkl')
+            fp = os.path.join(pickle_dev, mix_file_name)
             mio.export_pickle(model, fp)
             stop = time.time()
-            fp = os.path.join(pickle_dev, 'mix_time.pkl')
+            fp = os.path.join(pickle_dev, mix_time_file_name)
             mio.export_pickle(stop-start, fp)
 
+        file_name = 'final2'
+        final_file_name, final_time_file_name = self._get_files_names(file_name)
         try:
-            fp = os.path.join(pickle_dev, 'final2.pkl')
+            fp = os.path.join(pickle_dev, final_file_name)
             model = mio.import_pickle(fp)
         except ValueError:
             start = time.time()
             model = self._train(model, pos, neg, 2)
-            fp = os.path.join(pickle_dev, 'final2.pkl')
+            fp = os.path.join(pickle_dev, final_file_name)
             mio.export_pickle(model, fp)
             stop = time.time()
-            fp = os.path.join(pickle_dev, 'final2_time.pkl')
+            fp = os.path.join(pickle_dev, final_time_file_name)
             mio.export_pickle(stop-start, fp)
+
+    @staticmethod
+    def _get_files_names(file_name):
+        dot_file_name = '.pkl'
+        time_str = '_time'
+        time_file_name = file_name + time_str + dot_file_name
+        file_name += dot_file_name
+        return file_name, time_file_name
 
     def _split(self, pos_images):
         # Each component contains different number of parts.
@@ -433,7 +444,7 @@ class DPMLearner(object):
         """
         num_pos = np.size(poses)
         model.interval = 5
-        num_positives = np.zeros(np.size(model.components, ), dtype=int)
+        # num_positives = np.zeros(np.size(model.components, ), dtype=int)
         score0 = qp.score_pos()
         qp.n = 0
         old_w = qp.w
@@ -451,8 +462,8 @@ class DPMLearner(object):
             im = mio.import_image(pos['im'])
             im, bbox['box'] = self._croppos(im, bbox['box'])
             box, model = DPMFitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
-            if np.size(box) > 0:
-                num_positives[bbox['c']] += 1
+            # if np.size(box) > 0:
+            #     num_positives[bbox['c']] += 1
         delta = np.inf
         if t > 0:
             score1 = qp.score_pos()
@@ -462,7 +473,7 @@ class DPMLearner(object):
             if loss0 != 0:
                 delta = abs((loss0 - loss1) / loss0)
         assert(qp.n <= qp.x.shape[1])
-        assert(np.sum(num_positives) <= 2 * num_pos)
+        # assert(np.sum(num_positives) <= 2 * num_pos)
         return delta
 
     @staticmethod
@@ -574,6 +585,180 @@ class DPMLearner(object):
             model_['components'].append(component)
 
         return Model.model_from_dict(model_)
+
+    def train_final_component(self, pickle_dev, index):
+        file_name = 'component_further_' + str(index)
+        component_file_name, component_time_file_name = self._get_files_names(file_name)
+        try:
+            fp = os.path.join(pickle_dev, component_file_name)
+            model = mio.import_pickle(fp)
+        except ValueError:
+            model = self.train_component(pickle_dev, index)
+            start = time.time()
+            pos, neg = self._get_pie_image_info(pickle_dev)
+            pos = filter(lambda p: p['gmixid'] == index, pos)
+            pos = self._ln2box(pos)
+            model = self._train(model, pos, neg, 2)
+            fp = os.path.join(pickle_dev, component_file_name)
+            mio.export_pickle(model, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, component_time_file_name)
+            mio.export_pickle(stop-start, fp)
+        return model
+
+    def train_component(self, pickle_dev, index):
+        file_name = 'component_' + str(index)
+        component_file_name, component_time_file_name = self._get_files_names(file_name)
+        try:
+            fp = os.path.join(pickle_dev, component_file_name)
+            model = mio.import_pickle(fp)
+        except ValueError:
+            init_model = self.build_model(pickle_dev, index)
+            start = time.time()
+            pos, neg = self._get_pie_image_info(pickle_dev)
+            pos = filter(lambda p: p['gmixid'] == index, pos)
+            pos = self._ln2box(pos)
+            k = min(len(neg), 200)
+            kneg = neg[0:k]
+            model = self._train(init_model, pos, kneg, 1)
+            fp = os.path.join(pickle_dev, component_file_name)
+            mio.export_pickle(model, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, component_time_file_name)
+            mio.export_pickle(stop-start, fp)
+        return model
+
+    def build_model(self, pickle_dev, index):
+        parts_models = self.merge_parts(pickle_dev)
+
+        # Combine the filters learned independently of each part and defs learned from positive examples into a
+        # mixture model.
+        # Diverging from the original code in the sense that the root filter IS NOT in position 0, but
+        # in it's position within the ln points. Additionally, there is a new field called root_id, which
+        # shows the precise position of that root filter.
+        conf = self.config
+        model_ = dict()
+        model_['maxsize'] = parts_models[0].maxsize
+        model_['len'] = 0
+        model_['interval'] = parts_models[0].interval
+        model_['sbin'] = parts_models[0].sbin
+
+        # Combine the filters
+        model_['filters'] = []
+        for part in conf['mixture_poolid'][index]:    # for each possible parts
+            f = dict()
+            part_model = parts_models[part]
+            f['w'] = part_model.filters[0]['w']
+            f['i'] = model_['len']
+            model_['len'] += np.size(f['w'])
+            model_['filters'].append(f)
+
+        # combine the defs
+        model_['defs'] = []
+        model_['components'] = []
+        component = dict()
+        def_ids = []
+        defs = self.build_defs(pickle_dev, model_['maxsize'], index)
+        if np.size(defs) == 0:
+            model_['components'].append(component)
+        nd = np.size(model_['defs'])
+        d = dict()
+        d['i'] = model_['len']
+        d['w'] = np.array([0])
+        d['anchor'] = np.zeros(3,)
+        model_['defs'].append(d)
+        model_['len'] += np.size(d['w'])
+        def_ids.append(nd)
+        for j, def_ in enumerate(defs):
+            nd = np.size(model_['defs'])
+            d = dict()
+            d['i'] = model_['len']
+            d['w'] = np.array([0.01, 0, 0.01, 0])
+            d['anchor'] = np.array([round(def_[0]) + 1, round(def_[1]) + 1, 0])
+            model_['defs'].append(d)
+            model_['len'] += np.size(d['w'])
+            def_ids.append(nd)
+        component['def_ids'] = def_ids
+        component['filter_ids'] = range(len(conf['mixture_poolid'][index]))
+        parents = self._get_parents_lns(index)
+        num_parts = np.size(parents)
+        pairs = zip(parents, range(num_parts))
+        tree_matrix = csr_matrix(([1] * (num_parts-1), (zip(*pairs[1:]))), shape=(num_parts, num_parts))
+        component['tree'] = Tree(tree_matrix, root_vertex=0, skip_checks=True)
+        model_['components'].append(component)
+
+        return Model.model_from_dict(model_)
+
+    def merge_parts(self, pickle_dev):
+        # this method assume that each parts are all trained independently already.
+        parts_models = []
+        try:
+            fp = os.path.join(pickle_dev, 'parts_model_merge.pkl')
+            parts_models = mio.import_pickle(fp)
+        except ValueError:
+            start = time.time()
+            for i in xrange(self.config['partpoolsize']):
+                file_name = 'parts_model_' + str(i) + '.pkl'
+                fp = os.path.join(pickle_dev, file_name)
+                part_model = mio.import_pickle(fp)
+                parts_models.append(part_model)
+            fp = os.path.join(pickle_dev, 'parts_model_merge.pkl')
+            mio.export_pickle(parts_models, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, 'parts_model_merge_time.pkl')
+            mio.export_pickle(stop-start, fp)
+        return parts_models
+
+    def train_part(self, pickle_dev, index):
+        pos, neg = self._get_pie_image_info(pickle_dev)
+
+        pos = self._ln2box(pos)
+        spos = self._split(pos)
+        k = min(len(neg), 200)
+        kneg = neg[0:k]
+
+        file_name = 'parts_model_' + index + '.pkl'
+        time_file_name = 'parts_model_' + index + '_time' + '.pkl'
+        index = int(index)
+        try:
+            fp = os.path.join(pickle_dev, file_name)
+            _ = mio.import_pickle(fp)
+        except ValueError:
+            start = time.time()
+            init_model = self._init_model(spos[index], self.config['sbin'])
+            part = self._train(init_model, spos[index], kneg, iters=4)
+            fp = os.path.join(pickle_dev, file_name)
+            mio.export_pickle(part, fp)
+            stop = time.time()
+            fp = os.path.join(pickle_dev, time_file_name)
+            mio.export_pickle(stop-start, fp)
+
+    def build_defs(self, pickle_dev, maxsize, index):
+        # compute initial deformable coefficients(anchors) by averaging the distance of each positive example's part
+        pos, neg = self._get_pie_image_info(pickle_dev)
+        pos = self._ln2box(pos)
+
+        conf = self.config
+        pos_len = len(pos)
+        gmixids = np.empty((pos_len,), dtype=np.int32)
+        box_size = np.empty((pos_len,))
+        for i, p in enumerate(pos):
+            box_size[i] = p['box_x2'][0] - p['box_x1'][0] + 1
+            gmixids[i] = p['gmixid'] * 1
+
+        i = index
+        parts_num = len(conf['mixture_poolid'][i])
+        par = self._get_parents_lns(i)
+        idx = np.where(i == gmixids)[0]
+        points = np.empty((parts_num, 2, idx.shape[0]))
+
+        for j, id_j in enumerate(idx):
+            scale0 = box_size[id_j]/maxsize
+            points[:, :, j] = pos[id_j]['pts']/scale0
+
+        def_tmp = (points[:, :, :] - points[par, :, :])
+        def_tmp = np.mean(def_tmp, axis=2)
+        return def_tmp[1:, :]
 
 
 # this class will be rename to DPM once the current experiment with ~ 700 positive examples finish otherwise pickle
@@ -958,7 +1143,7 @@ class Qp(object):
         idxs = np.array(idxs, dtype=np.intc)
         n = np.size(idxs)
         assert(n > 0)
-        #loss = qp_one_sparse(self.x, np.array(self.i, dtype=np.intc), self.b, self.d, self.a, self.w, np.array(self.noneg, dtype=np.intc), self.sv.view(dtype=np.int8), self.l, 1, idxs)
+        #loss = qp_one_sparse(self.x, np.array(self.i, dtype=np.intc), self.b, self.d, self.a, self.w, np.array(self.non_neg, dtype=np.intc), self.sv.view(dtype=np.int8), self.l, 1, idxs)
         loss = self.qp_one_sparse(1, idxs)
         self.refresh()
         self.sv[self.svfix] = True

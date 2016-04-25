@@ -39,11 +39,17 @@ def debugging():
     mat_model = Model.model_from_dict(mat_model)
 
     # Uncomment these to use the model learned from python
-    pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor'
+    pickle_dev = '/vol/atlas/homes/ks3811/pickles/condor/parts'
     try:
         import os
         # fp = os.path.join(pickle_dev, 'actual_parts_model_fast.pkl')
-        fp = os.path.join(pickle_dev, 'tmp.pkl')
+        # max_time = -1
+        # for i in xrange(len(components)):
+        #     fp = os.path.join(pickle_dev, 'component_further_' + str(i) + '.pkl_time.pkl')
+        #     current_time = mio.import_pickle(fp)
+        #     print current_time
+        #     max_time = max(max_time, current_time)
+        fp = os.path.join(pickle_dev, 'component_further_6.pkl')
         model = mio.import_pickle(fp)
         # model['interval'] = 10  # Use deeper pyramid when detecting actual objects
         model.interval = 10  # Use deeper pyramid when detecting actual objects
@@ -54,6 +60,7 @@ def debugging():
 
     start = time.time()
     im = mio.import_builtin_asset('takeo.ppm')
+
     boxes = DPMFitter().fast_fit_from_model(im, mat_model, thresh)
     print 'Found {0} configuration(s) that score above a given threshold: {1}'.format(np.size(boxes), thresh)
     boxes.sort(key=lambda item: item['s'], reverse=True)
