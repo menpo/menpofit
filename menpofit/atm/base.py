@@ -1015,8 +1015,8 @@ def _atm_str(atm):
      - Holistic feature: {}
      - Template shape: {}
      - Shape model class: {}
-     - {} shape components
-     - {} similarity transform parameters"""
+       - {} shape components
+       - {} similarity transform parameters"""
     for k, s in enumerate(atm.scales):
         scales_info.append(lvl_str_tmplt.format(
             s, name_of_callable(atm.holistic_features[k]),

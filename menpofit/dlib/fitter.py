@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 
 from menpo.feature import no_op
-from menpo.transform import Scale, AlignmentAffine
 from menpo.base import name_of_callable
 
 from menpofit import checks
@@ -386,7 +385,7 @@ class DlibERT(MultiScaleNonParametricFitter):
                                       initial_shape=bounding_boxes[0],
                                       affine_transforms=affine_transforms,
                                       scale_transforms=scale_transforms,
-                                      gt_shapes=gt_shapes)
+                                      return_costs=False, gt_shapes=gt_shapes)
 
         # Return multi-scale fitting result
         return self._fitter_result(image=image,

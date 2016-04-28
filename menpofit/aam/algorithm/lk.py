@@ -257,7 +257,7 @@ class LucasKanadeBaseInterface(object):
 
     def algorithm_result(self, image, shapes, shape_parameters,
                          appearance_parameters=None, initial_shape=None,
-                         cost_functions=None, gt_shape=None):
+                         gt_shape=None, costs=None):
         r"""
         Returns an AAM iterative optimization result object.
 
@@ -276,12 +276,12 @@ class LucasKanadeBaseInterface(object):
         initial_shape : `menpo.shape.PointCloud` or ``None``, optional
             The initial shape from which the fitting process started. If
             ``None``, then no initial shape is assigned.
-        cost_functions : `list` of `closures` or ``None``, optional
-            The `list` of functions that compute the cost per iteration. If
-            ``None``, then it is assumed that the cost computation for that
-            particular algorithm is not well defined.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape that corresponds to the test image.
+        costs : `list` of `float` or ``None``, optional
+            The `list` of costs per iteration. If ``None``, then it is
+            assumed that the cost computation for that particular algorithm
+            is not well defined.
 
         Returns
         -------
@@ -291,8 +291,8 @@ class LucasKanadeBaseInterface(object):
         return AAMAlgorithmResult(
             shapes=shapes, shape_parameters=shape_parameters,
             appearance_parameters=appearance_parameters,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
 
 class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
@@ -399,7 +399,7 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
 
     def algorithm_result(self, image, shapes, shape_parameters,
                          appearance_parameters=None, initial_shape=None,
-                         cost_functions=None, gt_shape=None):
+                         gt_shape=None, costs=None):
         r"""
         Returns an AAM iterative optimization result object.
 
@@ -418,12 +418,12 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
         initial_shape : `menpo.shape.PointCloud` or ``None``, optional
             The initial shape from which the fitting process started. If
             ``None``, then no initial shape is assigned.
-        cost_functions : `list` of `closures` or ``None``, optional
-            The `list` of functions that compute the cost per iteration. If
-            ``None``, then it is assumed that the cost computation for that
-            particular algorithm is not well defined.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape that corresponds to the test image.
+        costs : `list` of `float` or ``None``, optional
+            The `list` of costs per iteration. If ``None``, then it is
+            assumed that the cost computation for that particular algorithm
+            is not well defined.
 
         Returns
         -------
@@ -438,8 +438,8 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
         return AAMAlgorithmResult(
             shapes=shapes, shape_parameters=shape_parameters,
             appearance_parameters=appearance_parameters,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
 
 class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
@@ -586,8 +586,7 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
         """
         # reshape nabla
         # nabla: dims x parts x off x ch x (h x w)
-        nabla = nabla[self.gradient_mask].reshape(
-            nabla.shape[:-2] + (-1,))
+        nabla = nabla[self.gradient_mask].reshape(nabla.shape[:-2] + (-1,))
         # compute steepest descent images
         # nabla: dims x parts x off x ch x (h x w)
         # ds_dp:    dims x parts x                             x params
@@ -794,7 +793,7 @@ class ProjectOut(LucasKanade):
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -811,6 +810,13 @@ class ProjectOut(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
@@ -820,9 +826,9 @@ class ProjectOut(LucasKanade):
         fitting_result : :map:`AAMAlgorithmResult`
             The parametric iterative fitting result.
         """
-        # define cost closure
+        # define cost function
         def cost_closure(x, f):
-            return lambda: x.T.dot(f(x))
+            return x.T.dot(f(x))
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -843,8 +849,10 @@ class ProjectOut(LucasKanade):
         # compute masked error
         self.e_m = i_m - self.a_bar_m
 
-        # update cost_functions
-        cost_functions = [cost_closure(self.e_m, self.project_out)]
+        # update costs
+        costs = None
+        if return_costs:
+            costs = [cost_closure(self.e_m, self.project_out)]
 
         while k < max_iters and eps > self.eps:
             # solve for increments on the shape parameters
@@ -864,8 +872,9 @@ class ProjectOut(LucasKanade):
             # compute masked error
             self.e_m = i_m - self.a_bar_m
 
-            # update cost
-            cost_functions.append(cost_closure(self.e_m, self.project_out))
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(self.e_m, self.project_out))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -876,8 +885,7 @@ class ProjectOut(LucasKanade):
         # return algorithm result
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            gt_shape=gt_shape)
+            initial_shape=initial_shape, costs=costs, gt_shape=gt_shape)
 
 
 class ProjectOutForwardCompositional(ProjectOut):
@@ -951,7 +959,7 @@ class Simultaneous(LucasKanade):
     Abstract class for defining Simultaneous AAM optimization algorithms.
     """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -968,6 +976,13 @@ class Simultaneous(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
@@ -979,7 +994,7 @@ class Simultaneous(LucasKanade):
         """
         # define cost closure
         def cost_closure(x):
-            return lambda: x.T.dot(x)
+            return x.T.dot(x)
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -1007,8 +1022,10 @@ class Simultaneous(LucasKanade):
         # compute masked error
         self.e_m = i_m - a_m
 
-        # update cost
-        cost_functions = [cost_closure(self.e_m)]
+        # update costs
+        costs = None
+        if return_costs:
+            costs = [cost_closure(self.e_m)]
 
         while k < max_iters and eps > self.eps:
             # solve for increments on the appearance and shape parameters
@@ -1035,8 +1052,9 @@ class Simultaneous(LucasKanade):
             # compute masked error
             self.e_m = i_m - a_m
 
-            # update cost
-            cost_functions.append(cost_closure(self.e_m))
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(self.e_m))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -1048,7 +1066,7 @@ class Simultaneous(LucasKanade):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            cost_functions=cost_functions, gt_shape=gt_shape)
+            costs=costs, gt_shape=gt_shape)
 
     def _solve(self, map_inference):
         # compute masked Jacobian
@@ -1116,7 +1134,7 @@ class Alternating(LucasKanade):
         self.AA_m_map = self.A_m.T.dot(self.A_m) + np.diag(self.s2_inv_S)
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -1133,6 +1151,13 @@ class Alternating(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
@@ -1144,7 +1169,7 @@ class Alternating(LucasKanade):
         """
         # define cost closure
         def cost_closure(x):
-            return lambda: x.T.dot(x)
+            return x.T.dot(x)
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -1173,8 +1198,10 @@ class Alternating(LucasKanade):
         # compute masked error
         e_m = i_m - a_m
 
-        # update cost
-        cost_functions = [cost_closure(e_m)]
+        # update costs
+        costs = None
+        if return_costs:
+            costs = [cost_closure(e_m)]
 
         while k < max_iters and eps > self.eps:
             # solve for increment on the appearance parameters
@@ -1220,8 +1247,9 @@ class Alternating(LucasKanade):
             # compute masked error
             e_m = i_m - a_m
 
-            # update cost
-            cost_functions.append(cost_closure(e_m))
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(e_m))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -1233,7 +1261,7 @@ class Alternating(LucasKanade):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            cost_functions=cost_functions, gt_shape=gt_shape)
+            costs=costs, gt_shape=gt_shape)
 
 
 class AlternatingForwardCompositional(Alternating):
@@ -1280,7 +1308,7 @@ class ModifiedAlternating(Alternating):
     algorithms.
     """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -1297,6 +1325,13 @@ class ModifiedAlternating(Alternating):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
@@ -1308,7 +1343,7 @@ class ModifiedAlternating(Alternating):
         """
         # define cost closure
         def cost_closure(x):
-            return lambda: x.T.dot(x)
+            return x.T.dot(x)
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -1338,8 +1373,10 @@ class ModifiedAlternating(Alternating):
         # compute masked error
         e_m = i_m - a_m
 
-        # update cost
-        cost_functions = [cost_closure(e_m)]
+        # update costs
+        costs = None
+        if return_costs:
+            costs = [cost_closure(e_m)]
 
         while k < max_iters and eps > self.eps:
             # compute masked Jacobian
@@ -1373,8 +1410,9 @@ class ModifiedAlternating(Alternating):
             # compute masked error
             e_m = i_m - a_m
 
-            # update cost
-            cost_functions.append(cost_closure(e_m))
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(e_m))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -1386,7 +1424,7 @@ class ModifiedAlternating(Alternating):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            cost_functions=cost_functions, gt_shape=gt_shape)
+            costs=costs, gt_shape=gt_shape)
 
 
 class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
@@ -1436,7 +1474,7 @@ class Wiberg(LucasKanade):
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            map_inference=False):
+            return_costs=False, map_inference=False):
         r"""
         Execute the optimization algorithm.
 
@@ -1453,6 +1491,13 @@ class Wiberg(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         map_inference : `bool`, optional
             If ``True``, then the solution will be given after performing MAP
             inference.
@@ -1464,7 +1509,7 @@ class Wiberg(LucasKanade):
         """
         # define cost closure
         def cost_closure(x, f):
-            return lambda: x.T.dot(f(x))
+            return x.T.dot(f(x))
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -1492,8 +1537,10 @@ class Wiberg(LucasKanade):
         # compute masked error
         e_m = i_m - self.a_bar_m
 
-        # update cost
-        cost_functions = [cost_closure(e_m, self.project_out)]
+        # update costs
+        costs = None
+        if return_costs:
+            costs = [cost_closure(e_m, self.project_out)]
 
         while k < max_iters and eps > self.eps:
             # compute masked Jacobian
@@ -1531,8 +1578,9 @@ class Wiberg(LucasKanade):
             # compute masked error
             e_m = i_m - self.a_bar_m
 
-            # update cost
-            cost_functions.append(cost_closure(e_m, self.project_out))
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(e_m, self.project_out))
 
             # test convergence
             eps = np.abs(np.linalg.norm(s_k - self.transform.target.points))
@@ -1544,7 +1592,7 @@ class Wiberg(LucasKanade):
         return self.interface.algorithm_result(
             image=image, shapes=shapes, shape_parameters=p_list,
             appearance_parameters=c_list, initial_shape=initial_shape,
-            cost_functions=cost_functions, gt_shape=gt_shape)
+            costs=costs, gt_shape=gt_shape)
 
 
 class WibergForwardCompositional(Wiberg):

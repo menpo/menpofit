@@ -44,6 +44,8 @@ the fitting procedure. For example, the various shapes can be retrieved as:
   The `list` of shapes acquired at each fitting iteration. It only applies on
   :map:`MultiScaleNonParametricIterativeResult` and
   :map:`MultiScaleParametricIterativeResult`.
+`result.costs()`
+  The cost values per iteration, if they were computed during fitting.
 
 Also, a result can compute some error metrics, in case the `gt_shape` of the
 image exists:

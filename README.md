@@ -12,6 +12,8 @@ Menpo project. Currently, the techniques that have been implemented include:
   - **Active Template Model**
     - Holistic, Patch-based, Masked, Linear, Linear Masked
     - Lucas-Kanade Optimisation (Inverse Compositional, Forward Compositional)
+  - **Active Pictorial Structures**
+    - Weighted Gauss-Newton Optimisation with fixed Jacobian and Hessian
   - **Constrained Local Model**
     - Active Shape Models
     - Regularized Landmark Mean-Shift

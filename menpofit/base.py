@@ -22,3 +22,11 @@ def build_grid(shape):
     end = half_shape + shape % 2
     sampling_grid = np.mgrid[start[0]:end[0], start[1]:end[1]]
     return np.rollaxis(sampling_grid, 0, 3)
+
+
+class MenpoFitCostsWarning(Warning):
+    r"""
+    A warning that the costs cannot be computed for the selected fitting
+    algorithm.
+    """
+    pass

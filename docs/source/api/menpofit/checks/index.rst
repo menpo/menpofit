@@ -31,3 +31,4 @@ Multi-Scale Parameters Check Functions
     set_models_components
     check_algorithm_cls
     check_sampling
+    check_graph

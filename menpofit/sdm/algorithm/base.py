@@ -4,6 +4,7 @@ import numpy as np
 
 from menpo.visualize import print_dynamic
 
+from menpofit.fitter import raise_costs_warning
 from menpofit.visualize import print_progress
 from menpofit.result import (NonParametricIterativeResult,
                              ParametricIterativeResult)
@@ -132,7 +133,8 @@ class BaseSupervisedDescentAlgorithm(object):
     def _compute_test_features(self, image, current_shape):
         raise NotImplementedError()
 
-    def run(self, image, initial_shape, gt_shape=None, **kwargs):
+    def run(self, image, initial_shape, gt_shape=None, return_costs=False,
+            **kwargs):
         r"""
         Run the predictor to an image given an initial shape.
 
@@ -144,6 +146,13 @@ class BaseSupervisedDescentAlgorithm(object):
             The initial shape from which the fitting procedure will start.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape associated to the image.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that this
+            argument currently has no effect and will raise a warning if set
+            to ``True``. This is because it is not possible to evaluate the
+            cost function of this algorithm.*
         """
         raise NotImplementedError()
 
@@ -530,7 +539,7 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
 
 
 def fit_parametric_shape(image, initial_shape, parametric_algorithm,
-                         gt_shape=None):
+                         gt_shape=None, return_costs=False):
     r"""
     Method that fits a parametric cascaded regression algorithm to an image.
 
@@ -545,12 +554,22 @@ def fit_parametric_shape(image, initial_shape, parametric_algorithm,
         Please refer to `menpofit.sdm.algorithm`.
     gt_shape : `menpo.shape.PointCloud`
         The ground truth shape that corresponds to the image.
+    return_costs : `bool`, optional
+        If ``True``, then the cost function values will be computed during
+        the fitting procedure. Then these cost values will be assigned to the
+        returned `fitting_result`. *Note that this argument currently has no
+        effect and will raise a warning if set to ``True``. This is because
+        it is not possible to evaluate the cost function of this algorithm.*
 
     Returns
     -------
-    fitting_result : `menpofit.result.ParametricIterativeResult`
+    fitting_result : :map:`ParametricIterativeResult`
         The final fitting result.
     """
+    # costs warning
+    if return_costs:
+        raise_costs_warning(parametric_algorithm)
+
     # set current shape and initialize list of shapes
     parametric_algorithm.shape_model.set_target(initial_shape)
     current_shape = initial_shape.from_vector(
@@ -582,7 +601,7 @@ def fit_parametric_shape(image, initial_shape, parametric_algorithm,
 
 
 def fit_non_parametric_shape(image, initial_shape, non_parametric_algorithm,
-                             gt_shape=None):
+                             gt_shape=None, return_costs=False):
     r"""
     Method that fits a non-parametric cascaded regression algorithm to an image.
 
@@ -597,12 +616,22 @@ def fit_non_parametric_shape(image, initial_shape, non_parametric_algorithm,
         model. Please refer to `menpofit.sdm.algorithm`.
     gt_shape : `menpo.shape.PointCloud`
         The ground truth shape that corresponds to the image.
+    return_costs : `bool`, optional
+        If ``True``, then the cost function values will be computed during
+        the fitting procedure. Then these cost values will be assigned to the
+        returned `fitting_result`. *Note that this argument currently has no
+        effect and will raise a warning if set to ``True``. This is because
+        it is not possible to evaluate the cost function of this algorithm.*
 
     Returns
     -------
-    fitting_result : `menpofit.result.NonParametricIterativeResult`
+    fitting_result : :map:`NonParametricIterativeResult`
         The final fitting result.
     """
+    # costs warning
+    if return_costs:
+        raise_costs_warning(non_parametric_algorithm)
+
     # set current shape and initialize list of shapes
     current_shape = initial_shape
     shapes = []

@@ -3,6 +3,7 @@ import dlib
 
 from menpo.visualize import print_dynamic
 
+from menpofit.fitter import raise_costs_warning
 from menpofit.result import NonParametricIterativeResult
 
 from .conversion import (copy_dlib_options, pointcloud_to_dlib_rect,
@@ -130,7 +131,8 @@ class DlibAlgorithm(object):
 
         return bounding_boxes
 
-    def run(self, image, bounding_box, gt_shape=None, **kwargs):
+    def run(self, image, bounding_box, gt_shape=None, return_costs=False,
+            **kwargs):
         r"""
         Run the predictor to an image given an initial bounding box.
 
@@ -143,12 +145,23 @@ class DlibAlgorithm(object):
             will start.
         gt_shape : `menpo.shape.PointCloud` or ``None``, optional
             The ground truth shape associated to the image.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that this
+            argument currently has no effect and will raise a warning if set
+            to ``True``. This is because it is not possible to evaluate the
+            cost function of this algorithm.*
 
         Returns
         -------
         fitting_result: `menpofit.result.NonParametricIterativeResult`
             The result of the fitting procedure.
         """
+        # costs warning
+        if return_costs:
+            raise_costs_warning(self)
+
         # Perform prediction
         pix = image_to_dlib_pixels(image)
         rect = pointcloud_to_dlib_rect(bounding_box)

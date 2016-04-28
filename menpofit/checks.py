@@ -26,10 +26,10 @@ def check_diagonal(diagonal):
     Raises
     ------
     ValueError
-        diagonal must be >= 20
+        diagonal must be >= 20 or None
     """
     if diagonal is not None and diagonal < 20:
-        raise ValueError("diagonal must be >= 20")
+        raise ValueError("diagonal must be >= 20 or None")
     return diagonal
 
 
@@ -193,7 +193,7 @@ def check_callable(callables, n_scales):
     elif len(callables) == 1 and np.alltrue([callable(f) for f in callables]):
         return list(callables) * n_scales
     elif len(callables) == n_scales and np.alltrue([callable(f)
-                                                   for f in callables]):
+                                                    for f in callables]):
         return list(callables)
     else:
         raise ValueError("callables must be a callable or a list/tuple of "
@@ -441,7 +441,7 @@ def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
         scales {n_scales}
     """
     if (isinstance(algorithm_cls, partial) and
-        base_algorithm_cls in algorithm_cls.func.mro()):
+            base_algorithm_cls in algorithm_cls.func.mro()):
         return [algorithm_cls] * n_scales
     elif (isinstance(algorithm_cls, type) and
           base_algorithm_cls in algorithm_cls.mro()):
@@ -458,3 +458,56 @@ def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
                          "as the number of scales {}"
                          .format(base_algorithm_cls, base_algorithm_cls,
                                  n_scales))
+
+
+def check_graph(graph, graph_types, param_name, n_scales):
+    r"""
+    Checks the provided graph per pyramidal level. The graph must be a
+    subclass of `graph_types` or a `list` of those.
+
+    Parameters
+    ----------
+    graph : `graph` or `list` of `graph` types
+        The graph argument to check.
+    graph_types : `graph` or `tuple` of `graphs`
+        The `tuple` of allowed graph types.
+    param_name : `str`
+        The name of the graph parameter.
+    n_scales : `int`
+        The number of pyramidal levels.
+
+    Returns
+    -------
+    graph : `list` of `graph` types
+        The graph per scale in a `list`.
+
+    Raises
+    ------
+    ValueError
+        {param_name} must be a list of length equal to the number of scales.
+    ValueError
+        {param_name} must be a list of {graph_types_str}. {} given instead.
+    """
+    # check if the provided graph is a list
+    if not isinstance(graph, list):
+        graphs = [graph] * n_scales
+    elif len(graph) == 1:
+        graphs = graph * n_scales
+    elif len(graph) == n_scales:
+        graphs = graph
+    else:
+        raise ValueError('{} must be a list of length equal to the number of '
+                         'scales.'.format(param_name))
+    # check if the provided graph_types is a list
+    if not isinstance(graph_types, list):
+        graph_types = [graph_types]
+
+    # check each member of the graphs list
+    for g in graphs:
+        if g is not None:
+            if type(g) not in graph_types:
+                graph_types_str = ' or '.join(gt.__name__ for gt in graph_types)
+                raise ValueError('{} must be a list of {}. {} given '
+                                 'instead.'.format(param_name, graph_types_str,
+                                                   type(g).__name__))
+    return graphs

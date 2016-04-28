@@ -69,7 +69,8 @@ class ForwardAdditive(LucasKanade):
     r"""
     Forward Additive (FA) Lucas-Kanade algorithm.
     """
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20):
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
+            return_costs=False):
         r"""
         Execute the optimization algorithm.
 
@@ -86,6 +87,13 @@ class ForwardAdditive(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
 
         Returns
         -------
@@ -97,7 +105,9 @@ class ForwardAdditive(LucasKanade):
         p_list = [self.transform.as_vector()]
         shapes = [self.transform.target]
 
-        cost_functions = []
+        costs = None
+        if return_costs:
+            costs = []
 
         # initialize iteration counter and epsilon
         k = 0
@@ -134,8 +144,9 @@ class ForwardAdditive(LucasKanade):
             p_list.append(self.transform.as_vector())
             shapes.append(self.transform.target)
 
-            # update cost
-            cost_functions.append(self.residual.cost_closure())
+            # update costs
+            if return_costs:
+                costs.append(self.residual.cost_closure())
 
             # test convergence
             eps = np.abs(norm(dp))
@@ -146,8 +157,8 @@ class ForwardAdditive(LucasKanade):
         # return algorithm result
         return LucasKanadeAlgorithmResult(
             shapes=shapes, homogeneous_parameters=p_list,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
     def __str__(self):
         return "Forward Additive Algorithm"
@@ -191,7 +202,8 @@ class ForwardCompositional(LucasKanade):
         self.dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +
                                    dW_dp.shape[-1:])
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20):
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
+            return_costs=False):
         r"""
         Execute the optimization algorithm.
 
@@ -208,6 +220,13 @@ class ForwardCompositional(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
 
         Returns
         -------
@@ -219,7 +238,9 @@ class ForwardCompositional(LucasKanade):
         p_list = [self.transform.as_vector()]
         shapes = [self.transform.target]
 
-        cost_functions = []
+        costs = None
+        if return_costs:
+            costs = []
 
         # initialize iteration counter and epsilon
         k = 0
@@ -251,7 +272,8 @@ class ForwardCompositional(LucasKanade):
             shapes.append(self.transform.target)
 
             # update cost
-            cost_functions.append(self.residual.cost_closure())
+            if return_costs:
+                costs.append(self.residual.cost_closure())
 
             # test convergence
             eps = np.abs(norm(dp))
@@ -262,8 +284,8 @@ class ForwardCompositional(LucasKanade):
         # return algorithm result
         return LucasKanadeAlgorithmResult(
             shapes=shapes, homogeneous_parameters=p_list,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
     def __str__(self):
         return "Forward Compositional Algorithm"
@@ -311,7 +333,8 @@ class InverseCompositional(LucasKanade):
         # compute hessian
         self.H = self.residual.hessian(self.filtered_J, sdi2=J)
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20):
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
+            return_costs=False):
         r"""
         Execute the optimization algorithm.
 
@@ -328,6 +351,13 @@ class InverseCompositional(LucasKanade):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
 
         Returns
         -------
@@ -339,7 +369,9 @@ class InverseCompositional(LucasKanade):
         p_list = [self.transform.as_vector()]
         shapes = [self.transform.target]
 
-        cost_functions = []
+        costs = None
+        if return_costs:
+            costs = []
 
         # initialize iteration counter and epsilon
         k = 0
@@ -365,7 +397,8 @@ class InverseCompositional(LucasKanade):
             shapes.append(self.transform.target)
 
             # update cost
-            cost_functions.append(self.residual.cost_closure())
+            if return_costs:
+                costs.append(self.residual.cost_closure())
 
             # test convergence
             eps = np.abs(norm(dp))
@@ -376,8 +409,8 @@ class InverseCompositional(LucasKanade):
         # return algorithm result
         return LucasKanadeAlgorithmResult(
             shapes=shapes, homogeneous_parameters=p_list,
-            initial_shape=initial_shape, cost_functions=cost_functions,
-            image=image, gt_shape=gt_shape)
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
     def __str__(self):
         return "Inverse Compositional Algorithm"

@@ -293,12 +293,12 @@ class SSD(Residual):
         """
         def cost_closure(x, k):
             if k is None:
-                return lambda: x.T.dot(x)
+                return x.T.dot(x)
             else:
                 x = x.reshape((-1,) + k.shape[-2:])
                 kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
                            axes=(-2, -1))
-                return lambda: x.ravel().T.dot(kx.ravel())
+                return x.ravel().T.dot(kx.ravel())
         return cost_closure(self._error_img, self._kernel)
 
     def __str__(self):
@@ -463,11 +463,11 @@ class FourierSSD(Residual):
         """
         def cost_closure(x, k):
             if k is None:
-                return lambda: x.ravel().T.dot(x.ravel())
+                return x.ravel().T.dot(x.ravel())
             else:
                 kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
                            axes=(-2, -1))
-                return lambda: x.ravel().T.dot(kx.ravel())
+                return x.ravel().T.dot(kx.ravel())
         return cost_closure(self._error_img, self._kernel)
 
     def __str__(self):
@@ -645,7 +645,7 @@ class ECC(Residual):
             The cost value.
         """
         def cost_closure(x, y):
-            return lambda: x.T.dot(y)
+            return x.T.dot(y)
         return cost_closure(self._normalised_IWxp, self._normalised_template)
 
     def __str__(self):
@@ -813,7 +813,7 @@ class GradientImages(Residual):
             The cost value.
         """
         def cost_closure(x):
-            return lambda: x.T.dot(x)
+            return x.T.dot(x)
         return cost_closure(self._error_img)
 
     def __str__(self):
@@ -1021,7 +1021,7 @@ class GradientCorrelation(Residual):
             The cost value.
         """
         def cost_closure(x):
-            return lambda: 1/x
+            return 1/x
         return cost_closure(self._l)
 
     def __str__(self):

@@ -1,16 +1,34 @@
 from __future__ import division
 from functools import partial
 import numpy as np
+import warnings
 
+from menpo.base import name_of_callable
 from menpo.shape import PointCloud
 from menpo.transform import (scale_about_centre, rotate_ccw_about_centre,
                              Translation, Scale, AlignmentAffine,
                              AlignmentSimilarity)
 
+from menpofit.base import MenpoFitCostsWarning
 import menpofit.checks as checks
 from menpofit.visualize import print_progress
 from menpofit.result import (MultiScaleNonParametricIterativeResult,
                              MultiScaleParametricIterativeResult)
+
+
+def raise_costs_warning(cls):
+    r"""
+    Method for raising a warning in case the costs for a selected
+    optimisation class cannot be computed.
+
+    Parameters
+    ----------
+    cls : `class`
+        The optimisation (fitting) class.
+    """
+    cls_name = name_of_callable(cls)
+    warnings.warn("costs cannot be computed for {}".format(cls_name),
+                  MenpoFitCostsWarning)
 
 
 def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
@@ -393,7 +411,7 @@ class MultiScaleNonParametricFitter(object):
                 scale_transforms)
 
     def _fit(self, images, initial_shape, affine_transforms, scale_transforms,
-             gt_shapes=None, max_iters=20, **kwargs):
+             gt_shapes=None, max_iters=20, return_costs=False, **kwargs):
         r"""
         Function the applies the multi-scale fitting procedure on an image, given
         the initial shape.
@@ -417,6 +435,13 @@ class MultiScaleNonParametricFitter(object):
             The maximum number of iterations. If `int`, then it specifies the
             maximum number of iterations over all scales. If `list` of `int`,
             then specifies the maximum number of iterations per scale.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
             implementations.
@@ -444,6 +469,7 @@ class MultiScaleNonParametricFitter(object):
             algorithm_result = self.algorithms[i].run(images[i], shape,
                                                       gt_shape=gt_shape,
                                                       max_iters=max_iters[i],
+                                                      return_costs=return_costs,
                                                       **kwargs)
             # Add algorithm result to the list
             algorithm_results.append(algorithm_result)
@@ -520,7 +546,7 @@ class MultiScaleNonParametricFitter(object):
             scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
 
     def fit_from_shape(self, image, initial_shape, max_iters=20, gt_shape=None,
-                       **kwargs):
+                       return_costs=False, **kwargs):
         r"""
         Fits the multi-scale fitter to an image given an initial shape.
 
@@ -537,6 +563,13 @@ class MultiScaleNonParametricFitter(object):
             then specifies the maximum number of iterations per scale.
         gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
             implementations.
@@ -566,7 +599,7 @@ class MultiScaleNonParametricFitter(object):
                                       affine_transforms=affine_transforms,
                                       scale_transforms=scale_transforms,
                                       max_iters=max_iters, gt_shapes=gt_shapes,
-                                      **kwargs)
+                                      return_costs=return_costs, **kwargs)
 
         # Return multi-scale fitting result
         return self._fitter_result(image=image,
@@ -576,7 +609,7 @@ class MultiScaleNonParametricFitter(object):
                                    gt_shape=gt_shape)
 
     def fit_from_bb(self, image, bounding_box, max_iters=20, gt_shape=None,
-                    **kwargs):
+                    return_costs=False, **kwargs):
         r"""
         Fits the multi-scale fitter to an image given an initial bounding box.
 
@@ -594,6 +627,13 @@ class MultiScaleNonParametricFitter(object):
             then specifies the maximum number of iterations per scale.
         gt_shape : `menpo.shape.PointCloud`, optional
             The ground truth shape associated to the image.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
         kwargs : `dict`, optional
             Additional keyword arguments that can be passed to specific
             implementations.
@@ -608,7 +648,7 @@ class MultiScaleNonParametricFitter(object):
                                                       bounding_box)
         return self.fit_from_shape(image=image, initial_shape=initial_shape,
                                    max_iters=max_iters, gt_shape=gt_shape,
-                                   **kwargs)
+                                   return_costs=return_costs, **kwargs)
 
 
 class MultiScaleParametricFitter(MultiScaleNonParametricFitter):

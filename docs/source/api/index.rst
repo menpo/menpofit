@@ -15,6 +15,7 @@ Deformable Models
    :maxdepth: 1
 
    menpofit/aam/index
+   menpofit/aps/index
    menpofit/atm/index
    menpofit/clm/index
    menpofit/dlib/index

@@ -4,8 +4,7 @@ from menpo.feature import no_op
 from menpo.base import name_of_callable
 
 from menpofit.transform import DifferentiableAlignmentAffine
-from menpofit.fitter import (MultiScaleNonParametricFitter,
-                             noisy_shape_from_bounding_box)
+from menpofit.fitter import MultiScaleNonParametricFitter
 from menpofit import checks
 
 from .algorithm import InverseCompositional
