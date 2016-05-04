@@ -372,9 +372,8 @@ def build_patch_reference_frame(landmarks, boundary=3, group='source',
                                              group=group)
 
     # mask reference frame
-    reference_frame.build_mask_around_landmarks(patch_shape, group=group)
-
-    return reference_frame
+    return reference_frame.constrain_mask_to_patches_around_landmarks(
+        patch_shape, group=group)
 
 
 def _build_reference_frame(landmarks, boundary=3, group='source'):
