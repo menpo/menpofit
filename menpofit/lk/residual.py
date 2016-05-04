@@ -49,7 +49,7 @@ class Residual(object):
             # can be computed there!)
             # grad:  (dims x ch) x h x w
             grad = gradient(image)
-            grad.set_boundary_pixels()
+            grad = grad.set_boundary_pixels()
         return grad
 
     @abc.abstractmethod

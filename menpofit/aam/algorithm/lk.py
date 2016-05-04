@@ -166,7 +166,7 @@ class LucasKanadeBaseInterface(object):
             The vectorized gradients of the image.
         """
         nabla = fast_gradient(image)
-        nabla.set_boundary_pixels()
+        nabla = nabla.set_boundary_pixels()
         return nabla.as_vector().reshape((2, image.n_channels, -1))
 
     def steepest_descent_images(self, nabla, dW_dp):
