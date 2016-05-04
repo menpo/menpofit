@@ -340,8 +340,7 @@ def build_reference_frame(landmarks, boundary=3, group='source'):
                       'cause small triangles and thus suboptimal warps.',
                       MenpoFitModelBuilderWarning)
 
-    reference_frame.constrain_mask_to_landmarks(group=group)
-    return reference_frame
+    return reference_frame.constrain_mask_to_landmarks(group=group)
 
 
 def build_patch_reference_frame(landmarks, boundary=3, group='source',
