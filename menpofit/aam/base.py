@@ -257,7 +257,7 @@ class AAM(object):
             if not increment:
                 appearance_model = PCAModel(warped_images)
                 # trim appearance model if required
-                if self.max_appearance_components is not None:
+                if self.max_appearance_components[j] is not None:
                     appearance_model.trim_components(
                         self.max_appearance_components[j])
                 # add appearance model to the list
@@ -268,7 +268,7 @@ class AAM(object):
                     warped_images,
                     forgetting_factor=appearance_forgetting_factor)
                 # trim appearance model if required
-                if self.max_appearance_components is not None:
+                if self.max_appearance_components[j] is not None:
                     self.appearance_models[j].trim_components(
                         self.max_appearance_components[j])
 
