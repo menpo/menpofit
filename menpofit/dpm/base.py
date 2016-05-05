@@ -1,6 +1,7 @@
 from __future__ import print_function
 import time
 import os
+from math import log as log_m
 import numpy as np
 from scipy.sparse import csr_matrix
 import scipy.io
@@ -15,25 +16,28 @@ from .utils import score, lincomb, qp_one_sparse
 
 
 class DPMLearner(object):
-    def __init__(self, config=None):
+    def __init__(self, config=None, features_pyramid=None):
         self.config = config
+        self.features_pyramid = features_pyramid
 
         # todo: remove when config is passed properly or can be learned from the example.
         if self.config is None:
             self.config = self._get_face_default_config()
 
-        start = time.time()
-        pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor/'
+        if self.features_pyramid is None:
+            self.features_pyramid = HogFeaturePyramid()
+
+        # start = time.time()
+        # pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor/'
         # self._model_train(pickle_dev)
-        stop = time.time()
-        print(stop-start)
-        print('done')
+        # stop = time.time()
+        # print(stop-start)
+        # print('done')
 
     @staticmethod
     def _get_face_default_config():
         # configurations for the mixture components.
         conf = dict()
-        conf['sbin'] = 4
         conf['viewpoint'] = range(90, -90-15, -15)  # 90 <-> -90
         conf['partpoolsize'] = 39 + 68 + 39
         conf['mixture_poolid'] = [range(0, 39), range(0, 39), range(0, 39),
@@ -162,6 +166,51 @@ class DPMLearner(object):
             mio.export_pickle(stop-start, fp)
         return pos, neg
 
+    @staticmethod
+    def _get_jpg_pie_image_info(pickle_dev):
+        pickle_dev = '/vol/atlas/homes/ks3811/pickles/data'
+        multipie_mat = '/vol/atlas/homes/ks3811/matlab/multipie.mat'
+        pos_data = scipy.io.loadmat(multipie_mat)['multipie'][0]
+        anno_dir = '/vol/atlas/homes/ks3811/matlab/my_annotation'
+        neg_data_dir = '/vol/atlas/homes/ks3811/matlab/INRIA'
+
+        pos = []
+        train_list = [50, 50, 50, 50, 50, 50, 300, 50, 50, 50, 50, 50, 50]
+        print('Collecting info for the positive images.')
+        for gmixid, poses in enumerate(pos_data):
+            count = 0
+            for img in poses['images']:
+                if count >= train_list[gmixid]:
+                    break
+                img_name = img[0][0]
+                [sub_id, ses_id, rec_id, cam_id, _] = img_name.split('_')
+                cam1_id = cam_id[0:2]
+                cam2_id = cam_id[2]
+                jpg_filename = '{0}/pos/{1}_{2}_{3}_{4}_{5}_{6}.jpg'.format(pickle_dev, ses_id, sub_id, rec_id,
+                                                                            cam1_id, cam2_id, img_name)
+                anno_file_name = '{0}/{1}_lm.mat'.format(anno_dir, img_name)
+                if not os.path.isfile(jpg_filename) or not os.path.isfile(anno_file_name):
+                    continue
+                count += 1
+                aux = dict()
+                aux['pts'] = scipy.io.loadmat(anno_file_name)['pts'][DPMLearner._get_anno2tree(gmixid), :]
+                aux['im'] = jpg_filename
+                aux['gmixid'] = gmixid
+                pos.append(aux)
+        print('Collecting info for the negative images.')
+        l1 = sorted(os.listdir(neg_data_dir))
+        neg = []
+        for elem in l1:
+            if elem[elem.rfind('.') + 1:] in ['jpg', 'png', 'jpeg']:
+                aux = dict()
+                jpg_file_name = '{0}/neg/{1}.jpg'.format(pickle_dev, elem[:-(len(elem) - elem.rfind('.'))])
+                aux['im'] = jpg_file_name
+                neg.append(dict(aux))
+        _c = dict()
+        _c['pos'] = pos
+        _c['neg'] = neg
+        return pos, neg
+
     def _model_train(self, pickle_dev):
         pos, neg = self._get_pie_image_info(pickle_dev)
 
@@ -180,7 +229,7 @@ class DPMLearner(object):
             start = time.time()
             for i in xrange(self.config['partpoolsize']):
                 assert(len(spos[i]) > 0)
-                init_model = self._init_model(spos[i], self.config['sbin'])
+                init_model = self._init_model(spos[i])
                 parts_models.append(self._train(init_model, spos[i], kneg, iters=4))
             fp = os.path.join(pickle_dev,  parts_models_file_name)
             mio.export_pickle(parts_models, fp)
@@ -270,16 +319,17 @@ class DPMLearner(object):
             p['box_y2'] = np.copy(_t[:, 1])
         return pos
 
-    def _init_model(self, pos_, sbin):
+    def _init_model(self, pos_):
         areas = np.empty((len(pos_),))
         for i, el in enumerate(pos_):
             areas[i] = (el['box_x2'][0] - el['box_x1'][0] + 1) * (el['box_y2'][0] - el['box_y1'][0] + 1)
         areas = np.sort(areas)
-        area = areas[np.floor(areas.size * 0.2)]  # Pick the 20th percentile area
+        area = areas[int(np.floor(areas.size * 0.2))]  # Pick the 20th percentile area
         nw = np.sqrt(area)
 
-        im = hog(Image(np.zeros((1, 30, 30))), mode='sparse', algorithm='zhuramanan')  # Calculating HOG features size
-        siz = [im.pixels.shape[0], round(nw/sbin), round(nw/sbin)]
+        spacial_scale = self.features_pyramid.spacial_scale
+        siz = [self.features_pyramid.feature_size, 5, 5]  # int(round(nw/spacial_scale)), int(round(nw/spacial_scale))]
+        # todo: see how this can be solved instead of using const [5, 5]
 
         d = dict()  # deformation
         d['w'] = 0  # bias
@@ -305,9 +355,8 @@ class DPMLearner(object):
         model['maxsize'] = siz[1:]
         model['len'] = 1 + np.prod(siz)
         model['interval'] = 10
-        model['sbin'] = sbin
 
-        model = self._poswarp(model, pos_)
+        # model = self._poswarp(model, pos_) todo: this initialize the weight of the filters to be average feateare
         return Model.model_from_dict(model)
         # c = model['components'][0]
         # c['bias'] = d['w']  # todo: dont think this is needed
@@ -318,12 +367,11 @@ class DPMLearner(object):
         s = model['filters'][0]['w'].shape  # filter size
         num = len(warped)
         feats = np.empty((np.prod(s), num))
-
-        for c, im in enumerate(warped):
-            feat = hog(im, mode='sparse', algorithm='zhuramanan', cell_size=model['sbin'])
-            feats[:, c] = feat.pixels.ravel()
-
-        w = np.mean(feats, axis=1)
+        # for c, im in enumerate(warped):
+        #     feat = self.features_pyramid.extract_feature(im)
+        #     feats[:, c] = feat.pixels.ravel()
+        # w = np.mean(feats, axis=1)
+        w = np.empty((np.prod(s),), dtype=np.double)
         scores = np.sum(w * w)
         w2 = w.reshape(s)
         model['filters'][0]['w'] = np.copy(w2)
@@ -334,19 +382,19 @@ class DPMLearner(object):
         # Load the images, crop and resize them to a predefined shape.
         f = model['components'][0]['filter_ids'][0]  # potentially redundant, f == 0 (but check the rest first.)
         siz = model['filters'][f]['w'].shape[1:]
-        sbin = model['sbin']
-        pixels = [sbin * siz[0], sbin * siz[1]]
+        spacial_scale = self.features_pyramid.spacial_scale
+        pixels = [spacial_scale * siz[0], spacial_scale * siz[1]]
         num_pos = len(pos)
         heights = np.empty((num_pos,))
         widths = np.empty((num_pos,))
         for i, el in enumerate(pos):
             heights[i] = el['box_y2'][0] - el['box_y1'][0] + 1
             widths[i] = el['box_x2'][0] - el['box_x1'][0] + 1
-        crop_size = ((siz[0] + 2) * sbin, (siz[1] + 2) * sbin)
+        crop_size = ((siz[0] + 2) * spacial_scale, (siz[1] + 2) * spacial_scale)
         warped = []
         for i, p in enumerate(pos):
-            padx = sbin * widths[i] / pixels[1]
-            pady = sbin * heights[i] / pixels[0]
+            padx = spacial_scale * widths[i] / pixels[1]
+            pady = spacial_scale * heights[i] / pixels[0]
 
             im = mio.import_image(p['im'])
             im_cr = im.crop([p['box_y1'][0] - pady, p['box_x1'][0] - padx], [p['box_y2'][0] + pady, p['box_x2'][0] + padx])
@@ -354,7 +402,7 @@ class DPMLearner(object):
             warped.append(im2.copy())
         return warped
 
-    def _train(self, model, pos, negs, iters, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.6):
+    def _train(self, model, pos, negs, iters, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.6):  # todo: used to be 0.6
         r"""
         train(improve) the given model by using dual coordinate solver(qp) with the given positive and negative examples
 
@@ -404,7 +452,9 @@ class DPMLearner(object):
             for i, neg in enumerate(negs):
                 print('iter:', t, 'neg:', i, '/', np.size(negs))
                 im = mio.import_image(neg['im'])
-                box, model = DPMFitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp)
+                padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
+                # pyramid = self.features_pyramid.extract_features(neg['im'], im.shape, model.interval, pyramid_pad=padding)
+                box, model = DPMFitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp, self.features_pyramid)
                 if np.sum(qp.sv) == nmax:
                     break
 
@@ -461,7 +511,10 @@ class DPMLearner(object):
                 bbox['box'][p, :] = [pos['box_x1'][p], pos['box_y1'][p], pos['box_x2'][p], pos['box_y2'][p]]
             im = mio.import_image(pos['im'])
             im, bbox['box'] = self._croppos(im, bbox['box'])
-            box, model = DPMFitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
+            # print(bbox['box'])
+            padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
+            pyramid = self.features_pyramid  # .extract_features(im, im.shape, model.interval, pyramid_pad=padding)
+            box, model = DPMFitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp, self.features_pyramid)
             # if np.size(box) > 0:
             #     num_positives[bbox['c']] += 1
         delta = np.inf
@@ -537,7 +590,6 @@ class DPMLearner(object):
         model_['maxsize'] = models[0].maxsize
         model_['len'] = 0
         model_['interval'] = models[0].interval
-        model_['sbin'] = models[0].sbin
 
         # Combine the filters
         model_['filters'] = []
@@ -609,6 +661,7 @@ class DPMLearner(object):
     def train_component(self, pickle_dev, index):
         file_name = 'component_' + str(index)
         component_file_name, component_time_file_name = self._get_files_names(file_name)
+        index = int(index)
         try:
             fp = os.path.join(pickle_dev, component_file_name)
             model = mio.import_pickle(fp)
@@ -641,7 +694,6 @@ class DPMLearner(object):
         model_['maxsize'] = parts_models[0].maxsize
         model_['len'] = 0
         model_['interval'] = parts_models[0].interval
-        model_['sbin'] = parts_models[0].sbin
 
         # Combine the filters
         model_['filters'] = []
@@ -710,28 +762,29 @@ class DPMLearner(object):
         return parts_models
 
     def train_part(self, pickle_dev, index):
-        pos, neg = self._get_pie_image_info(pickle_dev)
+        pos, neg = self._get_jpg_pie_image_info(pickle_dev)
 
         pos = self._ln2box(pos)
         spos = self._split(pos)
         k = min(len(neg), 200)
         kneg = neg[0:k]
 
-        file_name = 'parts_model_' + index + '.pkl'
-        time_file_name = 'parts_model_' + index + '_time' + '.pkl'
+        file_name = 'parts_model_' + str(index) + '.pkl'
+        time_file_name = 'parts_model_' + str(index) + '_time' + '.pkl'
         index = int(index)
         try:
             fp = os.path.join(pickle_dev, file_name)
             _ = mio.import_pickle(fp)
         except ValueError:
             start = time.time()
-            init_model = self._init_model(spos[index], self.config['sbin'])
+            init_model = self._init_model(spos[index])
             part = self._train(init_model, spos[index], kneg, iters=4)
             fp = os.path.join(pickle_dev, file_name)
             mio.export_pickle(part, fp)
             stop = time.time()
             fp = os.path.join(pickle_dev, time_file_name)
             mio.export_pickle(stop-start, fp)
+        return part
 
     def build_defs(self, pickle_dev, maxsize, index):
         # compute initial deformable coefficients(anchors) by averaging the distance of each positive example's part
@@ -746,7 +799,7 @@ class DPMLearner(object):
             box_size[i] = p['box_x2'][0] - p['box_x1'][0] + 1
             gmixids[i] = p['gmixid'] * 1
 
-        i = index
+        i = int(index)
         parts_num = len(conf['mixture_poolid'][i])
         par = self._get_parents_lns(i)
         idx = np.where(i == gmixids)[0]
@@ -765,18 +818,20 @@ class DPMLearner(object):
 # will complain that class Model is undefined. (the experiment was run when the class is still name Model)
 class Model(object):
 
-    def __init__(self, filters=None, defs=None, components=None, interval=10, sbin=5, maxsize=None, len=-1, lb=0,
-                 ub=0, delta=0):
+    def __init__(self, filters=None, defs=None, components=None, interval=10, maxsize=None, len=-1, lb=0,
+                 ub=0, delta=0, feature_pyramid=None):
         self.filters = filters
         self.defs = defs
         self.components = components
         self.interval = interval
-        self.sbin = sbin
         self.maxsize = maxsize
         self.len = len
         self.lb = lb
         self.ub = ub
         self.delta = delta
+        self.feature_pyramid = feature_pyramid
+        if self.feature_pyramid is None:
+            self.feature_pyramid = HogFeaturePyramid()
 
     @classmethod
     def model_from_dict(cls, model):
@@ -786,12 +841,11 @@ class Model(object):
         defs = model['defs'] if 'defs' in model else None
         components = model['components'] if 'components' in model else None
         interval = model['interval'] if 'interval' in model else 10
-        sbin = model['sbin'] if 'sbin' in model else 5
         maxsize = model['maxsize'] if 'maxsize' in model else None
         len = model['len'] if 'len' in model else -1
         lb = model['lb'] if 'lb' in model else 0
         ub = model['ub'] if 'ub' in model else 0
-        return cls(filters, defs, components, interval, sbin, maxsize, len, lb, ub)
+        return cls(filters, defs, components, interval, maxsize, len, lb, ub)
 
     def sparse_length(self):
         # Number of entries needed to encode a block-scarce representation
@@ -800,7 +854,7 @@ class Model(object):
             if not comp:
                 continue
             numblocks = 0
-            feats = np.zeros((self.len,))
+            feats = np.zeros((int(self.len),))
             for cv in comp['tree'].vertices:
                 x = self.filters[comp['filter_ids'][cv]]
                 i1 = x['i']
@@ -844,6 +898,61 @@ class Model(object):
         return sub_fields
 
 
+class FeaturePyramid(object):
+
+    def __init__(self, feature_size, spacial_scale):
+        self.feature_size = feature_size
+        self.spacial_scale = spacial_scale
+
+    def extract_feature(self, img):
+        raise NotImplementedError()
+
+    def extract_pyramid(self, img, interval=10, pyramid_pad=(3, 3)):
+        raise NotImplementedError()
+
+
+class HogFeaturePyramid(FeaturePyramid):
+
+    def __init__(self):
+        img_size = 40  # this usually need to be perfect scale number
+        img = Image(np.zeros((1, img_size, img_size)))
+        feature = hog(img, mode='sparse', algorithm='zhuramanan')
+        feature_size = feature.pixels.shape[0]
+        spacial_scale = 4  # img_size//feature.shape[0]  # ideal spacial scale is 4  #todo: fix this tmr
+        super(HogFeaturePyramid, self).__init__(feature_size, spacial_scale)
+
+    def extract_feature(self, img):
+        return hog(img, mode='sparse', algorithm='zhuramanan', cell_size=self.spacial_scale)
+
+    def extract_pyramid(self, img, interval=10, pyramid_pad=(3, 3)):
+        # Construct the feature pyramid. For the time being, it has similar conventions as in Ramanan's code.
+        # TODO: In the future, use menpo's gaussian pyramid.
+        spacial_scale = self.spacial_scale
+        sc = 2 ** (1. / interval)
+        img_size = (img.shape[0], img.shape[1])
+        max_scale = int(log_m(min(img_size)*1./(5*spacial_scale))/log_m(sc)) + 1
+        feats, scales = {}, {}
+        for i in range(interval):
+            sc_l = 1. / sc ** i
+            scaled = img.rescale(sc_l)
+            feats[i] = hog(scaled, mode='sparse', algorithm='zhuramanan', cell_size=spacial_scale/2)
+            scales[i] = 2 * sc_l
+            feats[i + interval] = hog(scaled, mode='sparse', algorithm='zhuramanan', cell_size=spacial_scale)
+            scales[i + interval] = sc_l
+
+            for j in range(i + interval, max_scale, interval):
+                scaled = scaled.rescale(0.5)
+                feats[j + interval] = hog(scaled, mode='sparse', algorithm='zhuramanan', cell_size=spacial_scale)
+                scales[j + interval] = 0.5 * scales[j]
+
+        feats_np = {}  # final feats (keep only numpy array, get rid of the image)
+        for k, val in scales.iteritems():
+            scales[k] = spacial_scale * 1. / val
+            feats_np[k] = np.pad(feats[k].pixels, ((0, 0), (int(pyramid_pad[1]), int(pyramid_pad[1])),
+                                                   (int(pyramid_pad[0]), int(pyramid_pad[0]))), 'constant')
+        return feats_np, scales
+
+
 class Qp(object):
 
     def __init__(self, model, length, nmax, c, wpos):
@@ -858,6 +967,7 @@ class Qp(object):
         #
         #   where w = sum_i a_i*x_i
         num_id = 5  # 5 = [label, id, level, posX, poY]
+        nmax = int(nmax)
         self.nmax = nmax  # number of maximum examples that can be fitted in memory
         self.x = np.zeros((length, nmax), dtype=np.float32)     # x_i
         self.i = np.zeros((num_id, nmax), dtype=np.int)         # id of each example
@@ -1271,7 +1381,7 @@ class Qp(object):
 
     def model2qp(self, model):
         # update qp weight(w) from model
-        w = np.zeros((model.len,))
+        w = np.zeros((int(model.len),))
         w0 = np.zeros_like(w)
         wreg = np.ones_like(w0)
         non_neg = []

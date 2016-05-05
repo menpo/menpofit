@@ -4,7 +4,8 @@ import scipy.io
 import sys
 import time
 from menpo.shape import Tree
-from menpofit.dpm import DPMLearner, DPMFitter, Model, non_max_suppression_fast, clip_boxes, bb_to_lns
+from menpofit.dpm import DPMLearner, DPMFitter, Model, non_max_suppression_fast, clip_boxes, bb_to_lns, \
+    HogFeaturePyramid
 from scipy.sparse import csr_matrix
 from os.path import isdir
 
@@ -12,7 +13,9 @@ from os.path import isdir
 def debugging():
 
     # Uncomment this to start the learner which currently use images and configurations base on original matlab code
-    # dpm_learner = DPMLearner()
+    pickle_dev = '/vol/atlas/homes/ks3811/pickles/tmp'
+    dpm_learner = DPMLearner()
+    dpm_learner.train_part(pickle_dev, 0)
 
     pm = '/vol/atlas/homes/grigoris/external/dpm_ramanan/face-release1.0-basic/'
     assert(isdir(pm))
@@ -53,6 +56,7 @@ def debugging():
         model = mio.import_pickle(fp)
         # model['interval'] = 10  # Use deeper pyramid when detecting actual objects
         model.interval = 10  # Use deeper pyramid when detecting actual objects
+        model.feature_pyramid = HogFeaturePyramid()
         # mat_model = Model.model_from_dict(model)
         mat_model = model
     except ValueError:  # pickle does not exist
