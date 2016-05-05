@@ -1,8 +1,10 @@
 import numpy as np
+
 from menpo.base import Targetable, Vectorizable
 from menpo.model import MeanLinearModel, PCAModel
 from menpo.model.vectorizable import VectorizableBackedModel
 from menpo.shape import mean_pointcloud
+
 from menpofit.builder import align_shapes
 from menpofit.differentiable import DP
 
@@ -31,20 +33,21 @@ class _SimilarityModel(VectorizableBackedModel, MeanLinearModel):
 
 def similarity_2d_instance_model(shape):
     r"""
-    A MeanInstanceLinearModel that encodes all possible 2D similarity
-    transforms of a 2D shape (of n_points).
+    Creates a `menpo.model.MeanLinearModel` that encodes the 2D similarity
+    transforms that can be applied on a 2D shape that consists of `n_points`.
 
-        Parameters
-        ----------
-        shape : 2D :class:`menpo.shape.Shape`
+    Parameters
+    ----------
+    shape : `menpo.shape.PointCloud`
+        The input 2D shape.
 
-        Returns
-        -------
-        model : `_SimilarityModel`
-            Model with four components, linear combinations of which
-            represent the original shape under a similarity transform. The
-            model is exhaustive (that is, all possible similarity transforms
-            can be expressed in the model).
+    Returns
+    -------
+    model : `subclass` of `menpo.model.MeanLinearModel`
+        Linear model with four components, the linear combinations of which
+        represent the original shape under a similarity transform. The model is
+        exhaustive (that is, all possible similarity transforms can be expressed
+        with the model).
     """
     shape_vector = shape.as_vector()
     components = np.zeros((4, shape_vector.shape[0]))
@@ -59,6 +62,14 @@ def similarity_2d_instance_model(shape):
 
 class ModelInstance(Targetable, Vectorizable, DP):
     r"""
+    Base class for creating a model that can produce a target
+    `menpo.shape.PointCloud` and knows how to compute its own derivative with
+    respect to its parametrisation.
+
+    Parameters
+    ----------
+    model : `class`
+        The trained model (e.g. `menpo.model.PCAModel`).
     """
     def __init__(self, model):
         self.model = model
@@ -72,20 +83,26 @@ class ModelInstance(Targetable, Vectorizable, DP):
         r"""
         The number of parameters in the linear model.
 
-        :type: int
+        :type: `int`
         """
         return self.model.n_active_components
 
     @property
     def weights(self):
         r"""
-        In this simple :map:`ModelInstance` the weights are just the weights
-        of the model.
+        The weights of the model.
+
+        :type: ``(n_weights,)`` `ndarray`
         """
         return self._weights
 
     @property
     def target(self):
+        r"""
+        The current `menpo.shape.PointCloud` that this object produces.
+
+        :type: `menpo.shape.PointCloud`
+        """
         return self._target
 
     def _target_setter(self, new_target):
@@ -148,7 +165,7 @@ class ModelInstance(Targetable, Vectorizable, DP):
 
     def _from_vector_inplace(self, vector):
         r"""
-        Updates this :map:`ModelInstance` from it's
+        Updates this `menpofit.modelinstance.ModelInstance` from it's
         vectorized form (in this case, simply the weights on the linear model)
         """
         self._weights = vector
@@ -156,7 +173,15 @@ class ModelInstance(Targetable, Vectorizable, DP):
 
 
 class GlobalSimilarityModel(Targetable, Vectorizable):
+    r"""
+    Class for creating a model that represents a global similarity transform
+    (in-plane rotation, scaling, translation).
 
+    Parameters
+    ----------
+    data : `list` of `menpo.shape.PointCloud`
+        The `list` of shapes to use as training data.
+    """
     def __init__(self, data, **kwargs):
         from menpofit.transform import DifferentiableAlignmentSimilarity
 
@@ -172,23 +197,37 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
         r"""
         The number of parameters in the linear model.
 
-        :type: int
+        :type: `int`
         """
         return 4
 
     @property
     def weights(self):
         r"""
-        In this simple :map:`ModelInstance` the weights are just the weights
-        of the model.
+        The weights of the model.
+
+        :type: ``(n_weights,)`` `ndarray`
         """
         return self.transform.as_vector()
 
     @property
     def target(self):
+        r"""
+        The current `menpo.shape.PointCloud` that this object produces.
+
+        :type: `menpo.shape.PointCloud`
+        """
         return self._target
 
     def set_target(self, new_target):
+        r"""
+        Update this object so that it attempts to recreate the ``new_target``.
+
+        Parameters
+        ----------
+        new_target : `menpo.shape.PointCloud`
+            The new target that this object should try and regenerate.
+        """
         self.transform.set_target(new_target)
         self._target = self.transform.apply(self.mean)
         return self
@@ -212,28 +251,21 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
     @property
     def n_dims(self):
         r"""
-        The number of dimensions of the spatial instance of the model
+        The number of dimensions of the spatial instance of the model.
 
-        :type: int
+        :type: `int`
         """
         return self.mean.n_dims
 
     def d_dp(self, _):
-        """
-        Returns the Jacobian of the similarity model reshaped to have the
-        standard Jacobian shape:
-
-            n_points    x  n_params      x  n_dims
-
-            which maps to
-
-            n_features  x  n_components  x  n_dims
-
-            on the linear model
+        r"""
+        Returns the Jacobian of the similarity model reshaped in order to have
+        the standard Jacobian shape, i.e. ``(n_points, n_weights, n_dims)``
+        which maps to ``(n_features, n_components, n_dims)`` on the linear model.
 
         Returns
         -------
-        jacobian : (n_features, n_components, n_dims) ndarray
+        jacobian : ``(n_features, n_components, n_dims)`` `ndarray`
             The Jacobian of the model in the standard Jacobian shape.
         """
         # Always evaluated at the mean shape
@@ -241,10 +273,20 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
 
 
 class PDM(ModelInstance):
-    r"""Specialization of :map:`ModelInstance` for use with spatial data.
-    TODO: update docs
-    """
+    r"""
+    Class for building a Point Distribution Model. It is a specialised version
+    of :map:`ModelInstance` for use with spatial data.
 
+    Parameters
+    ----------
+    data : `list` of `menpo.shape.PointCloud` or `menpo.model.PCAModel` instance
+        If a `list` of `menpo.shape.PointCloud`, then a `menpo.model.PCAModel`
+        will be trained from those training shapes. Otherwise, a trained
+        `menpo.model.PCAModel` instance can be provided.
+    max_n_components : `int` or ``None``, optional
+        The maximum number of components that the model will keep. If ``None``,
+        then all the components will be kept.
+    """
     def __init__(self, data, max_n_components=None):
         if isinstance(data, PCAModel):
             shape_model = data
@@ -260,10 +302,34 @@ class PDM(ModelInstance):
 
     @property
     def n_active_components(self):
+        r"""
+        The number of components currently in use on this model.
+
+        :type: `int`
+        """
         return self.model.n_active_components
 
     @n_active_components.setter
     def n_active_components(self, value):
+        r"""
+        Sets an updated number of active components on this model. The number
+        of active components represents the number of principal components
+        that will be used for generative purposes. Note that this therefore
+        makes the model stateful. Also note that setting the number of
+        components will not affect memory unless `trim_components` is called.
+
+        Parameters
+        ----------
+        value : `int`
+            The new number of active components.
+
+        Raises
+        ------
+        ValueError
+            Tried setting n_active_components to {value} - value needs to be a
+            float 0.0 < n_components < self._total_kept_variance_ratio ({}) or
+            an integer 1 < n_components < self.n_components ({})
+        """
         self.model.n_active_components = value
         self._sync_state_from_target()
 
@@ -272,26 +338,19 @@ class PDM(ModelInstance):
         r"""
         The number of dimensions of the spatial instance of the model
 
-        :type: int
+        :type: `int`
         """
         return self.model.template_instance.n_dims
 
     def d_dp(self, points):
-        """
-        Returns the Jacobian of the PCA model reshaped to have the standard
-        Jacobian shape:
-
-            n_points    x  n_params      x  n_dims
-
-            which maps to
-
-            n_features  x  n_components  x  n_dims
-
-            on the linear model
+        r"""
+        Returns the Jacobian of the similarity model reshaped in order to have
+        the standard Jacobian shape, i.e. ``(n_points, n_weights, n_dims)``
+        which maps to ``(n_features, n_components, n_dims)`` on the linear model.
 
         Returns
         -------
-        jacobian : (n_features, n_components, n_dims) ndarray
+        jacobian : ``(n_features, n_components, n_dims)`` `ndarray`
             The Jacobian of the model in the standard Jacobian shape.
         """
         d_dp = self.model.components.reshape(self.model.n_active_components,
@@ -300,6 +359,36 @@ class PDM(ModelInstance):
 
     def increment(self, shapes, n_shapes=None, forgetting_factor=1.0,
                   max_n_components=None, verbose=False):
+        r"""
+        Update the eigenvectors, eigenvalues and mean vector of this model
+        by performing incremental PCA on the given samples.
+
+        Parameters
+        ----------
+        shapes : `list` of `menpo.shape.PointCloud`
+            List of new shapes to update the model from.
+        n_shapes : `int` or ``None``, optional
+            If `int`, then `shapes`  must be an iterator that yields `n_shapes`.
+            If ``None``, then `shapes` has to be a list (so we know how large
+            the data matrix needs to be).
+        forgetting_factor : ``[0.0, 1.0]`` `float`, optional
+            Forgetting factor that weights the relative contribution of new
+            samples vs old samples. If 1.0, all samples are weighted equally
+            and, hence, the results is the exact same as performing batch
+            PCA on the concatenated list of old and new simples. If <1.0,
+            more emphasis is put on the new samples. See [1] for details.
+        max_n_components : `int` or ``None``, optional
+            The maximum number of components that the model will keep.
+            If ``None``, then all the components will be kept.
+        verbose : `bool`, optional
+            If ``True``, then information about the progress will be printed.
+
+        References
+        ----------
+        .. [1] D. Ross, J. Lim, R.S. Lin, M.H. Yang. "Incremental Learning for
+            Robust Visual Tracking". International Journal on Computer Vision,
+            2007.
+        """
         old_target = self.target
         aligned_shapes = align_shapes(shapes)
         self.model.increment(aligned_shapes, n_samples=n_shapes,
@@ -311,9 +400,26 @@ class PDM(ModelInstance):
         self.set_target(old_target)
 
 
-# TODO: document me!
 class GlobalPDM(PDM):
     r"""
+    Class for building a Point Distribution Model that also stores a Global
+    Alignment transform. The final transform couples the Global Alignment
+    transform to a statistical linear model, so that its weights are fully
+    specified by both the weights of statistical model and the weights of the
+    similarity transform.
+
+    Parameters
+    ----------
+    data : `list` of `menpo.shape.PointCloud` or `menpo.model.PCAModel` instance
+        If a `list` of `menpo.shape.PointCloud`, then a `menpo.model.PCAModel`
+        will be trained from those training shapes. Otherwise, a trained
+        `menpo.model.PCAModel` instance can be provided.
+    global_transform_cls : `class`
+        The Global Similarity transform class
+        (e.g. :map:`DifferentiableAlignmentSimilarity`).
+    max_n_components : `int` or ``None``, optional
+        The maximum number of components that the model will keep. If ``None``,
+        then all the components will be kept.
     """
     def __init__(self, data, global_transform_cls, max_n_components=None):
         super(GlobalPDM, self).__init__(data, max_n_components=max_n_components)
@@ -327,7 +433,7 @@ class GlobalPDM(PDM):
         r"""
         The number of parameters in the `global_transform`
 
-        :type: int
+        :type: `int`
         """
         return self.global_transform.n_parameters
 
@@ -336,7 +442,7 @@ class GlobalPDM(PDM):
         r"""
         The parameters for the global transform.
 
-        :type: (`n_global_parameters`,) ndarray
+        :type: ``(n_global_parameters,) `ndarray`
         """
         return self.global_transform.as_vector()
 
@@ -347,7 +453,7 @@ class GlobalPDM(PDM):
 
         Returns
         -------
-        new_target: :class:`menpo.shape.PointCloud`
+        new_target : `menpo.shape.PointCloud`
             A new target for the weights provided
         """
         return self.global_transform.apply(self.model.instance(self.weights))
@@ -360,12 +466,12 @@ class GlobalPDM(PDM):
 
         Parameters
         ----------
-        target: :class:`menpo.shape.PointCloud`
+        target : `menpo.shape.PointCloud`
             The target that the statistical model will try to reproduce
 
         Returns
         -------
-        weights: (P,) ndarray
+        weights : ``(P,)`` `ndarray`
             Weights of the statistical model that generate the closest
             PointCloud to the requested target
         """
@@ -391,7 +497,7 @@ class GlobalPDM(PDM):
 
         Returns
         -------
-        params : (`n_parameters`,) ndarray
+        params : ``(n_parameters,)`` `ndarray`
             The vector of parameters
         """
         return np.hstack([self.global_parameters, self.weights])
@@ -413,6 +519,20 @@ class GlobalPDM(PDM):
         self.global_transform._from_vector_inplace(global_weights)
 
     def d_dp(self, points):
+        r"""
+        The derivative with respect to the parametrisation changes evaluated at
+        points.
+
+        Parameters
+        ----------
+        points : ``(n_points, n_dims)`` `ndarray`
+            The spatial points at which the derivative should be evaluated.
+
+        Returns
+        -------
+        d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
+            The Jacobian with respect to the parametrisation.
+        """
         # d_dp is always evaluated at the mean shape
         points = self.model.mean().points
 
@@ -440,9 +560,28 @@ class GlobalPDM(PDM):
         return self.global_transform.d_dp(points)
 
 
-# TODO: document me!
 class OrthoPDM(GlobalPDM):
     r"""
+    Class for building a Point Distribution Model that also stores a Global
+    Alignment transform. The final transform couples the Global Alignment
+    transform to a statistical linear model, so that its weights are fully
+    specified by both the weights of statistical model and the weights of the
+    similarity transform.
+
+    This transform (in contrast to the :map`GlobalPDM`) additionally
+    orthonormalises both the global and the model basis against each other,
+    ensuring that orthogonality and normalization is enforced across the unified
+    bases.
+
+    Parameters
+    ----------
+    data : `list` of `menpo.shape.PointCloud` or `menpo.model.PCAModel` instance
+        If a `list` of `menpo.shape.PointCloud`, then a `menpo.model.PCAModel`
+        will be trained from those training shapes. Otherwise, a trained
+        `menpo.model.PCAModel` instance can be provided.
+    max_n_components : `int` or ``None``, optional
+        The maximum number of components that the model will keep. If ``None``,
+        then all the components will be kept.
     """
     def __init__(self, data, max_n_components=None):
         from menpofit.transform import DifferentiableAlignmentSimilarity
@@ -469,7 +608,7 @@ class OrthoPDM(GlobalPDM):
         r"""
         The parameters for the global transform.
 
-        :type: (`n_global_parameters`,) ndarray
+        :type: ``(n_global_parameters,)`` `ndarray`
         """
         return self.similarity_weights
 
@@ -488,6 +627,36 @@ class OrthoPDM(GlobalPDM):
 
     def increment(self, shapes, n_shapes=None, forgetting_factor=1.0,
                   max_n_components=None, verbose=False):
+        r"""
+        Update the eigenvectors, eigenvalues and mean vector of this model
+        by performing incremental PCA on the given samples.
+
+        Parameters
+        ----------
+        shapes : `list` of `menpo.shape.PointCloud`
+            List of new shapes to update the model from.
+        n_shapes : `int` or ``None``, optional
+            If `int`, then `shapes`  must be an iterator that yields `n_shapes`.
+            If ``None``, then `shapes` has to be a list (so we know how large
+            the data matrix needs to be).
+        forgetting_factor : ``[0.0, 1.0]`` `float`, optional
+            Forgetting factor that weights the relative contribution of new
+            samples vs old samples. If 1.0, all samples are weighted equally
+            and, hence, the results is the exact same as performing batch
+            PCA on the concatenated list of old and new simples. If <1.0,
+            more emphasis is put on the new samples. See [1] for details.
+        max_n_components : `int` or ``None``, optional
+            The maximum number of components that the model will keep.
+            If ``None``, then all the components will be kept.
+        verbose : `bool`, optional
+            If ``True``, then information about the progress will be printed.
+
+        References
+        ----------
+        .. [1] D. Ross, J. Lim, R.S. Lin, M.H. Yang. "Incremental Learning for
+            Robust Visual Tracking". International Journal on Computer Vision,
+            2007.
+        """
         old_target = self.target
         aligned_shapes = align_shapes(shapes)
         self.model.increment(aligned_shapes, n_samples=n_shapes,

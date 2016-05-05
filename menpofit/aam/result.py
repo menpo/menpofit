@@ -1,109 +1,112 @@
-from __future__ import division
-from menpofit.result import ParametricAlgorithmResult, MultiFitterResult
+from menpofit.result import (ParametricIterativeResult,
+                             MultiScaleParametricIterativeResult)
 
 
-# TODO: document me!
-class AAMAlgorithmResult(ParametricAlgorithmResult):
+class AAMAlgorithmResult(ParametricIterativeResult):
     r"""
+    Class for storing the iterative result of an AAM optimisation algorithm.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step is not counted in the number
+              of iterations.
+
+    Parameters
+    ----------
+    shapes : `list` of `menpo.shape.PointCloud`
+        The `list` of shapes per iteration. The first and last members
+        correspond to the initial and final shapes, respectively.
+    shape_parameters : `list` of ``(n_shape_parameters,)`` `ndarray`
+        The `list` of shape parameters per iteration. The first and last members
+        correspond to the initial and final shapes, respectively.
+    appearance_parameters : `list` of ``(n_appearance_parameters,)`` `ndarray`
+        The `list` of appearance parameters per iteration. The first and last
+        members correspond to the initial and final shapes, respectively.
+    initial_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The initial shape from which the fitting process started. If
+        ``None``, then no initial shape is assigned.
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
+        The image on which the fitting process was applied. Note that a copy
+        of the image will be assigned as an attribute. If ``None``, then no
+        image is assigned.
+    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The ground truth shape associated with the image. If ``None``, then no
+        ground truth shape is assigned.
+    costs : `list` of `float` or ``None``, optional
+        The `list` of cost per iteration. If ``None``, then it is assumed that
+        the cost function cannot be computed for the specific algorithm.
     """
-    def __init__(self, image, algorithm, shape_parameters, cost_functions=None,
-                 appearance_parameters=None, gt_shape=None):
+    def __init__(self, shapes, shape_parameters, appearance_parameters,
+                 initial_shape=None, image=None, gt_shape=None, costs=None):
         super(AAMAlgorithmResult, self).__init__(
-            image, algorithm, shape_parameters, gt_shape=gt_shape)
-        self._cost_functions = cost_functions
-        self.appearance_parameters = appearance_parameters
-        self._warped_images = None
-        self._appearance_reconstructions = None
-        self._costs = None
+            shapes=shapes, shape_parameters=shape_parameters,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
+        self._appearance_parameters = appearance_parameters
 
     @property
-    def warped_images(self):
-        if self._warped_images is None:
-            self._warped_images = []
-            for p in self.shape_parameters:
-                self.algorithm.transform._from_vector_inplace(p)
-                self._warped_images.append(
-                    self.algorithm.warp(self.image))
-        return self._warped_images
+    def appearance_parameters(self):
+        r"""
+        Returns the `list` of appearance parameters obtained at each iteration
+        of the fitting process. The `list` includes the parameters of the
+        `initial_shape` (if it exists) and `final_shape`.
 
-    @property
-    def appearance_reconstructions(self):
-        if self.appearance_parameters is not None:
-            if self._appearance_reconstructions is None:
-                self._appearance_reconstructions = []
-                for c in self.appearance_parameters:
-                    instance = self.algorithm.appearance_model.instance(c)
-                    self._appearance_reconstructions.append(instance)
-            return self._appearance_reconstructions
-        else:
-            raise ValueError('appearance_reconstructions is not well '
-                             'defined for the chosen AAM algorithm: '
-                             '{}'.format(self.algorithm.__class__))
-
-    @property
-    def costs(self):
-        if self._cost_functions is not None:
-            if self._costs is None:
-                self._costs = [f() for f in self._cost_functions]
-            return self._costs
-        else:
-            raise ValueError('costs is not well '
-                             'defined for the chosen AAM algorithm: '
-                             '{}'.format(self.algorithm.__class__))
+        :type: `list` of ``(n_params,)`` `ndarray`
+        """
+        return self._appearance_parameters
 
 
-# TODO: document me!
-class LinearAAMAlgorithmResult(AAMAlgorithmResult):
+class AAMResult(MultiScaleParametricIterativeResult):
     r"""
+    Class for storing the multi-scale iterative fitting result of an AAM. It
+    holds the shapes, shape parameters, appearance parameters and costs per
+    iteration.
+
+    .. note:: When using a method with a parametric shape model, the first step
+              is to **reconstruct the initial shape** using the shape model. The
+              generated reconstructed shape is then used as initialisation for
+              the iterative optimisation. This step is not counted in the number
+              of iterations.
+
+    Parameters
+    ----------
+    results : `list` of :map:`AAMAlgorithmResult`
+        The `list` of optimization results per scale.
+    scales : `list` or `tuple`
+        The `list` of scale values per scale (low to high).
+    affine_transforms : `list` of `menpo.transform.Affine`
+        The list of affine transforms per scale that transform the shapes into
+        the original image space.
+    scale_transforms : `list` of `menpo.shape.Scale`
+        The list of scaling transforms per scale.
+    image : `menpo.image.Image` or `subclass` or ``None``, optional
+        The image on which the fitting process was applied. Note that a copy
+        of the image will be assigned as an attribute. If ``None``, then no
+        image is assigned.
+    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The ground truth shape associated with the image. If ``None``, then no
+        ground truth shape is assigned.
     """
-    @property
-    def shapes(self, as_points=False):
-        return [self.algorithm.transform.from_vector(p).sparse_target
-                for p in self.shape_parameters]
+    def __init__(self, results, scales, affine_transforms, scale_transforms,
+                 image=None, gt_shape=None):
+        super(AAMResult, self).__init__(
+            results=results, scales=scales, affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+        # Create appearance parameters list
+        self._appearance_parameters = None
+        if results[0].appearance_parameters is not None:
+            self._appearance_parameters = []
+            for r in results:
+                self._appearance_parameters += r.appearance_parameters
 
     @property
-    def final_shape(self):
-        return self.final_transform.sparse_target
+    def appearance_parameters(self):
+        r"""
+        Returns the `list` of appearance parameters obtained at each iteration
+        of the fitting process. The `list` includes the parameters of the
+        `initial_shape` (if it exists) and `final_shape`.
 
-    @property
-    def initial_shape(self):
-        return self.initial_transform.sparse_target
-
-
-# TODO: document me!
-class AAMFitterResult(MultiFitterResult):
-    r"""
-    """
-    def __init__(self, image, fitter, algorithm_results, affine_correction,
-                 gt_shape=None):
-        super(AAMFitterResult, self).__init__(
-            image, fitter, algorithm_results, affine_correction,
-            gt_shape=gt_shape)
-        self._warped_images = None
-
-    @property
-    def warped_images(self):
-        if self._warped_images is None:
-            algorithm = self.algorithm_results[-1].algorithm
-            self._warped_images = []
-            for s in self.shapes:
-                algorithm.transform.set_target(s)
-                self._warped_images.append(
-                    algorithm.warp(self.image))
-        return self._warped_images
-
-    @property
-    def appearance_reconstructions(self):
-        reconstructions = self.algorithm_results[0].appearance_reconstructions
-        if reconstructions is not None:
-            for a in self.algorithm_results[1:]:
-                reconstructions = (reconstructions +
-                                   a.appearance_reconstructions)
-        return reconstructions
-
-    @property
-    def costs(self):
-        costs = []
-        for a in self.algorithm_results:
-            costs += a.costs
-        return costs
+        :type: `list` of ``(n_params,)`` `ndarray`
+        """
+        return self._appearance_parameters

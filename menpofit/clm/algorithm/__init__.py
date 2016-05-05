@@ -1,3 +1,1 @@
-from .gd import (
-    GradientDescentCLMAlgorithm, ActiveShapeModel,
-    RegularisedLandmarkMeanShift)
+from .gd import ActiveShapeModel, RegularisedLandmarkMeanShift

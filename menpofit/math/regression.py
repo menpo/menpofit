@@ -5,7 +5,17 @@ from menpo.math import pca
 
 class IRLRegression(object):
     r"""
-    Incremental Regularized Linear Regression
+    Class for training and applying Incremental Regularized Linear Regression.
+
+    Parameters
+    ----------
+    alpha : `float`, optional
+        The regularization parameter of the features.
+    bias : `bool`, optional
+        If ``True``, a bias term is used.
+    incrementable : `bool`, optional
+        If ``True``, then the regression model will have the ability to get
+        incremented.
     """
     def __init__(self, alpha=0, bias=True, incrementable=False):
         self.alpha = alpha
@@ -15,6 +25,16 @@ class IRLRegression(object):
         self.W = None
 
     def train(self, X, Y):
+        r"""
+        Train the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+        """
         if self.bias:
             # add bias
             X = np.hstack((X, np.ones((X.shape[0], 1))))
@@ -30,6 +50,21 @@ class IRLRegression(object):
         self.W = np.linalg.solve(XX, X.T.dot(Y))
 
     def increment(self, X, Y):
+        r"""
+        Incrementally update the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+
+        Raises
+        ------
+        ValueError
+            Model is not incrementable
+        """
         if not self.incrementable:
             raise ValueError('Model is not incrementable')
 
@@ -47,6 +82,19 @@ class IRLRegression(object):
         self.W = self.W - Q.dot(self.W) + self.V.dot(X.T.dot(Y))
 
     def predict(self, x):
+        r"""
+        Makes a prediction using the trained regression model.
+
+        Parameters
+        ----------
+        x : ``(n_features,)`` `ndarray`
+            The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
+        """
         if self.bias:
             if len(x.shape) == 1:
                 x = np.hstack((x, np.ones(1)))
@@ -55,10 +103,19 @@ class IRLRegression(object):
         return np.dot(x, self.W)
 
 
-# TODO: document me!
 class IIRLRegression(IRLRegression):
     r"""
-    Indirect Incremental Regularized Linear Regression
+    Class for training and applying Indirect Incremental Regularized Linear
+    Regression.
+
+    Parameters
+    ----------
+    alpha : `float`, optional
+        The regularization parameter.
+    bias : `bool`, optional
+        If ``True``, a bias term is used.
+    alpha2 : `float`, optional
+        The regularization parameter of the Hessian.
     """
     def __init__(self, alpha=0, bias=False, alpha2=0):
         # TODO: Can we model the bias? May need to slice off of prediction?
@@ -66,6 +123,16 @@ class IIRLRegression(IRLRegression):
         self.alpha2 = alpha2
 
     def train(self, X, Y):
+        r"""
+        Train the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+        """
         # regularized linear regression exchanging the roles of X and Y
         super(IIRLRegression, self).train(Y, X)
         J = self.W
@@ -78,6 +145,21 @@ class IIRLRegression(IRLRegression):
         self.W = np.linalg.solve(H, J).T
 
     def increment(self, X, Y):
+        r"""
+        Incrementally update the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+
+        Raises
+        ------
+        ValueError
+            Model is not incrementable
+        """
         # incremental least squares exchanging the roles of X and Y
         super(IIRLRegression, self).increment(Y, X)
         J = self.W
@@ -90,36 +172,51 @@ class IIRLRegression(IRLRegression):
         self.W = np.linalg.solve(H, J)
 
     def predict(self, x):
+        r"""
+        Makes a prediction using the trained regression model.
+
+        Parameters
+        ----------
+        x : ``(n_features,)`` `ndarray`
+            The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
+        """
         return np.dot(x, self.W)
 
 
 class PCRRegression(object):
     r"""
-    Multivariate Linear Regression using Principal Component Regression
+    Class for training and applying Multivariate Linear Regression using
+    Principal Component Regression.
 
     Parameters
     ----------
-    X : numpy.array
-        The regression features used to create the coefficient matrix.
-    T : numpy.array
-        The shapes differential that denote the dependent variable.
-    variance: float or None, Optional
+    variance : `float` or ``None``, optional
         The SVD variance.
-        Default: None
-
-    Raises
-    ------
-    ValueError
-        variance must be set to a number between 0 and 1
+    bias : `bool`, optional
+        If ``True``, a bias term is used.
     """
-    def __init__(self, variance=None, bias=True, eps=1e-10):
+    def __init__(self, variance=None, bias=True):
         self.variance = variance
         self.bias = bias
         self.R = None
         self.V = None
-        self.eps = eps
 
     def train(self, X, Y):
+        r"""
+        Train the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+        """
         if self.bias:
             X = np.hstack((X, np.ones((X.shape[0], 1))))
 
@@ -138,9 +235,37 @@ class PCRRegression(object):
         self.R = self.V.T.dot(np.linalg.inv(S)).dot(U.T).dot(Y)
 
     def increment(self, X, Y):
+        r"""
+        Incrementally update the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+
+        Raises
+        ------
+        ValueError
+            Model is not incrementable
+        """
         raise NotImplementedError()
 
     def predict(self, x):
+        r"""
+        Makes a prediction using the trained regression model.
+
+        Parameters
+        ----------
+        x : ``(n_features,)`` `ndarray`
+            The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
+        """
         if self.bias:
             if len(x.shape) == 1:
                 x = np.hstack((x, np.ones(1)))
@@ -152,30 +277,32 @@ class PCRRegression(object):
 
 class OptimalLinearRegression(object):
     r"""
-    Multivariate Linear Regression using optimal reconstructions.
+    Class for training and applying Multivariate Linear Regression using optimal
+    reconstructions.
 
     Parameters
     ----------
-    X : numpy.array
-        The regression features used to create the coefficient matrix.
-    T : numpy.array
-        The shapes differential that denote the dependent variable.
-    variance: float or None, Optional
+    variance : `float` or ``None``, optional
         The SVD variance.
-        Default: None
-
-    Raises
-    ------
-    ValueError
-        variance must be set to a number between 0 and 1
+    bias : `bool`, optional
+        If ``True``, a bias term is used.
     """
-    def __init__(self, variance=None, bias=True, eps=1e-10):
+    def __init__(self, variance=None, bias=True):
         self.variance = variance
         self.bias = bias
         self.R = None
-        self.eps = eps
 
     def train(self, X, Y):
+        r"""
+        Train the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+        """
         if self.bias:
             X = np.hstack((X, np.ones((X.shape[0], 1))))
 
@@ -201,9 +328,37 @@ class OptimalLinearRegression(object):
         self.R = H.T.dot(np.linalg.pinv(X.dot(H.T)).dot(Y))
 
     def increment(self, X, Y):
+        r"""
+        Incrementally update the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+
+        Raises
+        ------
+        ValueError
+            Model is not incrementable
+        """
         raise NotImplementedError()
 
     def predict(self, x):
+        r"""
+        Makes a prediction using the trained regression model.
+
+        Parameters
+        ----------
+        x : ``(n_features,)`` `ndarray`
+            The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
+        """
         if self.bias:
             if len(x.shape) == 1:
                 x = np.hstack((x, np.ones(1)))
@@ -214,28 +369,32 @@ class OptimalLinearRegression(object):
 
 class OPPRegression(object):
     r"""
-    Multivariate Linear Regression using Orthogonal Procrustes Problem
-    reconstructions.
+    Class for training and applying Multivariate Linear Regression using
+    Orthogonal Procrustes Problem reconstructions.
 
     Parameters
     ----------
-    X : numpy.array
-        The regression features used to create the coefficient matrix.
-    T : numpy.array
-        The shapes differential that denote the dependent variable.
-
-    Raises
-    ------
-    ValueError
-        variance must be set to a number between 0 and 1
+    bias : `bool`, optional
+        If ``True``, a bias term is used.
+    whiten : `bool`, optional
+        Whether to use a whitened PCA model.
     """
-    def __init__(self, bias=True, eps=1e-10, whiten=False):
+    def __init__(self, bias=True, whiten=False):
         self.bias = bias
         self.R = None
-        self.eps = eps
         self.whiten = whiten
 
     def train(self, X, Y):
+        r"""
+        Train the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+        """
         if self.bias:
             # add bias
              X = np.hstack((X, np.ones((X.shape[0], 1))))
@@ -252,9 +411,37 @@ class OPPRegression(object):
         self.R = U.dot(V)
 
     def increment(self, X, Y):
+        r"""
+        Incrementally update the regression model.
+
+        Parameters
+        ----------
+        X : ``(n_features, n_samples)`` `ndarray`
+            The array of feature vectors.
+        Y : ``(n_dims, n_samples)`` `ndarray`
+            The array of target vectors.
+
+        Raises
+        ------
+        ValueError
+            Model is not incrementable
+        """
         raise NotImplementedError()
 
     def predict(self, x):
+        r"""
+        Makes a prediction using the trained regression model.
+
+        Parameters
+        ----------
+        x : ``(n_features,)`` `ndarray`
+            The input feature vector.
+
+        Returns
+        -------
+        prediction : ``(n_dims,)`` `ndarray`
+            The prediction vector.
+        """
         if self.bias:
             if len(x.shape) == 1:
                 x = np.hstack((x, np.ones(1)))

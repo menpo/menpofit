@@ -1,13 +1,36 @@
 from scipy.linalg import norm
 import numpy as np
+
 from .result import LucasKanadeAlgorithmResult
 
 
 # TODO: implement Inverse Additive Algorithm?
 # TODO: implement sampling?
-# TODO: document me!
 class LucasKanade(object):
     r"""
+    Abstract class for a Lucas-Kanade optimization algorithm.
+
+    Parameters
+    ----------
+    template : `menpo.image.Image` or subclass
+        The image template.
+    transform : `subclass` of :map:`DP` and :map:`DX`, optional
+        A differential affine transform object, e.g.
+        :map:`DifferentiableAlignmentAffine`.
+    residual : `class` subclass, optional
+        The residual that will get applied. All possible residuals are:
+
+        ========================== ============================================
+        Class                      Description
+        ========================== ============================================
+        :map:`SSD`                 Sum of Squared Differences
+        :map:`FourierSSD`          Sum of Squared Differences on Fourier domain
+        :map:`ECC`                 Enhanced Correlation Coefficient
+        :map:`GradientImages`      Image Gradient
+        :map:`GradientCorrelation` Gradient Correlation
+        ========================== ============================================
+    eps : `float`, optional
+        Value for checking the convergence of the optimization.
     """
     def __init__(self, template, transform, residual, eps=10**-10):
         self.template = template
@@ -15,18 +38,76 @@ class LucasKanade(object):
         self.residual = residual
         self.eps = eps
 
+    def warped_images(self, image, shapes):
+        r"""
+        Given an input test image and a list of shapes, it warps the image
+        into the shapes. This is useful for generating the warped images of a
+        fitting procedure stored within a :map:`LucasKanadeResult`.
 
-# TODO: document me!
+        Parameters
+        ----------
+        image : `menpo.image.Image` or `subclass`
+            The input image to be warped.
+        shapes : `list` of `menpo.shape.PointCloud`
+            The list of shapes in which the image will be warped. The shapes
+            are obtained during the iterations of a fitting procedure.
+
+        Returns
+        -------
+        warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
+            The warped images.
+        """
+        warped_images = []
+        for s in shapes:
+            self.transform.set_target(s)
+            warped_images.append(image.warp_to_mask(
+                    self.template.mask, self.transform, warp_landmarks=False))
+        return warped_images
+
+
 class ForwardAdditive(LucasKanade):
     r"""
-    Forward Additive Lucas-Kanade algorithm
+    Forward Additive (FA) Lucas-Kanade algorithm.
     """
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None):
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
+            return_costs=False):
+        r"""
+        Execute the optimization algorithm.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
+
+        Returns
+        -------
+        fitting_result : :map:`LucasKanadeAlgorithmResult`
+            The parametric iterative fitting result.
+        """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
-        cost_functions = []
+        costs = None
+        if return_costs:
+            costs = []
 
         # initialize iteration counter and epsilon
         k = 0
@@ -61,9 +142,11 @@ class ForwardAdditive(LucasKanade):
             # Update warp weights
             self.transform.from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
-            # update cost
-            cost_functions.append(self.residual.cost_closure())
+            # update costs
+            if return_costs:
+                costs.append(self.residual.cost_closure())
 
             # test convergence
             eps = np.abs(norm(dp))
@@ -71,15 +154,41 @@ class ForwardAdditive(LucasKanade):
             # increase iteration counter
             k += 1
 
-        return LucasKanadeAlgorithmResult(image, self, p_list,
-                                          cost_functions=cost_functions,
-                                          gt_shape=gt_shape)
+        # return algorithm result
+        return LucasKanadeAlgorithmResult(
+            shapes=shapes, homogeneous_parameters=p_list,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
+
+    def __str__(self):
+        return "Forward Additive Algorithm"
 
 
-# TODO: document me!
 class ForwardCompositional(LucasKanade):
     r"""
-    Forward Compositional Lucas-Kanade algorithm
+    Forward Compositional (FC) Lucas-Kanade algorithm
+
+    Parameters
+    ----------
+    template : `menpo.image.Image` or subclass
+        The image template.
+    transform : `subclass` of :map:`DP` and :map:`DX`, optional
+        A differential affine transform object, e.g.
+        :map:`DifferentiableAlignmentAffine`.
+    residual : `class` subclass, optional
+        The residual that will get applied. All possible residuals are:
+
+        ========================== ============================================
+        Class                      Description
+        ========================== ============================================
+        :map:`SSD`                 Sum of Squared Differences
+        :map:`FourierSSD`          Sum of Squared Differences on Fourier domain
+        :map:`ECC`                 Enhanced Correlation Coefficient
+        :map:`GradientImages`      Image Gradient
+        :map:`GradientCorrelation` Gradient Correlation
+        ========================== ============================================
+    eps : `float`, optional
+        Value for checking the convergence of the optimization.
     """
     def __init__(self, template, transform, residual, eps=10**-10):
         super(ForwardCompositional, self).__init__(
@@ -93,12 +202,45 @@ class ForwardCompositional(LucasKanade):
         self.dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +
                                    dW_dp.shape[-1:])
 
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None):
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
+            return_costs=False):
+        r"""
+        Execute the optimization algorithm.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
+
+        Returns
+        -------
+        fitting_result : :map:`LucasKanadeAlgorithmResult`
+            The parametric iterative fitting result.
+        """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
-        cost_functions = []
+        costs = None
+        if return_costs:
+            costs = []
 
         # initialize iteration counter and epsilon
         k = 0
@@ -127,9 +269,11 @@ class ForwardCompositional(LucasKanade):
             # Update warp weights
             self.transform.compose_after_from_vector_inplace(dp)
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # update cost
-            cost_functions.append(self.residual.cost_closure())
+            if return_costs:
+                costs.append(self.residual.cost_closure())
 
             # test convergence
             eps = np.abs(norm(dp))
@@ -137,15 +281,41 @@ class ForwardCompositional(LucasKanade):
             # increase iteration counter
             k += 1
 
-        return LucasKanadeAlgorithmResult(image, self, p_list,
-                                          cost_functions=cost_functions,
-                                          gt_shape=gt_shape)
+        # return algorithm result
+        return LucasKanadeAlgorithmResult(
+            shapes=shapes, homogeneous_parameters=p_list,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
+
+    def __str__(self):
+        return "Forward Compositional Algorithm"
 
 
-# TODO: document me!
 class InverseCompositional(LucasKanade):
     r"""
-    Inverse Compositional Lucas-Kanade algorithm
+    Inverse Compositional (IC) Lucas-Kanade algorithm
+
+    Parameters
+    ----------
+    template : `menpo.image.Image` or subclass
+        The image template.
+    transform : `subclass` of :map:`DP` and :map:`DX`, optional
+        A differential affine transform object, e.g.
+        :map:`DifferentiableAlignmentAffine`.
+    residual : `class` subclass, optional
+        The residual that will get applied. All possible residuals are:
+
+        ========================== ============================================
+        Class                      Description
+        ========================== ============================================
+        :map:`SSD`                 Sum of Squared Differences
+        :map:`FourierSSD`          Sum of Squared Differences on Fourier domain
+        :map:`ECC`                 Enhanced Correlation Coefficient
+        :map:`GradientImages`      Image Gradient
+        :map:`GradientCorrelation` Gradient Correlation
+        ========================== ============================================
+    eps : `float`, optional
+        Value for checking the convergence of the optimization.
     """
     def __init__(self, template, transform, residual, eps=10**-10):
         super(InverseCompositional, self).__init__(
@@ -163,12 +333,45 @@ class InverseCompositional(LucasKanade):
         # compute hessian
         self.H = self.residual.hessian(self.filtered_J, sdi2=J)
 
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None):
+    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
+            return_costs=False):
+        r"""
+        Execute the optimization algorithm.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. *Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.*
+
+        Returns
+        -------
+        fitting_result : :map:`LucasKanadeAlgorithmResult`
+            The parametric iterative fitting result.
+        """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
 
-        cost_functions = []
+        costs = None
+        if return_costs:
+            costs = []
 
         # initialize iteration counter and epsilon
         k = 0
@@ -191,9 +394,11 @@ class InverseCompositional(LucasKanade):
             inv_dp = self.transform.pseudoinverse_vector(dp)
             self.transform.compose_after_from_vector_inplace(inv_dp)
             p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # update cost
-            cost_functions.append(self.residual.cost_closure())
+            if return_costs:
+                costs.append(self.residual.cost_closure())
 
             # test convergence
             eps = np.abs(norm(dp))
@@ -201,6 +406,12 @@ class InverseCompositional(LucasKanade):
             # increase iteration counter
             k += 1
 
-        return LucasKanadeAlgorithmResult(image, self, p_list,
-                                          cost_functions=cost_functions,
-                                          gt_shape=gt_shape)
+        # return algorithm result
+        return LucasKanadeAlgorithmResult(
+            shapes=shapes, homogeneous_parameters=p_list,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
+
+    def __str__(self):
+        return "Inverse Compositional Algorithm"
+

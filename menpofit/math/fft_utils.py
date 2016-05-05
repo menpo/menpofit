@@ -2,7 +2,9 @@ from __future__ import division
 import warnings
 import numpy as np
 from functools import wraps
+
 from menpo.feature.base import rebuild_feature_image
+
 try:
     # try importing pyfftw
     from pyfftw.interfaces.numpy_fft import fft2, ifft2, fftshift, ifftshift

@@ -3,6 +3,7 @@ import abc
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2
 import scipy.linalg
+
 from menpo.feature import gradient
 
 
@@ -25,13 +26,13 @@ class Residual(object):
 
         Parameters
         ----------
-        image : :class:`menpo.image.base.Image`
+        image : `menpo.image.Image`
             The image to calculate the gradients for
-        forward : (:map:`Image`, :map:`AlignableTransform>`), optional
-            A tuple containing the extra weights required for the function
-            `warp` (which should be passed as a function handle).
-
-            Default: `None`
+        forward : `tuple` or ``None``, optional
+            A `tuple` containing the extra weights required for the function
+            `warp` (which should be passed as a function handle), i.e.
+            ``(`menpo.image.Image`, `menpo.transform.AlignableTransform>`)``. If
+            ``None``, then the optimization algorithm is assumed to be inverse.
         """
         if forward:
             # Calculate the gradient over the image
@@ -66,16 +67,16 @@ class Residual(object):
 
         Parameters
         ----------
-        image : :class:`menpo.image.base.Image`
+        image : `menpo.image.Image`
             The image to calculate the steepest descent images from, could be
             either the template or input image depending on which framework is
             used.
-        dW_dp : ndarray
+        dW_dp : `ndarray`
             The Jacobian of the warp.
 
         Returns
         -------
-        VT_dW_dp : (N, n_params) ndarray
+        VT_dW_dp : ``(N, n_params)`` `ndarray`
             The steepest descent images
         """
         pass
@@ -94,12 +95,12 @@ class Residual(object):
 
         Parameters
         ----------
-        J : (N, n_params) ndarray
+        J : ``(N, n_params)`` `ndarray`
             The steepest descent images.
 
         Returns
         -------
-        H : (n_params, n_params) ndarray
+        H : ``(n_params, n_params)`` `ndarray`
             The approximation to the Hessian
         """
         pass
@@ -116,34 +117,77 @@ class Residual(object):
 
         Parameters
         ----------
-        J : (N, n_params) ndarray
+        J : ``(N, n_params)`` `ndarray`
             The steepest descent images.
-        image : :class:`menpo.image.base.Image`
-            Either the warped image or the template
-            (depending on the framework)
-        template : :class:`menpo.image.base.Image`
-            Either the warped image or the template
-            (depending on the framework)
+        image : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+        template : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
 
         Returns
         -------
-        sd_delta_p : (n_params,) ndarray
+        sd_delta_p : ``(n_params,)`` `ndarray`
             The steepest descent parameter updates.
         """
         pass
 
     @abc.abstractmethod
     def cost_closure(self):
+        r"""
+        Method to compute the optimization cost.
+
+        Returns
+        -------
+        cost : `float`
+            The cost value.
+        """
         pass
 
 
 class SSD(Residual):
     r"""
+    Class for Sum of Squared Differences residual.
+
+    References
+    ----------
+    .. [1] B.D. Lucas, and T. Kanade, "An iterative image registration
+        technique with an application to stereo vision", International Joint
+        Conference on Artificial Intelligence, pp. 674-679, 1981.
     """
     def __init__(self, kernel=None):
         self._kernel = kernel
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
+        r"""
+        Calculates the standard steepest descent images.
+
+        Within the forward additive framework this is defined as
+
+        .. math::
+             \nabla I \frac{\partial W}{\partial p}
+
+        The input image is vectorised (`N`-pixels) so that masked images can
+        be handled.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The image to calculate the steepest descent images from, could be
+            either the template or input image depending on which framework is
+            used.
+        dW_dp : `ndarray`
+            The Jacobian of the warp.
+        forward : `tuple` or ``None``, optional
+            A `tuple` containing the extra weights required for the function
+            `warp` (which should be passed as a function handle), i.e.
+            ``(`menpo.image.Image`, `menpo.transform.AlignableTransform>`)``. If
+            ``None``, then the optimization algorithm is assumed to be inverse.
+
+        Returns
+        -------
+        VT_dW_dp : ``(N, n_params)`` `ndarray`
+            The steepest descent images
+        """
         # compute gradient
         # grad:  dims x ch x h x w
         nabla = self.gradient(image, forward=forward)
@@ -180,6 +224,28 @@ class SSD(Residual):
         return filtered_sdi, sdi
 
     def hessian(self, sdi, sdi2=None):
+        r"""
+        Calculates the Gauss-Newton approximation to the Hessian.
+
+        This is abstracted because some residuals expect the Hessian to be
+        pre-processed. The Gauss-Newton approximation to the Hessian is
+        defined as:
+
+        .. math::
+            \mathbf{J J^T}
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        sdi2 : ``(N, n_params)`` `ndarray` or ``None``, optional
+            The steepest descent images.
+
+        Returns
+        -------
+        H : ``(n_params, n_params)`` `ndarray`
+            The approximation to the Hessian
+        """
         # compute hessian
         # sdi.T:   params x (ch x h x w)
         # sdi:              (ch x h x w) x params
@@ -191,29 +257,99 @@ class SSD(Residual):
         return H
 
     def steepest_descent_update(self, sdi, image, template):
+        r"""
+        Calculates the steepest descent parameter updates.
+
+        These are defined, for the forward additive algorithm, as:
+
+        .. math::
+            \sum_x [ \nabla I \frac{\partial W}{\partial p} ]^T [ T(x) - I(W(x;p)) ]
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        image : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+        template : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+
+        Returns
+        -------
+        sd_delta_p : ``(n_params,)`` `ndarray`
+            The steepest descent parameter updates.
+        """
         self._error_img = image.as_vector() - template.as_vector()
         return sdi.T.dot(self._error_img)
 
     def cost_closure(self):
+        r"""
+        Method to compute the optimization cost.
+
+        Returns
+        -------
+        cost : `float`
+            The cost value.
+        """
         def cost_closure(x, k):
             if k is None:
-                return lambda: x.T.dot(x)
+                return x.T.dot(x)
             else:
                 x = x.reshape((-1,) + k.shape[-2:])
                 kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
                            axes=(-2, -1))
-                return lambda: x.ravel().T.dot(kx.ravel())
+                return x.ravel().T.dot(kx.ravel())
         return cost_closure(self._error_img, self._kernel)
+
+    def __str__(self):
+        return "Sum of Squared Differences Residual"
 
 
 # TODO: Does not support masked templates at the moment
 class FourierSSD(Residual):
     r"""
+    Class for Sum of Squared Differences on the Fourier domain residual.
+
+    References
+    ----------
+    .. [1] A.B. Ashraf, S. Lucey, and T. Chen. "Fast Image Alignment in the
+        Fourier Domain", IEEE Proceedings of International Conference on
+        Computer Vision and Pattern Recognition, pp. 2480-2487, 2010.
     """
     def __init__(self, kernel=None):
         self._kernel = kernel
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
+        r"""
+        Calculates the standard steepest descent images.
+
+        Within the forward additive framework this is defined as
+
+        .. math::
+             \nabla I \frac{\partial W}{\partial p}
+
+        The input image is vectorised (`N`-pixels) so that masked images can
+        be handled.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The image to calculate the steepest descent images from, could be
+            either the template or input image depending on which framework is
+            used.
+        dW_dp : `ndarray`
+            The Jacobian of the warp.
+        forward : `tuple` or ``None``, optional
+            A `tuple` containing the extra weights required for the function
+            `warp` (which should be passed as a function handle), i.e.
+            ``(`menpo.image.Image`, `menpo.transform.AlignableTransform>`)``. If
+            ``None``, then the optimization algorithm is assumed to be inverse.
+
+        Returns
+        -------
+        VT_dW_dp : ``(N, n_params)`` `ndarray`
+            The steepest descent images
+        """
         # compute gradient
         # grad:  dims x ch x h x w
         nabla = self.gradient(image, forward=forward)
@@ -251,6 +387,28 @@ class FourierSSD(Residual):
         return filtered_fft_sdi, fft_sdi
 
     def hessian(self, sdi, sdi2=None):
+        r"""
+        Calculates the Gauss-Newton approximation to the Hessian.
+
+        This is abstracted because some residuals expect the Hessian to be
+        pre-processed. The Gauss-Newton approximation to the Hessian is
+        defined as:
+
+        .. math::
+            \mathbf{J J^T}
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        sdi2 : ``(N, n_params)`` `ndarray` or ``None``, optional
+            The steepest descent images.
+
+        Returns
+        -------
+        H : ``(n_params, n_params)`` `ndarray`
+            The approximation to the Hessian
+        """
         if sdi2 is None:
             H = sdi.conjugate().T.dot(sdi)
         else:
@@ -258,6 +416,28 @@ class FourierSSD(Residual):
         return H
 
     def steepest_descent_update(self, sdi, image, template):
+        r"""
+        Calculates the steepest descent parameter updates.
+
+        These are defined, for the forward additive algorithm, as:
+
+        .. math::
+            \sum_x [ \nabla I \frac{\partial W}{\partial p} ]^T [ T(x) - I(W(x;p)) ]
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        image : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+        template : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+
+        Returns
+        -------
+        sd_delta_p : ``(n_params,)`` `ndarray`
+            The steepest descent parameter updates.
+        """
         # compute error image
         # error_img:  ch x h x w
         self._error_img = image.pixels - template.pixels
@@ -273,18 +453,36 @@ class FourierSSD(Residual):
         return sdi.conjugate().T.dot(fft_error_img.ravel())
 
     def cost_closure(self):
+        r"""
+        Method to compute the optimization cost.
+
+        Returns
+        -------
+        cost : `float`
+            The cost value.
+        """
         def cost_closure(x, k):
             if k is None:
-                return lambda: x.ravel().T.dot(x.ravel())
+                return x.ravel().T.dot(x.ravel())
             else:
                 kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
                            axes=(-2, -1))
-                return lambda: x.ravel().T.dot(kx.ravel())
+                return x.ravel().T.dot(kx.ravel())
         return cost_closure(self._error_img, self._kernel)
+
+    def __str__(self):
+        return "Fourier Sum of Squared Differences Residual"
 
 
 class ECC(Residual):
     r"""
+    Class for Enhanced Correlation Coefficient residual.
+
+    References
+    ----------
+    .. [1] G.D. Evangelidis, and E.Z. Psarakis. "Parametric Image Alignment
+        Using Enhanced Correlation Coefficient Maximization", IEEE Transactions
+        on Pattern Analysis and Machine Intelligence, 30(10): 1858-1865, 2008.
     """
     def _normalise_images(self, image):
         # TODO: do we need to copy the image?
@@ -294,6 +492,36 @@ class ECC(Residual):
         return norm_image
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
+        r"""
+        Calculates the standard steepest descent images.
+
+        Within the forward additive framework this is defined as
+
+        .. math::
+             \nabla I \frac{\partial W}{\partial p}
+
+        The input image is vectorised (`N`-pixels) so that masked images can
+        be handled.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The image to calculate the steepest descent images from, could be
+            either the template or input image depending on which framework is
+            used.
+        dW_dp : `ndarray`
+            The Jacobian of the warp.
+        forward : `tuple` or ``None``, optional
+            A `tuple` containing the extra weights required for the function
+            `warp` (which should be passed as a function handle), i.e.
+            ``(`menpo.image.Image`, `menpo.transform.AlignableTransform>`)``. If
+            ``None``, then the optimization algorithm is assumed to be inverse.
+
+        Returns
+        -------
+        VT_dW_dp : ``(N, n_params)`` `ndarray`
+            The steepest descent images
+        """
         # normalize image
         norm_image = self._normalise_images(image)
 
@@ -319,6 +547,28 @@ class ECC(Residual):
         return sdi, sdi
 
     def hessian(self, sdi, sdi2=None):
+        r"""
+        Calculates the Gauss-Newton approximation to the Hessian.
+
+        This is abstracted because some residuals expect the Hessian to be
+        pre-processed. The Gauss-Newton approximation to the Hessian is
+        defined as:
+
+        .. math::
+            \mathbf{J J^T}
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        sdi2 : ``(N, n_params)`` `ndarray` or ``None``, optional
+            The steepest descent images.
+
+        Returns
+        -------
+        H : ``(n_params, n_params)`` `ndarray`
+            The approximation to the Hessian
+        """
         # compute hessian
         # sdi.T:   params x (ch x h x w)
         # sdi:              (ch x h x w) x params
@@ -331,6 +581,28 @@ class ECC(Residual):
         return H
 
     def steepest_descent_update(self, sdi, image, template):
+        r"""
+        Calculates the steepest descent parameter updates.
+
+        These are defined, for the forward additive algorithm, as:
+
+        .. math::
+            \sum_x [ \nabla I \frac{\partial W}{\partial p} ]^T [ T(x) - I(W(x;p)) ]
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        image : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+        template : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+
+        Returns
+        -------
+        sd_delta_p : ``(n_params,)`` `ndarray`
+            The steepest descent parameter updates.
+        """
         self._normalised_IWxp = self._normalise_images(image).as_vector()
         self._normalised_template = self._normalise_images(
             template).as_vector()
@@ -364,13 +636,31 @@ class ECC(Residual):
         return sdi.T.dot(self._error_img)
 
     def cost_closure(self):
+        r"""
+        Method to compute the optimization cost.
+
+        Returns
+        -------
+        cost : `float`
+            The cost value.
+        """
         def cost_closure(x, y):
-            return lambda: x.T.dot(y)
+            return x.T.dot(y)
         return cost_closure(self._normalised_IWxp, self._normalised_template)
+
+    def __str__(self):
+        return "Enhanced Correlation Coefficient Residual"
 
 
 class GradientImages(Residual):
     r"""
+    Class for Gradient Images residual.
+
+    References
+    ----------
+    .. [1] G. Tzimiropoulos, S. Zafeiriou, and M. Pantic. "Robust and
+        Efficient Parametric Face Alignment", IEEE Proceedings of International
+        Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
     def _regularise_gradients(self, grad):
         pixels = grad.pixels
@@ -381,6 +671,36 @@ class GradientImages(Residual):
         return grad
 
     def steepest_descent_images(self, image, dW_dp, forward=None):
+        r"""
+        Calculates the standard steepest descent images.
+
+        Within the forward additive framework this is defined as
+
+        .. math::
+             \nabla I \frac{\partial W}{\partial p}
+
+        The input image is vectorised (`N`-pixels) so that masked images can
+        be handled.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The image to calculate the steepest descent images from, could be
+            either the template or input image depending on which framework is
+            used.
+        dW_dp : `ndarray`
+            The Jacobian of the warp.
+        forward : `tuple` or ``None``, optional
+            A `tuple` containing the extra weights required for the function
+            `warp` (which should be passed as a function handle), i.e.
+            ``(`menpo.image.Image`, `menpo.transform.AlignableTransform>`)``. If
+            ``None``, then the optimization algorithm is assumed to be inverse.
+
+        Returns
+        -------
+        VT_dW_dp : ``(N, n_params)`` `ndarray`
+            The steepest descent images
+        """
         n_dims = image.n_dims
         n_channels = image.n_channels
 
@@ -413,6 +733,28 @@ class GradientImages(Residual):
         return sdi, sdi
 
     def hessian(self, sdi, sdi2=None):
+        r"""
+        Calculates the Gauss-Newton approximation to the Hessian.
+
+        This is abstracted because some residuals expect the Hessian to be
+        pre-processed. The Gauss-Newton approximation to the Hessian is
+        defined as:
+
+        .. math::
+            \mathbf{J J^T}
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        sdi2 : ``(N, n_params)`` `ndarray` or ``None``, optional
+            The steepest descent images.
+
+        Returns
+        -------
+        H : ``(n_params, n_params)`` `ndarray`
+            The approximation to the Hessian
+        """
         # compute hessian
         # sdi.T:   params x (ch x h x w)
         # sdi:              (ch x h x w) x params
@@ -424,6 +766,28 @@ class GradientImages(Residual):
         return H
 
     def steepest_descent_update(self, sdi, image, template):
+        r"""
+        Calculates the steepest descent parameter updates.
+
+        These are defined, for the forward additive algorithm, as:
+
+        .. math::
+            \sum_x [ \nabla I \frac{\partial W}{\partial p} ]^T [ T(x) - I(W(x;p)) ]
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        image : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+        template : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+
+        Returns
+        -------
+        sd_delta_p : ``(n_params,)`` `ndarray`
+            The steepest descent parameter updates.
+        """
         # compute image regularized gradient
         IWxp_grad = self.gradient(image)
         IWxp_grad = self._regularise_gradients(IWxp_grad)
@@ -440,15 +804,63 @@ class GradientImages(Residual):
         return sdi.T.dot(self._error_img)
 
     def cost_closure(self):
+        r"""
+        Method to compute the optimization cost.
+
+        Returns
+        -------
+        cost : `float`
+            The cost value.
+        """
         def cost_closure(x):
-            return lambda: x.T.dot(x)
+            return x.T.dot(x)
         return cost_closure(self._error_img)
+
+    def __str__(self):
+        return "Gradient Image Residual"
 
 
 class GradientCorrelation(Residual):
     r"""
+    Class for Gradient Correlation residual.
+
+    References
+    ----------
+    .. [1] G. Tzimiropoulos, S. Zafeiriou, and M. Pantic. "Robust and
+        Efficient Parametric Face Alignment", IEEE Proceedings of International
+        Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
     def steepest_descent_images(self, image, dW_dp, forward=None):
+        r"""
+        Calculates the standard steepest descent images.
+
+        Within the forward additive framework this is defined as
+
+        .. math::
+             \nabla I \frac{\partial W}{\partial p}
+
+        The input image is vectorised (`N`-pixels) so that masked images can
+        be handled.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The image to calculate the steepest descent images from, could be
+            either the template or input image depending on which framework is
+            used.
+        dW_dp : `ndarray`
+            The Jacobian of the warp.
+        forward : `tuple` or ``None``, optional
+            A `tuple` containing the extra weights required for the function
+            `warp` (which should be passed as a function handle), i.e.
+            ``(`menpo.image.Image`, `menpo.transform.AlignableTransform>`)``. If
+            ``None``, then the optimization algorithm is assumed to be inverse.
+
+        Returns
+        -------
+        VT_dW_dp : ``(N, n_params)`` `ndarray`
+            The steepest descent images
+        """
         n_dims = image.n_dims
         n_channels = image.n_channels
 
@@ -510,6 +922,28 @@ class GradientCorrelation(Residual):
         return sdi, sdi
 
     def hessian(self, sdi, sdi2=None):
+        r"""
+        Calculates the Gauss-Newton approximation to the Hessian.
+
+        This is abstracted because some residuals expect the Hessian to be
+        pre-processed. The Gauss-Newton approximation to the Hessian is
+        defined as:
+
+        .. math::
+            \mathbf{J J^T}
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        sdi2 : ``(N, n_params)`` `ndarray` or ``None``, optional
+            The steepest descent images.
+
+        Returns
+        -------
+        H : ``(n_params, n_params)`` `ndarray`
+            The approximation to the Hessian
+        """
         # compute hessian
         # sdi.T:   params x (ch x h x w)
         # sdi:              (ch x h x w) x params
@@ -521,6 +955,28 @@ class GradientCorrelation(Residual):
         return H
 
     def steepest_descent_update(self, sdi, image, template):
+        r"""
+        Calculates the steepest descent parameter updates.
+
+        These are defined, for the forward additive algorithm, as:
+
+        .. math::
+            \sum_x [ \nabla I \frac{\partial W}{\partial p} ]^T [ T(x) - I(W(x;p)) ]
+
+        Parameters
+        ----------
+        sdi : ``(N, n_params)`` `ndarray`
+            The steepest descent images.
+        image : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+        template : `menpo.image.Image`
+            Either the warped image or the template (depending on the framework)
+
+        Returns
+        -------
+        sd_delta_p : ``(n_params,)`` `ndarray`
+            The steepest descent parameter updates.
+        """
         n_dims = image.n_dims
         n_channels = image.n_channels
 
@@ -556,6 +1012,17 @@ class GradientCorrelation(Residual):
         return self._l * sdu
 
     def cost_closure(self):
+        r"""
+        Method to compute the optimization cost.
+
+        Returns
+        -------
+        cost : `float`
+            The cost value.
+        """
         def cost_closure(x):
-            return lambda: 1/x
+            return 1/x
         return cost_closure(self._l)
+
+    def __str__(self):
+        return "Gradient Correlation Residual"
