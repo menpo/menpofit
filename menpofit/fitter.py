@@ -732,20 +732,18 @@ def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
         gt_s = im.landmarks[gt_group].lms.bounding_box()
 
         k = 0
+        im_bounds = im.bounds()
         for bb in bb_generator(im):
             for _ in range(n_perturbations):
                 p_s = perturb_func(gt_s, bb).bounding_box()
                 perturb_bbox_group = '__generated_bb_{}'.format(k)
-                im.landmarks[perturb_bbox_group] = p_s
+                im.landmarks[perturb_bbox_group] = p_s.constrain_to_bounds(im_bounds)
                 k += 1
 
             if bb_group_glob is not None:
                 perturb_bbox_group = '__generated_bb_{}'.format(k)
-                im.landmarks[perturb_bbox_group] = bb
+                im.landmarks[perturb_bbox_group] = bb.constrain_to_bounds(im_bounds)
                 k += 1
-
-        if im.has_landmarks_outside_bounds:
-            im.constrain_landmarks_to_bounds()
 
     generated_bb_func = lambda x: [v.lms for k, v in x.landmarks.items_matching(
         '__generated_bb_*')]
