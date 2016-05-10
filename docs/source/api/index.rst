@@ -31,7 +31,6 @@ Internal API
    menpofit/checks/index
    menpofit/differentiable/index
    menpofit/error/index
-   menpofit/feature/index
    menpofit/fitter/index
    menpofit/math/index
    menpofit/modelinstance/index

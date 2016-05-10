@@ -1,6 +1,37 @@
 import numpy as np
 
+from menpo.feature import ndfeature
 from menpofit.math.correlationfilter import mccf, imccf
+
+
+@ndfeature
+def probability_map(x, axes=(-2, -1)):
+    r"""
+    Generates the probability MAP of the image.
+
+    Parameters
+    ----------
+    x : `menpo.image.Image` or subclass or `ndarray`
+        The input image.
+    axes : ``None`` or `int` or `tuple` of `int`, optional
+        Axes along which the normalization is performed.
+
+    Returns
+    -------
+    probability_map : `menpo.image.Image` or ``(C, X, Y, ..., Z)`` `ndarray`
+        The probability MAP of the image.
+    """
+    x -= np.min(x, axis=axes, keepdims=True)
+    total = np.sum(x, axis=axes, keepdims=True)
+    nonzero = total > 0
+    if np.any(~nonzero):
+        warnings.warn('some of x axes have 0 variance - uniform probability '
+                      'maps are used them.')
+        x[nonzero] /= total[nonzero]
+        x[~nonzero] = 1 / np.prod(axes)
+    else:
+        x /= total
+    return x
 
 
 class IncrementalCorrelationFilterThinWrapper(object):
