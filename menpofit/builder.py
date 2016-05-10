@@ -330,17 +330,14 @@ def build_reference_frame(landmarks, boundary=3, group='source'):
     reference_frame : `manpo.image.MaskedImage`
         The reference frame.
     """
-    reference_frame = _build_reference_frame(landmarks, boundary=boundary,
-                                             group=group)
-    source_landmarks = reference_frame.landmarks['source'].lms
-    if not isinstance(source_landmarks, TriMesh):
+    if not isinstance(landmarks, TriMesh):
         warnings.warn('The reference shape passed is not a TriMesh or '
                       'subclass and therefore the reference frame (mask) will '
                       'be calculated via a Delaunay triangulation. This may '
                       'cause small triangles and thus suboptimal warps.',
                       MenpoFitModelBuilderWarning)
-
-    return reference_frame.constrain_mask_to_landmarks(group=group)
+    return MaskedImage.init_from_pointcloud(landmarks, boundary=boundary,
+                                            group=group, constrain_mask=True)
 
 
 def build_patch_reference_frame(landmarks, boundary=3, group='source',
@@ -368,24 +365,12 @@ def build_patch_reference_frame(landmarks, boundary=3, group='source',
         The patch-based reference frame.
     """
     boundary = np.max(patch_shape) + boundary
-    reference_frame = _build_reference_frame(landmarks, boundary=boundary,
-                                             group=group)
+    reference_frame = MaskedImage.init_from_pointcloud(
+        landmarks, group=group, boundary=boundary, constrain_mask=False)
 
     # mask reference frame
     return reference_frame.constrain_mask_to_patches_around_landmarks(
         patch_shape, group=group)
-
-
-def _build_reference_frame(landmarks, boundary=3, group='source'):
-    # translate landmarks to the origin
-    minimum = landmarks.bounds(boundary=boundary)[0]
-    landmarks = Translation(-minimum).apply(landmarks)
-
-    resolution = landmarks.range(boundary=boundary)
-    reference_frame = MaskedImage.init_blank(resolution)
-    reference_frame.landmarks[group] = landmarks
-
-    return reference_frame
 
 
 def densify_shapes(shapes, reference_frame, transform):
