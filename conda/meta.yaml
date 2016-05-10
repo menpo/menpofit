@@ -9,9 +9,9 @@ requirements:
 
   run:
     - python
-    - menpo 0.6.*
+    - menpo 0.7.*
     - scikit-learn >=0.17,<0.18
-    - dlib 18.16
+    - dlib 18.18
     - pandas 0.17.*
 
 test:
