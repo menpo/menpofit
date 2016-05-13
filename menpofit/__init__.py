@@ -1,6 +1,5 @@
 from . import builder
 from . import differentiable
-from . import feature
 from . import fitter
 from . import modelinstance
 

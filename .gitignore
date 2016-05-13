@@ -58,3 +58,6 @@ itarget/
 
 # IntelliJ
 *.iml
+
+# OSX
+.DS_Store

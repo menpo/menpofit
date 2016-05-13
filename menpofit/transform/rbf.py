@@ -34,7 +34,7 @@ class DifferentiableR2LogRRBF(R2LogRRBF, DL):
             The Jacobian wrt landmark changes.
         """
         euclidean_distance = cdist(points, self.c)
-        component_distances = points[..., None, ...] - self.c
+        component_distances = points[:, None, :] - self.c
         # Avoid log(0) and set to 1 so that log(1) = 0
         euclidean_distance[euclidean_distance == 0] = 1
         d_dl = (component_distances *
@@ -72,7 +72,7 @@ class DifferentiableR2LogR2RBF(R2LogR2RBF, DL):
             at each point.
         """
         euclidean_distance = cdist(points, self.c)
-        component_distances = points[..., None, ...] - self.c
+        component_distances = points[:, None, :] - self.c
         # Avoid log(0) and set to 1 so that log(1) = 0
         euclidean_distance[euclidean_distance == 0] = 1
         d_dl = (2 * component_distances *
