@@ -1,4 +1,4 @@
-from __future__ import division
+
 
 from alabortcvpr2015.result import AlgorithmResult, FitterResult
 

@@ -1,4 +1,4 @@
-from __future__ import division
+
 import abc
 
 import numpy as np
@@ -17,9 +17,7 @@ multivariate_normal = None  # expensive, from scipy.stats
 
 # Abstract Interface for AAM Algorithms ---------------------------------------
 
-class UnifiedAlgorithm(object):
-
-    __metaclass__ = abc.ABCMeta
+class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
 
     def __init__(self, aam_interface, appearance_model, transform,
                  multiple_clf, parts_shape, normalize_parts, covariance, pdm,
@@ -140,7 +138,7 @@ class PICRLMS(UnifiedAlgorithm):
         masked_m = self.appearance_model.mean().as_vector()[
             self.interface.image_vec_mask]
 
-        for _ in xrange(max_iters):
+        for _ in range(max_iters):
 
             # AAM part --------------------------------------------------------
 
@@ -269,7 +267,7 @@ class AICRLMS(UnifiedAlgorithm):
         # masked model mean
         masked_m = m[self.interface.image_vec_mask]
 
-        for _ in xrange(max_iters):
+        for _ in range(max_iters):
 
             # AAM part --------------------------------------------------------
 

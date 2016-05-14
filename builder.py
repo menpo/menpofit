@@ -1,4 +1,4 @@
-from __future__ import division
+
 import abc
 from copy import deepcopy
 import numpy as np

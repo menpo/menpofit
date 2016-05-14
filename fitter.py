@@ -1,4 +1,4 @@
-from __future__ import division
+
 
 from alabortcvpr2015.fitter import Fitter
 from alabortcvpr2015.pdm import OrthoPDM

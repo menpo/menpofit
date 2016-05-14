@@ -1,4 +1,4 @@
-from __future__ import division
+
 import abc
 
 from serializablecallable import SerializableCallable
@@ -11,9 +11,7 @@ from alabortcvpr2015.clm.classifier import MultipleMCF
 
 # Abstract Interface for Unified Objects --------------------------------------
 
-class Unified(object):
-
-    __metaclass__ = abc.ABCMeta
+class Unified(object, metaclass=abc.ABCMeta):
 
     def __getstate__(self):
         import menpofast.feature as menpofast_feature
