@@ -272,8 +272,7 @@ class GlobalUnifiedBuilder(UnifiedBuilder):
 
     def _build_reference_frame(self, mean_shape):
         return convert_from_menpo(
-            build_reference_frame(mean_shape, boundary=self.boundary,
-                                  trilist=self.trilist))
+            build_reference_frame(mean_shape, boundary=self.boundary))
 
     def _warp_images(self, images, shapes, ref_shape, level_str, verbose):
         # compute transforms
