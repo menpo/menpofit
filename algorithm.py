@@ -3,9 +3,7 @@ import abc
 
 import numpy as np
 
-from menpofast.utils import build_parts_image
-
-from menpofit.base import build_sampling_grid
+from alabortcvpr2015.unified.utils import build_parts_image, build_sampling_grid
 
 from .result import UnifiedAlgorithmResult
 

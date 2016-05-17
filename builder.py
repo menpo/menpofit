@@ -9,11 +9,10 @@ from menpo.model import PCAModel
 from menpo.shape import mean_pointcloud
 from menpo.visualize import print_dynamic, progress_bar_str
 
-from menpofast.utils import build_parts_image, convert_from_menpo
+from alabortcvpr2015.unified.utils import build_parts_image, convert_from_menpo, build_sampling_grid, rescale_to_reference_shape
 
 from menpofit.transform.piecewiseaffine import DifferentiablePiecewiseAffine
-from menpofit.aam.builder import build_reference_frame
-from menpofit.base import build_sampling_grid
+from menpofit.builder import build_reference_frame
 
 from alabortcvpr2015.utils import fsmooth
 from alabortcvpr2015.clm.classifier import (MCF, MultipleMCF,
@@ -168,7 +167,7 @@ class UnifiedBuilder(object):
             if verbose:
                 print_dynamic('- Normalizing images size: {}'.format(
                     progress_bar_str((c + 1.) / len(images), show_bar=False)))
-            i = i.rescale_to_reference_shape(ref_shape, group=group,
+            i = rescale_to_reference_shape(i, ref_shape, group=group,
                                              label=label)
             if self.sigma:
                 i.pixels = fsmooth(i.pixels, self.sigma)

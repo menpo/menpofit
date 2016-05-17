@@ -3,8 +3,8 @@ import abc
 
 from serializablecallable import SerializableCallable
 
-from menpofast.image import Image
-from menpofast.utils import build_parts_image
+from menpo.image import Image
+from .utils import build_parts_image
 
 from alabortcvpr2015.clm.classifier import MultipleMCF
 
