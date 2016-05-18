@@ -191,7 +191,7 @@ class PICRLMS(UnifiedAlgorithm):
 
             # update transform
             target = self.transform.target
-            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
+            self.transform = self.transform.from_vector(self.transform.as_vector() + dp)
             shape_parameters.append(self.transform.as_vector())
 
             # test convergence
@@ -277,7 +277,7 @@ class AICRLMS(UnifiedAlgorithm):
             # reconstruct appearance
             c = self._pinv_U.T.dot(masked_i - masked_m)
             t = self._U.dot(c) + m
-            self.template.from_vector_inplace(t)
+            self.template = self.template.from_vector(t)
             appearance_parameters.append(c)
 
             # compute (image) error
@@ -339,7 +339,7 @@ class AICRLMS(UnifiedAlgorithm):
 
             # update transform
             target = self.transform.target
-            self.transform.from_vector_inplace(self.transform.as_vector() + dp)
+            self.transform = self.transform.from_vector(self.transform.as_vector() + dp)
             shape_parameters.append(self.transform.as_vector())
 
             # test convergence

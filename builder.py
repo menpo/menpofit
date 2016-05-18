@@ -157,7 +157,7 @@ class UnifiedBuilder(object):
         if self.diagonal:
             x, y = ref_shape.range()
             scale = self.diagonal / np.sqrt(x**2 + y**2)
-            Scale(scale, ref_shape.n_dims).apply_inplace(ref_shape)
+            ref_shape = Scale(scale, ref_shape.n_dims).apply(ref_shape)
         return ref_shape
 
     def _normalize_images(self, images, group, label, ref_shape, verbose):
