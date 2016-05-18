@@ -9,7 +9,7 @@ from menpo.model import PCAModel
 from menpo.shape import mean_pointcloud
 from menpo.visualize import print_dynamic, progress_bar_str
 
-from alabortcvpr2015.unified.utils import build_parts_image, convert_from_menpo, build_sampling_grid, rescale_to_reference_shape
+from alabortcvpr2015.unified.utils import build_parts_image, build_sampling_grid, rescale_to_reference_shape
 
 from menpofit.transform.piecewiseaffine import DifferentiablePiecewiseAffine
 from menpofit.builder import build_reference_frame
@@ -271,8 +271,7 @@ class GlobalUnifiedBuilder(UnifiedBuilder):
         self.boundary = boundary
 
     def _build_reference_frame(self, mean_shape):
-        return convert_from_menpo(
-            build_reference_frame(mean_shape, boundary=self.boundary))
+        return build_reference_frame(mean_shape, boundary=self.boundary)
 
     def _warp_images(self, images, shapes, ref_shape, level_str, verbose):
         # compute transforms

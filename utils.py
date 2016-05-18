@@ -1,5 +1,6 @@
 import numpy as np
 from menpo.image import Image, MaskedImage, BooleanImage, extract_patches
+from menpo.shape import PointCloud
 from menpo.transform import AlignmentUniformScale
 
 def convert_from_menpo(menpo_image):
@@ -47,8 +48,7 @@ def build_parts_image(image, centres, parts_shape, offsets=np.array([[0, 0]]),
                       normalize_parts=False):
 
     # extract patches
-    parts = extract_patches(image.pixels, np.round(centres.points),
-                            np.array(parts_shape), offsets)
+    parts = image.extract_patches(PointCloud(np.round(centres.points)), np.array(parts_shape), offsets)
 
     # build parts image
     # img.pixels: n_centres x n_offsets x n_channels x height x width
