@@ -6,7 +6,7 @@ dependencies:
   - python
   - setuptools
 
-  - menpo>=0.7,<0.8
+  - menpo>=0.7rc1,<0.8
   - scikit-learn>=0.17,<0.18
   - pandas>=0.17,<0.18
   - dlib==18.18
