@@ -1,7 +1,7 @@
 import numpy as np
 from menpo.image import Image, MaskedImage, BooleanImage, extract_patches
 from menpo.shape import PointCloud
-from menpo.transform import AlignmentUniformScale
+from menpo.transform import AlignmentUniformScale, Similarity, AlignmentSimilarity
 
 def convert_from_menpo(menpo_image):
 
@@ -101,7 +101,7 @@ def noisy_align(source, target, noise_std=0.04, rotation=False):
     parameter_range = np.hstack((parameters[:2], target.range()))
     noise = (parameter_range * noise_std *
              np.random.randn(transform.n_parameters))
-    return Similarity.identity(source.n_dims).from_vector(parameters + noise)
+    return Similarity.init_identity(source.n_dims).from_vector(parameters + noise)
 
 def align_shape_with_bb(shape, bounding_box):
     r"""

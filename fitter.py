@@ -1,8 +1,8 @@
 
 
 from alabortcvpr2015.fitter import Fitter
-from alabortcvpr2015.pdm import OrthoPDM
-from alabortcvpr2015.transform import OrthoMDTransform
+from menpofit.transform import OrthoMDTransform
+from menpofit.modelinstance import OrthoPDM
 from alabortcvpr2015.aam.algorithm import GlobalAAMInterface, PartsAAMInterface
 
 from .algorithm import AICRLMS
@@ -51,10 +51,10 @@ class GlobalUnifiedFitter(UnifiedFitter):
                                               self.dm.classifiers,
                                               self.dm.shape_models)):
 
+            pdm = OrthoPDM(sm)
             md_transform = OrthoMDTransform(
-                sm, self.dm.transform,
-                source=am.mean().landmarks['source'].lms,
-                sigma2=am.noise_variance())
+                pdm, self.dm.transform,
+                source=am.mean().landmarks['source'].lms)
 
             algorithm = algorithm_cls(
                 GlobalAAMInterface, am, md_transform,
