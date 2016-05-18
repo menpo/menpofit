@@ -5,7 +5,7 @@ dependencies:
   - python
   - setuptools
 
-  - menpo>0.6
+  - menpo>0.6.2
   - scikit-learn
   - dlib
   - pip:
