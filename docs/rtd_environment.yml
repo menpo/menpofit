@@ -1,7 +1,7 @@
 name: menpofit_rtd
 channels:
-  - menpo/channel/main
   - menpo/channel/master
+  - menpo/channel/main
 dependencies:
   - python
   - setuptools
