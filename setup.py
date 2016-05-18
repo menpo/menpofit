@@ -11,7 +11,7 @@ setup(
       author='The Menpo Development Team',
       author_email='james.booth08@imperial.ac.uk',
       packages=find_packages(),
-      install_requires=['menpo>=0.7rc1,<0.8',
-                        'scikit-learn>=0.17,<0.18'],
+      install_requires=['menpo>=0.7rc1',
+                        'scikit-learn'],
       tests_require=['nose', 'mock']
 )
