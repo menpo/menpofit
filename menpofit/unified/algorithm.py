@@ -1,14 +1,7 @@
-
 import abc
-
 import numpy as np
-
-from alabortcvpr2015.unified.utils import build_parts_image, build_sampling_grid
-
+from menpofit.unified.utils import build_parts_image, build_sampling_grid
 from .result import UnifiedAlgorithmResult
-
-from alabortcvpr2015.aam.algorithm import PartsAAMInterface
-
 
 multivariate_normal = None  # expensive, from scipy.stats
 
@@ -28,11 +21,11 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
         self.template = appearance_model.mean()
         self.transform = transform
         # set interface
-        self.interface = aam_interface(self, **kwargs)
+        self.interface = aam_interface
         # mask appearance model
         self._U = self.appearance_model.components.T
         self._pinv_U = np.linalg.pinv(
-            self._U[self.interface.image_vec_mask, :]).T
+            self._U[self.interface.i_mask, :]).T
 
         # CLM part ------------------------------------------------------------
 
@@ -57,6 +50,11 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
     def run(self, image, initial_shape, max_iters=20, gt_shape=None, **kwargs):
         pass
 
+    def _update_warp(self,dp):
+        # update warp based on inverse composition
+        self.transform._from_vector_inplace(
+            self.transform.as_vector() + dp)
+
 
 # Concrete Implementations of AAM Algorithm -----------------------------------
 
@@ -70,13 +68,13 @@ class PICRLMS(UnifiedAlgorithm):
         # AAM part ------------------------------------------------------------
 
         # sample appearance model
-        self._U = self._U[self.interface.image_vec_mask, :]
+        self._U = self._U[self.interface.i_mask, :]
 
         # compute model's gradient
         nabla_t = self.interface.gradient(self.template)
 
         # compute warp jacobian
-        dw_dp = self.interface.dw_dp()
+        dw_dp = self.interface.warp_jacobian()
 
         # set inverse sigma2
         self._inv_sigma2 = self.appearance_model.inverse_noise_variance()
@@ -134,7 +132,7 @@ class PICRLMS(UnifiedAlgorithm):
         shape_parameters = [self.transform.as_vector()]
         # masked model mean
         masked_m = self.appearance_model.mean().as_vector()[
-            self.interface.image_vec_mask]
+            self.interface.i_mask]
 
         for _ in range(max_iters):
 
@@ -144,7 +142,7 @@ class PICRLMS(UnifiedAlgorithm):
             i = self.interface.warp(image)
 
             # reconstruct appearance
-            masked_i = i.as_vector()[self.interface.image_vec_mask]
+            masked_i = i.as_vector()[self.interface.i_mask]
 
             # compute error image
             e_aam = masked_m - masked_i
@@ -157,8 +155,7 @@ class PICRLMS(UnifiedAlgorithm):
                    self._sampling_grid)
 
             # build parts image
-            if not isinstance(self.interface, PartsAAMInterface):
-                i = build_parts_image(
+            i = build_parts_image(
                     image, target, parts_shape=self.parts_shape,
                     normalize_parts=self.normalize_parts)
 
@@ -191,7 +188,7 @@ class PICRLMS(UnifiedAlgorithm):
 
             # update transform
             target = self.transform.target
-            self.transform = self.transform.from_vector(self.transform.as_vector() + dp)
+            self._update_warp(dp)
             shape_parameters.append(self.transform.as_vector())
 
             # test convergence
@@ -215,7 +212,7 @@ class AICRLMS(UnifiedAlgorithm):
         # AAM part ------------------------------------------------------------
 
         # compute warp jacobian
-        self._dw_dp = self.interface.dw_dp()
+        self._dw_dp = self.interface.warp_jacobian()
 
         # set inverse sigma2
         self._inv_sigma2 = self.appearance_model.inverse_noise_variance()
@@ -263,7 +260,7 @@ class AICRLMS(UnifiedAlgorithm):
         # model mean
         m = self.appearance_model.mean().as_vector()
         # masked model mean
-        masked_m = m[self.interface.image_vec_mask]
+        masked_m = m[self.interface.i_mask]
 
         for _ in range(max_iters):
 
@@ -272,7 +269,7 @@ class AICRLMS(UnifiedAlgorithm):
             # warp image
             i = self.interface.warp(image)
             # mask image
-            masked_i = i.as_vector()[self.interface.image_vec_mask]
+            masked_i = i.as_vector()[self.interface.i_mask]
 
             # reconstruct appearance
             c = self._pinv_U.T.dot(masked_i - masked_m)
@@ -281,7 +278,7 @@ class AICRLMS(UnifiedAlgorithm):
             appearance_parameters.append(c)
 
             # compute (image) error
-            e_aam = (self.template.as_vector()[self.interface.image_vec_mask] -
+            e_aam = (self.template.as_vector()[self.interface.i_mask] -
                      masked_i)
 
             # compute model gradient
@@ -302,10 +299,9 @@ class AICRLMS(UnifiedAlgorithm):
                    self._sampling_grid)
 
             # build parts image
-            if not isinstance(self.interface, PartsAAMInterface):
-                i = build_parts_image(
-                    image, target, parts_shape=self.parts_shape,
-                    normalize_parts=self.normalize_parts)
+            i = build_parts_image(
+                image, target, parts_shape=self.parts_shape,
+                normalize_parts=self.normalize_parts)
 
             # compute parts response
             parts_response = self.multiple_clf(i)
@@ -339,7 +335,7 @@ class AICRLMS(UnifiedAlgorithm):
 
             # update transform
             target = self.transform.target
-            self.transform = self.transform.from_vector(self.transform.as_vector() + dp)
+            self._update_warp(dp)
             shape_parameters.append(self.transform.as_vector())
 
             # test convergence

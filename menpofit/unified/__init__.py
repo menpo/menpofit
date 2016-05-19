@@ -1,4 +1,5 @@
-from .base import GlobalUnified, PartsUnified
-from .builder import GlobalUnifiedBuilder, PartsUnifiedBuilder
-from .fitter import GlobalUnifiedFitter, PartsUnifiedFitter
+from .base import GlobalUnified
+from .builder import GlobalUnifiedBuilder
+from .fitter import GlobalUnifiedFitter
 from .algorithm import PICRLMS, AICRLMS
+from .classifier import MCF, MultipleMCF

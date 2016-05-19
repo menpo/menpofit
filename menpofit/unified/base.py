@@ -1,12 +1,8 @@
-
 import abc
-
 from serializablecallable import SerializableCallable
-
 from menpo.image import Image
 from .utils import build_parts_image
-
-from alabortcvpr2015.clm.classifier import MultipleMCF
+from .classifier import MultipleMCF
 
 
 # Abstract Interface for Unified Objects --------------------------------------

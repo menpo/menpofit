@@ -9,15 +9,16 @@ from menpo.model import PCAModel
 from menpo.shape import mean_pointcloud
 from menpo.visualize import print_dynamic, progress_bar_str
 
-from alabortcvpr2015.unified.utils import build_parts_image, build_sampling_grid, rescale_to_reference_shape
+from menpofit.unified.utils import build_parts_image, build_sampling_grid, rescale_to_reference_shape
 
 from menpofit.transform.piecewiseaffine import DifferentiablePiecewiseAffine
 from menpofit.builder import build_reference_frame
 
-from alabortcvpr2015.utils import fsmooth
-from alabortcvpr2015.clm.classifier import (MCF, MultipleMCF,
-                                            LinearSVMLR, MultipleLinearSVMLR)
+from .classifier import (MCF, MultipleMCF, LinearSVMLR, MultipleLinearSVMLR)
 
+from scipy.ndimage import gaussian_filter
+
+fsmooth = lambda x, sigma: gaussian_filter(x, sigma, mode='constant')
 
 # Abstract Interface for Unified Builders -------------------------------------
 
@@ -318,55 +319,6 @@ class GlobalUnifiedBuilder(UnifiedBuilder):
                              self.covariance, self.sigma, self.scales,
                              self.scale_shapes, self.scale_features)
 
-
-class PartsUnifiedBuilder(UnifiedBuilder):
-
-    def __init__(self, classifier=MCF, parts_shape=(16, 16),
-                 offsets=np.array([[0, 0]]), features=None,
-                 normalize_parts=False, covariance=2, diagonal=None,
-                 sigma=None, scales=(1, .5), scale_shapes=True,
-                 scale_features=True, max_shape_components=None,
-                 max_appearance_components=None):
-
-        self.classifier = classifier
-        self.parts_shape = parts_shape
-        self.offsets = offsets
-        self.features = features
-        self.normalize_parts = normalize_parts
-        self.covariance = covariance
-        self.diagonal = diagonal
-        self.sigma = sigma
-        self.scales = list(scales)
-        self.scale_shapes = scale_shapes
-        self.scale_features = scale_features
-        self.max_shape_components = max_shape_components
-        self.max_appearance_components = max_appearance_components
-
-    def _warp_images(self, images, shapes, _, level_str, verbose):
-
-        # extract parts
-        parts_images = []
-        for c, (i, s) in enumerate(zip(images, shapes)):
-            if verbose:
-                print_dynamic('{}Warping images - {}'.format(
-                    level_str,
-                    progress_bar_str(float(c + 1) / len(images),
-                                     show_bar=False)))
-            parts_image = build_parts_image(
-                i, s, self.parts_shape, normalize_parts=self.normalize_parts)
-            parts_images.append(parts_image)
-
-        return parts_images
-
-    def _build_unified(self, shape_models, appearance_models,
-                       classifiers, reference_shape):
-        return PartsUnified(shape_models, appearance_models, classifiers,
-                            reference_shape, self.parts_shape, self.features,
-                            self.normalize_parts, self.covariance, self.sigma,
-                            self.scales, self.scale_shapes,
-                            self.scale_features)
-
-
-from .base import GlobalUnified, PartsUnified
+from .base import GlobalUnified
 
 
