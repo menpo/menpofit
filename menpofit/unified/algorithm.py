@@ -2,6 +2,7 @@ import abc
 import numpy as np
 from menpofit.unified.utils import build_parts_image, build_sampling_grid
 from .result import UnifiedAlgorithmResult
+from menpofit.result import ParametricIterativeResult
 
 multivariate_normal = None  # expensive, from scipy.stats
 
@@ -47,7 +48,7 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None, **kwargs):
+    def run(self, image, initial_shape, max_iters=20, gt_shape=None, return_costs=False, **kwargs):
         pass
 
     def _update_warp(self,dp):
@@ -125,11 +126,12 @@ class PICRLMS(UnifiedAlgorithm):
         self._inv_h_prior = np.linalg.inv(h + np.diag(self._j_prior))
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            prior=False, a=0.5):
+            return_costs=False, prior=False, a=0.5):
 
         # initialize transform
         self.transform.set_target(initial_shape)
-        shape_parameters = [self.transform.as_vector()]
+        p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
         # masked model mean
         masked_m = self.appearance_model.mean().as_vector()[
             self.interface.i_mask]
@@ -189,7 +191,8 @@ class PICRLMS(UnifiedAlgorithm):
             # update transform
             target = self.transform.target
             self._update_warp(dp)
-            shape_parameters.append(self.transform.as_vector())
+            p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # test convergence
             error = np.abs(np.linalg.norm(
@@ -197,9 +200,7 @@ class PICRLMS(UnifiedAlgorithm):
             if error < self.eps:
                 break
 
-        # return dm algorithm result
-        return UnifiedAlgorithmResult(image, self, shape_parameters,
-                                      gt_shape=gt_shape)
+        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list, initial_shape=initial_shape, image=image, gt_shape=gt_shape, costs=None)
 
 
 class AICRLMS(UnifiedAlgorithm):
@@ -250,11 +251,13 @@ class AICRLMS(UnifiedAlgorithm):
         self._h_prior = np.diag(self._j_prior)
 
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            prior=False, a=0.5):
+            return_costs=False, prior=False, a=0.5):
 
         # initialize transform
         self.transform.set_target(initial_shape)
-        shape_parameters = [self.transform.as_vector()]
+        p_list = [self.transform.as_vector()]
+        shapes = [self.transform.target]
+
         # initial appearance parameters
         appearance_parameters = [0]
         # model mean
@@ -336,7 +339,8 @@ class AICRLMS(UnifiedAlgorithm):
             # update transform
             target = self.transform.target
             self._update_warp(dp)
-            shape_parameters.append(self.transform.as_vector())
+            p_list.append(self.transform.as_vector())
+            shapes.append(self.transform.target)
 
             # test convergence
             error = np.abs(np.linalg.norm(
@@ -344,7 +348,4 @@ class AICRLMS(UnifiedAlgorithm):
             if error < self.eps:
                 break
 
-        # return Unified algorithm result
-        return UnifiedAlgorithmResult(
-            image, self, shape_parameters,
-            appearance_parameters=appearance_parameters, gt_shape=gt_shape)
+        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list, initial_shape=initial_shape, image=image, gt_shape=gt_shape, costs=None)
