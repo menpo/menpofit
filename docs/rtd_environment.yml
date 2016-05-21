@@ -5,13 +5,10 @@ dependencies:
   - python
   - setuptools
 
-  - menpo>=0.6,<0.7
-  - scikit-learn>=0.17,<0.18
-  - pandas>=0.17,<0.18
-  - mock=1.3.*
-  - nose
+  - menpo >=0.7,<0.8
+  - scikit-learn
+  - dlib
   - pip:
-      - sphinx==1.3.1
-      - sphinx_rtd_theme==0.1.7
-      - sphinxmapxrefrole==0.2.1
-
+      - sphinx
+      - sphinx_rtd_theme
+      - sphinxmapxrefrole>0.2
