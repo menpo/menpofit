@@ -8,7 +8,6 @@ from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface
 from menpofit.fitter import MultiScaleParametricFitter
 from .algorithm import AICRLMS
 from .utils import noisy_align, align_shape_with_bb, rescale_to_reference_shape
-from .result import FitterResult
 
 class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
     r"""

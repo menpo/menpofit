@@ -1,7 +1,6 @@
 import abc
 import numpy as np
 from menpofit.unified.utils import build_parts_image, build_sampling_grid
-from .result import UnifiedAlgorithmResult
 from menpofit.result import ParametricIterativeResult
 
 multivariate_normal = None  # expensive, from scipy.stats
