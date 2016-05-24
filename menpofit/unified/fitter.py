@@ -7,7 +7,6 @@ from menpofit.modelinstance import OrthoPDM
 from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface
 from menpofit.fitter import MultiScaleParametricFitter
 from .algorithm import AICRLMS
-from .utils import noisy_align, align_shape_with_bb, rescale_to_reference_shape
 
 class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
     r"""
@@ -65,9 +64,9 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         algorithms = []
 
         # Get list of algorithm objects per scale
-        for j, (am, clf, sm) in enumerate(zip(self.dm.appearance_models,
-                                              self.dm.classifiers,
-                                              self.dm.shape_models)):
+        for j, (am, ee, sm) in enumerate(zip(self.dm.appearance_models,
+                                             self.dm.expert_ensembles,
+                                             self.dm.shape_models)):
 
             pdm = OrthoPDM(sm)
             md_transform = OrthoMDTransform(
@@ -79,7 +78,7 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
 
             algorithm = algorithm_cls(
                 interface, am, md_transform,
-                clf, self.dm.parts_shape, self.dm.normalize_parts,
+                ee, self.dm.parts_shape[j], self.dm.normalize_parts,
                 self.covariance, md_transform.pdm)
 
             algorithms.append(algorithm)

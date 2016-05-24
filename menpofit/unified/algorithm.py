@@ -1,17 +1,25 @@
 import abc
 import numpy as np
-from menpofit.unified.utils import build_parts_image, build_sampling_grid
 from menpofit.result import ParametricIterativeResult
 
 multivariate_normal = None  # expensive, from scipy.stats
 
+def build_sampling_grid(patch_shape):
+    r"""
+    """
+    patch_shape = np.array(patch_shape)
+    patch_half_shape = np.require(np.round(patch_shape / 2), dtype=int)
+    start = -patch_half_shape
+    end = patch_half_shape + 1
+    sampling_grid = np.mgrid[start[0]:end[0], start[1]:end[1]]
+    return sampling_grid.swapaxes(0, 2).swapaxes(0, 1)
 
 # Abstract Interface for AAM Algorithms ---------------------------------------
 
 class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
 
     def __init__(self, aam_interface, appearance_model, transform,
-                 multiple_clf, parts_shape, normalize_parts, covariance, pdm,
+                 expert_ensemble, parts_shape, normalize_parts, covariance, pdm,
                  eps=10**-5, **kwargs):
 
         # AAM part ------------------------------------------------------------
@@ -30,7 +38,7 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
         # CLM part ------------------------------------------------------------
 
         # set state
-        self.multiple_clf = multiple_clf
+        self.expert_ensemble = expert_ensemble
         self.parts_shape = parts_shape
         self.normalize_parts = normalize_parts
         self.covariance = covariance
@@ -155,13 +163,8 @@ class PICRLMS(UnifiedAlgorithm):
             xys = (target.points[:, None, None, ...] +
                    self._sampling_grid)
 
-            # build parts image
-            i = build_parts_image(
-                    image, target, parts_shape=self.parts_shape,
-                    normalize_parts=self.normalize_parts)
-
             # compute parts response
-            parts_response = self.multiple_clf(i)
+            parts_response = self.expert_ensemble.predict_probability(image,target)
             parts_response[np.logical_not(np.isfinite(parts_response))] = .5
 
             # compute parts kernel
@@ -300,13 +303,8 @@ class AICRLMS(UnifiedAlgorithm):
             yxs = (target.points[:, None, None, ...] +
                    self._sampling_grid)
 
-            # build parts image
-            i = build_parts_image(
-                image, target, parts_shape=self.parts_shape,
-                normalize_parts=self.normalize_parts)
-
             # compute parts response
-            parts_response = self.multiple_clf(i)
+            parts_response = self.expert_ensemble.predict_probability(image,target).squeeze()
             parts_response[np.logical_not(np.isfinite(parts_response))] = .5
 
             # compute parts kernel

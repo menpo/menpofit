@@ -8,17 +8,22 @@ from menpo.feature import no_op
 from menpo.transform import Scale, Translation, GeneralizedProcrustesAnalysis
 from menpo.visualize import print_dynamic, progress_bar_str
 from menpo.shape import mean_pointcloud
+from menpo.transform import AlignmentUniformScale
 from menpofit import checks
 from menpofit.transform.piecewiseaffine import DifferentiablePiecewiseAffine
 from menpofit.transform import OrthoMDTransform
 from menpofit.modelinstance import OrthoPDM
 from menpofit.builder import build_reference_frame
-from .utils import build_parts_image, build_sampling_grid, rescale_to_reference_shape
-from .classifier import MCF, MultipleMCF
+from menpofit.clm import CorrelationFilterExpertEnsemble
 from scipy.stats import multivariate_normal
 from scipy.ndimage import gaussian_filter
 
 fsmooth = lambda x, sigma: gaussian_filter(x, sigma, mode='constant')
+
+def rescale_to_reference_shape(image, reference_shape, group=None, label=None, round='ceil', order=1):
+    pc = image.landmarks[group][label]
+    scale = AlignmentUniformScale(pc, reference_shape).as_vector().copy()
+    return image.rescale(scale, round=round, order=order)
 
 class UnifiedAAMCLM(object):
     r"""
@@ -87,12 +92,13 @@ class UnifiedAAMCLM(object):
     .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
         Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
     """
-    def __init__(self, images, classifier=MCF, parts_shape=(17, 17), offsets=np.array([[0, 0]]), group=None, holistic_features=no_op,
+    def __init__(self, images, expert_ensemble_cls=CorrelationFilterExpertEnsemble, 
+                 parts_shape=(17, 17), context_shape=(34, 34), offsets=None, group=None, holistic_features=no_op,
                  reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
                  max_appearance_components=None, scale_shapes=False, scale_features=True, sigma=None, 
-                 boundary=3, normalize_parts=False, covariance=2, verbose=False):
+                 boundary=3, normalize_parts=False, covariance=2, patch_normalisation=no_op, cosine_mask=True, verbose=False):
         # Check parameters
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
@@ -104,8 +110,10 @@ class UnifiedAAMCLM(object):
         max_appearance_components = checks.check_max_components(
             max_appearance_components, n_scales, 'max_appearance_components')
         # Assign attributes
-        self.classifier = classifier
-        self.parts_shape = parts_shape
+        self.expert_ensemble_cls = checks.check_callable(expert_ensemble_cls,n_scales)
+        self.expert_ensembles = []
+        self.parts_shape = checks.check_patch_shape(parts_shape, n_scales)
+        self.context_shape = checks.check_patch_shape(context_shape, n_scales)
         self.holistic_features = holistic_features
         self.transform = transform
         self.diagonal = diagonal
@@ -116,7 +124,6 @@ class UnifiedAAMCLM(object):
         self._shape_model_cls = shape_model_cls
         self.shape_models = []
         self.appearance_models = []
-        self.classifiers = []
         self.scale_shapes = scale_shapes
         self.sigma = sigma
         self.boundary = boundary
@@ -124,6 +131,8 @@ class UnifiedAAMCLM(object):
         self.normalize_parts = normalize_parts
         self.covariance = covariance
         self.scale_features = scale_features
+        self.patch_normalisation = patch_normalisation
+        self.cosine_mask = cosine_mask
 
         self._train(images=images, group=group, verbose=verbose)
 
@@ -149,24 +158,7 @@ class UnifiedAAMCLM(object):
             warped_i.landmarks['source'] = ref_frame.landmarks['source']
             warped_images.append(warped_i)
         return warped_images
-
-    def _parts_images(self, images, shapes, level_str, verbose):
-
-        # extract parts
-        parts_images = []
-        for c, (i, s) in enumerate(zip(images, shapes)):
-            if verbose:
-                print_dynamic('{}Warping images - {}'.format(
-                    level_str,
-                    progress_bar_str(float(c + 1) / len(images),
-                                     show_bar=False)))
-            parts_image = build_parts_image(
-                i, s, self.parts_shape, offsets=self.offsets,
-                normalize_parts=self.normalize_parts)
-            parts_images.append(parts_image)
-
-        return parts_images
-
+  
     def _train(self, images, group=None, label=None, verbose=False):
         # compute reference shape
         if self.reference_shape is None:
@@ -180,14 +172,16 @@ class UnifiedAAMCLM(object):
             print_dynamic('- Building models\n')
         self.shape_models = []
         self.appearance_models = []
-        self.classifiers = []
+        self.expert_ensembles = []
         # for each pyramid level (high --> low)
         for j, s in enumerate(self.scales):
             if verbose:
                 if len(self.scales) > 1:
-                    level_str = '  - Level {}: '.format(j)
+                    level_str = '  - Scale {}: '.format(j)
                 else:
                     level_str = '  - '
+            else:
+                level_str = None
 
             # obtain image representation
             if j == 0:
@@ -239,38 +233,16 @@ class UnifiedAAMCLM(object):
             # add appearance model to the list
             self.appearance_models.append(appearance_model)
 
-            # obtain parts images
-            parts_images = self._parts_images(level_images, level_shapes,
-                                                level_str, verbose)
-
-            # build desired responses
-            mvn = multivariate_normal(mean=np.zeros(2), cov=self.covariance)
-            grid = build_sampling_grid(self.parts_shape)
-            Y = [mvn.pdf(grid + offset) for offset in self.offsets]
-
-            # build classifiers
-            n_landmarks = level_shapes[0].n_points
-            level_classifiers = []
-            for l in range(n_landmarks):
-                if verbose:
-                    print_dynamic('{}Building classifiers - {}'.format(
-                        level_str,
-                        progress_bar_str((l + 1.) / n_landmarks,
-                                         show_bar=False)))
-
-                X = [i.pixels[l] for i in parts_images]
-
-                clf = self.classifier(X, Y)
-                level_classifiers.append(clf)
-
-            # build Multiple classifier
-            if self.classifier is MCF:
-                multiple_clf = MultipleMCF(level_classifiers)
-            elif self.classifier is LinearSVMLR:
-                multiple_clf = MultipleLinearSVMLR(level_classifiers)
-
-            # add appearance model to the list
-            self.classifiers.append(multiple_clf)
+            expert_ensemble = self.expert_ensemble_cls[j](
+                    images=level_images, shapes=level_shapes,
+                    patch_shape=self.parts_shape[j],
+                    patch_normalisation=self.patch_normalisation,
+                    cosine_mask=self.cosine_mask,
+                    context_shape=self.context_shape[j],
+                    sample_offsets=self.offsets,
+                    prefix=level_str, verbose=verbose)
+            
+            self.expert_ensembles.append(expert_ensemble)
 
             if verbose:
                 print_dynamic('{}Done\n'.format(level_str))
@@ -279,7 +251,7 @@ class UnifiedAAMCLM(object):
         # ordered from lower to higher resolution
         self.shape_models.reverse()
         self.appearance_models.reverse()
-        self.classifiers.reverse()
+        self.expert_ensembles.reverse()
         self.scales.reverse()
 
     def _compute_reference_shape(self, images, group, label, verbose):
