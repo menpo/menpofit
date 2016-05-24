@@ -133,7 +133,7 @@ class UnifiedAAMCLM(object):
         self.scale_features = scale_features
         self.patch_normalisation = patch_normalisation
         self.cosine_mask = cosine_mask
-
+        
         self._train(images=images, group=group, verbose=verbose)
 
     def _build_reference_frame(self, mean_shape):
@@ -240,6 +240,7 @@ class UnifiedAAMCLM(object):
                     cosine_mask=self.cosine_mask,
                     context_shape=self.context_shape[j],
                     sample_offsets=self.offsets,
+                    response_covariance = self.covariance,
                     prefix=level_str, verbose=verbose)
             
             self.expert_ensembles.append(expert_ensemble)
