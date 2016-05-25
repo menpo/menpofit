@@ -164,7 +164,7 @@ class PICRLMS(UnifiedAlgorithm):
                    self._sampling_grid)
 
             # compute parts response
-            parts_response = self.expert_ensemble.predict_probability(image,target)
+            parts_response = self.expert_ensemble.predict_probability(image,target).squeeze()
             parts_response[np.logical_not(np.isfinite(parts_response))] = .5
 
             # compute parts kernel
