@@ -99,7 +99,7 @@ class UnifiedAAMCLM(object):
         unused components will be permanently trimmed.
     scale_shapes: `bool`, optional
         Recompute the PCA shape model at all scales instead of copying it. 
-        Default is ``False``
+        Default is ``True``
     scale_features: `bool`, optional
         Scale the feature images instead of scaling the source image and recomputing the features. 
         Default is ``True``
@@ -133,7 +133,7 @@ class UnifiedAAMCLM(object):
                  reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
-                 max_appearance_components=None, scale_shapes=False, scale_features=True, sigma=None, 
+                 max_appearance_components=None, scale_shapes=True, scale_features=True, sigma=None, 
                  boundary=3, response_covariance=2, patch_normalisation=no_op, cosine_mask=True, verbose=False):
         # Check parameters
         checks.check_diagonal(diagonal)

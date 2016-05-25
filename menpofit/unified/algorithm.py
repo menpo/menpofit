@@ -18,7 +18,7 @@ def build_sampling_grid(patch_shape):
 
 # Abstract Interface for AAM Algorithms ---------------------------------------
 
-class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
+class UnifiedAlgorithm(object):
 
     r"""
     Base interface for optimization of UnifiedAAMCLM
