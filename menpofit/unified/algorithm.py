@@ -19,7 +19,7 @@ def build_sampling_grid(patch_shape):
 class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
 
     def __init__(self, aam_interface, appearance_model, transform,
-                 expert_ensemble, parts_shape, normalize_parts, covariance, pdm,
+                 expert_ensemble, patch_shape, normalize_parts, covariance, pdm,
                  eps=10**-5, **kwargs):
 
         # AAM part ------------------------------------------------------------
@@ -39,7 +39,7 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
 
         # set state
         self.expert_ensemble = expert_ensemble
-        self.parts_shape = parts_shape
+        self.patch_shape = patch_shape
         self.normalize_parts = normalize_parts
         self.covariance = covariance
         self.pdm = pdm
@@ -105,7 +105,7 @@ class PICRLMS(UnifiedAlgorithm):
         self._inv_rho2 = self.pdm.model.inverse_noise_variance()
 
         # compute Gaussian-KDE grid
-        self._sampling_grid = build_sampling_grid(self.parts_shape)
+        self._sampling_grid = build_sampling_grid(self.patch_shape)
         mean = np.zeros(self.transform.n_dims)
         covariance = self.covariance * self._inv_rho2
         mvn = multivariate_normal(mean=mean, cov=covariance)
@@ -230,7 +230,7 @@ class AICRLMS(UnifiedAlgorithm):
         self._inv_rho2 = self.pdm.model.inverse_noise_variance()
 
         # compute Gaussian-KDE grid
-        self._sampling_grid = build_sampling_grid(self.parts_shape)
+        self._sampling_grid = build_sampling_grid(self.patch_shape)
         mean = np.zeros(self.transform.n_dims)
         covariance = self.covariance * self._inv_rho2
         mvn = multivariate_normal(mean=mean, cov=covariance)

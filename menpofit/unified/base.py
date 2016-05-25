@@ -1,7 +1,6 @@
 import abc
 import numpy as np
 from copy import deepcopy
-from serializablecallable import SerializableCallable
 from menpo.model import PCAModel
 from menpo.image import Image
 from menpo.feature import no_op
@@ -36,6 +35,20 @@ class UnifiedAAMCLM(object):
     ----------
     images : `list` of `menpo.image.Image`
         The `list` of training images.
+    expert_ensemble_cls : `subclass` of :map:`ExpertEnsemble`, optional
+        The class to be used for training the ensemble of experts. The most
+        common choice is :map:`CorrelationFilterExpertEnsemble`.
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    context_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The context shape for the convolution. If a `list` is provided,
+        then it defines a context shape per scale.
+    sample_offsets : ``(n_offsets, n_dims)`` `ndarray` or ``None``, optional
+        The sample_offsets to sample from within a patch. So ``(0, 0)`` is the centre
+        of the patch (no offset) and ``(1, 0)`` would be sampling the patch
+        from 1 pixel up the first axis away from the centre. If ``None``,
+        then no sample_offsets are applied.
     group : `str` or ``None``, optional
         The landmark group that will be used to train the model. If ``None`` and
         the images only have a single landmark group, then that is the one
@@ -67,7 +80,7 @@ class UnifiedAAMCLM(object):
         A differential warp transform object, e.g.
         :map:`DifferentiablePiecewiseAffine` or
         :map:`DifferentiableThinPlateSplines`.
-    shape_model_cls : `subclass` of :map:`PDM`, optional
+    shape_model_cls : `subclass` of :map:`OrthoPDM`, optional
         The class to be used for building the shape model. The most common
         choice is :map:`OrthoPDM`.
     max_shape_components : `int`, `float`, `list` of those or ``None``, optional
@@ -84,6 +97,11 @@ class UnifiedAAMCLM(object):
         per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept. Note that the
         unused components will be permanently trimmed.
+    cosine_mask : `bool`, optional
+        If ``True``, then a cosine mask (Hanning function) will be applied on
+        the extracted patches.
+    patch_normalisation : `callable`, optional
+        The normalisation function to be applied on the extracted patches.
     verbose : `bool`, optional
         If ``True``, then the progress of building the model will be printed.
 
@@ -93,7 +111,7 @@ class UnifiedAAMCLM(object):
         Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
     """
     def __init__(self, images, expert_ensemble_cls=CorrelationFilterExpertEnsemble, 
-                 parts_shape=(17, 17), context_shape=(34, 34), offsets=None, group=None, holistic_features=no_op,
+                 patch_shape=(17, 17), context_shape=(34, 34), sample_offsets=None, group=None, holistic_features=no_op,
                  reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
@@ -112,7 +130,7 @@ class UnifiedAAMCLM(object):
         # Assign attributes
         self.expert_ensemble_cls = checks.check_callable(expert_ensemble_cls,n_scales)
         self.expert_ensembles = []
-        self.parts_shape = checks.check_patch_shape(parts_shape, n_scales)
+        self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
         self.context_shape = checks.check_patch_shape(context_shape, n_scales)
         self.holistic_features = holistic_features
         self.transform = transform
@@ -121,13 +139,13 @@ class UnifiedAAMCLM(object):
         self.max_shape_components = max_shape_components
         self.max_appearance_components = max_appearance_components
         self.reference_shape = reference_shape
-        self._shape_model_cls = shape_model_cls
+        self.shape_model_cls = shape_model_cls
         self.shape_models = []
         self.appearance_models = []
         self.scale_shapes = scale_shapes
         self.sigma = sigma
         self.boundary = boundary
-        self.offsets = offsets
+        self.sample_offsets = sample_offsets
         self.normalize_parts = normalize_parts
         self.covariance = covariance
         self.scale_features = scale_features
@@ -235,11 +253,11 @@ class UnifiedAAMCLM(object):
 
             expert_ensemble = self.expert_ensemble_cls[j](
                     images=level_images, shapes=level_shapes,
-                    patch_shape=self.parts_shape[j],
+                    patch_shape=self.patch_shape[j],
                     patch_normalisation=self.patch_normalisation,
                     cosine_mask=self.cosine_mask,
                     context_shape=self.context_shape[j],
-                    sample_offsets=self.offsets,
+                    sample_offsets=self.sample_offsets,
                     response_covariance = self.covariance,
                     prefix=level_str, verbose=verbose)
             

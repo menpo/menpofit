@@ -68,7 +68,8 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
                                              self.dm.expert_ensembles,
                                              self.dm.shape_models)):
 
-            pdm = OrthoPDM(sm)
+            # shape_model_cls must be OrthoPDM or a subclass
+            pdm = self.dm.shape_model_cls[j](sm) 
             md_transform = OrthoMDTransform(
                 pdm, self.dm.transform,
                 source=am.mean().landmarks['source'].lms)
@@ -78,7 +79,7 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
 
             algorithm = algorithm_cls(
                 interface, am, md_transform,
-                ee, self.dm.parts_shape[j], self.dm.normalize_parts,
+                ee, self.dm.patch_shape[j], self.dm.normalize_parts,
                 self.covariance, md_transform.pdm)
 
             algorithms.append(algorithm)
