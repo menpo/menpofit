@@ -63,6 +63,50 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
         self.transform._from_vector_inplace(
             self.transform.as_vector() + dp)
 
+    def _precompute_clm(self):
+        global multivariate_normal
+        if multivariate_normal is None:
+            from scipy.stats import multivariate_normal  # expensive
+
+        # set inverse rho2
+        self._inv_rho2 = self.pdm.model.inverse_noise_variance()
+
+        # compute Gaussian-KDE grid
+        self._sampling_grid = build_sampling_grid(self.patch_shape)
+        mean = np.zeros(self.transform.n_dims)
+        covariance = self.covariance * self._inv_rho2
+        mvn = multivariate_normal(mean=mean, cov=covariance)
+        self._kernel_grid = mvn.pdf(self._sampling_grid)
+
+        # compute CLM jacobian
+        j_clm = np.rollaxis(self.pdm.d_dp(None), -1, 1)
+        j_clm = j_clm.reshape((-1, j_clm.shape[-1]))
+        self._j_clm = self._inv_rho2 * j_clm
+
+        # compute CLM hessian
+        self._h_clm = self._j_clm.T.dot(j_clm)
+
+    def _compute_clm_error(self, image):
+        target = self.transform.target
+        # get all (x, y) pairs being considered
+        yxs = (target.points[:, None, None, ...] +
+                self._sampling_grid)
+
+        # compute parts response
+        parts_response = self.expert_ensemble.predict_probability(image,target).squeeze()
+        parts_response[np.logical_not(np.isfinite(parts_response))] = .5
+
+        # compute parts kernel
+        parts_kernel = parts_response * self._kernel_grid
+        parts_kernel /= np.sum(
+            parts_kernel, axis=(-2, -1))[..., None, None]
+
+        # compute mean shift target
+        mean_shift_target = np.sum(parts_kernel[..., None] * yxs,
+                                    axis=(-3, -2))
+
+        # compute (shape) error term
+        return mean_shift_target.ravel() - target.as_vector()
 
 # Concrete Implementations of AAM Algorithm -----------------------------------
 
@@ -96,28 +140,7 @@ class PICRLMS(UnifiedAlgorithm):
         self._h_aam = self._j_aam.T.dot(j_po)
 
         # CLM part ------------------------------------------------------------
-
-        global multivariate_normal
-        if multivariate_normal is None:
-            from scipy.stats import multivariate_normal  # expensive
-
-        # set inverse rho2
-        self._inv_rho2 = self.pdm.model.inverse_noise_variance()
-
-        # compute Gaussian-KDE grid
-        self._sampling_grid = build_sampling_grid(self.patch_shape)
-        mean = np.zeros(self.transform.n_dims)
-        covariance = self.covariance * self._inv_rho2
-        mvn = multivariate_normal(mean=mean, cov=covariance)
-        self._kernel_grid = mvn.pdf(self._sampling_grid)
-
-        # compute CLM jacobian
-        j_clm = np.rollaxis(self.pdm.d_dp(None), -1, 1)
-        j_clm = j_clm.reshape((-1, j_clm.shape[-1]))
-        self._j_clm = self._inv_rho2 * j_clm
-
-        # compute CLM hessian
-        self._h_clm = self._j_clm.T.dot(j_clm)
+        self._precompute_clm()        
 
         # Unified part --------------------------------------------------------
 
@@ -158,26 +181,7 @@ class PICRLMS(UnifiedAlgorithm):
 
             # CLM part --------------------------------------------------------
 
-            target = self.transform.target
-            # get all (x, y) pairs being considered
-            xys = (target.points[:, None, None, ...] +
-                   self._sampling_grid)
-
-            # compute parts response
-            parts_response = self.expert_ensemble.predict_probability(image,target).squeeze()
-            parts_response[np.logical_not(np.isfinite(parts_response))] = .5
-
-            # compute parts kernel
-            parts_kernel = parts_response * self._kernel_grid
-            parts_kernel /= np.sum(
-                parts_kernel, axis=(-2, -1))[..., None, None]
-
-            # compute mean shift target
-            mean_shift_target = np.sum(parts_kernel[..., None] * xys,
-                                       axis=(-3, -2))
-
-            # compute (shape) error term
-            e_clm = mean_shift_target.ravel() - target.as_vector()
+            e_clm = self._compute_clm_error(image)
 
             # Unified ---------------------------------------------------------
 
@@ -221,28 +225,7 @@ class AICRLMS(UnifiedAlgorithm):
         self._inv_sigma2 = self.appearance_model.inverse_noise_variance()
 
         # CLM part ------------------------------------------------------------
-
-        global multivariate_normal
-        if multivariate_normal is None:
-            from scipy.stats import multivariate_normal  # expensive
-
-        # set inverse rho2
-        self._inv_rho2 = self.pdm.model.inverse_noise_variance()
-
-        # compute Gaussian-KDE grid
-        self._sampling_grid = build_sampling_grid(self.patch_shape)
-        mean = np.zeros(self.transform.n_dims)
-        covariance = self.covariance * self._inv_rho2
-        mvn = multivariate_normal(mean=mean, cov=covariance)
-        self._kernel_grid = mvn.pdf(self._sampling_grid)
-
-        # compute CLM jacobian
-        j_clm = np.rollaxis(self.pdm.d_dp(None), -1, 1)
-        j_clm = j_clm.reshape((-1, j_clm.shape[-1]))
-        self._j_clm = self._inv_rho2 * j_clm
-
-        # compute CLM hessian
-        self._h_clm = self._j_clm.T.dot(j_clm)
+        self._precompute_clm()
 
         # Unified part --------------------------------------------------------
 
@@ -297,27 +280,7 @@ class AICRLMS(UnifiedAlgorithm):
             h_aam = j_aam.T.dot(j)
 
             # CLM part --------------------------------------------------------
-
-            # compute all position (y, x) pairs being considered
-            target = self.transform.target
-            yxs = (target.points[:, None, None, ...] +
-                   self._sampling_grid)
-
-            # compute parts response
-            parts_response = self.expert_ensemble.predict_probability(image,target).squeeze()
-            parts_response[np.logical_not(np.isfinite(parts_response))] = .5
-
-            # compute parts kernel
-            parts_kernel = parts_response * self._kernel_grid
-            parts_kernel /= np.sum(
-                parts_kernel, axis=(-2, -1))[..., None, None]
-
-            # compute mean shift target
-            mean_shift_target = np.sum(parts_kernel[..., None] * yxs,
-                                       axis=(-3, -2))
-
-            # compute (shape) error
-            e_clm = mean_shift_target.ravel() - target.as_vector()
+            e_clm = self._compute_clm_error(image)           
 
             # Unified part ----------------------------------------------------
 
