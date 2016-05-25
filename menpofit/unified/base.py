@@ -208,11 +208,11 @@ class UnifiedAAMCLM(object):
         self.shape_models = []
         self.appearance_models = []
         self.expert_ensembles = []
-        # for each pyramid level (high --> low)
-        for j, s in enumerate(self.scales):
+        # for each pyramid level (high --> low) - assuming self.scales is in ascending order
+        for j, s in enumerate(reversed(self.scales)):
             if verbose:
                 if len(self.scales) > 1:
-                    level_str = '  - Scale {}: '.format(j)
+                    level_str = '  - Scale Factor {}: '.format(s)
                 else:
                     level_str = '  - '
             else:
@@ -288,7 +288,6 @@ class UnifiedAAMCLM(object):
         self.shape_models.reverse()
         self.appearance_models.reverse()
         self.expert_ensembles.reverse()
-        self.scales.reverse()
 
     def _compute_reference_shape(self, images, group, label, verbose):
         # the reference_shape is the mean shape of the images' landmarks
