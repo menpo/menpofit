@@ -178,6 +178,38 @@ class PICRLMS(UnifiedAlgorithm):
         self._pinv_j_clm = np.linalg.solve(h, self._j_clm.T)
         self._inv_h_prior = np.linalg.inv(h + np.diag(self._j_prior))
 
+    r"""
+    Execute the PICRLMS optimization algorithm.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image`
+        The input test image.
+    initial_shape : `menpo.shape.PointCloud`
+        The initial shape from which the optimization will start.
+    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The ground truth shape of the image. It is only needed in order
+        to get passed in the optimization result object, which has the
+        ability to compute the fitting error.
+    max_iters : `int`, optional
+        The maximum number of iterations. Note that the algorithm may
+        converge, and thus stop, earlier.
+    prior : `bool`, optional
+        If ``True``, use a Gaussian priors over the latent shape and
+        appearance spaces.
+        see the reference section 2.1 for details.
+    a : `float`, optional
+        Ratio of the image noise variance and the shape noise variance.
+        See [2] section 5 equations (25) & (26) and footnote 6.
+        
+    References
+    ----------
+    .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
+        Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
+    .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and 
+        parts-based deformable model fitting." Proceedings of the IEEE 
+        Conference on Computer Vision and Pattern Recognition. 2015.
+    """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
 
@@ -188,6 +220,10 @@ class PICRLMS(UnifiedAlgorithm):
         # masked model mean
         masked_m = self.appearance_model.mean().as_vector()[
             self.interface.i_mask]
+
+        costs = None
+        if return_costs:
+            costs = []
 
         for _ in range(max_iters):
 
@@ -226,6 +262,10 @@ class PICRLMS(UnifiedAlgorithm):
             # test convergence
             error = np.abs(np.linalg.norm(
                 target.points - self.transform.target.points))
+
+            if return_costs:
+                costs.append(error)
+
             if error < self.eps:
                 break
 
@@ -258,6 +298,38 @@ class AICRLMS(UnifiedAlgorithm):
         self._j_prior = np.hstack((sim_prior, transform_prior))
         self._h_prior = np.diag(self._j_prior)
 
+    r"""
+    Execute the AICRLMS optimization algorithm.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image`
+        The input test image.
+    initial_shape : `menpo.shape.PointCloud`
+        The initial shape from which the optimization will start.
+    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+        The ground truth shape of the image. It is only needed in order
+        to get passed in the optimization result object, which has the
+        ability to compute the fitting error.
+    max_iters : `int`, optional
+        The maximum number of iterations. Note that the algorithm may
+        converge, and thus stop, earlier.
+    prior : `bool`, optional
+        If ``True``, use a Gaussian priors over the latent shape and
+        appearance spaces.
+        see the reference section 2.1 for details.
+    a : `float`, optional
+        Ratio of the image noise variance and the shape noise variance.
+        See [2] section 5 equations (25) & (26) and footnote 6.
+        
+    References
+    ----------
+    .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
+        Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
+    .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and 
+        parts-based deformable model fitting." Proceedings of the IEEE 
+        Conference on Computer Vision and Pattern Recognition. 2015.
+    """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
 
@@ -272,6 +344,10 @@ class AICRLMS(UnifiedAlgorithm):
         m = self.appearance_model.mean().as_vector()
         # masked model mean
         masked_m = m[self.interface.i_mask]
+
+        costs = None
+        if return_costs:
+            costs = []
 
         for _ in range(max_iters):
 
@@ -328,7 +404,11 @@ class AICRLMS(UnifiedAlgorithm):
             # test convergence
             error = np.abs(np.linalg.norm(
                 target.points - self.transform.target.points))
+
+            if return_costs:
+                costs.append(error)
+
             if error < self.eps:
                 break
 
-        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list, initial_shape=initial_shape, image=image, gt_shape=gt_shape, costs=None)
+        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list, initial_shape=initial_shape, image=image, gt_shape=gt_shape, costs=costs)
