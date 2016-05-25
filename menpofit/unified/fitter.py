@@ -120,13 +120,11 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         scales_info = []
         lvl_str_tmplt = r"""   - Scale {}
      - {} active shape components
-     - {} similarity transform components
      - {} active appearance components"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
                     s,
                     self.dm.shape_models[k].n_active_components,
-                    self.dm.shape_models[k].n_global_parameters,
                     self.dm.appearance_models[k].n_active_components))
         scales_info = '\n'.join(scales_info)
 
@@ -136,5 +134,5 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
     """.format(class_title=self.algorithms[0].__str__(),
                scales=self.scales,
                scales_info=scales_info)
-        return self.aam.__str__() + cls_str
+        return self.dm.__str__() + cls_str
 

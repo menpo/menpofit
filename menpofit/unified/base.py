@@ -1,6 +1,7 @@
 import abc
 import numpy as np
 from copy import deepcopy
+from menpo.base import name_of_callable
 from menpo.model import PCAModel
 from menpo.image import Image
 from menpo.feature import no_op
@@ -400,19 +401,33 @@ class UnifiedAAMCLM(object):
         scales_info = []
         lvl_str_tmplt = r"""   - Scale {}
          - Holistic feature: {}
+         - Ensemble of experts class: {}
+           - {} experts
+           - {} class
+           - Patch shape: {} x {}
+           - Patch normalisation: {}
+           - Context shape: {} x {}
+           - Cosine mask: {}
          - Appearance model class: {}
            - {} appearance components
          - Shape model class: {}
-           - {} shape components
-           - {} similarity transform parameters"""
+           - {} shape components"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
                 s, name_of_callable(self.holistic_features[k]),
+                name_of_callable(self.expert_ensemble_cls[k]),
+                self.expert_ensembles[k].n_experts,
+                name_of_callable(self.expert_ensembles[k]._icf),
+                self.expert_ensembles[k].patch_shape[0],
+                self.expert_ensembles[k].patch_shape[1],
+                name_of_callable(self.expert_ensembles[k].patch_normalisation),
+                self.expert_ensembles[k].context_shape[0],
+                self.expert_ensembles[k].context_shape[1],
+                self.expert_ensembles[k].cosine_mask,
                 name_of_callable(self.appearance_models[k]),
                 self.appearance_models[k].n_components,
                 name_of_callable(self.shape_models[k]),
-                self.shape_models[k].model.n_components,
-                self.shape_models[k].n_global_parameters))
+                self.shape_models[k].n_components))
 
         scales_info = '\n'.join(scales_info)
 
