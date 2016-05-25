@@ -79,8 +79,8 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
 
             algorithm = algorithm_cls(
                 interface, am, md_transform,
-                ee, self.dm.patch_shape[j], self.dm.normalize_parts,
-                self.covariance, md_transform.pdm)
+                ee, self.dm.patch_shape[j], 
+                self.response_covariance)
 
             algorithms.append(algorithm)
 
@@ -112,8 +112,8 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
                                                            shapes=shapes)
 
     @property
-    def covariance(self):
-        return self.dm.covariance
+    def response_covariance(self):
+        return self.dm.response_covariance
 
     def __str__(self):
         # Compute scale info strings

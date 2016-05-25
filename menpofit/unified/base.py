@@ -97,11 +97,26 @@ class UnifiedAAMCLM(object):
         per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept. Note that the
         unused components will be permanently trimmed.
-    cosine_mask : `bool`, optional
-        If ``True``, then a cosine mask (Hanning function) will be applied on
-        the extracted patches.
+    scale_shapes: `bool`, optional
+        Recompute the PCA shape model at all scales instead of copying it. 
+        Default is ``False``
+    scale_features: `bool`, optional
+        Scale the feature images instead of scaling the source image and recomputing the features. 
+        Default is ``True``
+    sigma : `float` or ``None``, optional 
+        If not ``None``, the input images are smoothed with an isotropic Gaussian filter with the specified
+        std. dev. 
+    boundary : `int`, optional
+        The number of pixels to be left as a safe margin on the boundaries
+        of the reference frame (has potential effects on the gradient
+        computation).
+    response_covariance : `int`, optional
+        The covariance of the generated Gaussian response.
     patch_normalisation : `callable`, optional
         The normalisation function to be applied on the extracted patches.
+    cosine_mask : `bool`, optional
+        If ``True``, then a cosine mask (Hanning function) will be applied on
+        the extracted patches.    
     verbose : `bool`, optional
         If ``True``, then the progress of building the model will be printed.
 
@@ -116,7 +131,7 @@ class UnifiedAAMCLM(object):
                  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
                  max_appearance_components=None, scale_shapes=False, scale_features=True, sigma=None, 
-                 boundary=3, normalize_parts=False, covariance=2, patch_normalisation=no_op, cosine_mask=True, verbose=False):
+                 boundary=3, response_covariance=2, patch_normalisation=no_op, cosine_mask=True, verbose=False):
         # Check parameters
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
@@ -146,8 +161,7 @@ class UnifiedAAMCLM(object):
         self.sigma = sigma
         self.boundary = boundary
         self.sample_offsets = sample_offsets
-        self.normalize_parts = normalize_parts
-        self.covariance = covariance
+        self.response_covariance = response_covariance
         self.scale_features = scale_features
         self.patch_normalisation = patch_normalisation
         self.cosine_mask = cosine_mask
@@ -258,7 +272,7 @@ class UnifiedAAMCLM(object):
                     cosine_mask=self.cosine_mask,
                     context_shape=self.context_shape[j],
                     sample_offsets=self.sample_offsets,
-                    response_covariance = self.covariance,
+                    response_covariance = self.response_covariance,
                     prefix=level_str, verbose=verbose)
             
             self.expert_ensembles.append(expert_ensemble)

@@ -1,6 +1,8 @@
 import abc
 import numpy as np
+from menpofit.checks import check_model
 from menpofit.result import ParametricIterativeResult
+from menpofit.modelinstance import OrthoPDM
 
 multivariate_normal = None  # expensive, from scipy.stats
 
@@ -18,9 +20,32 @@ def build_sampling_grid(patch_shape):
 
 class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
 
+    r"""
+    Base interface for optimization of UnifiedAAMCLM
+
+    Parameters
+    ----------
+    aam_interface : : `subclass` of :map:`LucasKanadeBaseInterface`, 
+        Concrete instanciation of an interface for Lucas-Kanade optimization of standard AAMs.
+    appearance_model : `menpo.model.PCAModel` or subclass
+        The appearance PCA model of the AAM.
+    transform : `subclass` of :map:`OrthoMDTransform`
+        Instanciation of an OrthoPDM driven transformation. This instance is shared by reference
+        and optimized by the run method.
+    expert_ensemble : `subclass` of :map:`ExpertEnsemble`, 
+        A trained ensemble of experts.     
+    patch_shape : (`int`, `int`)
+        The shape of the patches.
+    response_covariance : `int`, optional
+        The covariance of the generated Gaussian response.
+    eps : `float`, optional
+        Value for checking the convergence of the optimization.
+    """
     def __init__(self, aam_interface, appearance_model, transform,
-                 expert_ensemble, patch_shape, normalize_parts, covariance, pdm,
+                 expert_ensemble, patch_shape, response_covariance, 
                  eps=10**-5, **kwargs):
+
+        check_model(transform.pdm, OrthoPDM)
 
         # AAM part ------------------------------------------------------------
 
@@ -40,9 +65,8 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
         # set state
         self.expert_ensemble = expert_ensemble
         self.patch_shape = patch_shape
-        self.normalize_parts = normalize_parts
-        self.covariance = covariance
-        self.pdm = pdm
+        self.response_covariance = response_covariance
+        self.pdm = transform.pdm
 
         # Unified part --------------------------------------------------------
 
@@ -59,7 +83,6 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
         pass
 
     def _update_warp(self,dp):
-        # update warp based on inverse composition
         self.transform._from_vector_inplace(
             self.transform.as_vector() + dp)
 
@@ -74,8 +97,8 @@ class UnifiedAlgorithm(object, metaclass=abc.ABCMeta):
         # compute Gaussian-KDE grid
         self._sampling_grid = build_sampling_grid(self.patch_shape)
         mean = np.zeros(self.transform.n_dims)
-        covariance = self.covariance * self._inv_rho2
-        mvn = multivariate_normal(mean=mean, cov=covariance)
+        response_covariance = self.response_covariance * self._inv_rho2
+        mvn = multivariate_normal(mean=mean, cov=response_covariance)
         self._kernel_grid = mvn.pdf(self._sampling_grid)
 
         # compute CLM jacobian
