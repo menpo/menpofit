@@ -12,6 +12,6 @@ setup(
       author_email='james.booth08@imperial.ac.uk',
       packages=find_packages(),
       install_requires=['menpo>=0.7,<0.8',
-                        'scikit-learn>=0.17,<0.18'],
+                        'scikit-learn>=0.16'],
       tests_require=['nose', 'mock']
 )
