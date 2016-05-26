@@ -1,12 +1,9 @@
-import abc
-import numpy as np
-from menpo.transform import Scale, AlignmentAffine
+from menpo.base import name_of_callable
 from menpofit import checks
-from menpofit.transform import OrthoMDTransform
-from menpofit.modelinstance import OrthoPDM
-from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface
 from menpofit.fitter import MultiScaleParametricFitter
+
 from .algorithm import AICRLMS
+
 
 class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
     r"""
@@ -20,12 +17,12 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         The unified optimisation algorithm that will get applied.       
         The possible algorithms are:
 
-        ============================================== =====================
-        Class                                          Method
-        ============================================== =====================
-        :map:`PICRLMS`                                 Project-Out Inverse Compositional + Regularized Landmark Mean Shift
-        :map:`AICRLMS`                                 Alternating Inverse Compositional + Regularized Landmark Mean Shift  
-        ============================================== =====================
+        ================ ====================================================================
+        Class            Method
+        ================ ====================================================================
+        :map:`PICRLMS`   Project-Out Inverse Compositional + Regularized Landmark Mean Shift
+        :map:`AICRLMS`   Alternating Inverse Compositional + Regularized Landmark Mean Shift
+        ================ ====================================================================
 
     n_shape : `int` or `float` or `list` of those or ``None``, optional
         The number of shape components that will be used. If `int`, then it
@@ -55,39 +52,27 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
     """
     def __init__(self, unified_aam_clm, algorithm_cls=AICRLMS,
                  n_shape=None, n_appearance=None, sampling=None):
+        self._model = unified_aam_clm
         # Check parameters
-        checks.set_models_components(unified_aam_clm.shape_models, n_shape)
-        checks.set_models_components(unified_aam_clm.appearance_models, n_appearance)
-        self._sampling = checks.check_sampling(sampling, unified_aam_clm.n_scales)
-
-        self.dm = unified_aam_clm
-        algorithms = []
+        checks.set_models_components(self._model.shape_models, n_shape)
+        checks.set_models_components(self._model.appearance_models,
+                                     n_appearance)
+        self._sampling = checks.check_sampling(sampling, self._model.n_scales)
 
         # Get list of algorithm objects per scale
-        for j, (am, ee, sm) in enumerate(zip(self.dm.appearance_models,
-                                             self.dm.expert_ensembles,
-                                             self.dm.shape_models)):
-
-            # shape_model_cls must be OrthoPDM or a subclass
-            pdm = self.dm.shape_model_cls[j](sm) 
-            md_transform = OrthoMDTransform(
-                pdm, self.dm.transform,
-                source=am.mean().landmarks['source'].lms)
-
-            template = am.mean()
-            interface = LucasKanadeStandardInterface(am, md_transform, template, None)
-
-            algorithm = algorithm_cls(
-                interface, am, md_transform,
-                ee, self.dm.patch_shape[j], 
-                self.response_covariance)
-
-            algorithms.append(algorithm)
+        interfaces = unified_aam_clm.build_fitter_interfaces(self._sampling)
+        algorithms = [algorithm_cls(interface,
+                                    self._model.expert_ensembles[k],
+                                    self._model.patch_shape[k],
+                                    self._model.response_covariance)
+                      for k, interface in enumerate(interfaces)]
 
         # Call superclass
-        super(MultiScaleParametricFitter, self).__init__(
-            scales=self.dm.scales, reference_shape=self.dm.reference_shape,
-            holistic_features=self.dm.holistic_features, algorithms=algorithms)
+        super(UnifiedAAMCLMFitter, self).__init__(
+            scales=self._model.scales,
+            reference_shape=self._model.reference_shape,
+            holistic_features=self._model.holistic_features,
+            algorithms=algorithms)
 
     def warped_images(self, image, shapes):
         r"""
@@ -113,26 +98,25 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
 
     @property
     def response_covariance(self):
-        return self.dm.response_covariance
+        return self._model.response_covariance
 
     def __str__(self):
         # Compute scale info strings
         scales_info = []
-        lvl_str_tmplt = r"""   - Scale {}
-     - {} active shape components
-     - {} active appearance components"""
+        lvl_str_tmplt = r"""  - Scale {}
+    - {} active shape components
+    - {} active appearance components"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
                     s,
-                    self.dm.shape_models[k].n_active_components,
-                    self.dm.appearance_models[k].n_active_components))
+                    self._model.shape_models[k].model.n_active_components,
+                    self._model.appearance_models[k].n_active_components))
         scales_info = '\n'.join(scales_info)
 
         cls_str = r"""{class_title}
- - Scales: {scales}
+  - Scales: {scales}
 {scales_info}
-    """.format(class_title=self.algorithms[0].__str__(),
+    """.format(class_title=name_of_callable(self.algorithms[0]),
                scales=self.scales,
                scales_info=scales_info)
-        return self.dm.__str__() + cls_str
-
+        return self._model.__str__() + cls_str

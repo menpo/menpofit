@@ -1,20 +1,12 @@
-import abc
 import numpy as np
+
+from menpofit.base import build_grid
 from menpofit.checks import check_model
 from menpofit.result import ParametricIterativeResult
 from menpofit.modelinstance import OrthoPDM
 
 multivariate_normal = None  # expensive, from scipy.stats
 
-def build_sampling_grid(patch_shape):
-    r"""
-    """
-    patch_shape = np.array(patch_shape)
-    patch_half_shape = np.require(np.round(patch_shape / 2), dtype=int)
-    start = -patch_half_shape
-    end = patch_half_shape + 1
-    sampling_grid = np.mgrid[start[0]:end[0], start[1]:end[1]]
-    return sampling_grid.swapaxes(0, 2).swapaxes(0, 1)
 
 # Abstract Interface for AAM Algorithms ---------------------------------------
 
@@ -26,12 +18,13 @@ class UnifiedAlgorithm(object):
     Parameters
     ----------
     aam_interface : : `subclass` of :map:`LucasKanadeBaseInterface`, 
-        Concrete instanciation of an interface for Lucas-Kanade optimization of standard AAMs.
+        Concrete instantiation of an interface for Lucas-Kanade optimization of
+        standard AAMs.
     appearance_model : `menpo.model.PCAModel` or subclass
         The appearance PCA model of the AAM.
     transform : `subclass` of :map:`OrthoMDTransform`
-        Instanciation of an OrthoPDM driven transformation. This instance is shared by reference
-        and optimized by the run method.
+        Instantiation of an OrthoPDM driven transformation. This instance is
+        shared by reference and optimized by the run method.
     expert_ensemble : `subclass` of :map:`ExpertEnsemble`, 
         A trained ensemble of experts.     
     patch_shape : (`int`, `int`)
@@ -41,50 +34,38 @@ class UnifiedAlgorithm(object):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
-    def __init__(self, aam_interface, appearance_model, transform,
-                 expert_ensemble, patch_shape, response_covariance, 
-                 eps=10**-5, **kwargs):
-
-        check_model(transform.pdm, OrthoPDM)
+    def __init__(self, aam_interface, expert_ensemble, patch_shape,
+                 response_covariance, eps=10**-5, **kwargs):
 
         # AAM part ------------------------------------------------------------
-
-        # set state
-        self.appearance_model = appearance_model
-        self.template = appearance_model.mean()
-        self.transform = transform
-        # set interface
         self.interface = aam_interface
-        # mask appearance model
+        self.appearance_model = self.interface.appearance_model
+        self.template = self.appearance_model.mean()
+        self.transform = self.interface.transform
+        check_model(self.transform.pdm, OrthoPDM)
+
+        # CLM part ------------------------------------------------------------
+        self.expert_ensemble = expert_ensemble
+        self.patch_shape = patch_shape
+        self.response_covariance = response_covariance
+        self.pdm = self.transform.pdm
+
+        # Unified part --------------------------------------------------------
+        self.eps = eps
+        self._precompute()
+
+    def _precompute(self, **kwargs):
+        # Mask Appearance Model
         self._U = self.appearance_model.components.T
         self._pinv_U = np.linalg.pinv(
             self._U[self.interface.i_mask, :]).T
 
-        # CLM part ------------------------------------------------------------
-
-        # set state
-        self.expert_ensemble = expert_ensemble
-        self.patch_shape = patch_shape
-        self.response_covariance = response_covariance
-        self.pdm = transform.pdm
-
-        # Unified part --------------------------------------------------------
-
-        self.eps = eps
-        # pre-compute
-        self._precompute()
-
-    @abc.abstractmethod
-    def _precompute(self, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def run(self, image, initial_shape, max_iters=20, gt_shape=None, return_costs=False, **kwargs):
+    def run(self, image, initial_shape, max_iters=20, gt_shape=None,
+            return_costs=False, **kwargs):
         pass
 
     def _update_warp(self,dp):
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() + dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() + dp)
 
     def _precompute_clm(self):
         global multivariate_normal
@@ -95,7 +76,7 @@ class UnifiedAlgorithm(object):
         self._inv_rho2 = self.pdm.model.inverse_noise_variance()
 
         # compute Gaussian-KDE grid
-        self._sampling_grid = build_sampling_grid(self.patch_shape)
+        self._sampling_grid = build_grid(self.patch_shape)
         mean = np.zeros(self.transform.n_dims)
         response_covariance = self.response_covariance * self._inv_rho2
         mvn = multivariate_normal(mean=mean, cov=response_covariance)
@@ -112,26 +93,27 @@ class UnifiedAlgorithm(object):
     def _compute_clm_error(self, image):
         target = self.transform.target
         # get all (x, y) pairs being considered
-        yxs = (target.points[:, None, None, ...] +
-                self._sampling_grid)
+        yxs = target.points[:, None, None, ...] + self._sampling_grid
 
         # compute parts response
-        parts_response = self.expert_ensemble.predict_probability(image,target).squeeze()
+        parts_response = self.expert_ensemble.predict_probability(
+            image, target).squeeze()
         parts_response[np.logical_not(np.isfinite(parts_response))] = .5
 
         # compute parts kernel
         parts_kernel = parts_response * self._kernel_grid
-        parts_kernel /= np.sum(
-            parts_kernel, axis=(-2, -1))[..., None, None]
+        parts_kernel /= np.sum(parts_kernel, axis=(-2, -1))[..., None, None]
 
         # compute mean shift target
         mean_shift_target = np.sum(parts_kernel[..., None] * yxs,
-                                    axis=(-3, -2))
+                                   axis=(-3, -2))
 
         # compute (shape) error term
         return mean_shift_target.ravel() - target.as_vector()
 
+
 # Concrete Implementations of AAM Algorithm -----------------------------------
+
 
 class PICRLMS(UnifiedAlgorithm):
     r"""
@@ -139,7 +121,7 @@ class PICRLMS(UnifiedAlgorithm):
     """
 
     def _precompute(self):
-
+        super(PICRLMS, self)._precompute()
         # AAM part ------------------------------------------------------------
 
         # sample appearance model
@@ -178,41 +160,40 @@ class PICRLMS(UnifiedAlgorithm):
         self._pinv_j_clm = np.linalg.solve(h, self._j_clm.T)
         self._inv_h_prior = np.linalg.inv(h + np.diag(self._j_prior))
 
-    r"""
-    Execute the PICRLMS optimization algorithm.
-
-    Parameters
-    ----------
-    image : `menpo.image.Image`
-        The input test image.
-    initial_shape : `menpo.shape.PointCloud`
-        The initial shape from which the optimization will start.
-    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The ground truth shape of the image. It is only needed in order
-        to get passed in the optimization result object, which has the
-        ability to compute the fitting error.
-    max_iters : `int`, optional
-        The maximum number of iterations. Note that the algorithm may
-        converge, and thus stop, earlier.
-    prior : `bool`, optional
-        If ``True``, use a Gaussian priors over the latent shape and
-        appearance spaces.
-        see the reference section 2.1 for details.
-    a : `float`, optional
-        Ratio of the image noise variance and the shape noise variance.
-        See [2] section 5 equations (25) & (26) and footnote 6.
-        
-    References
-    ----------
-    .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
-        Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
-    .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and 
-        parts-based deformable model fitting." Proceedings of the IEEE 
-        Conference on Computer Vision and Pattern Recognition. 2015.
-    """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
+        r"""
+        Execute the PICRLMS optimization algorithm.
 
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+        prior : `bool`, optional
+            If ``True``, use a Gaussian priors over the latent shape and
+            appearance spaces.
+            see the reference section 2.1 for details.
+        a : `float`, optional
+            Ratio of the image noise variance and the shape noise variance.
+            See [2] section 5 equations (25) & (26) and footnote 6.
+
+        References
+        ----------
+        .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
+            Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
+        .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
+            parts-based deformable model fitting." Proceedings of the IEEE
+            Conference on Computer Vision and Pattern Recognition. 2015.
+        """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -226,7 +207,6 @@ class PICRLMS(UnifiedAlgorithm):
             costs = []
 
         for _ in range(max_iters):
-
             # AAM part --------------------------------------------------------
 
             # compute warped image with current weights
@@ -269,7 +249,10 @@ class PICRLMS(UnifiedAlgorithm):
             if error < self.eps:
                 break
 
-        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list, initial_shape=initial_shape, image=image, gt_shape=gt_shape, costs=None)
+        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
+                                         initial_shape=initial_shape,
+                                         image=image, gt_shape=gt_shape,
+                                         costs=None)
 
 
 class AICRLMS(UnifiedAlgorithm):
@@ -278,7 +261,7 @@ class AICRLMS(UnifiedAlgorithm):
     """
 
     def _precompute(self):
-
+        super(AICRLMS, self)._precompute()
         # AAM part ------------------------------------------------------------
 
         # compute warp jacobian
@@ -298,41 +281,40 @@ class AICRLMS(UnifiedAlgorithm):
         self._j_prior = np.hstack((sim_prior, transform_prior))
         self._h_prior = np.diag(self._j_prior)
 
-    r"""
-    Execute the AICRLMS optimization algorithm.
-
-    Parameters
-    ----------
-    image : `menpo.image.Image`
-        The input test image.
-    initial_shape : `menpo.shape.PointCloud`
-        The initial shape from which the optimization will start.
-    gt_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The ground truth shape of the image. It is only needed in order
-        to get passed in the optimization result object, which has the
-        ability to compute the fitting error.
-    max_iters : `int`, optional
-        The maximum number of iterations. Note that the algorithm may
-        converge, and thus stop, earlier.
-    prior : `bool`, optional
-        If ``True``, use a Gaussian priors over the latent shape and
-        appearance spaces.
-        see the reference section 2.1 for details.
-    a : `float`, optional
-        Ratio of the image noise variance and the shape noise variance.
-        See [2] section 5 equations (25) & (26) and footnote 6.
-        
-    References
-    ----------
-    .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
-        Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
-    .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and 
-        parts-based deformable model fitting." Proceedings of the IEEE 
-        Conference on Computer Vision and Pattern Recognition. 2015.
-    """
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
+        r"""
+        Execute the AICRLMS optimization algorithm.
 
+        Parameters
+        ----------
+        image : `menpo.image.Image`
+            The input test image.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape from which the optimization will start.
+        gt_shape : `menpo.shape.PointCloud` or ``None``, optional
+            The ground truth shape of the image. It is only needed in order
+            to get passed in the optimization result object, which has the
+            ability to compute the fitting error.
+        max_iters : `int`, optional
+            The maximum number of iterations. Note that the algorithm may
+            converge, and thus stop, earlier.
+        prior : `bool`, optional
+            If ``True``, use a Gaussian priors over the latent shape and
+            appearance spaces.
+            see the reference section 2.1 for details.
+        a : `float`, optional
+            Ratio of the image noise variance and the shape noise variance.
+            See [2] section 5 equations (25) & (26) and footnote 6.
+
+        References
+        ----------
+        .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
+            Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
+        .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
+            parts-based deformable model fitting." Proceedings of the IEEE
+            Conference on Computer Vision and Pattern Recognition. 2015.
+        """
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
@@ -411,4 +393,7 @@ class AICRLMS(UnifiedAlgorithm):
             if error < self.eps:
                 break
 
-        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list, initial_shape=initial_shape, image=image, gt_shape=gt_shape, costs=costs)
+        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
+                                         initial_shape=initial_shape,
+                                         image=image, gt_shape=gt_shape,
+                                         costs=costs)
