@@ -24,7 +24,7 @@ def fsmooth(pixels, sigma, mode='constant'):
 class UnifiedAAMCLM(object):
     r"""
     Class for training a multi-scale unified holistic AAM and CLM as 
-    presented in [2].
+    presented in [1].
     Please see the references for AAMs and CLMs in their respective
     base classes.
 
@@ -119,9 +119,7 @@ class UnifiedAAMCLM(object):
 
     References
     ----------
-    .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
-        Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
-    .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and 
+    .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and 
         parts-based deformable model fitting." Proceedings of the IEEE 
         Conference on Computer Vision and Pattern Recognition. 2015.
     """

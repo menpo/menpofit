@@ -181,16 +181,14 @@ class PICRLMS(UnifiedAlgorithm):
         prior : `bool`, optional
             If ``True``, use a Gaussian priors over the latent shape and
             appearance spaces.
-            see the reference section 2.1 for details.
+            see the reference [1] section 3.1.1 for details.
         a : `float`, optional
             Ratio of the image noise variance and the shape noise variance.
-            See [2] section 5 equations (25) & (26) and footnote 6.
+            See [1] section 5 equations (25) & (26) and footnote 6.
 
         References
         ----------
-        .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
-            Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
-        .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
+        .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
             parts-based deformable model fitting." Proceedings of the IEEE
             Conference on Computer Vision and Pattern Recognition. 2015.
         """
@@ -302,16 +300,14 @@ class AICRLMS(UnifiedAlgorithm):
         prior : `bool`, optional
             If ``True``, use a Gaussian priors over the latent shape and
             appearance spaces.
-            see the reference section 2.1 for details.
+            see the reference [1] section 3.1.1 for details.
         a : `float`, optional
             Ratio of the image noise variance and the shape noise variance.
-            See [2] section 5 equations (25) & (26) and footnote 6.
+            See [1] section 5 equations (25) & (26) and footnote 6.
 
         References
         ----------
-        .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "A Unified Framework for
-            Compositional Fitting of Active Appearance Models", arXiv:1601.00199.
-        .. [2] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
+        .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
             parts-based deformable model fitting." Proceedings of the IEEE
             Conference on Computer Vision and Pattern Recognition. 2015.
         """
