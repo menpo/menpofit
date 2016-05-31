@@ -668,3 +668,23 @@ class OrthoPDM(GlobalPDM):
         self._construct_similarity_model()
         # Reset the target given the new models
         self.set_target(old_target)
+
+    def __str__(self):
+        str_out = 'Point Distribution Model with Similarity Transform \n' \
+                  ' - total # components:      {}\n' \
+                  ' - # similarity components: {}\n' \
+                  ' - # PCA components:        {}\n' \
+                  ' - # active components:     {} + {} = {}\n' \
+                  ' - centred:                 {}\n' \
+                  ' - # features:              {}\n' \
+                  ' - kept variance:           {:.2}  {:.1%}\n' \
+                  ' - noise variance:          {:.2}  {:.1%}\n' \
+                  ' - components shape:        {}\n'.format(
+            self.similarity_model.n_components + self.model.n_components,
+            self.similarity_model.n_components, self.model.n_components,
+            self.similarity_model.n_components, self.n_active_components,
+            self.n_parameters, self.model.centred, self.model.n_features,
+            self.model.variance(), self.model.variance_ratio(),
+            self.model.noise_variance(), self.model.noise_variance_ratio(),
+            self.model.components.shape)
+        return str_out
