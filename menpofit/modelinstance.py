@@ -30,6 +30,14 @@ class _SimilarityModel(VectorizableBackedModel, MeanLinearModel):
     def project_out_vector(self, instance_vector):
         return MeanLinearModel.project_out(self, instance_vector)
 
+    def __str__(self):
+        str_out = 'Similarity Transform Model \n' \
+                  ' - # features:           {}\n' \
+                  ' - total # components:   {}\n' \
+                  ' - components shape:     {}\n'.format(
+            self.n_features, self.n_components, self.components.shape)
+        return str_out
+
 
 def similarity_2d_instance_model(shape):
     r"""
@@ -399,6 +407,21 @@ class PDM(ModelInstance):
         # Reset the target given the new model
         self.set_target(old_target)
 
+    def __str__(self):
+        str_out = 'Point Distribution Model \n' \
+                  ' - centred:              {}\n' \
+                  ' - # features:           {}\n' \
+                  ' - # active components:  {}\n' \
+                  ' - kept variance:        {:.2}  {:.1%}\n' \
+                  ' - noise variance:       {:.2}  {:.1%}\n' \
+                  ' - total # components:   {}\n' \
+                  ' - components shape:     {}\n'.format(
+            self.model.centred,  self.model.n_features, self.n_active_components,
+            self.model.variance(), self.model.variance_ratio(),
+            self.model.noise_variance(), self.model.noise_variance_ratio(),
+            self.model.n_components, self.model.components.shape)
+        return str_out
+
 
 class GlobalPDM(PDM):
     r"""
@@ -668,3 +691,23 @@ class OrthoPDM(GlobalPDM):
         self._construct_similarity_model()
         # Reset the target given the new models
         self.set_target(old_target)
+
+    def __str__(self):
+        str_out = 'Point Distribution Model with Similarity Transform \n' \
+                  ' - total # components:      {}\n' \
+                  ' - # similarity components: {}\n' \
+                  ' - # PCA components:        {}\n' \
+                  ' - # active components:     {} + {} = {}\n' \
+                  ' - centred:                 {}\n' \
+                  ' - # features:              {}\n' \
+                  ' - kept variance:           {:.2}  {:.1%}\n' \
+                  ' - noise variance:          {:.2}  {:.1%}\n' \
+                  ' - components shape:        {}\n'.format(
+            self.similarity_model.n_components + self.model.n_components,
+            self.similarity_model.n_components, self.model.n_components,
+            self.similarity_model.n_components, self.n_active_components,
+            self.n_parameters, self.model.centred, self.model.n_features,
+            self.model.variance(), self.model.variance_ratio(),
+            self.model.noise_variance(), self.model.noise_variance_ratio(),
+            self.model.components.shape)
+        return str_out
