@@ -20,11 +20,6 @@ class UnifiedAlgorithm(object):
     aam_interface : : `subclass` of :map:`LucasKanadeBaseInterface`, 
         Concrete instantiation of an interface for Lucas-Kanade optimization of
         standard AAMs.
-    appearance_model : `menpo.model.PCAModel` or subclass
-        The appearance PCA model of the AAM.
-    transform : `subclass` of :map:`OrthoMDTransform`
-        Instantiation of an OrthoPDM driven transformation. This instance is
-        shared by reference and optimized by the run method.
     expert_ensemble : `subclass` of :map:`ExpertEnsemble`, 
         A trained ensemble of experts.     
     patch_shape : (`int`, `int`)
@@ -178,6 +173,13 @@ class PICRLMS(UnifiedAlgorithm):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.
         prior : `bool`, optional
             If ``True``, use a Gaussian priors over the latent shape and
             appearance spaces.
@@ -297,6 +299,13 @@ class AICRLMS(UnifiedAlgorithm):
         max_iters : `int`, optional
             The maximum number of iterations. Note that the algorithm may
             converge, and thus stop, earlier.
+        return_costs : `bool`, optional
+            If ``True``, then the cost function values will be computed
+            during the fitting procedure. Then these cost values will be
+            assigned to the returned `fitting_result`. Note that the costs
+            computation increases the computational cost of the fitting. The
+            additional computation cost depends on the fitting method. Only
+            use this option for research purposes.        
         prior : `bool`, optional
             If ``True``, use a Gaussian priors over the latent shape and
             appearance spaces.
