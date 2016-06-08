@@ -1,28 +1,28 @@
 menpofit - A deformable model toolkit
 =====================================
-State-of-the-art deformable modelling techniques implemented on top of the
-Menpo project. Currently, the techniques that have been implemented include:
+The Menpo Project package for state-of-the-art 2D deformable modelling techniques. 
+Currently, the techniques that have been implemented include:
 
-  - **Active Appearance Model**
-    - Holistic, Patch-based, Masked, Linear, Linear Masked
-    - Lucas-Kanade Optimisation (Alternating, Modified Alternating, Project Out, Simultaneous, Wiberg) 
-    - Casaded-Regression Optimisation
   - **Lucas-Kanade Image Alignment**
-    - Forward Additive, Forward Compositional, Inverse Additive, Inverse Compositional
+    - _Optimisation algorithms:_ Forward Additive, Forward/Inverse Compositional
+    - _Residuals:_ SSD, Fourier SSD, ECC, Gradient Correlation, Gradient Images
   - **Active Template Model**
-    - Holistic, Patch-based, Masked, Linear, Linear Masked
-    - Lucas-Kanade Optimisation (Inverse Compositional, Forward Compositional)
+    - Deformable Image Alignment
+    - _Model variants:_ Holistic, Patch-based, Masked, Linear, Linear Masked
+    - _Optimisation algorithm:_ Lucas-Kanade Gradient Descent (Inverse Compositional, Forward Compositional)
+  - **Active Appearance Model**
+    - _Model variants:_ Holistic, Patch-based, Masked, Linear, Linear Masked
+    - _Optimisation algorithms:_ Lucas-Kanade Gradient Descent (Alternating, Modified Alternating, Project Out, Simultaneous, Wiberg), Casaded-Regression
   - **Active Pictorial Structures**
-    - Weighted Gauss-Newton Optimisation with fixed Jacobian and Hessian
+    - _Model variant:_ Generative
+    - _Optimisation algorithm:_ Weighted Gauss-Newton Optimisation with fixed Jacobian and Hessian
   - **Constrained Local Model**
     - Active Shape Models
     - Regularized Landmark Mean-Shift
-  - **Ensemble of Regression Trees (ERT)** \[provided by [DLib](http://dlib.net/)\]
+  - **Ensemble of Regression Trees**
+    - \[provided by [DLib](http://dlib.net/)\]
   - **Supervised Descent Method**
-    - Non Parametric
-    - Parametric Shape
-    - Parametric Appearance
-    - Fully Parametric
+    - _Model variants:_ Non Parametric, Parametric Shape, Parametric Appearance, Fully Parametric
 
 Installation
 ------------
