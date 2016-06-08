@@ -2,7 +2,7 @@ from menpo.base import name_of_callable
 from menpofit import checks
 from menpofit.fitter import MultiScaleParametricFitter
 
-from .algorithm import AICRLMS
+from .algorithm import AlternatingRegularisedLandmarkMeanShift
 
 
 class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
@@ -20,8 +20,8 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         ================ ====================================================================
         Class            Method
         ================ ====================================================================
-        :map:`PICRLMS`   Project-Out Inverse Compositional + Regularized Landmark Mean Shift
-        :map:`AICRLMS`   Alternating Inverse Compositional + Regularized Landmark Mean Shift
+        :map:`ProjectOutRegularisedLandmarkMeanShift`   Project-Out Inverse Compositional + Regularized Landmark Mean Shift
+        :map:`AlternatingRegularisedLandmarkMeanShift`   Alternating Inverse Compositional + Regularized Landmark Mean Shift
         ================ ====================================================================
 
     n_shape : `int` or `float` or `list` of those or ``None``, optional
@@ -50,7 +50,7 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         explicitly defines the sampling mask. If ``None``, then no
         sub-sampling is applied.
     """
-    def __init__(self, unified_aam_clm, algorithm_cls=AICRLMS,
+    def __init__(self, unified_aam_clm, algorithm_cls=AlternatingRegularisedLandmarkMeanShift,
                  n_shape=None, n_appearance=None, sampling=None):
         self._model = unified_aam_clm
         # Check parameters

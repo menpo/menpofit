@@ -110,13 +110,13 @@ class UnifiedAlgorithm(object):
 # Concrete Implementations of AAM Algorithm -----------------------------------
 
 
-class PICRLMS(UnifiedAlgorithm):
+class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
     r"""
     Project-Out Inverse Compositional + Regularized Landmark Mean Shift
     """
 
     def _precompute(self):
-        super(PICRLMS, self)._precompute()
+        super(ProjectOutRegularisedLandmarkMeanShift, self)._precompute()
         # AAM part ------------------------------------------------------------
 
         # sample appearance model
@@ -158,7 +158,7 @@ class PICRLMS(UnifiedAlgorithm):
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
         r"""
-        Execute the PICRLMS optimization algorithm.
+        Execute the ProjectOutRegularisedLandmarkMeanShift optimization algorithm.
 
         Parameters
         ----------
@@ -255,13 +255,13 @@ class PICRLMS(UnifiedAlgorithm):
                                          costs=None)
 
 
-class AICRLMS(UnifiedAlgorithm):
+class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
     r"""
     Alternating Inverse Compositional + Regularized Landmark Mean Shift
     """
 
     def _precompute(self):
-        super(AICRLMS, self)._precompute()
+        super(AlternatingRegularisedLandmarkMeanShift, self)._precompute()
         # AAM part ------------------------------------------------------------
 
         # compute warp jacobian
@@ -284,7 +284,7 @@ class AICRLMS(UnifiedAlgorithm):
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
         r"""
-        Execute the AICRLMS optimization algorithm.
+        Execute the AlternatingRegularisedLandmarkMeanShift optimization algorithm.
 
         Parameters
         ----------
