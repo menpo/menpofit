@@ -1,3 +1,4 @@
+from __future__ import absolute_import  # or menpofit.math causes trouble!
 from math import ceil
 import sys
 
