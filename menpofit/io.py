@@ -19,6 +19,138 @@ MENPO_URL = 'http://static.menpo.org'
 MENPOFIT_BINARY_VERSION = 0
 
 
+class PickleWrappedFitter(object):
+    r"""
+    Wrapper around a menpofit fitter so that we can a) efficiently pickle it
+    and b) parametrize over both the fitter construction and the fit
+    methods (e.g. ``.fit_from_bb()`` and ``.fit_from_shape()``)
+
+    Pickling menpofit fitters is a little tricky for a two reasons. Firstly,
+    on construction of a fitter from a deformable model some amount of
+    pre-processing takes place which allocates potentially large arrays. To
+    ship a compact model we would therefore rather delay the construction of
+    the fitter until load time on the client.
+
+    If this was the only issue, we could achieve this by simply saving a
+    partial over the fitter constructor with all the ``args`` and ``kwargs``
+    the fitter constructor takes - after loading the pickle, invoking the
+    partial with no args (it's parameters being fully specified) would return
+    the fitter and all would be well.
+
+    However, we also may want to choose **fit-time** parameters for the fitter
+    for optimal usage, (for instance, a choice over the ``max_iters``
+    kwarg that we know to be efficient). This leaves us with a problem,
+    as now we need to have some entity that can store state which we can pass
+    to both the fitter and to the resulting fitters methods on the client at
+    unpickle time.
+
+    This class is the solution to this problem. To use, you should **pickle
+    down a partial over this class** specifying all arguments and kwargs
+    needed for the fitter constructor and for the fit methods.
+
+    At load time, menpofit will invoke the partial, returning this object
+    instantiated. This offers the same API as a menpofit fitter, and so can
+    be used transparently to fit. If you wish to access the original fitter
+    (without fit parameter customization) this can be accessed as the
+    `wrapped_fitter` property.
+
+    Parameters
+    ----------
+    fitter_cls : `Fitter`
+        A menpofit fitter class that will be constructed at unpickle time,
+        e.g. :map:`LucasKanadeAAMFitter`
+    fitter_args : `tuple`
+        A tuple of all args that need to be passed to ``fitter_cls`` at
+        construction time e.g. ``(aam,)``
+    fitter_kwargs : `dict`
+        A dictionary of kwargs that will to be passed to ``fitter_cls`` at
+        construction time e.g.
+        ``{ 'lk_algorithm_cls': WibergInverseCompositional }``
+    fit_from_bb_kwargs : `dict`, e.g. ``{ max_iters: [25, 5] }``
+        A dictionary of kwargs that will to be passed to the
+        wrapped fitter's ``fit_from_bb`` method at fit time. These in effect
+        change the defaults that the original fitter offered, but can still
+        be overridden at call time (e.g.
+        ``self.fit_from_bb(image, bbox, max_iters=[50, 50])`` would take
+        precedence over the max_iters in the above example)
+    fit_from_shape_kwargs : `dict`, e.g. ``{ max_iters: [25, 5] }``
+        A dictionary of kwargs that will to be passed to the
+        wrapped fitter's ``fit_from_shape`` method at fit time. These in
+        effect change the defaults that the original fitter offered,
+        but can still be overridden at call time (e.g.
+        ``self.fit_from_shape(image, shape, max_iters=[50, 50])`` would take
+        precedence over the max_iters in the above example)
+    """
+    def __init__(self, fitter_cls, fitter_args, fitter_kwargs,
+                 fit_from_bb_kwargs, fit_from_shape_kwargs):
+        self.wrapped_fitter = fitter_cls(*fitter_args, **fitter_kwargs)
+        self._fit_from_bb_kwargs = fit_from_bb_kwargs
+        self._fit_from_shape_kwargs = fit_from_shape_kwargs
+
+    def fit_from_bb(self, image, bounding_box, **kwargs):
+        r"""
+        Fits the fitter to an image given an initial bounding box, using the
+        optimal parameters that we chosen for this pickled fitter.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        bounding_box : `menpo.shape.PointDirectedGraph`
+            The initial bounding box from which the fitting procedure will
+            start. Note that the bounding box is used in order to align the
+            model's reference shape.
+        kwargs : `dict`, optional
+            Other kwargs to override the optimal defaults. See the
+            documentation for ``.fit_from_bb()`` on the type of
+            `self.wrapped_fitter` to see what can be provided here.
+
+        Returns
+        -------
+        fitting_result : ``FittingResult`` or subclass
+            The fitting result containing the result of the fitting
+            procedure.
+        """
+        # start with the optimal kwargs
+        final_kwargs = self._fit_from_bb_kwargs.copy()
+        # If the user provided kwargs at runtime, they take precedence.
+        final_kwargs.update(kwargs)
+        # call the wrapped fitter with the updated kwargs
+        return self.wrapped_fitter.fit_from_bb(image, bounding_box,
+                                               **final_kwargs)
+
+    def fit_from_shape(self, image, initial_shape, **kwargs):
+        r"""
+        Fits the fitter to an image given an initial shape, using the
+        optimal parameters that we chosen for this pickled fitter.
+
+        Parameters
+        ----------
+        image : `menpo.image.Image` or subclass
+            The image to be fitted.
+        initial_shape : `menpo.shape.PointCloud`
+            The initial shape estimate from which the fitting procedure
+            will start.
+        kwargs : dict
+            Other kwargs to override the optimal defaults. See the
+            documentation for ``.fit_from_shape()`` on the type of
+            `self.wrapped_fitter` to see what can be provided here.
+
+        Returns
+        -------
+        fitting_result : ``FittingResult`` or subclass
+            The fitting result containing the result of the fitting
+            procedure.
+        """
+        # start with the optimal kwargs
+        final_kwargs = self._fit_from_shape_kwargs.copy()
+        # If the user provided kwargs at runtime, they take precedence.
+        final_kwargs.update(kwargs)
+        # call the wrapped fitter with the updated kwargs
+        return self.wrapped_fitter.fit_from_shape(image, initial_shape,
+                                                  **final_kwargs)
+
+
 def menpofit_data_dir_path():
     r"""
     Returns a path to the ./data directory, creating it if needed.
