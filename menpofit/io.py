@@ -10,7 +10,7 @@ except ImportError:
 from menpofit.base import menpofit_src_dir_path
 from menpo.io import import_pickle
 
-# The remote URL that should be queried to download pretrained models
+# The remote URL that should be queried to download pre-trained models
 MENPO_URL = 'http://static.menpo.org'
 
 # All remote models are versioned based on a binary compatibility number.
@@ -80,6 +80,40 @@ class PickleWrappedFitter(object):
         but can still be overridden at call time (e.g.
         ``self.fit_from_shape(image, shape, max_iters=[50, 50])`` would take
         precedence over the max_iters in the above example)
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        from menpofit.io import PickleWrappedFitter
+        from functools import partial
+
+        # LucasKanadeAAMFitter only takes one argument, a trained aam.
+        fitter_args = (aam, )
+
+        # kwargs for fitter construction. Note that here sampling is a
+        # list of numpy arrays we have already constructed (one per level)
+        fitter_kwargs = dict(lk_algorithm_cls=WibergInverseCompositional,
+                             sampling=sampling)
+
+        # kwargs for fitter.fit_from_{bb, shape}
+        # (note here we reuse the same kwargs twice)
+        fit_kwargs = dict(max_iters=[25, 5])
+
+        # Partial over the PickleWrappedFitter to prepare an object that can be
+        # invoked at load time
+        fitter_wrapper = partial(PickleWrappedFitter, LucasKanadeAAMFitter,
+                                 fitter_args, fitter_kwargs,
+                                 fit_kwargs, fit_kwargs)
+
+        # save the pickle down.
+        mio.export_pickle(fitter_wrapper, 'pretrained_aam.pkl')
+
+        # ----------------------- L O A D  T I M E ---------------------------#
+
+        # at load time, invoke the partial to return this class.
+        fitter = mio.import_pickle('pretrained_aam.pkl')()
     """
     def __init__(self, fitter_cls, fitter_args, fitter_kwargs,
                  fit_from_bb_kwargs, fit_from_shape_kwargs):
@@ -281,7 +315,7 @@ def load_fitter(name):
     Returns
     -------
     fitter : `Fitter`
-        A pretrained menpofit `Fitter` that is ready to use.
+        A pre-trained menpofit `Fitter` that is ready to use.
     """
     path = path_of_fitter(name)
     if not path.exists():
