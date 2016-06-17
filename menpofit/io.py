@@ -112,7 +112,8 @@ class PickleWrappedFitter(object):
 
         # ----------------------- L O A D  T I M E ---------------------------#
 
-        # at load time, invoke the partial to return this class.
+        # at load time, invoke the partial to instantiate this class (and build
+        # the internally-held wrapped fitter)
         fitter = mio.import_pickle('pretrained_aam.pkl')()
     """
     def __init__(self, fitter_cls, fitter_args, fitter_kwargs,
