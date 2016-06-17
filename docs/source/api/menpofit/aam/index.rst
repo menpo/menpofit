@@ -69,3 +69,11 @@ Fitting Result
 
     AAMResult
     AAMAlgorithmResult
+
+Pre-Trained Model
+-----------------
+
+.. toctree::
+    :maxdepth: 1
+
+    load_balanced_frontal_face_fitter
