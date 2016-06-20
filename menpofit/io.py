@@ -166,7 +166,7 @@ class PickleWrappedFitter(object):
 
     .. code-block:: python
 
-        from menpofit.io import PickleWrappedFitter
+        from menpofit.io import PickleWrappedFitter, image_greyscale_rescale_preprocess
         from functools import partial
 
         # LucasKanadeAAMFitter only takes one argument, a trained aam.
@@ -185,7 +185,8 @@ class PickleWrappedFitter(object):
         # invoked at load time
         fitter_wrapper = partial(PickleWrappedFitter, LucasKanadeAAMFitter,
                                  fitter_args, fitter_kwargs,
-                                 fit_kwargs, fit_kwargs)
+                                 fit_kwargs, fit_kwargs,
+                                 image_preprocess=image_greyscale_rescale_preprocess)
 
         # save the pickle down.
         mio.export_pickle(fitter_wrapper, 'pretrained_aam.pkl')
