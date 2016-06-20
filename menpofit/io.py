@@ -11,7 +11,6 @@ from menpo.io import import_pickle
 from menpo.transform import Translation
 
 from menpofit.base import menpofit_src_dir_path
-from menpofit.result import Result
 
 # The remote URL that should be queried to download pre-trained models
 MENPO_URL = 'http://static.menpo.org'
