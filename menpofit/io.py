@@ -65,15 +65,12 @@ def image_greyscale_rescale_preprocess(image, pointcloud, proportion_thresh=0.1,
     else:
         new_image = image.copy()
 
-    # Assign pointcloud
-    new_image.landmarks['__pointcloud'] = pointcloud
-
     # Crop image if initialization is much smaller than image size
     init_range = pointcloud.range()
     if (init_range[0] / float(image.shape[0]) > proportion_thresh or
             init_range[1] / float(image.shape[1]) > proportion_thresh):
-        new_image, trans = new_image.crop_to_landmarks_proportion(
-            crop_proportion, group='__pointcloud', return_transform=True)
+        new_image, trans = new_image.crop_to_pointcloud_proportion(
+            pointcloud, crop_proportion, return_transform=True)
     else:
         trans = Translation.init_identity(pointcloud.n_dims)
 
@@ -242,7 +239,7 @@ class PickleWrappedFitter(object):
             proc_image, trans = self._image_preprocess(image, bounding_box)
             # call the wrapped fitter with the updated kwargs
             result = self.wrapped_fitter.fit_from_bb(
-                proc_image, proc_image.landmarks['__pointcloud'].lms,
+                proc_image, trans.pseudoinverse().apply(bounding_box),
                 **final_kwargs)
             # update result attributes
             result._image = image
@@ -289,7 +286,7 @@ class PickleWrappedFitter(object):
             proc_image, trans = self._image_preprocess(image, initial_shape)
             # call the wrapped fitter with the updated kwargs
             result = self.wrapped_fitter.fit_from_bb(
-                proc_image, proc_image.landmarks['__pointcloud'].lms,
+                proc_image, trans.pseudoinverse().apply(initial_shape),
                 **final_kwargs)
             # update result attributes
             result._image = image
