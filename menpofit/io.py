@@ -256,8 +256,8 @@ class PickleWrappedFitter(object):
         # check if pre-processing function exists
         if self._image_preprocess is None:
             # call the wrapped fitter with the updated kwargs
-            result = self.wrapped_fitter.fit_from_bb(image, initial_shape,
-                                                     **final_kwargs)
+            result = self.wrapped_fitter.fit_from_shape(image, initial_shape,
+                                                        **final_kwargs)
         else:
             # pre-process the image
             proc_image, trans = self._image_preprocess(image, initial_shape)
