@@ -8,7 +8,6 @@ except ImportError:
     from urllib.request import urlopen  # Py3
 
 from menpo.io import import_pickle
-from menpo.transform import Translation
 
 from menpofit.base import menpofit_src_dir_path
 
@@ -21,20 +20,16 @@ MENPO_URL = 'http://static.menpo.org'
 MENPOFIT_BINARY_VERSION = 0
 
 
-def image_greyscale_rescale_preprocess(image, pointcloud, proportion_thresh=0.1,
-                                       crop_proportion=0.3, diagonal=200):
+def image_greyscale_crop_preprocess(image, pointcloud, crop_proportion=1.0):
     r"""
     Pre-processing function for a given test image. The function does the
     following:
 
-    1. If image is RGB, convert it to greyscale.
-    2. If the proportion of the pointcloud's size with respect to the image's
-       size is too small, then crop the image.
-    3. If the diagonal of the pointcloud's bounding box is too large,
-       then rescale the image.
+    1. If the image is RGB, it converts it to greyscale.
+    2. The image gets cropped around the provided pointcloud.
 
-    The method returns a pre-processed copy of the input image and the total
-    transform object that was applied on it.
+    The method returns a pre-processed copy of the input image and the transform
+    object that was applied on it by the crop.
 
     Parameters
     ----------
@@ -43,14 +38,9 @@ def image_greyscale_rescale_preprocess(image, pointcloud, proportion_thresh=0.1,
     pointcloud : `menpo.shape.PointCloud` or subclass
         The pointcloud with respect to which the pre-processing is applied.
         It is normally the initial pointcloud of the fitting procedure.
-    proportion_thresh : `float`, optional
-        The threshold of the proportion between the pointcloud's size and the
-        image's size.
     crop_proportion : `float`, optional
         The padding to add around the pointcloud as a proportion of the
-        pointcloud's size, in case the image gets cropped.
-    diagonal : `int`, optional
-        The diagonal to impose on the image.
+        pointcloud's size.
 
     Returns
     -------
@@ -65,22 +55,9 @@ def image_greyscale_rescale_preprocess(image, pointcloud, proportion_thresh=0.1,
     else:
         new_image = image.copy()
 
-    # Crop image if initialization is much smaller than image size
-    init_range = pointcloud.range()
-    if (init_range[0] / float(image.shape[0]) > proportion_thresh or
-            init_range[1] / float(image.shape[1]) > proportion_thresh):
-        new_image, trans = new_image.crop_to_pointcloud_proportion(
-            pointcloud, crop_proportion, return_transform=True)
-    else:
-        trans = Translation.init_identity(pointcloud.n_dims)
-
-    # Rescale image if diagonal is too big
-    if new_image.diagonal() > diagonal:
-        new_image, rescale_trans = new_image.rescale_to_diagonal(
-            diagonal, return_transform=True)
-        trans = trans.compose_after(rescale_trans)
-
-    return new_image, trans
+    # Crop image and return
+    return new_image.crop_to_pointcloud_proportion(pointcloud, crop_proportion,
+                                                   return_transform=True)
 
 
 class PickleWrappedFitter(object):
@@ -162,7 +139,7 @@ class PickleWrappedFitter(object):
 
     .. code-block:: python
 
-        from menpofit.io import PickleWrappedFitter, image_greyscale_rescale_preprocess
+        from menpofit.io import PickleWrappedFitter, image_greyscale_crop_preprocess
         from functools import partial
 
         # LucasKanadeAAMFitter only takes one argument, a trained aam.
@@ -182,7 +159,7 @@ class PickleWrappedFitter(object):
         fitter_wrapper = partial(PickleWrappedFitter, LucasKanadeAAMFitter,
                                  fitter_args, fitter_kwargs,
                                  fit_kwargs, fit_kwargs,
-                                 image_preprocess=image_greyscale_rescale_preprocess)
+                                 image_preprocess=image_greyscale_crop_preprocess)
 
         # save the pickle down.
         mio.export_pickle(fitter_wrapper, 'pretrained_aam.pkl')
@@ -195,7 +172,7 @@ class PickleWrappedFitter(object):
     """
     def __init__(self, fitter_cls, fitter_args, fitter_kwargs,
                  fit_from_bb_kwargs, fit_from_shape_kwargs,
-                 image_preprocess=image_greyscale_rescale_preprocess):
+                 image_preprocess=image_greyscale_crop_preprocess):
         self.wrapped_fitter = fitter_cls(*fitter_args, **fitter_kwargs)
         self._fit_from_bb_kwargs = fit_from_bb_kwargs
         self._fit_from_shape_kwargs = fit_from_shape_kwargs
