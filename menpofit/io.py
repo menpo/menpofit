@@ -7,8 +7,9 @@ try:
 except ImportError:
     from urllib.request import urlopen  # Py3
 
-from menpofit.base import menpofit_src_dir_path
 from menpo.io import import_pickle
+
+from menpofit.base import menpofit_src_dir_path
 
 # The remote URL that should be queried to download pre-trained models
 MENPO_URL = 'http://static.menpo.org'
@@ -17,6 +18,46 @@ MENPO_URL = 'http://static.menpo.org'
 # This needs to be bumped every time an existing remote model is no longer
 # Compatible with this version of menpofit.
 MENPOFIT_BINARY_VERSION = 0
+
+
+def image_greyscale_crop_preprocess(image, pointcloud, crop_proportion=1.0):
+    r"""
+    Pre-processing function for a given test image. The function does the
+    following:
+
+    1. If the image is RGB, it converts it to greyscale.
+    2. The image gets cropped around the provided pointcloud.
+
+    The method returns a pre-processed copy of the input image and the transform
+    object that was applied on it by the crop.
+
+    Parameters
+    ----------
+    image : `menpo.image.Image` or subclass
+        The input test image.
+    pointcloud : `menpo.shape.PointCloud` or subclass
+        The pointcloud with respect to which the pre-processing is applied.
+        It is normally the initial pointcloud of the fitting procedure.
+    crop_proportion : `float`, optional
+        The padding to add around the pointcloud as a proportion of the
+        pointcloud's size.
+
+    Returns
+    -------
+    new_image : `menpo.image.Image` or subclass
+        The pre-processed image.
+    trans : `menpo.transform.Homogeneous`
+        The transform that was applied on the image.
+    """
+    # Convert image to greyscale
+    if image.n_channels == 3:
+        new_image = image.as_greyscale(mode='luminosity')
+    else:
+        new_image = image.copy()
+
+    # Crop image and return
+    return new_image.crop_to_pointcloud_proportion(pointcloud, crop_proportion,
+                                                   return_transform=True)
 
 
 class PickleWrappedFitter(object):
@@ -80,13 +121,25 @@ class PickleWrappedFitter(object):
         but can still be overridden at call time (e.g.
         ``self.fit_from_shape(image, shape, max_iters=[50, 50])`` would take
         precedence over the max_iters in the above example)
+    image_preprocess : `callable` or ``None``, optional
+        A pre-processing function to apply on the test image before fitting. The
+        default option converts the image to greyscale. The function needs to
+        have the following signature:
+
+        .. code-block:: python
+
+            new_image, transform = image_preprocess(image, pointcloud)
+
+        where `new_image` is the pre-processed image and `transform` is the
+        `menpo.transform.Homogeneous` object that was applied on the image.
+        If ``None``, then no pre-processing is performed.
 
     Examples
     --------
 
     .. code-block:: python
 
-        from menpofit.io import PickleWrappedFitter
+        from menpofit.io import PickleWrappedFitter, image_greyscale_crop_preprocess
         from functools import partial
 
         # LucasKanadeAAMFitter only takes one argument, a trained aam.
@@ -105,7 +158,8 @@ class PickleWrappedFitter(object):
         # invoked at load time
         fitter_wrapper = partial(PickleWrappedFitter, LucasKanadeAAMFitter,
                                  fitter_args, fitter_kwargs,
-                                 fit_kwargs, fit_kwargs)
+                                 fit_kwargs, fit_kwargs,
+                                 image_preprocess=image_greyscale_crop_preprocess)
 
         # save the pickle down.
         mio.export_pickle(fitter_wrapper, 'pretrained_aam.pkl')
@@ -117,10 +171,12 @@ class PickleWrappedFitter(object):
         fitter = mio.import_pickle('pretrained_aam.pkl')()
     """
     def __init__(self, fitter_cls, fitter_args, fitter_kwargs,
-                 fit_from_bb_kwargs, fit_from_shape_kwargs):
+                 fit_from_bb_kwargs, fit_from_shape_kwargs,
+                 image_preprocess=image_greyscale_crop_preprocess):
         self.wrapped_fitter = fitter_cls(*fitter_args, **fitter_kwargs)
         self._fit_from_bb_kwargs = fit_from_bb_kwargs
         self._fit_from_shape_kwargs = fit_from_shape_kwargs
+        self._image_preprocess = image_preprocess
 
     def fit_from_bb(self, image, bounding_box, **kwargs):
         r"""
@@ -150,9 +206,25 @@ class PickleWrappedFitter(object):
         final_kwargs = self._fit_from_bb_kwargs.copy()
         # If the user provided kwargs at runtime, they take precedence.
         final_kwargs.update(kwargs)
-        # call the wrapped fitter with the updated kwargs
-        return self.wrapped_fitter.fit_from_bb(image, bounding_box,
-                                               **final_kwargs)
+        # check if pre-processing function exists
+        if self._image_preprocess is None:
+            # call the wrapped fitter with the updated kwargs
+            result = self.wrapped_fitter.fit_from_bb(image, bounding_box,
+                                                     **final_kwargs)
+        else:
+            # pre-process the image
+            proc_image, trans = self._image_preprocess(image, bounding_box)
+            # call the wrapped fitter with the updated kwargs
+            result = self.wrapped_fitter.fit_from_bb(
+                proc_image, trans.pseudoinverse().apply(bounding_box),
+                **final_kwargs)
+            # update result attributes
+            result._image = image
+            result._final_shape = trans.apply(result.final_shape)
+            result._initial_shape = trans.apply(result.initial_shape)
+            if result.is_iterative:
+                result._shapes = [trans.apply(s) for s in result.shapes]
+        return result
 
     def fit_from_shape(self, image, initial_shape, **kwargs):
         r"""
@@ -181,9 +253,25 @@ class PickleWrappedFitter(object):
         final_kwargs = self._fit_from_shape_kwargs.copy()
         # If the user provided kwargs at runtime, they take precedence.
         final_kwargs.update(kwargs)
-        # call the wrapped fitter with the updated kwargs
-        return self.wrapped_fitter.fit_from_shape(image, initial_shape,
-                                                  **final_kwargs)
+        # check if pre-processing function exists
+        if self._image_preprocess is None:
+            # call the wrapped fitter with the updated kwargs
+            result = self.wrapped_fitter.fit_from_bb(image, initial_shape,
+                                                     **final_kwargs)
+        else:
+            # pre-process the image
+            proc_image, trans = self._image_preprocess(image, initial_shape)
+            # call the wrapped fitter with the updated kwargs
+            result = self.wrapped_fitter.fit_from_bb(
+                proc_image, trans.pseudoinverse().apply(initial_shape),
+                **final_kwargs)
+            # update result attributes
+            result._image = image
+            result._final_shape = trans.apply(result.final_shape)
+            result._initial_shape = trans.apply(result.initial_shape)
+            if result.is_iterative:
+                result._shapes = [trans.apply(s) for s in result.shapes]
+        return result
 
 
 def menpofit_data_dir_path():
