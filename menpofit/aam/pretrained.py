@@ -5,8 +5,13 @@ def load_balanced_frontal_face_fitter():
     r"""
     Loads a frontal face patch-based AAM fitter that is a good compromise
     between model size, fitting time and fitting performance. The model returns
-    68 facial landmark points (the standard IBUG68 markup). The model is a
-    :map:`PatchAAM` trained using the following parameters:
+    68 facial landmark points (the standard IBUG68 markup).
+
+    Note that the first time you invoke this function, menpofit will
+    download the fitter from Menpo's server. The fitter will then be stored
+    locally for future use.
+
+    The model is a :map:`PatchAAM` trained using the following parameters:
 
         =================== =================================
         Parameter           Value
@@ -33,9 +38,9 @@ def load_balanced_frontal_face_fitter():
       sampling_grid[::sampling_step, ::sampling_step] = True
       sampling = [sampling_grid, sampling_grid]
 
-    Note that the first time you invoke this function, menpofit will
-    download the fitter from Menpo's server. The fitter will then be stored
-    locally for future use.
+    Additionally, it is trained on LFPW trainset, HELEN trainset, IBUG and AFW
+    datasets (3283 images in total), which are hosted in
+    http://ibug.doc.ic.ac.uk/resources/facial-point-annotations/.
 
     Returns
     -------
