@@ -61,3 +61,8 @@ itarget/
 
 # OSX
 .DS_Store
+
+# The menpofit data dir is only a cache - 
+# it's contents should never be committed
+menpofit/data
+

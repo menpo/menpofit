@@ -13,3 +13,4 @@ from .algorithm import (
     MeanTemplateNewton, MeanTemplateGaussNewton,
     ProjectOutNewton, ProjectOutGaussNewton,
     AppearanceWeightsNewton, AppearanceWeightsGaussNewton)
+from .pretrained import load_balanced_frontal_face_fitter

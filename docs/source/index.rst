@@ -26,7 +26,7 @@ implemented include:
 
 * :ref:`Lucas-Kanade Image Alignment (LK) <api-lk-index>`
 
-  * Forward Additive, Forward Compositional, Inverse Additive, Inverse Compositional
+  * Forward Additive, Forward Compositional, Inverse Compositional
   * Residuals: SSD, Fourier SSD, ECC, Gradient Correlation, Gradient Images
 
 * :ref:`Constrained Local Model (CLM) <api-clm-index>`
