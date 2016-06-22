@@ -48,3 +48,7 @@ of the conda ecosystem, provided by
 as simple as possible, we suggest that you use conda too! To try and persuade
 you, go to the [Menpo website](http://www.menpo.io/installation/) to find
 installation instructions for all major platforms.
+
+Documentation
+-------------
+See our documentation on [ReadTheDocs](http://menpofit.readthedocs.org)
