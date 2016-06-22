@@ -262,7 +262,7 @@ class PickleWrappedFitter(object):
             # pre-process the image
             proc_image, trans = self._image_preprocess(image, initial_shape)
             # call the wrapped fitter with the updated kwargs
-            result = self.wrapped_fitter.fit_from_bb(
+            result = self.wrapped_fitter.fit_from_shape(
                 proc_image, trans.pseudoinverse().apply(initial_shape),
                 **final_kwargs)
             # update result attributes
