@@ -71,9 +71,9 @@ class UnifiedAAMCLM(object):
         The context shape for the convolution. If a `list` is provided,
         then it defines a context shape per scale.
     sample_offsets : ``(n_offsets, n_dims)`` `ndarray` or ``None``, optional
-        The sample_offsets to sample from within a patch. So ``(0, 0)`` is the centre
-        of the patch (no offset) and ``(1, 0)`` would be sampling the patch
-        from 1 pixel up the first axis away from the centre. If ``None``,
+        The sample_offsets to sample from within a patch. So ``(0, 0)`` is the
+        centre of the patch (no offset) and ``(1, 0)`` would be sampling the
+        patch from 1 pixel up the first axis away from the centre. If ``None``,
         then no sample_offsets are applied.
     transform : `subclass` of :map:`DL` and :map:`DX`, optional
         A differential warp transform object, e.g.
@@ -96,15 +96,9 @@ class UnifiedAAMCLM(object):
         per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept. Note that the
         unused components will be permanently trimmed.
-    scale_shapes: `bool`, optional
-        Recompute the PCA shape model at all scales instead of copying it. 
-        Default is ``True``
-    scale_features: `bool`, optional
-        Scale the feature images instead of scaling the source image and recomputing the features. 
-        Default is ``True``
-    sigma : `float` or ``None``, optional 
-        If not ``None``, the input images are smoothed with an isotropic Gaussian filter with the specified
-        std. dev. 
+    sigma : `float` or ``None``, optional
+        If not ``None``, the input images are smoothed with an isotropic
+        Gaussian filter with the specified standard deviation.
     boundary : `int`, optional
         The number of pixels to be left as a safe margin on the boundaries
         of the reference frame (has potential effects on the gradient
@@ -131,8 +125,7 @@ class UnifiedAAMCLM(object):
                  patch_shape=(17, 17), context_shape=(34, 34),
                  sample_offsets=None,  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
-                 max_appearance_components=None, scale_shapes=True,
-                 scale_features=True, sigma=None, boundary=3,
+                 max_appearance_components=None, sigma=None, boundary=3,
                  response_covariance=2, patch_normalisation=no_op,
                  cosine_mask=True, verbose=False):
         # Check parameters
@@ -159,12 +152,10 @@ class UnifiedAAMCLM(object):
         self.max_appearance_components = max_appearance_components
         self.reference_shape = reference_shape
         self.shape_model_cls = shape_model_cls
-        self.scale_shapes = scale_shapes
         self.sigma = sigma
         self.boundary = boundary
         self.sample_offsets = sample_offsets
         self.response_covariance = response_covariance
-        self.scale_features = scale_features
         self.patch_normalisation = patch_normalisation
         self.cosine_mask = cosine_mask
         self.shape_models = []
@@ -605,6 +596,40 @@ class UnifiedAAMCLM(object):
                 am, md_transform, template, sampling=s)
             interfaces.append(interface)
         return interfaces
+
+    def appearance_reconstructions(self, appearance_parameters,
+                                   n_iters_per_scale):
+        r"""
+        Method that generates the appearance reconstructions given a set of
+        appearance parameters. This is to be combined with a
+        :map:`UnifiedAAMCLMResult` object, in order to generate the appearance
+        reconstructions of a fitting procedure.
+
+        Parameters
+        ----------
+        appearance_parameters : `list` of ``(n_params,)`` `ndarray`
+            A set of appearance parameters per fitting iteration. It can be
+            retrieved as a property of an :map:`UnifiedAAMCLMResult` object.
+        n_iters_per_scale : `list` of `int`
+            The number of iterations per scale. This is necessary in order to
+            figure out which appearance parameters correspond to the model of
+            each scale. It can be retrieved as a property of a :map:`AAMResult`
+            object.
+
+        Returns
+        -------
+        appearance_reconstructions : `list` of `menpo.image.Image`
+            `List` of the appearance reconstructions that correspond to the
+            provided parameters.
+        """
+        appearance_reconstructions = []
+        previous = 0
+        for scale, n_iters in enumerate(n_iters_per_scale):
+            for c in appearance_parameters[previous:previous+n_iters+1]:
+                instance = self.appearance_models[scale].instance(c)
+                appearance_reconstructions.append(instance)
+            previous = n_iters + 1
+        return appearance_reconstructions
 
     def __str__(self):
         if self.diagonal is not None:
