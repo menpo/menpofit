@@ -18,6 +18,7 @@ Deformable Models
    menpofit/aps/index
    menpofit/atm/index
    menpofit/clm/index
+   menpofit/unified_aam_clm/index
    menpofit/dlib/index
    menpofit/lk/index
    menpofit/sdm/index
@@ -33,6 +34,7 @@ Internal API
    menpofit/differentiable/index
    menpofit/error/index
    menpofit/fitter/index
+   menpofit/io/index
    menpofit/math/index
    menpofit/modelinstance/index
    menpofit/result/index

@@ -2,8 +2,9 @@ import numpy as np
 
 from menpofit.base import build_grid
 from menpofit.checks import check_model
-from menpofit.result import ParametricIterativeResult
 from menpofit.modelinstance import OrthoPDM
+
+from .result import UnifiedAAMCLMAlgorithmResult
 
 multivariate_normal = None  # expensive, from scipy.stats
 
@@ -11,9 +12,8 @@ multivariate_normal = None  # expensive, from scipy.stats
 # Abstract Interface for AAM Algorithms ---------------------------------------
 
 class UnifiedAlgorithm(object):
-
     r"""
-    Base interface for optimization of UnifiedAAMCLM
+    Base interface for optimization of a Unified AAM-CLM model.
 
     Parameters
     ----------
@@ -54,6 +54,10 @@ class UnifiedAlgorithm(object):
         self._U = self.appearance_model.components.T
         self._pinv_U = np.linalg.pinv(
             self._U[self.interface.i_mask, :]).T
+        # grab appearance model mean
+        self.a_bar = self.appearance_model.mean()
+        # vectorize it and mask it
+        self.a_bar_m = self.a_bar.as_vector()[self.interface.i_mask]
 
     def run(self, image, initial_shape, max_iters=20, gt_shape=None,
             return_costs=False, **kwargs):
@@ -114,7 +118,6 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
     r"""
     Project-Out Inverse Compositional + Regularized Landmark Mean Shift
     """
-
     def _precompute(self):
         super(ProjectOutRegularisedLandmarkMeanShift, self)._precompute()
         # AAM part ------------------------------------------------------------
@@ -158,7 +161,7 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
         r"""
-        Execute the ProjectOutRegularisedLandmarkMeanShift optimization algorithm.
+        Execute the optimization algorithm.
 
         Parameters
         ----------
@@ -188,42 +191,48 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
             Ratio of the image noise variance and the shape noise variance.
             See [1] section 5 equations (25) & (26) and footnote 6.
 
+        Returns
+        -------
+        fitting_result : :map:`UnifiedAAMCLMAlgorithmResult`
+            The parametric iterative fitting result.
+
         References
         ----------
         .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
             parts-based deformable model fitting." Proceedings of the IEEE
             Conference on Computer Vision and Pattern Recognition. 2015.
         """
+        # define cost closure
+        def cost_closure(x, y, a):
+            return a * x.T.dot(x) + y.T.dot(y)
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
         shapes = [self.transform.target]
-        # masked model mean
-        masked_m = self.appearance_model.mean().as_vector()[
-            self.interface.i_mask]
 
+        # initialize iteration counter and epsilon
+        k = 0
+        eps = np.Inf
+
+        # AAM part --------------------------------------------------------
+        # warp image
+        i = self.interface.warp(image)
+        # vectorize it and mask it
+        masked_i = i.as_vector()[self.interface.i_mask]
+
+        # compute masked error
+        e_aam = self.a_bar_m - masked_i
+
+        # CLM part --------------------------------------------------------
+        e_clm = self._compute_clm_error(image)
+
+        # update costs
         costs = None
         if return_costs:
-            costs = []
+            costs = [cost_closure(e_aam, e_clm, a)]
 
-        for _ in range(max_iters):
-            # AAM part --------------------------------------------------------
-
-            # compute warped image with current weights
-            i = self.interface.warp(image)
-
-            # reconstruct appearance
-            masked_i = i.as_vector()[self.interface.i_mask]
-
-            # compute error image
-            e_aam = masked_m - masked_i
-
-            # CLM part --------------------------------------------------------
-
-            e_clm = self._compute_clm_error(image)
-
-            # Unified ---------------------------------------------------------
-
+        while k < max_iters and eps > self.eps:
             # compute gauss-newton parameter updates
             if prior:
                 b = (self._j_prior * self.transform.as_vector() -
@@ -233,33 +242,46 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
             else:
                 dp = self._pinv_j_aam.dot(e_aam) + self._pinv_j_clm.dot(e_clm)
 
-            # update transform
+            # update warp
             target = self.transform.target
             self._update_warp(dp)
             p_list.append(self.transform.as_vector())
             shapes.append(self.transform.target)
 
+            # AAM part --------------------------------------------------------
+            # warp image
+            i = self.interface.warp(image)
+            # vectorize it and mask it
+            masked_i = i.as_vector()[self.interface.i_mask]
+
+            # compute masked error
+            e_aam = self.a_bar_m - masked_i
+
+            # CLM part --------------------------------------------------------
+            e_clm = self._compute_clm_error(image)
+
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(e_aam, e_clm, a))
+
             # test convergence
-            error = np.abs(np.linalg.norm(
+            eps = np.abs(np.linalg.norm(
                 target.points - self.transform.target.points))
 
-            if return_costs:
-                costs.append(error)
+            # increase iteration counter
+            k += 1
 
-            if error < self.eps:
-                break
-
-        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
-                                         initial_shape=initial_shape,
-                                         image=image, gt_shape=gt_shape,
-                                         costs=None)
+        # return algorithm result
+        return UnifiedAAMCLMAlgorithmResult(
+            shapes=shapes, shape_parameters=p_list, appearance_parameters=None,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)
 
 
 class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
     r"""
     Alternating Inverse Compositional + Regularized Landmark Mean Shift
     """
-
     def _precompute(self):
         super(AlternatingRegularisedLandmarkMeanShift, self)._precompute()
         # AAM part ------------------------------------------------------------
@@ -284,7 +306,7 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
     def run(self, image, initial_shape, gt_shape=None, max_iters=20,
             return_costs=False, prior=False, a=0.5):
         r"""
-        Execute the AlternatingRegularisedLandmarkMeanShift optimization algorithm.
+        Execute the optimization algorithm.
 
         Parameters
         ----------
@@ -314,47 +336,55 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
             Ratio of the image noise variance and the shape noise variance.
             See [1] section 5 equations (25) & (26) and footnote 6.
 
+        Returns
+        -------
+        fitting_result : :map:`UnifiedAAMCLMAlgorithmResult`
+            The parametric iterative fitting result.
+
         References
         ----------
         .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and
             parts-based deformable model fitting." Proceedings of the IEEE
             Conference on Computer Vision and Pattern Recognition. 2015.
         """
+        # define cost closure
+        def cost_closure(x, y, a):
+            return a * x.T.dot(x) + y.T.dot(y)
+
         # initialize transform
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
         shapes = [self.transform.target]
 
-        # initial appearance parameters
-        appearance_parameters = [0]
-        # model mean
-        m = self.appearance_model.mean().as_vector()
-        # masked model mean
-        masked_m = m[self.interface.i_mask]
+        # initialize iteration counter and epsilon
+        k = 0
+        eps = np.Inf
 
+        # AAM part --------------------------------------------------------
+
+        # warp image
+        i = self.interface.warp(image)
+        # mask warped image
+        masked_i = i.as_vector()[self.interface.i_mask]
+
+        # reconstruct appearance
+        c = self._pinv_U.T.dot(masked_i - self.a_bar_m)
+        t = self._U.dot(c) + self.a_bar.as_vector()
+        self.template = self.template.from_vector(t)
+        c_list = [c]
+
+        # compute (image) error
+        e_aam = (self.template.as_vector()[self.interface.i_mask] - masked_i)
+
+        # CLM part --------------------------------------------------------
+        e_clm = self._compute_clm_error(image)
+
+        # update costs
         costs = None
         if return_costs:
-            costs = []
+            costs = [cost_closure(e_aam, e_clm, a)]
 
-        for _ in range(max_iters):
-
-            # AAM part --------------------------------------------------------
-
-            # warp image
-            i = self.interface.warp(image)
-            # mask image
-            masked_i = i.as_vector()[self.interface.i_mask]
-
-            # reconstruct appearance
-            c = self._pinv_U.T.dot(masked_i - masked_m)
-            t = self._U.dot(c) + m
-            self.template = self.template.from_vector(t)
-            appearance_parameters.append(c)
-
-            # compute (image) error
-            e_aam = (self.template.as_vector()[self.interface.i_mask] -
-                     masked_i)
-
+        while k < max_iters and eps > self.eps:
             # compute model gradient
             nabla_t = self.interface.gradient(self.template)
 
@@ -364,11 +394,6 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
 
             # compute AAM hessian
             h_aam = j_aam.T.dot(j)
-
-            # CLM part --------------------------------------------------------
-            e_clm = self._compute_clm_error(image)           
-
-            # Unified part ----------------------------------------------------
 
             # compute Gauss-Newton parameter updates
             if prior:
@@ -382,23 +407,41 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
                                      a * j_aam.T.dot(e_aam) +
                                      (1 - a) * self._j_clm.T.dot(e_clm))
 
-            # update transform
+            # update warp
             target = self.transform.target
             self._update_warp(dp)
             p_list.append(self.transform.as_vector())
             shapes.append(self.transform.target)
 
+            # warp image
+            i = self.interface.warp(image)
+            # mask warped image
+            masked_i = i.as_vector()[self.interface.i_mask]
+
+            # update appearance parameters
+            c = self._pinv_U.T.dot(masked_i - self.a_bar_m)
+            t = self._U.dot(c) + self.a_bar.as_vector()
+            self.template = self.template.from_vector(t)
+            c_list.append(c)
+
+            # compute (image) error
+            e_aam = (self.template.as_vector()[self.interface.i_mask] -
+                     masked_i)
+            e_clm = self._compute_clm_error(image)
+
+            # update costs
+            if return_costs:
+                costs.append(cost_closure(e_aam, e_clm, a))
+
             # test convergence
-            error = np.abs(np.linalg.norm(
+            eps = np.abs(np.linalg.norm(
                 target.points - self.transform.target.points))
 
-            if return_costs:
-                costs.append(error)
+            # increase iteration counter
+            k += 1
 
-            if error < self.eps:
-                break
-
-        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
-                                         initial_shape=initial_shape,
-                                         image=image, gt_shape=gt_shape,
-                                         costs=costs)
+        # return algorithm result
+        return UnifiedAAMCLMAlgorithmResult(
+            shapes=shapes, shape_parameters=p_list, appearance_parameters=c_list,
+            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            costs=costs)

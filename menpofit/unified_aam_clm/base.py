@@ -11,7 +11,9 @@ from menpofit import checks
 from menpofit.builder import (build_reference_frame, compute_reference_shape,
                               rescale_images_to_reference_shape,
                               compute_features, scale_images, warp_images)
+from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface
 from menpofit.clm import CorrelationFilterExpertEnsemble
+from menpofit.clm.expert.ensemble import ConvolutionBasedExpertEnsemble
 from menpofit.modelinstance import OrthoPDM
 from menpofit.transform import DifferentiablePiecewiseAffine, OrthoMDTransform
 
@@ -32,20 +34,6 @@ class UnifiedAAMCLM(object):
     ----------
     images : `list` of `menpo.image.Image`
         The `list` of training images.
-    expert_ensemble_cls : `subclass` of :map:`ExpertEnsemble`, optional
-        The class to be used for training the ensemble of experts. The most
-        common choice is :map:`CorrelationFilterExpertEnsemble`.
-    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
-        The shape of the patches to be extracted. If a `list` is provided,
-        then it defines a patch shape per scale.
-    context_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
-        The context shape for the convolution. If a `list` is provided,
-        then it defines a context shape per scale.
-    sample_offsets : ``(n_offsets, n_dims)`` `ndarray` or ``None``, optional
-        The sample_offsets to sample from within a patch. So ``(0, 0)`` is the centre
-        of the patch (no offset) and ``(1, 0)`` would be sampling the patch
-        from 1 pixel up the first axis away from the centre. If ``None``,
-        then no sample_offsets are applied.
     group : `str` or ``None``, optional
         The landmark group that will be used to train the model. If ``None`` and
         the images only have a single landmark group, then that is the one
@@ -57,7 +45,7 @@ class UnifiedAAMCLM(object):
         reference shape. If `list`, then it must define a feature function per
         scale. Please refer to `menpo.feature` for a list of potential features.
     reference_shape : `menpo.shape.PointCloud` or ``None``, optional
-        The reference shape that will be used for building the model. The purpose
+        The reference shape that will be used for building the AAM. The purpose
         of the reference shape is to normalise the size of the training images.
         The normalization is performed by rescaling all the training images
         so that the scale of their ground truth shapes matches the scale of
@@ -73,6 +61,20 @@ class UnifiedAAMCLM(object):
         The scale value of each scale. They must provided in ascending order,
         i.e. from lowest to highest scale. If `float`, then a single scale is
         assumed.
+    expert_ensemble_cls : `subclass` of :map:`ExpertEnsemble`, optional
+        The class to be used for training the ensemble of experts. The most
+        common choice is :map:`CorrelationFilterExpertEnsemble`.
+    patch_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The shape of the patches to be extracted. If a `list` is provided,
+        then it defines a patch shape per scale.
+    context_shape : (`int`, `int`) or `list` of (`int`, `int`), optional
+        The context shape for the convolution. If a `list` is provided,
+        then it defines a context shape per scale.
+    sample_offsets : ``(n_offsets, n_dims)`` `ndarray` or ``None``, optional
+        The sample_offsets to sample from within a patch. So ``(0, 0)`` is the
+        centre of the patch (no offset) and ``(1, 0)`` would be sampling the
+        patch from 1 pixel up the first axis away from the centre. If ``None``,
+        then no sample_offsets are applied.
     transform : `subclass` of :map:`DL` and :map:`DX`, optional
         A differential warp transform object, e.g.
         :map:`DifferentiablePiecewiseAffine` or
@@ -94,15 +96,9 @@ class UnifiedAAMCLM(object):
         per scale. If a single number, then this will be applied to all
         scales. If ``None``, then all the components are kept. Note that the
         unused components will be permanently trimmed.
-    scale_shapes: `bool`, optional
-        Recompute the PCA shape model at all scales instead of copying it. 
-        Default is ``True``
-    scale_features: `bool`, optional
-        Scale the feature images instead of scaling the source image and recomputing the features. 
-        Default is ``True``
-    sigma : `float` or ``None``, optional 
-        If not ``None``, the input images are smoothed with an isotropic Gaussian filter with the specified
-        std. dev. 
+    sigma : `float` or ``None``, optional
+        If not ``None``, the input images are smoothed with an isotropic
+        Gaussian filter with the specified standard deviation.
     boundary : `int`, optional
         The number of pixels to be left as a safe margin on the boundaries
         of the reference frame (has potential effects on the gradient
@@ -120,18 +116,16 @@ class UnifiedAAMCLM(object):
     References
     ----------
     .. [1] J. Alabort-i-Medina, and S. Zafeiriou. "Unifying holistic and 
-        parts-based deformable model fitting." Proceedings of the IEEE 
-        Conference on Computer Vision and Pattern Recognition. 2015.
+        parts-based deformable model fitting", Proceedings of the IEEE
+        Conference on Computer Vision and Pattern Recognition (CVPR), 2015.
     """
-    def __init__(self, images,
+    def __init__(self, images, group=None, holistic_features=no_op,
+                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
                  expert_ensemble_cls=CorrelationFilterExpertEnsemble,
                  patch_shape=(17, 17), context_shape=(34, 34),
-                 sample_offsets=None, group=None, holistic_features=no_op,
-                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
-                 transform=DifferentiablePiecewiseAffine,
+                 sample_offsets=None,  transform=DifferentiablePiecewiseAffine,
                  shape_model_cls=OrthoPDM, max_shape_components=None,
-                 max_appearance_components=None, scale_shapes=True,
-                 scale_features=True, sigma=None, boundary=3,
+                 max_appearance_components=None, sigma=None, boundary=3,
                  response_covariance=2, patch_normalisation=no_op,
                  cosine_mask=True, verbose=False):
         # Check parameters
@@ -158,12 +152,10 @@ class UnifiedAAMCLM(object):
         self.max_appearance_components = max_appearance_components
         self.reference_shape = reference_shape
         self.shape_model_cls = shape_model_cls
-        self.scale_shapes = scale_shapes
         self.sigma = sigma
         self.boundary = boundary
         self.sample_offsets = sample_offsets
         self.response_covariance = response_covariance
-        self.scale_features = scale_features
         self.patch_normalisation = patch_normalisation
         self.cosine_mask = cosine_mask
         self.shape_models = []
@@ -288,11 +280,295 @@ class UnifiedAAMCLM(object):
         """
         return len(self.scales)
 
+    @property
+    def _str_title(self):
+        return 'Unified Holistic AAM and CLM'
+
+    def shape_instance(self, shape_weights=None, scale_index=-1):
+        r"""
+        Generates a novel shape instance given a set of shape weights. If no
+        weights are provided, the mean shape is returned.
+
+        Parameters
+        ----------
+        shape_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the shape model that will be used to create a novel
+            shape instance. If ``None``, the weights are assumed to be zero,
+            thus the mean shape is used.
+        scale_index : `int`, optional
+            The scale to be used.
+
+        Returns
+        -------
+        instance : `menpo.shape.PointCloud`
+            The shape instance.
+        """
+        if shape_weights is None:
+            shape_weights = [0]
+        sm = self.shape_models[scale_index].model
+        return sm.instance(shape_weights, normalized_weights=True)
+
+    def instance(self, shape_weights=None, appearance_weights=None,
+                 scale_index=-1):
+        r"""
+        Generates a novel instance of the AAM part of the model given a set of
+        shape and appearance weights. If no weights are provided, then the mean
+        AAM instance is returned.
+
+        Parameters
+        ----------
+        shape_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the shape model that will be used to create a novel
+            shape instance. If ``None``, the weights are assumed to be zero,
+            thus the mean shape is used.
+        appearance_weights : ``(n_weights,)`` `ndarray` or `list` or ``None``, optional
+            The weights of the appearance model that will be used to create a
+            novel appearance instance. If ``None``, the weights are assumed
+            to be zero, thus the mean appearance is used.
+        scale_index : `int`, optional
+            The scale to be used.
+
+        Returns
+        -------
+        image : `menpo.image.Image`
+            The AAM instance.
+        """
+        if shape_weights is None:
+            shape_weights = [0]
+        if appearance_weights is None:
+            appearance_weights = [0]
+        sm = self.shape_models[scale_index].model
+        am = self.appearance_models[scale_index]
+
+        shape_instance = sm.instance(shape_weights, normalized_weights=True)
+        appearance_instance = am.instance(appearance_weights,
+                                          normalized_weights=True)
+
+        return self._instance(scale_index, shape_instance, appearance_instance)
+
+    def random_instance(self, scale_index=-1):
+        r"""
+        Generates a random instance of the AAM part of the model.
+
+        Parameters
+        ----------
+        scale_index : `int`, optional
+            The scale to be used.
+
+        Returns
+        -------
+        image : `menpo.image.Image`
+            The AAM instance.
+        """
+        sm = self.shape_models[scale_index].model
+        am = self.appearance_models[scale_index]
+
+        # TODO: this bit of logic should to be transferred down to PCAModel
+        shape_weights = np.random.randn(sm.n_active_components)
+        shape_instance = sm.instance(shape_weights, normalized_weights=True)
+        appearance_weights = np.random.randn(sm.n_active_components)
+        appearance_instance = am.instance(appearance_weights,
+                                          normalized_weights=True)
+
+        return self._instance(scale_index, shape_instance, appearance_instance)
+
+    def _instance(self, scale_index, shape_instance, appearance_instance):
+        template = self.appearance_models[scale_index].mean()
+        landmarks = template.landmarks['source'].lms
+
+        reference_frame = build_reference_frame(shape_instance)
+
+        transform = self.transform(
+            reference_frame.landmarks['source'].lms, landmarks)
+
+        return appearance_instance.as_unmasked(copy=False).warp_to_mask(
+            reference_frame.mask, transform, warp_landmarks=True)
+
+    def view_shape_models_widget(self, n_parameters=5,
+                                 parameters_bounds=(-3.0, 3.0),
+                                 mode='multiple', figure_size=(10, 8)):
+        r"""
+        Visualizes the shape models of the Unified AAM CLM object using an
+        interactive widget.
+
+        Parameters
+        ----------
+        n_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
+        """
+        try:
+            from menpowidgets import visualize_shape_model
+            visualize_shape_model(
+                [sm.model for sm in self.shape_models],
+                n_parameters=n_parameters, parameters_bounds=parameters_bounds,
+                figure_size=figure_size, mode=mode)
+        except ImportError:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
+
+    def view_appearance_models_widget(self, n_parameters=5,
+                                      parameters_bounds=(-3.0, 3.0),
+                                      mode='multiple', figure_size=(10, 8)):
+        r"""
+        Visualizes the appearance models of the Unified AAM CLM object using an
+        interactive widget.
+
+        Parameters
+        ----------
+        n_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of appearance principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
+        """
+        try:
+            from menpowidgets import visualize_appearance_model
+            visualize_appearance_model(self.appearance_models,
+                                       n_parameters=n_parameters,
+                                       parameters_bounds=parameters_bounds,
+                                       figure_size=figure_size, mode=mode)
+        except ImportError:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
+
+    def view_expert_ensemble_widget(self, figure_size=(10, 8)):
+        r"""
+        Visualizes the ensemble of experts of the Unified AAM CLM object using
+        an interactive widget.
+
+        Parameters
+        ----------
+        figure_size : (`int`, `int`), optional
+            The size of the plotted figures.
+
+        Raises
+        ------
+        ValueError
+            Only convolution-based expert ensembles can be visualized.
+        """
+        if not isinstance(self.expert_ensembles[0],
+                          ConvolutionBasedExpertEnsemble):
+            raise ValueError('Only convolution-based expert ensembles can be '
+                             'visualized.')
+        try:
+            from menpowidgets import visualize_expert_ensemble
+            centers = [sp.model.mean() for sp in self.shape_models]
+            visualize_expert_ensemble(self.expert_ensembles, centers,
+                                      figure_size=figure_size)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
+
+    def view_clm_widget(self, n_shape_parameters=5,
+                        parameters_bounds=(-3.0, 3.0), mode='multiple',
+                        figure_size=(10, 8)):
+        r"""
+        Visualizes the CLM part of the model using an interactive widget.
+
+        Parameters
+        ----------
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
+
+        Raises
+        ------
+        ValueError
+            Only convolution-based expert ensembles can be visualized.
+        """
+        if not isinstance(self.expert_ensembles[0],
+                          ConvolutionBasedExpertEnsemble):
+            raise ValueError('Only convolution-based expert ensembles can be '
+                             'visualized.')
+        try:
+            from menpowidgets import visualize_clm
+            visualize_clm(self, n_shape_parameters=n_shape_parameters,
+                          parameters_bounds=parameters_bounds,
+                          figure_size=figure_size, mode=mode)
+        except:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
+
+    def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
+                        parameters_bounds=(-3.0, 3.0), mode='multiple',
+                        figure_size=(10, 8)):
+        r"""
+        Visualizes the AAM part of the model using an interactive widget.
+
+        Parameters
+        ----------
+        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of shape principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        n_appearance_parameters : `int` or `list` of `int` or ``None``, optional
+            The number of appearance principal components to be used for the
+            parameters sliders. If `int`, then the number of sliders per
+            scale is the minimum between `n_parameters` and the number of
+            active components per scale. If `list` of `int`, then a number of
+            sliders is defined per scale. If ``None``, all the active
+            components per scale will have a slider.
+        parameters_bounds : ``(float, float)``, optional
+            The minimum and maximum bounds, in std units, for the sliders.
+        mode : {``single``, ``multiple``}, optional
+            If ``'single'``, only a single slider is constructed along with a
+            drop down menu. If ``'multiple'``, a slider is constructed for
+            each parameter.
+        figure_size : (`int`, `int`), optional
+            The size of the rendered figure.
+        """
+        try:
+            from menpowidgets import visualize_aam
+            visualize_aam(self, n_shape_parameters=n_shape_parameters,
+                          n_appearance_parameters=n_appearance_parameters,
+                          parameters_bounds=parameters_bounds,
+                          figure_size=figure_size, mode=mode)
+        except ImportError:
+            from menpo.visualize.base import MenpowidgetsMissingError
+            raise MenpowidgetsMissingError()
+
     def build_fitter_interfaces(self, sampling):
         r"""
-        Method that builds the correct Lucas-Kanade fitting interface. It
-        only applies in case you wish to fit the AAM with a Lucas-Kanade
-        algorithm (i.e. :map:`LucasKanadeAAMFitter`).
+        Method that builds the correct fitting interface for a
+        :map:`UnifiedAAMCLMFitter`.
 
         Parameters
         ----------
@@ -305,10 +581,8 @@ class UnifiedAAMCLM(object):
         Returns
         -------
         fitter_interfaces : `list`
-            The `list` of Lucas-Kanade interface per scale.
+            The `list` of fitting interfaces per scale.
         """
-        from menpofit.aam.algorithm.lk import LucasKanadeStandardInterface
-
         interfaces = []
         for am, sm, s in zip(self.appearance_models, self.shape_models,
                              sampling):
@@ -322,6 +596,40 @@ class UnifiedAAMCLM(object):
             interfaces.append(interface)
         return interfaces
 
+    def appearance_reconstructions(self, appearance_parameters,
+                                   n_iters_per_scale):
+        r"""
+        Method that generates the appearance reconstructions given a set of
+        appearance parameters. This is to be combined with a
+        :map:`UnifiedAAMCLMResult` object, in order to generate the appearance
+        reconstructions of a fitting procedure.
+
+        Parameters
+        ----------
+        appearance_parameters : `list` of ``(n_params,)`` `ndarray`
+            A set of appearance parameters per fitting iteration. It can be
+            retrieved as a property of an :map:`UnifiedAAMCLMResult` object.
+        n_iters_per_scale : `list` of `int`
+            The number of iterations per scale. This is necessary in order to
+            figure out which appearance parameters correspond to the model of
+            each scale. It can be retrieved as a property of a
+            :map:`UnifiedAAMCLMResult` object.
+
+        Returns
+        -------
+        appearance_reconstructions : `list` of `menpo.image.Image`
+            `List` of the appearance reconstructions that correspond to the
+            provided parameters.
+        """
+        appearance_reconstructions = []
+        previous = 0
+        for scale, n_iters in enumerate(n_iters_per_scale):
+            for c in appearance_parameters[previous:previous+n_iters+1]:
+                instance = self.appearance_models[scale].instance(c)
+                appearance_reconstructions.append(instance)
+            previous = n_iters + 1
+        return appearance_reconstructions
+
     def __str__(self):
         if self.diagonal is not None:
             diagonal = self.diagonal
@@ -331,19 +639,20 @@ class UnifiedAAMCLM(object):
 
         # Compute scale info strings
         scales_info = []
-        lvl_str_tmplt = r"""  - Scale {}
-    - Holistic feature: {}
-    - Ensemble of experts class: {}
-      - {} experts
-      - {} class
-      - Patch shape: {} x {}
-      - Patch normalisation: {}
-      - Context shape: {} x {}
-      - Cosine mask: {}
-    - Appearance model class: {}
-      - {} appearance components
-    - Shape model class: {}
-      - {} shape components"""
+        lvl_str_tmplt = r"""   - Scale {}
+     - Holistic feature: {}
+     - Ensemble of experts class: {}
+       - {} experts
+       - {} class
+       - Patch shape: {} x {}
+       - Patch normalisation: {}
+       - Context shape: {} x {}
+       - Cosine mask: {}
+     - Appearance model class: {}
+       - {} appearance components
+     - Shape model class: {}
+       - {} shape components
+       - {} similarity transform parameters"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(
                 s, name_of_callable(self.holistic_features[k]),
@@ -359,7 +668,8 @@ class UnifiedAAMCLM(object):
                 name_of_callable(self.appearance_models[k]),
                 self.appearance_models[k].n_components,
                 name_of_callable(self.shape_models[k]),
-                self.shape_models[k].model.n_components))
+                self.shape_models[k].model.n_components,
+                self.shape_models[k].n_global_parameters))
 
         scales_info = '\n'.join(scales_info)
 
@@ -369,15 +679,14 @@ class UnifiedAAMCLM(object):
         else:
             transform_str = 'No image warping performed'
 
-        cls_str = r"""Unified Holistic AAM and CLM
+        cls_str = r"""{class_title}
   - Images scaled to diagonal: {diagonal:.2f}
   - {transform}
   - Scales: {scales}
 {scales_info}
-    """.format(transform=transform_str,
+    """.format(class_title=self._str_title,
                diagonal=diagonal,
+               transform=transform_str,
                scales=self.scales,
                scales_info=scales_info)
         return cls_str
-
-
