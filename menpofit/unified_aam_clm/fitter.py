@@ -108,8 +108,8 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         n_iters_per_scale : `list` of `int`
             The number of iterations per scale. This is necessary in order to
             figure out which appearance parameters correspond to the model of
-            each scale. It can be retrieved as a property of a :map:`AAMResult`
-            object.
+            each scale. It can be retrieved as a property of a
+            :map:`UnifiedAAMCLMResult` object.
 
         Returns
         -------

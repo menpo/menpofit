@@ -567,9 +567,8 @@ class UnifiedAAMCLM(object):
 
     def build_fitter_interfaces(self, sampling):
         r"""
-        Method that builds the correct Lucas-Kanade fitting interface. It
-        only applies in case you wish to fit the AAM with a Lucas-Kanade
-        algorithm (i.e. :map:`LucasKanadeAAMFitter`).
+        Method that builds the correct fitting interface for a
+        :map:`UnifiedAAMCLMFitter`.
 
         Parameters
         ----------
@@ -582,7 +581,7 @@ class UnifiedAAMCLM(object):
         Returns
         -------
         fitter_interfaces : `list`
-            The `list` of Lucas-Kanade interface per scale.
+            The `list` of fitting interfaces per scale.
         """
         interfaces = []
         for am, sm, s in zip(self.appearance_models, self.shape_models,
@@ -613,8 +612,8 @@ class UnifiedAAMCLM(object):
         n_iters_per_scale : `list` of `int`
             The number of iterations per scale. This is necessary in order to
             figure out which appearance parameters correspond to the model of
-            each scale. It can be retrieved as a property of a :map:`AAMResult`
-            object.
+            each scale. It can be retrieved as a property of a
+            :map:`UnifiedAAMCLMResult` object.
 
         Returns
         -------

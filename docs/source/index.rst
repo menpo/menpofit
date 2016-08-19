@@ -29,6 +29,10 @@ implemented include:
   * Forward Additive, Forward Compositional, Inverse Compositional
   * Residuals: SSD, Fourier SSD, ECC, Gradient Correlation, Gradient Images
 
+* :ref:`Unified Active Appearance Model and Constrained Local Model (Unified AAM-CLM) <api-unified_aam_clm-index>`
+
+  * Alternating/Project Out with Regularised Landmark Mean Shift
+
 * :ref:`Constrained Local Model (CLM) <api-clm-index>`
 
   * Active Shape Model
