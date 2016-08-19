@@ -203,8 +203,8 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
             Conference on Computer Vision and Pattern Recognition. 2015.
         """
         # define cost closure
-        def cost_closure(x, y):
-            return x.T.dot(x) + y.T.dot(y)
+        def cost_closure(x, y, a):
+            return a * x.T.dot(x) + y.T.dot(y)
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -230,7 +230,7 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
         # update costs
         costs = None
         if return_costs:
-            costs = [cost_closure(e_aam, e_clm)]
+            costs = [cost_closure(e_aam, e_clm, a)]
 
         while k < max_iters and eps > self.eps:
             # compute gauss-newton parameter updates
@@ -262,7 +262,7 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
 
             # update costs
             if return_costs:
-                costs.append(cost_closure(e_aam, e_clm))
+                costs.append(cost_closure(e_aam, e_clm, a))
 
             # test convergence
             eps = np.abs(np.linalg.norm(
@@ -348,8 +348,8 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
             Conference on Computer Vision and Pattern Recognition. 2015.
         """
         # define cost closure
-        def cost_closure(x, y):
-            return x.T.dot(x) + y.T.dot(y)
+        def cost_closure(x, y, a):
+            return a * x.T.dot(x) + y.T.dot(y)
 
         # initialize transform
         self.transform.set_target(initial_shape)
@@ -382,7 +382,7 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
         # update costs
         costs = None
         if return_costs:
-            costs = [cost_closure(e_aam, e_clm)]
+            costs = [cost_closure(e_aam, e_clm, a)]
 
         while k < max_iters and eps > self.eps:
             # compute model gradient
@@ -431,7 +431,7 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
 
             # update costs
             if return_costs:
-                costs.append(cost_closure(e_aam, e_clm))
+                costs.append(cost_closure(e_aam, e_clm, a))
 
             # test convergence
             eps = np.abs(np.linalg.norm(
