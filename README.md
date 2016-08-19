@@ -32,6 +32,8 @@ Currently, the techniques that have been implemented include:
   - **Constrained Local Model**
     - Active Shape Models
     - Regularized Landmark Mean-Shift
+  - **Unified Active Appearance Model and Constrained Local Model**
+    - Alternating/Project Out Regularized Landmark Mean-Shift
   - **Ensemble of Regression Trees**
     - \[provided by [DLib](http://dlib.net/)\]
   - **Supervised Descent Method**
