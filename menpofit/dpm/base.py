@@ -9,41 +9,45 @@ import scipy.io
 import menpo.io as mio
 from menpo.feature import hog
 from menpo.image import Image
-from menpo.shape import Tree
+from menpo.shape import Tree, PointCloud
 
-from .fitter import DPMFitter
+from .fitter import DPMFitter, non_max_suppression_fast, clip_boxes, bb_to_lns
 from .utils import score, lincomb, qp_one_sparse
 
 
 class DPMLearner(object):
-    def __init__(self, config=None, features_pyramid=None):
+    def __init__(self, config=None, feature_pyramid=None):
         self.config = config
-        self.features_pyramid = features_pyramid
+        self.feature_pyramid = feature_pyramid
 
-        # todo: remove when config is passed properly or can be learned from the example.
         if self.config is None:
             self.config = self._get_face_default_config()
 
-        if self.features_pyramid is None:
-            self.features_pyramid = HogFeaturePyramid()
-
-        # start = time.time()
-        # pickle_dev = '/vol/atlas/homes/ks3811/pickles/refactor/'
-        # self._model_train(pickle_dev)
-        # stop = time.time()
-        # print(stop-start)
-        # print('done')
+        if self.feature_pyramid is None:
+            self.feature_pyramid = HogFeaturePyramid()
 
     @staticmethod
     def _get_face_default_config():
-        # configurations for the mixture components.
-        conf = dict()
+        side_faces_parts = 39  # 39 parts for side faces.
+        frontal_faces_parts = 68  # 68 parts for near frontal faces.
+        conf = dict()  # configurations for the mixture components.
         conf['viewpoint'] = range(90, -90-15, -15)  # 90 <-> -90
-        conf['partpoolsize'] = 39 + 68 + 39
-        conf['mixture_poolid'] = [range(0, 39), range(0, 39), range(0, 39),
-                                  range(39, 107), range(39, 107), range(39, 107), range(39, 107),
-                                  range(39, 107), range(39, 107), range(39, 107),
-                                  range(107, 146), range(107, 146), range(107, 146)]
+        conf['partpoolsize'] = side_faces_parts + frontal_faces_parts + side_faces_parts
+        right_side_face_indexes = range(0, side_faces_parts)
+        frontal_face_indexex = range(side_faces_parts, side_faces_parts + frontal_faces_parts)
+        left_side_face_indexes = range(side_faces_parts + frontal_faces_parts, frontal_faces_parts + 2*side_faces_parts)
+        conf['mixture_poolid'] = [right_side_face_indexes, right_side_face_indexes, right_side_face_indexes,
+                                  frontal_face_indexex, frontal_face_indexex, frontal_face_indexex,
+                                  frontal_face_indexex, frontal_face_indexex, frontal_face_indexex,
+                                  frontal_face_indexex, left_side_face_indexes, left_side_face_indexes,
+                                  left_side_face_indexes]
+        conf['poolid'] = list()
+        count = 0
+        for i in range(np.size(conf['viewpoint'])):
+            mixture_part_number = np.size(conf['mixture_poolid'][i])
+            mixture = np.array(range(0, mixture_part_number)) + count
+            conf['poolid'].append(mixture)
+            count += mixture_part_number
         return conf
 
     @staticmethod
@@ -76,7 +80,7 @@ class DPMLearner(object):
                                  22, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38]))
         else:
             raise ValueError('No such model for parents\' list exists.')
-        return parents - 1  # -1 to change matlab indexes
+        return parents - 1  # -1 to change matlab indexes into python indexes
 
     @staticmethod
     def _get_anno2tree(gmixid):
@@ -166,7 +170,7 @@ class DPMLearner(object):
             mio.export_pickle(stop-start, fp)
         return pos, neg
 
-    @staticmethod
+    @staticmethod  # this method might not be needed anymore.
     def _get_jpg_pie_image_info(pickle_dev):
         pickle_dev = '/vol/atlas/homes/ks3811/pickles/data'
         multipie_mat = '/vol/atlas/homes/ks3811/matlab/multipie.mat'
@@ -211,12 +215,12 @@ class DPMLearner(object):
         _c['neg'] = neg
         return pos, neg
 
-    def _model_train(self, pickle_dev):
+    def _model_train(self, pickle_dev, small_k=200):
         pos, neg = self._get_pie_image_info(pickle_dev)
 
         pos = self._ln2box(pos)
         spos = self._split(pos)
-        k = min(len(neg), 200)
+        k = min(len(neg), small_k)
         kneg = neg[0:k]
 
         file_name = 'actual_parts_model_fast'
@@ -327,8 +331,8 @@ class DPMLearner(object):
         area = areas[int(np.floor(areas.size * 0.2))]  # Pick the 20th percentile area
         nw = np.sqrt(area)
 
-        spacial_scale = self.features_pyramid.spacial_scale
-        siz = [self.features_pyramid.feature_size, 5, 5]  # int(round(nw/spacial_scale)), int(round(nw/spacial_scale))]
+        spacial_scale = self.feature_pyramid.spacial_scale
+        siz = [self.feature_pyramid.feature_size, 5, 5]  # int(round(nw/spacial_scale)), int(round(nw/spacial_scale))]
         # todo: see how this can be solved instead of using const [5, 5]
 
         d = dict()  # deformation
@@ -337,7 +341,7 @@ class DPMLearner(object):
         d['anchor'] = np.zeros((3,))
 
         f = dict()  # filter
-        f['w'] = np.empty(siz)
+        f['w'] = np.random.rand(self.feature_pyramid.feature_size, 5, 5)  # np.empty(siz)
         f['i'] = 1
 
         c = dict()
@@ -356,10 +360,10 @@ class DPMLearner(object):
         model['len'] = 1 + np.prod(siz)
         model['interval'] = 10
 
+        model['feature_pyramid'] = self.feature_pyramid
+
         # model = self._poswarp(model, pos_) todo: this initialize the weight of the filters to be average feateare
         return Model.model_from_dict(model)
-        # c = model['components'][0]
-        # c['bias'] = d['w']  # todo: dont think this is needed
 
     def _poswarp(self, model, pos):
         # Update independent part model's filter by averaging its hog feature.
@@ -382,7 +386,7 @@ class DPMLearner(object):
         # Load the images, crop and resize them to a predefined shape.
         f = model['components'][0]['filter_ids'][0]  # potentially redundant, f == 0 (but check the rest first.)
         siz = model['filters'][f]['w'].shape[1:]
-        spacial_scale = self.features_pyramid.spacial_scale
+        spacial_scale = self.feature_pyramid.spacial_scale
         pixels = [spacial_scale * siz[0], spacial_scale * siz[1]]
         num_pos = len(pos)
         heights = np.empty((num_pos,))
@@ -402,7 +406,7 @@ class DPMLearner(object):
             warped.append(im2.copy())
         return warped
 
-    def _train(self, model, pos, negs, iters, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.6):  # todo: used to be 0.6
+    def _train(self, model, pos, negs, iters, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.5):  # todo: used to be 0.6
         r"""
         train(improve) the given model by using dual coordinate solver(qp) with the given positive and negative examples
 
@@ -452,9 +456,7 @@ class DPMLearner(object):
             for i, neg in enumerate(negs):
                 print('iter:', t, 'neg:', i, '/', np.size(negs))
                 im = mio.import_image(neg['im'])
-                padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
-                # pyramid = self.features_pyramid.extract_features(neg['im'], im.shape, model.interval, pyramid_pad=padding)
-                box, model = DPMFitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp, self.features_pyramid)
+                box, model = DPMFitter.fit_with_bb(im,  model, -1, [], 0, i, -1, qp)
                 if np.sum(qp.sv) == nmax:
                     break
 
@@ -466,10 +468,10 @@ class DPMLearner(object):
             model.interval = 10
             model.lb = qp.lb
             model.ub = qp.ub
-
+        model.feature_pyramid = None  # there is error when trying to save ConvFeaturePyramid
         return model
 
-    def _poslatent(self, t, model, qp, poses, overlap):
+    def _poslatent(self, t, model, qp, poses, overlap, visualize=False):
         r"""
         Get positive examples using latent fitting. A true bbox is used to check the overlapping with the fitting
         results. The positive examples are saved into qp by calling qp.write
@@ -494,7 +496,6 @@ class DPMLearner(object):
         """
         num_pos = np.size(poses)
         model.interval = 5
-        # num_positives = np.zeros(np.size(model.components, ), dtype=int)
         score0 = qp.score_pos()
         qp.n = 0
         old_w = qp.w
@@ -511,12 +512,13 @@ class DPMLearner(object):
                 bbox['box'][p, :] = [pos['box_x1'][p], pos['box_y1'][p], pos['box_x2'][p], pos['box_y2'][p]]
             im = mio.import_image(pos['im'])
             im, bbox['box'] = self._croppos(im, bbox['box'])
-            # print(bbox['box'])
-            padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
-            pyramid = self.features_pyramid  # .extract_features(im, im.shape, model.interval, pyramid_pad=padding)
-            box, model = DPMFitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp, self.features_pyramid)
-            # if np.size(box) > 0:
-            #     num_positives[bbox['c']] += 1
+            box, model = DPMFitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
+            if visualize and np.size(box) > 0:
+                cc, pick = non_max_suppression_fast(clip_boxes([box]), 0.3)
+                lns = bb_to_lns([box], pick)
+                im.landmarks['tmp'] = PointCloud(lns[0])
+                im2 = im.crop_to_landmarks_proportion(0.2, group='tmp')
+                im2.view_landmarks(render_numbering=True, group='tmp')
         delta = np.inf
         if t > 0:
             score1 = qp.score_pos()
@@ -526,7 +528,169 @@ class DPMLearner(object):
             if loss0 != 0:
                 delta = abs((loss0 - loss1) / loss0)
         assert(qp.n <= qp.x.shape[1])
-        # assert(np.sum(num_positives) <= 2 * num_pos)
+        return delta
+
+    def _fully_train(self, model, pos, negs, iters, c=0.002, wpos=2, wneg=1, maxsize=4, overlap=0.5):  # todo: used to be 0.6
+        r"""
+        train(improve) the given model by using dual coordinate solver(qp) with the given positive and negative examples
+
+        Parameters
+        ----------
+        model: `DPM`
+            The model which will be improved using the given positive and negative examples
+        pos: `list`
+            A list of positive examples(dictionary) which contain associated image part and bounding boxes
+        negs: `list`
+            A list of negative examples(dictionary) which contain associated image part
+        iters: `int`
+            The maximum iterations that the qp will be executed.
+        c: `double`
+            The coefficient that indicates the importance of each example
+        wpos: `double`
+            The weight of positive example's coeeficient (cpos = c * wpos)
+        wneg: `double`
+            The weight of negative example's coeeficient (cneg = c * wneg)
+        maxsize: `int`
+            The maximum size of the training data cache (in GB)
+        overlap: `double`
+            The minimum overlap ratio in latent positive search
+
+        Returns
+        -------
+        model: `DPM`
+            The model improved by the given positive and negative examples.
+        """
+        # the size of vectorized model
+        example_size = model.sparse_length()
+        # Maximum number of model that fitted into the cache
+        maximum_examples = round(maxsize*0.25*10**9/example_size)
+        qp = Qp(model, example_size, maximum_examples, c, wpos)
+        for t in range(iters):
+            # get positive examples using latent fitting. Found examples are saved to qp.x
+            model.delta = self._feature_poslatent(t, model, qp, pos, overlap)
+            if model.delta < 0.001:  # terminate if the score doesn't change much
+                break
+            qp.svfix = range(qp.n)  # fix positive examples as permanent support vectors
+            qp.sv[qp.svfix] = True
+            qp.prune()
+            qp.opt(iters=5)
+            # qp.opt(0.5)
+            model = qp.vec2model(model)
+            model.interval = 4
+
+            # # todo: if only want the positive alpha, need to fix multiple update
+            # alphas, examples, labels = qp.get_support_vector_examples()
+            # print(alphas.shape)
+            # print(labels.shape)
+            # print(examples.shape)
+            #
+            # examples_feature = model.feature_pyramid.vgg.train_from_qp(examples, labels, alphas, True,
+            #                                                            '/vol/atlas/homes/ks3811/pickles/vgg_conv3_3/training_feature/tmp.ckpt')
+            # qp.clear_example()
+            # qp.update_multiple_exs(examples_feature)
+
+            for i, neg in enumerate(negs):
+                print('iter:', t, 'neg:', i, '/', np.size(negs))
+                im = mio.import_image(neg['im'])
+                padding = (model.maxsize[0]-1-1, model.maxsize[1]-1-1)
+                box, model = DPMFitter.fit_for_feature(im,  model, -1, [], 0, i, -1, qp)
+                if np.sum(qp.sv) == maximum_examples:
+                    break
+
+            qp.opt(iters=5)
+            # qp.opt()
+            model = qp.vec2model(model)
+            root_scores = np.sort(qp.score_pos())[::-1]
+            # compute minimum score on positive example (with raw, unscaled features)
+            model.thresh = root_scores[np.ceil(np.size(root_scores)*0.05)]
+            model.interval = 10
+            model.lb = qp.lb
+            model.ub = qp.ub
+
+            # print(qp.boxes)
+            # print(qp.svfix)
+            if t < iters - 1:
+                # alphas, examples, labels = qp.get_support_vector_examples_for_regression()
+                examples, labels = qp.get_support_vector_examples_for_classify()
+                print('examples', examples.shape)
+                print('labels', np.sum(labels==68))
+                # model.feature_pyramid.vgg.train_from_qp(examples, labels, alphas, False)  #regression
+                model.feature_pyramid.vgg.train_from_qp(examples, labels)
+                qp.clear_example()
+
+        model.feature_pyramid = None  # there is error when trying to save ConvFeaturePyramid
+
+        return model
+
+    def _feature_poslatent(self, t, model, qp, poses, overlap, visualize=False):
+        r"""
+        Get positive examples using latent fitting. A true bbox is used to check the overlapping with the fitting
+        results. The positive examples are saved into qp by calling qp.write
+
+        Parameters
+        ----------
+        t: `int`
+            The number of iteration(s)
+        model: `DPM`
+            The model which will be improved using the given positive and negative examples
+        qp: `Qp`
+            The dual coordinate solver which created by the given model
+        poses: `list`
+            A list of positive examples(dictionary) which contain associated image part and bounding boxes
+        overlap: `double`
+            The minimum overlap ratio in latent positive search
+
+        Returns
+        -------
+        delta: `double`
+            The different of scores before and after the model is trained(improved)
+        """
+        num_pos = np.size(poses)
+        model.interval = 5
+        score0 = qp.score_pos()
+        qp.n = 0
+        old_w = qp.w
+        qp = qp.model2qp(model)
+        assert(scipy.linalg.norm(old_w - qp.w) < 10**-5)
+
+        for i, pos in enumerate(poses):
+            print('iter:', t, 'pos:', i, '/', num_pos)
+            num_parts = np.size(pos['box_x1'])
+            bbox = dict()
+            bbox['box'] = np.zeros((num_parts, 4))
+            bbox['c'] = pos['gmixid'] # to link the index from matlab properly
+            for p in range(num_parts):
+                bbox['box'][p, :] = [pos['box_x1'][p], pos['box_y1'][p], pos['box_x2'][p], pos['box_y2'][p]]
+            im = mio.import_image(pos['im'])
+            im, bbox['box'] = self._croppos(im, bbox['box'])
+            # box, model = DPMFitter.fit_with_bb(im,  model, -np.inf, bbox, overlap, i, 1, qp)
+            box, model = DPMFitter.fit_for_feature(im,  model, -np.inf, bbox, overlap, i, 1, qp)
+            box = box[-1]
+            # first_part = box['original_image'][38, :, :, :]
+            # part_image = Image(first_part)
+            # part_image.view()
+            # assert(False)
+            qp.boxes.append(box)
+            print('boxes size :', len(qp.boxes))
+            # print('qp.n', qp.n)
+            # print('qp.a', np.sum(qp.a > 0))
+            if visualize and np.size(box) > 0:
+                im.view()
+                cc, pick = non_max_suppression_fast(clip_boxes([box]), 0.3)
+                lns = bb_to_lns([box], pick)
+                from menpo.shape import PointCloud
+                im.landmarks['tmp'] = PointCloud(lns[0])
+                im2 = im.crop_to_landmarks_proportion(0.2, group='tmp')
+                im2.view_landmarks(render_numbering=True, group='tmp')
+        delta = np.inf
+        if t > 0:
+            score1 = qp.score_pos()
+            loss0 = np.sum(np.maximum(1 - score0, np.zeros_like(score0)))
+            loss1 = np.sum(np.maximum(1 - score1, np.zeros_like(score1)))
+            # assert(loss1 <= loss0)
+            if loss0 != 0:
+                delta = abs((loss0 - loss1) / loss0)
+        assert(qp.n <= qp.x.shape[1])
         return delta
 
     @staticmethod
@@ -569,8 +733,11 @@ class DPMLearner(object):
             points = np.empty((nparts, 2, idx.shape[0]))
 
             for j, id_j in enumerate(idx):
+                magic_number = 20.0  # the 20th percentile of the bbox size of each example.
+                maxsize = magic_number/self.feature_pyramid.spacial_scale
                 scale0 = boxsize[id_j]/maxsize
                 points[:, :, j] = pos[id_j]['pts']/scale0
+                # points[:, :, j] = pos[id_j]['pts']/self.feature_pyramid.spacial_scale
 
             def_tmp = (points[:, :, :] - points[par, :, :])
             def_tmp = np.mean(def_tmp, axis=2)
@@ -635,17 +802,19 @@ class DPMLearner(object):
             tree_matrix = csr_matrix(([1] * (num_parts-1), (zip(*pairs[1:]))), shape=(num_parts, num_parts))
             component['tree'] = Tree(tree_matrix, root_vertex=0, skip_checks=True)
             model_['components'].append(component)
-
+        model_['feature_pyramid'] = self.feature_pyramid
         return Model.model_from_dict(model_)
 
     def train_final_component(self, pickle_dev, index):
         file_name = 'component_further_' + str(index)
         component_file_name, component_time_file_name = self._get_files_names(file_name)
+        index = int(index)
         try:
             fp = os.path.join(pickle_dev, component_file_name)
             model = mio.import_pickle(fp)
         except ValueError:
             model = self.train_component(pickle_dev, index)
+            model.feature_pyramid = self.feature_pyramid
             start = time.time()
             pos, neg = self._get_pie_image_info(pickle_dev)
             pos = filter(lambda p: p['gmixid'] == index, pos)
@@ -658,7 +827,7 @@ class DPMLearner(object):
             mio.export_pickle(stop-start, fp)
         return model
 
-    def train_component(self, pickle_dev, index):
+    def train_component(self, pickle_dev, index, fully_train=False):
         file_name = 'component_' + str(index)
         component_file_name, component_time_file_name = self._get_files_names(file_name)
         index = int(index)
@@ -671,9 +840,14 @@ class DPMLearner(object):
             pos, neg = self._get_pie_image_info(pickle_dev)
             pos = filter(lambda p: p['gmixid'] == index, pos)
             pos = self._ln2box(pos)
+            # pos = [pos[0]]
             k = min(len(neg), 200)
+            # k = min(len(neg), 1)
             kneg = neg[0:k]
-            model = self._train(init_model, pos, kneg, 1)
+            if fully_train:
+                model = self._fully_train(init_model, pos, kneg, 1)
+            else:
+                model = self._train(init_model, pos, kneg, 1)
             fp = os.path.join(pickle_dev, component_file_name)
             mio.export_pickle(model, fp)
             stop = time.time()
@@ -738,7 +912,7 @@ class DPMLearner(object):
         tree_matrix = csr_matrix(([1] * (num_parts-1), (zip(*pairs[1:]))), shape=(num_parts, num_parts))
         component['tree'] = Tree(tree_matrix, root_vertex=0, skip_checks=True)
         model_['components'].append(component)
-
+        model_['feature_pyramid'] = self.feature_pyramid
         return Model.model_from_dict(model_)
 
     def merge_parts(self, pickle_dev):
@@ -752,7 +926,8 @@ class DPMLearner(object):
             for i in xrange(self.config['partpoolsize']):
                 file_name = 'parts_model_' + str(i) + '.pkl'
                 fp = os.path.join(pickle_dev, file_name)
-                part_model = mio.import_pickle(fp)
+                print(fp)
+                part_model = mio.import_pickle(fp) if os.path.isfile(fp) else None
                 parts_models.append(part_model)
             fp = os.path.join(pickle_dev, 'parts_model_merge.pkl')
             mio.export_pickle(parts_models, fp)
@@ -769,20 +944,22 @@ class DPMLearner(object):
         k = min(len(neg), 200)
         kneg = neg[0:k]
 
-        file_name = 'parts_model_' + str(index) + '.pkl'
-        time_file_name = 'parts_model_' + str(index) + '_time' + '.pkl'
+        file_name = 'parts_model_' + str(index)
+        parts_model_file_name, parts_model_time_file_name = self._get_files_names(file_name)
         index = int(index)
         try:
             fp = os.path.join(pickle_dev, file_name)
-            _ = mio.import_pickle(fp)
+            part = mio.import_pickle(fp)
         except ValueError:
             start = time.time()
             init_model = self._init_model(spos[index])
+            # spos[index] = spos[index][-1:]
+            # kneg = kneg[-1:]
             part = self._train(init_model, spos[index], kneg, iters=4)
-            fp = os.path.join(pickle_dev, file_name)
-            mio.export_pickle(part, fp)
+            fp = os.path.join(pickle_dev, parts_model_file_name)
+            mio.export_pickle(part, fp, overwrite=True)
             stop = time.time()
-            fp = os.path.join(pickle_dev, time_file_name)
+            fp = os.path.join(pickle_dev, parts_model_time_file_name)
             mio.export_pickle(stop-start, fp)
         return part
 
@@ -806,8 +983,11 @@ class DPMLearner(object):
         points = np.empty((parts_num, 2, idx.shape[0]))
 
         for j, id_j in enumerate(idx):
+            magic_number = 20.0  # the 20th percentile of the bbox size of each example.
+            maxsize = magic_number/self.feature_pyramid.spacial_scale
             scale0 = box_size[id_j]/maxsize
             points[:, :, j] = pos[id_j]['pts']/scale0
+            # points[:, :, j] = pos[id_j]['pts']/self.feature_pyramid.spacial_scale
 
         def_tmp = (points[:, :, :] - points[par, :, :])
         def_tmp = np.mean(def_tmp, axis=2)
@@ -819,7 +999,7 @@ class DPMLearner(object):
 class Model(object):
 
     def __init__(self, filters=None, defs=None, components=None, interval=10, maxsize=None, len=-1, lb=0,
-                 ub=0, delta=0, feature_pyramid=None):
+                 ub=0, delta=0, feature_pyramid=None, thresh=0):
         self.filters = filters
         self.defs = defs
         self.components = components
@@ -830,8 +1010,7 @@ class Model(object):
         self.ub = ub
         self.delta = delta
         self.feature_pyramid = feature_pyramid
-        if self.feature_pyramid is None:
-            self.feature_pyramid = HogFeaturePyramid()
+        self.thresh = thresh
 
     @classmethod
     def model_from_dict(cls, model):
@@ -845,7 +1024,10 @@ class Model(object):
         len = model['len'] if 'len' in model else -1
         lb = model['lb'] if 'lb' in model else 0
         ub = model['ub'] if 'ub' in model else 0
-        return cls(filters, defs, components, interval, maxsize, len, lb, ub)
+        feature_pyramid = model['feature_pyramid'] if 'feature_pyramid' in model else HogFeaturePyramid()
+        thresh = model['thresh'] if 'thresh' in model else 0
+        return cls(filters, defs, components, interval, maxsize, len, lb, ub, feature_pyramid=feature_pyramid,
+                   thresh=thresh)
 
     def sparse_length(self):
         # Number of entries needed to encode a block-scarce representation
@@ -908,7 +1090,49 @@ class FeaturePyramid(object):
         raise NotImplementedError()
 
     def extract_pyramid(self, img, interval=10, pyramid_pad=(3, 3)):
-        raise NotImplementedError()
+        spacial_scale = self.spacial_scale
+        shift = self.shift
+        sc = 2 ** (1. / interval)
+        img_size = (img.shape[0], img.shape[1])
+        max_scale = int(log_m(min(img_size)*1./(5*spacial_scale))/log_m(sc)) + 1
+        feats, scales, shifts = {}, {}, {}
+        for i in range(interval):
+            sc_l = 2.0 / sc ** i
+            scaled = img.rescale(sc_l)
+            feats[i] = self.extract_feature(scaled)
+            scales[i] = sc_l
+
+            for j in range(i + interval, max_scale + interval, interval):
+                scaled = scaled.rescale(0.5)
+                feats[j] = self.extract_feature(scaled)
+                scales[j] = 0.5 * scales[j-interval]
+
+        expected_size = img.shape[0]
+        feats_np = {}  # final feats (keep only numpy array, get rid of the image)
+        for k, val in scales.iteritems():
+            scales[k] = spacial_scale * 1. / val
+            shifts[k] = shift * 1. / val
+            # scales[k] = scales[i] = (expected_size * 1.0) / feats[i].shape[1]
+            feats_np[k] = np.pad(feats[k], ((0, 0), (int(pyramid_pad[1]), int(pyramid_pad[1])),
+                                            (int(pyramid_pad[0]), int(pyramid_pad[0]))), 'constant')
+        return feats_np, scales, shifts
+
+
+    def extract_image_pyramid(self, img, interval=10):
+        spacial_scale = self.spacial_scale
+        sc = 2 ** (1. / interval)
+        img_size = (img.shape[0], img.shape[1])
+        max_scale = int(log_m(min(img_size)*1./(5*spacial_scale))/log_m(sc)) + 1
+        imgs = {}
+        for i in range(interval):
+            sc_l = 2.0 / sc ** i
+            scaled = img.rescale(sc_l)
+            imgs[i] = scaled
+
+            for j in range(i + interval, max_scale + interval, interval):
+                scaled = scaled.rescale(0.5)
+                imgs[j] = scaled
+        return imgs
 
 
 class HogFeaturePyramid(FeaturePyramid):
@@ -918,7 +1142,7 @@ class HogFeaturePyramid(FeaturePyramid):
         img = Image(np.zeros((1, img_size, img_size)))
         feature = hog(img, mode='sparse', algorithm='zhuramanan')
         feature_size = feature.pixels.shape[0]
-        spacial_scale = 4  # img_size//feature.shape[0]  # ideal spacial scale is 4  #todo: fix this tmr
+        spacial_scale = 4  # img_size//feature.shape[0]
         super(HogFeaturePyramid, self).__init__(feature_size, spacial_scale)
 
     def extract_feature(self, img):
@@ -926,7 +1150,6 @@ class HogFeaturePyramid(FeaturePyramid):
 
     def extract_pyramid(self, img, interval=10, pyramid_pad=(3, 3)):
         # Construct the feature pyramid. For the time being, it has similar conventions as in Ramanan's code.
-        # TODO: In the future, use menpo's gaussian pyramid.
         spacial_scale = self.spacial_scale
         sc = 2 ** (1. / interval)
         img_size = (img.shape[0], img.shape[1])
@@ -946,11 +1169,12 @@ class HogFeaturePyramid(FeaturePyramid):
                 scales[j + interval] = 0.5 * scales[j]
 
         feats_np = {}  # final feats (keep only numpy array, get rid of the image)
+        expected_size = img.shape[0]
         for k, val in scales.iteritems():
             scales[k] = spacial_scale * 1. / val
             feats_np[k] = np.pad(feats[k].pixels, ((0, 0), (int(pyramid_pad[1]), int(pyramid_pad[1])),
                                                    (int(pyramid_pad[0]), int(pyramid_pad[0]))), 'constant')
-        return feats_np, scales
+        return feats_np, scales, None
 
 
 class Qp(object):
@@ -977,11 +1201,12 @@ class Qp(object):
         self.sv = np.zeros((nmax,), dtype=np.bool)              # indicating if x_i is the support vector
         self.w = np.zeros((length,))                            # sum_i a_i*x_i
         self.l = np.array([0], dtype=np.double)                 # sum_i b_i*a_i
-        self.n = 0                                              # number of constraints
+        self.n = 0                                              # number of constraints/examples
         self.ub = 0.0                                           # .5*||qp.w||^2 + C*sum_i e_i
         self.lb = 0.0                                           # -.5*sum_ij a_i*(x_i*x_j)*a_j + sum_i b_i*a_i
         self.lb_old = 0.0
         self.svfix = []                                         # pointers to examples that are always kept in memory
+        self.boxes = []
 
         # Put a Gaussian regularization or "prior" on w given by (w0, wreg) where mean = w0, cov^(-1/2) = wreg
         # qp.w = (w - w0)*wreg -> w = qp.w/wreg + w0
@@ -1065,10 +1290,12 @@ class Qp(object):
         self.sv[i] = True
         self.n += 1
 
-    def write_multiple_exs(self, indexes, filter_index, def_index, filters, defs):
+    def write_multiple_exs(self, indexes, filter_index, def_index, filters, defs, will_be_update=False):
         # save the examples(configurations) returned by fitting into qp's set of examples(x)
         # this function consume more memory while significantly reduce the time of writing into qp.x especially
         # in the case of negative examples where a lot of examples are created
+        # print(filters.shape)
+        # print(defs.shape)
 
         ex_nums = np.shape(indexes)[1]
         num_parts = np.size(filter_index)
@@ -1105,6 +1332,13 @@ class Qp(object):
         self.sv[i] = True
         self.n += ex_nums
 
+        if will_be_update:
+            self.indexes, self.filter_index, self.def_index, self.defs = indexes, filter_index, def_index, defs
+
+    def update_multiple_exs(self, filters):
+        assert self.n == 0
+        self.write_multiple_exs(self.indexes, self.filter_index, self.def_index, filters, self.defs)
+
     def _create_block(self, bias, c, cv, indexes, values, i, j, label, norm):
         i1 = indexes[cv]
         i2 = i1 + values.shape[1]
@@ -1122,9 +1356,11 @@ class Qp(object):
         return j, bias, norm
 
     def prune(self):
-        # when sv is full, only keep the sv where alpha(a) is active.
+        # when sv is full, only keep positive examples and the negative examples whose whose alpha(a) is active.
         if np.all(self.sv):
             self.sv = self.a > 0
+            print(np.where(self.sv)[0])
+            print(self.svfix)
             self.sv[self.svfix] = True
 
         idxs = np.where(self.sv)[0]
@@ -1149,6 +1385,10 @@ class Qp(object):
         self.a[n:] = 0
         self.project_non_neg()
         self.lb = self.update_lb()
+        print(idxs)
+        print(len(self.boxes))
+        if len(self.boxes) >= np.max(idxs) + 1:
+            self.boxes = [self.boxes[i] for i in idxs.tolist()]
         self.n = n
 
     def update_lb(self):
@@ -1408,11 +1648,90 @@ class Qp(object):
         self.non_neg = non_neg
         return self
 
-    def obtimise(self, model):
+    def obtimise(self, model, iters=1000):
         if self.lb < 0 or self.n == np.size(self.a):
-            self.mult()
+            self.mult(iters=iters)
             self.prune()
         else:
             self.one()
         model = self.vec2model(model)
+        # print('qp.n', self.n)
+        # print('qp.a', np.sum(self.a > 0))
         return model
+
+    def get_support_vector_examples_for_regression(self):
+        # sv_indexes = self.svfix
+        sv_indexes = np.where(self.a > 0)[0]
+        # sv_indexes = range(self.n)
+        alphas = self.a[sv_indexes]
+        # print(sv_indexes)
+        examples = np.array([np.moveaxis(self.boxes[i]['original_image'], 1, 3) for i in sv_indexes])
+        labels = self.i[0, sv_indexes]
+        part_examples = list()
+        part_alphas = list()
+        part_labels = list()
+        for i, example in enumerate(examples):
+            for part in example:
+                part_examples.append(part)
+                part_alphas.append(alphas[i])
+                part_labels.append(labels[i])
+        return np.array(part_alphas), np.array(part_examples), np.array(part_labels)
+
+    def get_support_vector_examples_for_classify(self):
+        # sv_indexes = self.svfix
+        sv_indexes = np.where(self.a > 0)[0]
+        # sv_indexes = range(self.n)
+        # print(sv_indexes)
+        examples = np.array([np.moveaxis(self.boxes[i]['original_image'], 1, 3) for i in sv_indexes])
+        labels = self.i[0, sv_indexes]
+        part_examples = list()
+        part_alphas = list()
+        part_labels = list()
+        for i, example in enumerate(examples):
+            num_part = example.shape[0]
+            print(num_part)
+            for j, part in enumerate(example):
+                part_examples.append(part)
+                part_labels.append(j if labels[i] else num_part)
+        return np.array(part_examples), np.array(part_labels)
+
+    def get_support_vector_examples_for_hinge_loss(self):
+        # sv_indexes = self.svfix
+        sv_indexes = np.where(self.a > 0)[0]
+        # sv_indexes = range(self.n)
+        # print(sv_indexes)
+        examples = np.array([np.moveaxis(self.boxes[i]['original_image'], 1, 3) for i in sv_indexes])
+        labels = self.i[0, sv_indexes]
+        part_examples = list()
+        part_alphas = list()
+        part_labels = list()
+        for i, example in enumerate(examples):
+            num_part = example.shape[0]
+            print(num_part)
+            for j, part in enumerate(example):
+                part_examples.append(part)
+                part_labels.append(j if labels[i] else num_part)
+        return np.array(part_examples), np.array(part_labels)
+
+    def clear_example(self):
+        self.n = 0
+        self.a = np.zeros((self.nmax,))
+        self.boxes = list()
+
+    def update_example(self, indexes, filter_index, def_index, filters, defs):
+
+        ex_nums = np.shape(indexes)[1]
+        num_parts = np.size(filter_index)
+
+        cv = 0
+        j, bias, norm = self._create_block(bias, c, cv, def_index, x, i, j, label, norm)
+        j, bias, norm = self._create_block(bias, c, cv, filter_index, filters, i, j, label, norm)
+        for cv in range(1, num_parts):
+            j, bias, norm = self._create_block(bias, c, cv, def_index, defs, i, j, label, norm)
+            j, bias, norm = self._create_block(bias, c, cv, filter_index, filters, i, j, label, norm)
+
+        self.d[i] = norm
+        self.b[i] = c*bias
+        self.i[:, i] = indexes
+        self.sv[i] = True
+        self.n += ex_nums
