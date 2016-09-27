@@ -1,6 +1,5 @@
 from collections import OrderedDict
 import numpy as np
-import pandas as pn
 
 from menpo.visualize import print_progress as menpo_print_progress
 
@@ -194,6 +193,7 @@ def statistics_table(errors, method_names, auc_max_error, auc_error_step,
 
     """
     from menpofit.error import compute_statistical_measures
+    import pandas as pn
 
     # Make sure errors is a list of lists
     if not isinstance(errors[0], list):

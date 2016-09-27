@@ -3,17 +3,21 @@ from functools import partial
 import numpy as np
 from scipy.stats import multivariate_normal
 
+from menpo.feature import normalize_norm
 from menpo.shape import PointCloud
 from menpo.image import Image
 from menpo.base import name_of_callable
 
 from menpofit.base import build_grid
-from menpofit.feature import normalize_norm, probability_map
 from menpofit.math.fft_utils import (fft2, ifft2, fftshift, pad, crop,
                                      fft_convolve2d_sum)
 from menpofit.visualize import print_progress
 
-from .base import IncrementalCorrelationFilterThinWrapper
+from .base import IncrementalCorrelationFilterThinWrapper, probability_map
+
+
+channel_normalize_norm = partial(normalize_norm,  mode='per_channel',
+                                 error_on_divide_by_zero=False)
 
 
 class ExpertEnsemble(object):
@@ -320,7 +324,8 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     def __init__(self, images, shapes,
                  icf_cls=IncrementalCorrelationFilterThinWrapper,
                  patch_shape=(17, 17), context_shape=(34, 34),
-                 response_covariance=3, patch_normalisation=normalize_norm,
+                 response_covariance=3,
+                 patch_normalisation=channel_normalize_norm,
                  cosine_mask=True, sample_offsets=None, prefix='',
                  verbose=False):
         # TODO: check parameters?
