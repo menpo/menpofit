@@ -595,6 +595,8 @@ class Result(object):
         if self.gt_shape is not None:
             if self.initial_shape is not None:
                 out += "\nInitial error: {:.4f}".format(self.initial_error())
+                if isinstance(self, ParametricIterativeResult) or isinstance(self, MultiScaleParametricIterativeResult):
+                  out += "\nReconstructed initial error: {:.4f}".format(self.reconstructed_initial_error())
             out += "\nFinal error: {:.4f}".format(self.final_error())
         return out
 
