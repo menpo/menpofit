@@ -18,6 +18,7 @@ Deformable Models
    menpofit/aps/index
    menpofit/atm/index
    menpofit/clm/index
+   menpofit/unified_aam_clm/index
    menpofit/dlib/index
    menpofit/lk/index
    menpofit/sdm/index

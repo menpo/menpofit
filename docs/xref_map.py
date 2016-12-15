@@ -5,6 +5,7 @@ xref_map = {
 'ActiveShapeModel': ('class', 'menpofit.clm.ActiveShapeModel'),
 'AlternatingForwardCompositional': ('class', 'menpofit.aam.AlternatingForwardCompositional'),
 'AlternatingInverseCompositional': ('class', 'menpofit.aam.AlternatingInverseCompositional'),
+'AlternatingRegularisedLandmarkMeanShift': ('class', 'menpofit.unified_aam_clm.AlternatingRegularisedLandmarkMeanShift'),
 'AppearanceWeightsGaussNewton': ('class', 'menpofit.aam.AppearanceWeightsGaussNewton'),
 'AppearanceWeightsNewton': ('class', 'menpofit.aam.AppearanceWeightsNewton'),
 'APSAlgorithmResult': ('class', 'menpofit.aps.result.APSAlgorithmResult'),
@@ -100,6 +101,7 @@ xref_map = {
 'ProjectOutInverseCompositional': ('class', 'menpofit.aam.ProjectOutInverseCompositional'),
 'ProjectOutGaussNewton': ('class', 'menpofit.aam.ProjectOutGaussNewton'),
 'ProjectOutNewton': ('class', 'menpofit.aam.ProjectOutNewton'),
+'ProjectOutRegularisedLandmarkMeanShift': ('class', 'menpofit.unified_aam_clm.ProjectOutRegularisedLandmarkMeanShift'),
 'RegularisedLandmarkMeanShift': ('class', 'menpofit.clm.RegularisedLandmarkMeanShift'),
 'Result': ('class', 'menpofit.result.Result'),
 'SimultaneousForwardCompositional': ('class', 'menpofit.aam.SimultaneousForwardCompositional'),
@@ -107,6 +109,10 @@ xref_map = {
 'SSD': ('class', 'menpofit.lk.SSD'),
 'SupervisedDescentAAMFitter': ('class', 'menpofit.aam.SupervisedDescentAAMFitter'),
 'SupervisedDescentFitter': ('class', 'menpofit.sdm.SupervisedDescentFitter'),
+'UnifiedAAMCLM': ('class', 'menpofit.unified_aam_clm.base.UnifiedAAMCLM'),
+'UnifiedAAMCLMAlgorithmResult': ('class', 'menpofit.unified_aam_clm.result.UnifiedAAMCLMAlgorithmResult'),
+'UnifiedAAMCLMFitter': ('class', 'menpofit.unified_aam_clm.UnifiedAAMCLMFitter'),
+'UnifiedAAMCLMResult': ('class', 'menpofit.unified_aam_clm.result.UnifiedAAMCLMResult'),
 'WibergForwardCompositional': ('class', 'menpofit.aam.WibergForwardCompositional'),
 'WibergInverseCompositional': ('class', 'menpofit.aam.WibergInverseCompositional')
 }
