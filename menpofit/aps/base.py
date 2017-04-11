@@ -456,7 +456,7 @@ class GenerativeAPS(object):
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
-                                 mode='multiple', figure_size=(10, 8)):
+                                 mode='multiple', figure_size=(7, 7)):
         r"""
         Visualizes the shape models of the APS object using an interactive
         widget.
@@ -480,8 +480,8 @@ class GenerativeAPS(object):
             The size of the rendered figure.
         """
         try:
-            from menpowidgets import visualize_shape_model
-            visualize_shape_model(
+            from menpowidgets import visualize_shape_model_2d
+            visualize_shape_model_2d(
                 [sm.model for sm in self.shape_models],
                 n_parameters=n_parameters, parameters_bounds=parameters_bounds,
                 figure_size=figure_size, mode=mode)
@@ -489,7 +489,7 @@ class GenerativeAPS(object):
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
-    def view_shape_graph_widget(self, scale_index=-1, figure_size=(10, 8)):
+    def view_shape_graph_widget(self, scale_index=-1, figure_size=(7, 7)):
         r"""
         Visualize the shape graph using an interactive widget.
 
@@ -516,7 +516,7 @@ class GenerativeAPS(object):
                              "is no graph".format(scale_index))
 
     def view_deformation_graph_widget(self, scale_index=-1,
-                                      figure_size=(10, 8)):
+                                      figure_size=(7, 7)):
         r"""
         Visualize the deformation graph using an interactive widget.
 
@@ -537,7 +537,7 @@ class GenerativeAPS(object):
                 self.deformation_graph[scale_index].adjacency_matrix)
         dg.view_widget(figure_size=figure_size)
 
-    def view_appearance_graph_widget(self, scale_index=-1, figure_size=(10, 8)):
+    def view_appearance_graph_widget(self, scale_index=-1, figure_size=(7, 7)):
         r"""
         Visualize the appearance graph using an interactive widget.
 
@@ -577,7 +577,7 @@ class GenerativeAPS(object):
                                axes_font_name='sans-serif', axes_font_size=10,
                                axes_font_style='normal',
                                axes_font_weight='normal', crop_proportion=0.1,
-                               figure_size=(10, 8)):
+                               figure_size=(7, 7)):
         r"""
         Visualize the deformation model by plotting a Gaussian ellipsis per
         graph edge.

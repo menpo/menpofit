@@ -205,7 +205,7 @@ class Result(object):
              render_axes=False, axes_font_name='sans-serif', axes_font_size=10,
              axes_font_style='normal', axes_font_weight='normal',
              axes_x_limits=None, axes_y_limits=None, axes_x_ticks=None,
-             axes_y_ticks=None, figure_size=(10, 8)):
+             axes_y_ticks=None, figure_size=(7, 7)):
         """
         Visualize the fitting result. The method renders the final fitted
         shape and optionally the initial shape, ground truth shape and the
@@ -565,26 +565,18 @@ class Result(object):
                 axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
                 axes_y_ticks=axes_y_ticks, figure_size=figure_size)
 
-    def view_widget(self, browser_style='buttons', figure_size=(10, 8),
-                    style='coloured'):
+    def view_widget(self, figure_size=(7, 7)):
         r"""
         Visualizes the result object using an interactive widget.
 
         Parameters
         ----------
-        browser_style : {``'buttons'``, ``'slider'``}, optional
-            It defines whether the selector of the images will have the form of
-            plus/minus buttons or a slider.
         figure_size : (`int`, `int`), optional
             The initial size of the rendered figure.
-        style : {``'coloured'``, ``'minimal'``}, optional
-            If ``'coloured'``, then the style of the widget will be coloured. If
-            ``minimal``, then the style is simple using black and white colours.
         """
         try:
-            from menpowidgets import visualize_fitting_result
-            visualize_fitting_result(self, figure_size=figure_size, style=style,
-                                     browser_style=browser_style)
+            from menpowidgets import visualize_fitting_results
+            visualize_fitting_results(self, figure_size=figure_size)
         except ImportError:
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
@@ -1260,7 +1252,7 @@ class NonParametricIterativeResult(Result):
                         axes_font_style='normal', axes_font_weight='normal',
                         axes_x_limits=None, axes_y_limits=None,
                         axes_x_ticks=None, axes_y_ticks=None,
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         """
         Visualize the iterations of the fitting process.
 
@@ -1751,7 +1743,7 @@ class ParametricIterativeResult(NonParametricIterativeResult):
                         axes_font_style='normal', axes_font_weight='normal',
                         axes_x_limits=None, axes_y_limits=None,
                         axes_x_ticks=None, axes_y_ticks=None,
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         """
         Visualize the iterations of the fitting process.
 
@@ -2332,7 +2324,7 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
                         axes_font_style='normal', axes_font_weight='normal',
                         axes_x_limits=None, axes_y_limits=None,
                         axes_x_ticks=None, axes_y_ticks=None,
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         """
         Visualize the iterations of the fitting process.
 

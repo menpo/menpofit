@@ -231,7 +231,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         return fft_convolve2d_sum(patches, self.fft_padded_filters,
                                   fft_filter=True, axis=1)
 
-    def view_spatial_filter_images_widget(self, figure_size=(10, 8),
+    def view_spatial_filter_images_widget(self, figure_size=(7, 7),
                                           style='coloured',
                                           browser_style='buttons'):
         r"""
@@ -257,7 +257,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
-    def view_frequency_filter_images_widget(self, figure_size=(10, 8),
+    def view_frequency_filter_images_widget(self, figure_size=(7, 7),
                                             style='coloured',
                                             browser_style='buttons'):
         r"""

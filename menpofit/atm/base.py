@@ -355,7 +355,7 @@ class ATM(object):
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
-                                 mode='multiple', figure_size=(10, 8)):
+                                 mode='multiple', figure_size=(7, 7)):
         r"""
         Visualizes the shape models of the ATM object using an interactive
         widget.
@@ -379,8 +379,8 @@ class ATM(object):
             The size of the rendered figure.
         """
         try:
-            from menpowidgets import visualize_shape_model
-            visualize_shape_model(
+            from menpowidgets import visualize_shape_model_2d
+            visualize_shape_model_2d(
                 [sm.model for sm in self.shape_models],
                 n_parameters=n_parameters, parameters_bounds=parameters_bounds,
                 figure_size=figure_size, mode=mode)
@@ -390,7 +390,7 @@ class ATM(object):
 
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         r"""
         Visualizes the ATM using an interactive widget.
 
@@ -663,7 +663,7 @@ class LinearATM(ATM):
     # TODO: implement me!
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
@@ -812,7 +812,7 @@ class LinearMaskedATM(ATM):
     # TODO: implement me!
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
@@ -939,7 +939,7 @@ class PatchATM(ATM):
 
     def view_atm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         r"""
         Visualizes the ATM using an interactive widget.
 
