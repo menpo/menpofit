@@ -169,7 +169,7 @@ class CLM(object):
                                       'this may cause issues.',
                                       MenpoFitBuilderWarning)
                     self.reference_shape = compute_reference_shape(
-                        [i.landmarks[group].lms for i in image_batch],
+                        [i.landmarks[group] for i in image_batch],
                         self.diagonal, verbose=verbose)
 
             # After the first batch, we are incrementing the model
@@ -227,7 +227,7 @@ class CLM(object):
                 scaled_images = feature_images
 
             # extract scaled shapes
-            scaled_shapes = [image.landmarks[group].lms
+            scaled_shapes = [image.landmarks[group]
                              for image in scaled_images]
 
             # train shape model

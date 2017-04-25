@@ -125,7 +125,7 @@ def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
         The images with normalized size.
     """
     # get shapes
-    shapes = [i.landmarks[group].lms for i in images]
+    shapes = [i.landmarks[group] for i in images]
 
     # compute the reference shape and fix its diagonal length
     reference_shape = compute_reference_shape(shapes, diagonal, verbose=verbose)
@@ -256,8 +256,8 @@ def warp_images(images, shapes, reference_frame, transform, prefix='',
 
     warped_images = []
     # Build a dummy transform, use set_target for efficiency
-    warp_transform = transform(reference_frame.landmarks['source'].lms,
-                               reference_frame.landmarks['source'].lms)
+    warp_transform = transform(reference_frame.landmarks['source'],
+                               reference_frame.landmarks['source'])
     for i, s in wrap(list(zip(images, shapes))):
         # Update Transform Target
         warp_transform.set_target(s)
@@ -392,7 +392,7 @@ def densify_shapes(shapes, reference_frame, transform):
         The list of dense shapes.
     """
     # compute non-linear transforms
-    transforms = [transform(reference_frame.landmarks['source'].lms, s)
+    transforms = [transform(reference_frame.landmarks['source'], s)
                   for s in shapes]
     # build dense shapes
     dense_shapes = []

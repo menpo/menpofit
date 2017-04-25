@@ -165,7 +165,7 @@ class AAM(object):
                     checks.check_landmark_trilist(image_batch[0],
                                                   self.transform, group=group)
                     self.reference_shape = compute_reference_shape(
-                        [i.landmarks[group].lms for i in image_batch],
+                        [i.landmarks[group] for i in image_batch],
                         self.diagonal, verbose=verbose)
 
             # After the first batch, we are incrementing the model
@@ -226,7 +226,7 @@ class AAM(object):
                 scaled_images = feature_images
 
             # Extract potentially rescaled shapes
-            scale_shapes = [i.landmarks[group].lms for i in scaled_images]
+            scale_shapes = [i.landmarks[group] for i in scaled_images]
 
             # Build the shape model
             if verbose:
@@ -412,12 +412,12 @@ class AAM(object):
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         template = self.appearance_models[scale_index].mean()
-        landmarks = template.landmarks['source'].lms
+        landmarks = template.landmarks['source']
 
         reference_frame = build_reference_frame(shape_instance)
 
         transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
+            reference_frame.landmarks['source'], landmarks)
 
         return appearance_instance.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
@@ -558,7 +558,7 @@ class AAM(object):
             template = am.mean()
             md_transform = OrthoMDTransform(
                 sm, self.transform,
-                source=template.landmarks['source'].lms)
+                source=template.landmarks['source'])
             interface = LucasKanadeStandardInterface(
                 am, md_transform, template, sampling=s)
             interfaces.append(interface)
@@ -698,13 +698,13 @@ class MaskedAAM(AAM):
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         template = self.appearance_models[scale_index].mean()
-        landmarks = template.landmarks['source'].lms
+        landmarks = template.landmarks['source']
 
         reference_frame = build_patch_reference_frame(
             shape_instance, patch_shape=self.patch_shape[scale_index])
 
         transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
+            reference_frame.landmarks['source'], landmarks)
 
         return appearance_instance.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)

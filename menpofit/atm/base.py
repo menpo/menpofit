@@ -343,12 +343,12 @@ class ATM(object):
         return self._instance(shape_instance, template)
 
     def _instance(self, shape_instance, template):
-        landmarks = template.landmarks['source'].lms
+        landmarks = template.landmarks['source']
 
         reference_frame = build_reference_frame(shape_instance)
 
         transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
+            reference_frame.landmarks['source'], landmarks)
 
         return template.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
@@ -443,7 +443,7 @@ class ATM(object):
                              sampling):
             md_transform = OrthoMDTransform(
                 sm, self.transform,
-                source=wt.landmarks['source'].lms)
+                source=wt.landmarks['source'])
             interface = ATMLucasKanadeStandardInterface(
                 md_transform, wt, sampling=s)
             interfaces.append(interface)
@@ -528,7 +528,7 @@ class MaskedATM(ATM):
                        prefix, verbose):
         reference_frame = build_patch_reference_frame(
             reference_shape, patch_shape=self.patch_shape[scale_index])
-        shape = template.landmarks[group].lms
+        shape = template.landmarks[group]
         return warp_images([template], [shape], reference_frame, self.transform,
                            prefix=prefix, verbose=verbose)
 
@@ -537,13 +537,13 @@ class MaskedATM(ATM):
         return 'Masked Active Template Model'
 
     def _instance(self, shape_instance, template):
-        landmarks = template.landmarks['source'].lms
+        landmarks = template.landmarks['source']
 
         reference_frame = build_patch_reference_frame(
             shape_instance, patch_shape=self.patch_shape)
 
         transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
+            reference_frame.landmarks['source'], landmarks)
 
         return template.as_unmasked().warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
@@ -651,7 +651,7 @@ class LinearATM(ATM):
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
-        shape = template.landmarks[group].lms
+        shape = template.landmarks[group]
         return warp_images([template], [shape], self.reference_frame,
                            self.transform, prefix=prefix,
                            verbose=verbose)
@@ -800,7 +800,7 @@ class LinearMaskedATM(ATM):
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
-        shape = template.landmarks[group].lms
+        shape = template.landmarks[group]
         return warp_images([template], [shape], self.reference_frame,
                            self.transform, prefix=prefix,
                            verbose=verbose)
@@ -928,7 +928,7 @@ class PatchATM(ATM):
 
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
-        shape = template.landmarks[group].lms
+        shape = template.landmarks[group]
         return extract_patches([template], [shape],
                                self.patch_shape[scale_index],
                                normalise_function=self.patch_normalisation,

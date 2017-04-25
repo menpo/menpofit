@@ -369,7 +369,7 @@ class MultiScaleNonParametricFitter(object):
                 # AlignmentAffine) in order to be able to revert it at the
                 # final fitting result.
                 affine_transforms.append(AlignmentAffine(
-                    feature_image.landmarks['__initial_shape'].lms,
+                    feature_image.landmarks['__initial_shape'],
                     initial_shape))
             else:
                 # If features are not extracted, then the affine transform
@@ -394,11 +394,11 @@ class MultiScaleNonParametricFitter(object):
             images.append(scaled_image)
 
         # Get initial shapes per level
-        initial_shapes = [i.landmarks['__initial_shape'].lms for i in images]
+        initial_shapes = [i.landmarks['__initial_shape'] for i in images]
 
         # Get ground truth shapes per level
         if gt_shape:
-            gt_shapes = [i.landmarks['__gt_shape'].lms for i in images]
+            gt_shapes = [i.landmarks['__gt_shape'] for i in images]
         else:
             gt_shapes = None
 
@@ -743,11 +743,11 @@ def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
         The function that generates the perturbations.
     """
     if bb_group_glob is None:
-        bb_generator = lambda im: [im.landmarks[gt_group].lms.bounding_box()]
+        bb_generator = lambda im: [im.landmarks[gt_group].bounding_box()]
         n_bbs = 1
     else:
         def bb_glob(im):
-            return [v.lms.bounding_box()
+            return [v.bounding_box()
                     for _, v in im.landmarks.items_matching(bb_group_glob)]
         bb_generator = bb_glob
         n_bbs = len(bb_glob(images[0]))
@@ -769,7 +769,7 @@ def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
 
     wrap = partial(print_progress, prefix=msg, verbose=verbose)
     for im in wrap(images):
-        gt_s = im.landmarks[gt_group].lms.bounding_box()
+        gt_s = im.landmarks[gt_group].bounding_box()
 
         k = 0
         im_bounds = im.bounds()
@@ -785,6 +785,6 @@ def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
                 im.landmarks[perturb_bbox_group] = bb.constrain_to_bounds(im_bounds)
                 k += 1
 
-    generated_bb_func = lambda x: [v.lms for k, v in x.landmarks.items_matching(
+    generated_bb_func = lambda x: [v for k, v in x.landmarks.items_matching(
         '__generated_bb_*')]
     return generated_bb_func

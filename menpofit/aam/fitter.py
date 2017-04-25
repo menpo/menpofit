@@ -448,8 +448,8 @@ def holistic_sampling_from_scale(aam, scale=0.35):
     reference = aam.appearance_models[0].mean()
     scaled_reference = reference.rescale(scale)
 
-    t = AlignmentUniformScale(scaled_reference.landmarks['source'].lms,
-                              reference.landmarks['source'].lms)
+    t = AlignmentUniformScale(scaled_reference.landmarks['source'],
+                              reference.landmarks['source'])
     new_indices = np.require(np.round(t.apply(
         scaled_reference.mask.true_indices())), dtype=np.int)
 

@@ -102,7 +102,7 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
         if self.diagonal:
             template = template.rescale_landmarks_to_diagonal_range(
                 self.diagonal, group=group)
-        reference_shape = template.landmarks[group].lms
+        reference_shape = template.landmarks[group]
 
         # Call superclass
         super(LucasKanadeFitter, self).__init__(
@@ -121,7 +121,7 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
             self.algorithms.append(algorithm_cls(t, transform, residual))
 
     def _prepare_template(self, template, group=None):
-        gt_shape = template.landmarks[group].lms
+        gt_shape = template.landmarks[group]
         templates, _, sources, _, _ = self._prepare_image(template, gt_shape,
                                                           gt_shape=gt_shape)
         return templates, sources

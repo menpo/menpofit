@@ -495,7 +495,7 @@ def view_image_multiple_landmarks(
                                   fontstyle=legend_font_style,
                                   fontweight=legend_font_weight,
                                   fontsize=legend_font_size)
-                image.landmarks[group].lms.view(
+                image.landmarks[group].view(
                         image_view=image_view, render_lines=render_lines[k],
                         line_style=line_style[k], line_width=line_width[k],
                         line_colour=line_colour[k],

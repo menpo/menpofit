@@ -176,7 +176,7 @@ class UnifiedAAMCLM(object):
     def _train(self, images, group=None, verbose=False):
         checks.check_landmark_trilist(images[0], self.transform, group=group)
         self.reference_shape = compute_reference_shape(
-            [i.landmarks[group].lms for i in images],
+            [i.landmarks[group] for i in images],
             self.diagonal, verbose=verbose)
         
         # normalize images
@@ -222,7 +222,7 @@ class UnifiedAAMCLM(object):
                 scaled_images = feature_images
 
             # Extract potentially rescaled shapes
-            scale_shapes = [i.landmarks[group].lms for i in scaled_images]
+            scale_shapes = [i.landmarks[group] for i in scaled_images]
 
             # Build the shape model
             if verbose:
@@ -374,12 +374,12 @@ class UnifiedAAMCLM(object):
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         template = self.appearance_models[scale_index].mean()
-        landmarks = template.landmarks['source'].lms
+        landmarks = template.landmarks['source']
 
         reference_frame = build_reference_frame(shape_instance)
 
         transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
+            reference_frame.landmarks['source'], landmarks)
 
         return appearance_instance.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
@@ -589,7 +589,7 @@ class UnifiedAAMCLM(object):
             template = am.mean()
             md_transform = OrthoMDTransform(
                 sm, self.transform,
-                source=template.landmarks['source'].lms)
+                source=template.landmarks['source'])
 
             interface = LucasKanadeStandardInterface(
                 am, md_transform, template, sampling=s)

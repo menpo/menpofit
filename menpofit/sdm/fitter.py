@@ -217,7 +217,7 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                                       'this may cause issues.',
                                       MenpoFitBuilderWarning)
                     self._reference_shape = compute_reference_shape(
-                        [i.landmarks[group].lms for i in image_batch],
+                        [i.landmarks[group] for i in image_batch],
                         self.diagonal, verbose=verbose)
             # We set landmarks on the images to archive the perturbations, so
             # when the default 'None' is used, we need to grab the actual
@@ -288,7 +288,7 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                 return_transforms=True, verbose=verbose)
 
             # Extract scaled ground truth shapes for current scale
-            scaled_shapes = [i.landmarks[group].lms for i in scaled_images]
+            scaled_shapes = [i.landmarks[group] for i in scaled_images]
 
             # Get shape estimations of current scale. If we are at the first
             # scale, this is done by aligning the reference shape with the
@@ -322,7 +322,7 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                     c_shapes = []
                     for k in list(range(self.n_perturbations)):
                         c_key = '__sdm_current_shape_{}'.format(k)
-                        c_shapes.append(ii.landmarks[c_key].lms)
+                        c_shapes.append(ii.landmarks[c_key])
                     current_shapes.append(c_shapes)
 
             # Train supervised descent algorithm. This returns the shape

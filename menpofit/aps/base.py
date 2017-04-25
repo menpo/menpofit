@@ -195,7 +195,7 @@ class GenerativeAPS(object):
                                       'this may cause issues.',
                                       MenpoFitBuilderWarning)
                     self.reference_shape = compute_reference_shape(
-                        [i.landmarks[group].lms for i in image_batch],
+                        [i.landmarks[group] for i in image_batch],
                         self.diagonal, verbose=verbose)
 
             # After the first batch, we are incrementing the model
@@ -218,7 +218,7 @@ class GenerativeAPS(object):
         # If the deformation graph was not provided (None given), then compute
         # the MST
         if None in self.deformation_graph:
-            graph_shapes = [i.landmarks[group].lms for i in image_batch]
+            graph_shapes = [i.landmarks[group] for i in image_batch]
             deformation_mst = _compute_minimum_spanning_tree(
                 graph_shapes, root_vertex=0, prefix='- ', verbose=verbose)
             self.deformation_graph = [deformation_mst if g is None else g
@@ -262,7 +262,7 @@ class GenerativeAPS(object):
                 scaled_images = feature_images
 
             # Extract potentially rescaled shapes
-            scale_shapes = [i.landmarks[group].lms for i in scaled_images]
+            scale_shapes = [i.landmarks[group] for i in scaled_images]
 
             # Apply procrustes to align the shapes
             aligned_shapes = align_shapes(scale_shapes)
