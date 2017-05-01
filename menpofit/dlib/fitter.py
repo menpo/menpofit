@@ -231,12 +231,12 @@ class DlibERT(MultiScaleNonParametricFitter):
 
         # Temporarily store all the bounding boxes for rescaling
         for i in original_images:
-            i.landmarks['__gt_bb'] = i.landmarks[group].lms.bounding_box()
+            i.landmarks['__gt_bb'] = i.landmarks[group].bounding_box()
 
         if self.reference_shape is None:
             # If no reference shape was given, use the mean of the first batch
             self._reference_shape = compute_reference_shape(
-                [i.landmarks['__gt_bb'].lms for i in original_images],
+                [i.landmarks['__gt_bb'] for i in original_images],
                 self.diagonal, verbose=verbose)
 
         # Rescale images wrt the scale factor between the existing
@@ -296,11 +296,11 @@ class DlibERT(MultiScaleNonParametricFitter):
                     c_bboxes = []
                     for k in list(range(self.n_perturbations)):
                         c_key = '__ert_current_bbox_{}'.format(k)
-                        c_bboxes.append(ii.landmarks[c_key].lms)
+                        c_bboxes.append(ii.landmarks[c_key])
                     current_bounding_boxes.append(c_bboxes)
 
             # Extract scaled ground truth shapes for current scale
-            scaled_gt_shapes = [i.landmarks[group].lms for i in scaled_images]
+            scaled_gt_shapes = [i.landmarks[group] for i in scaled_images]
 
             # Train the Dlib model.  This returns the bbox estimations for the
             # next scale.

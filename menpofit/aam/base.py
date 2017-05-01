@@ -165,7 +165,7 @@ class AAM(object):
                     checks.check_landmark_trilist(image_batch[0],
                                                   self.transform, group=group)
                     self.reference_shape = compute_reference_shape(
-                        [i.landmarks[group].lms for i in image_batch],
+                        [i.landmarks[group] for i in image_batch],
                         self.diagonal, verbose=verbose)
 
             # After the first batch, we are incrementing the model
@@ -226,7 +226,7 @@ class AAM(object):
                 scaled_images = feature_images
 
             # Extract potentially rescaled shapes
-            scale_shapes = [i.landmarks[group].lms for i in scaled_images]
+            scale_shapes = [i.landmarks[group] for i in scaled_images]
 
             # Build the shape model
             if verbose:
@@ -412,19 +412,19 @@ class AAM(object):
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         template = self.appearance_models[scale_index].mean()
-        landmarks = template.landmarks['source'].lms
+        landmarks = template.landmarks['source']
 
         reference_frame = build_reference_frame(shape_instance)
 
         transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
+            reference_frame.landmarks['source'], landmarks)
 
         return appearance_instance.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
-                                 mode='multiple', figure_size=(10, 8)):
+                                 mode='multiple', figure_size=(7, 7)):
         r"""
         Visualizes the shape models of the AAM object using an interactive
         widget.
@@ -448,8 +448,8 @@ class AAM(object):
             The size of the rendered figure.
         """
         try:
-            from menpowidgets import visualize_shape_model
-            visualize_shape_model(
+            from menpowidgets import visualize_shape_model_2d
+            visualize_shape_model_2d(
                 [sm.model for sm in self.shape_models],
                 n_parameters=n_parameters, parameters_bounds=parameters_bounds,
                 figure_size=figure_size, mode=mode)
@@ -459,7 +459,7 @@ class AAM(object):
 
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
+                                      mode='multiple', figure_size=(7, 7)):
         r"""
         Visualizes the appearance models of the AAM object using an
         interactive widget.
@@ -494,7 +494,7 @@ class AAM(object):
 
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         r"""
         Visualizes the AAM using an interactive widget.
 
@@ -558,7 +558,7 @@ class AAM(object):
             template = am.mean()
             md_transform = OrthoMDTransform(
                 sm, self.transform,
-                source=template.landmarks['source'].lms)
+                source=template.landmarks['source'])
             interface = LucasKanadeStandardInterface(
                 am, md_transform, template, sampling=s)
             interfaces.append(interface)
@@ -698,13 +698,13 @@ class MaskedAAM(AAM):
 
     def _instance(self, scale_index, shape_instance, appearance_instance):
         template = self.appearance_models[scale_index].mean()
-        landmarks = template.landmarks['source'].lms
+        landmarks = template.landmarks['source']
 
         reference_frame = build_patch_reference_frame(
             shape_instance, patch_shape=self.patch_shape[scale_index])
 
         transform = self.transform(
-            reference_frame.landmarks['source'].lms, landmarks)
+            reference_frame.landmarks['source'], landmarks)
 
         return appearance_instance.as_unmasked(copy=False).warp_to_mask(
             reference_frame.mask, transform, warp_landmarks=True)
@@ -835,13 +835,13 @@ class LinearAAM(AAM):
     # TODO: implement me!
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
+                                      mode='multiple', figure_size=(7, 7)):
         raise NotImplementedError()
 
     # TODO: implement me!
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
@@ -1003,13 +1003,13 @@ class LinearMaskedAAM(AAM):
     # TODO: implement me!
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
+                                      mode='multiple', figure_size=(7, 7)):
         raise NotImplementedError()
 
     # TODO: implement me!
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         raise NotImplementedError()
 
     def build_fitter_interfaces(self, sampling):
@@ -1158,7 +1158,7 @@ class PatchAAM(AAM):
 
     def view_appearance_models_widget(self, n_parameters=5,
                                       parameters_bounds=(-3.0, 3.0),
-                                      mode='multiple', figure_size=(10, 8)):
+                                      mode='multiple', figure_size=(7, 7)):
         r"""
         Visualizes the appearance models of the AAM object using an
         interactive widget.
@@ -1194,7 +1194,7 @@ class PatchAAM(AAM):
 
     def view_aam_widget(self, n_shape_parameters=5, n_appearance_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         r"""
         Visualizes the AAM using an interactive widget.
 

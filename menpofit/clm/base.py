@@ -169,7 +169,7 @@ class CLM(object):
                                       'this may cause issues.',
                                       MenpoFitBuilderWarning)
                     self.reference_shape = compute_reference_shape(
-                        [i.landmarks[group].lms for i in image_batch],
+                        [i.landmarks[group] for i in image_batch],
                         self.diagonal, verbose=verbose)
 
             # After the first batch, we are incrementing the model
@@ -227,7 +227,7 @@ class CLM(object):
                 scaled_images = feature_images
 
             # extract scaled shapes
-            scaled_shapes = [image.landmarks[group].lms
+            scaled_shapes = [image.landmarks[group]
                              for image in scaled_images]
 
             # train shape model
@@ -332,7 +332,7 @@ class CLM(object):
 
     def view_shape_models_widget(self, n_parameters=5,
                                  parameters_bounds=(-3.0, 3.0),
-                                 mode='multiple', figure_size=(10, 8)):
+                                 mode='multiple', figure_size=(7, 7)):
         r"""
         Visualizes the shape models of the CLM object using an interactive
         widget.
@@ -356,8 +356,8 @@ class CLM(object):
             The size of the rendered figure.
         """
         try:
-            from menpowidgets import visualize_shape_model
-            visualize_shape_model(
+            from menpowidgets import visualize_shape_model_2d
+            visualize_shape_model_2d(
                 [sm.model for sm in self.shape_models],
                 n_parameters=n_parameters, parameters_bounds=parameters_bounds,
                 figure_size=figure_size, mode=mode)
@@ -365,7 +365,7 @@ class CLM(object):
             from menpo.visualize.base import MenpowidgetsMissingError
             raise MenpowidgetsMissingError()
 
-    def view_expert_ensemble_widget(self, figure_size=(10, 8)):
+    def view_expert_ensemble_widget(self, figure_size=(7, 7)):
         r"""
         Visualizes the ensemble of experts of the CLM object using an
         interactive widget.
@@ -395,7 +395,7 @@ class CLM(object):
 
     def view_clm_widget(self, n_shape_parameters=5,
                         parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(10, 8)):
+                        figure_size=(7, 7)):
         r"""
         Visualizes the CLM object using an interactive widget.
 

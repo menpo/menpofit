@@ -48,7 +48,7 @@ def view_image_multiple_landmarks(
         axes_font_name='sans-serif', axes_font_size=10,
         axes_font_style='normal', axes_font_weight='normal',
         axes_x_limits=None, axes_y_limits=None, axes_x_ticks=None,
-        axes_y_ticks=None, figure_size=(10, 8)):
+        axes_y_ticks=None, figure_size=(7, 7)):
     """
     Visualize an image with its attached landmark groups. The method can
     visualize multiple landmark groups on the same figure either on subplots
@@ -495,7 +495,7 @@ def view_image_multiple_landmarks(
                                   fontstyle=legend_font_style,
                                   fontweight=legend_font_weight,
                                   fontsize=legend_font_size)
-                image.landmarks[group].lms.view(
+                image.landmarks[group].view(
                         image_view=image_view, render_lines=render_lines[k],
                         line_style=line_style[k], line_width=line_width[k],
                         line_colour=line_colour[k],
@@ -558,7 +558,7 @@ def plot_cumulative_error_distribution(
         axes_font_name='sans-serif', axes_font_size=10,
         axes_font_style='normal', axes_font_weight='normal', axes_x_limits=None,
         axes_y_limits=None, axes_x_ticks=None, axes_y_ticks=None,
-        figure_size=(10, 8), render_grid=True, grid_line_style='--',
+        figure_size=(7, 7), render_grid=True, grid_line_style='--',
         grid_line_width=0.5):
     r"""
     Plot the cumulative error distribution (CED) of the provided fitting errors.

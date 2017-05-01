@@ -54,7 +54,7 @@ def check_landmark_trilist(image, transform, group=None):
         Delaunay Triangulation will be computed and used for warping. This may
         be suboptimal and cause warping artifacts.
     """
-    shape = image.landmarks[group].lms
+    shape = image.landmarks[group]
     check_trilist(shape, transform)
 
 
