@@ -920,7 +920,7 @@ class ProjectOutForwardCompositional(ProjectOut):
 
 class ProjectOutInverseCompositional(ProjectOut):
     r"""
-    Project-out Inverse Compositional (POFC) Gauss-Newton algorithm.
+    Project-out Inverse Compositional (POIC) Gauss-Newton algorithm.
     """
     def _precompute(self):
         # call super method
