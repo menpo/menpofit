@@ -274,7 +274,7 @@ class ATM(object):
     def _warp_template(self, template, group, reference_shape, scale_index,
                        prefix, verbose):
         reference_frame = build_reference_frame(reference_shape)
-        shape = template.landmarks[group].lms
+        shape = template.landmarks[group]
         return warp_images([template], [shape], reference_frame, self.transform,
                            prefix=prefix, verbose=verbose)
 
