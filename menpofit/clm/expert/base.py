@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 
 from menpo.feature import ndfeature
