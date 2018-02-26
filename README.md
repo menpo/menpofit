@@ -54,3 +54,9 @@ installation instructions for all major platforms.
 Documentation
 -------------
 See our documentation on [ReadTheDocs](http://menpofit.readthedocs.org)
+
+Pretrained Models
+-----------------
+Any pretrained models are provided under the assumption that they are used only for **academic** purposes and may not be used for commercial applications. Please see the license of the [300W](https://ibug.doc.ic.ac.uk/resources/300-W/) project - upon which our pretrained models are trained.
+
+Specifically, the pretrained models in `menpofit.aam.pretrained` may only be used for academic purposes.
