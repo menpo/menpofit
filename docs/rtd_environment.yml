@@ -1,14 +1,14 @@
 name: menpofit_rtd
 channels:
-  - menpo
+  - conda-forge
 dependencies:
   - python
   - setuptools
 
-  - menpo >=0.7,<0.8
+  - menpo >=0.9,<0.11
   - scikit-learn
   - dlib
   - pip:
-      - sphinx
+      - sphinx >=2,<3
       - sphinx_rtd_theme
-      - sphinxmapxrefrole>0.2
+      - sphinxmapxrefrole >=0.2
