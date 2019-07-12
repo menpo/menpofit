@@ -2,26 +2,48 @@ package:
   name: menpofit
   version: {{ environ['CONDACI_VERSION'] }}
 
+source:
+  path: ../
+
+build:
+  number: 0
+  script: python setup.py install --single-version-externally-managed --record=record.txt && python setup.py sdist
+
 requirements:
-  build:
+  host:
     - python
     - setuptools
 
   run:
     - python
-    - menpo 0.8.*
-    - scikit-learn >=0.16
-    - dlib >=18.18
-    - pandas >=0.16
+    - menpo>=0.9.0,<0.11.0
+    - scikit-learn>=0.16
+    - pandas>=0.24
 
 test:
   requires:
-    - nose
-    - mock
+    - pytest >=5.0,<6.0
+    - pytest-cov >=2.0,<3.0
+    - mock >=3.0,<4.0
+
+  files:
+    - .coveragerc
 
   imports:
-    - menpofit
+    - menpo
+
+  commands:
+    - MPLBACKEND=Agg pytest $SP_DIR/menpofit -v --cov=menpofit --cov-config .coveragerc                 # [linux]
+    - MPLBACKEND=TKAgg pytest $SP_DIR/menpofit -v --cov=menpofit --cov-config .coveragerc               # [osx]
+    - pytest %SP_DIR%\\menpofit -v --cov=menpofit --cov-config .coveragerc --junitxml=C:\\menpofit.xml  # [win]
+
 
 about:
   home: https://github.com/menpo/menpofit/
-  license: BSD
+  license: BSD 3-Clause
+  summary: A deformable modelling toolkit
+  description: |
+    The Menpo Project package for state-of-the-art 2D deformable modelling
+    techniques including AAMs, SDMs, CLMs
+  doc_url: https://menpofit.readthedocs.io/en/stable/
+  dev_url: https://github.com/menpo/menpofit
