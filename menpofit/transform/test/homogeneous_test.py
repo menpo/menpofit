@@ -1,6 +1,6 @@
 import numpy as np
+import pytest
 from numpy.testing import assert_equal
-from nose.tools import raises
 from menpofit.transform import DifferentiableAffine, DifferentiableSimilarity
 
 
@@ -262,14 +262,14 @@ def test_similarity_jacobian_2d():
     assert_equal(dW_dp, sim_jac_solution2d)
 
 
-@raises(ValueError)
 def test_similarity_jacobian_3d_raises_dimensionalityerror():
-    t = DifferentiableSimilarity(np.eye(4))
-    t.d_dp(np.ones([2, 3]))
+    with pytest.raises(ValueError):
+        t = DifferentiableSimilarity(np.eye(4))
+        t.d_dp(np.ones([2, 3]))
 
 
-@raises(ValueError)
 def test_similarity_jacobian_2d_raises_dimensionalityerror():
-    params = np.ones(4)
-    t = DifferentiableSimilarity.init_identity(2).from_vector(params)
-    t.d_dp(np.ones([2, 3]))
+    with pytest.raises(ValueError):
+        params = np.ones(4)
+        t = DifferentiableSimilarity.init_identity(2).from_vector(params)
+        t.d_dp(np.ones([2, 3]))
