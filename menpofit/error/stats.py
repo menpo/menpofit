@@ -1,7 +1,12 @@
 from __future__ import division
+
 import numpy as np
 from scipy.integrate import simps
-from collections import Iterable
+
+try:
+    import collections.abc as collections_abc
+except ImportError:
+    import collections as collections_abc
 
 
 def compute_cumulative_error(errors, bins):
@@ -109,7 +114,7 @@ def compute_statistical_measures(errors, step_error, max_error, min_error=0.):
     fr : `float` or `list` of `float`
         The failure rate value.
     """
-    if isinstance(errors[0], Iterable):
+    if isinstance(errors[0], collections_abc.Iterable):
         mean_val = []
         std_val = []
         median_val = []
@@ -124,8 +129,8 @@ def compute_statistical_measures(errors, step_error, max_error, min_error=0.):
             mad_val.append(mad(e))
             max_val.append(np.max(e))
             auc_v, fail_v = area_under_curve_and_failure_rate(
-                    e, step_error=step_error, max_error=max_error,
-                    min_error=min_error)
+                e, step_error=step_error, max_error=max_error,
+                min_error=min_error)
             auc_val.append(auc_v)
             fail_val.append(fail_v)
     else:
@@ -135,6 +140,6 @@ def compute_statistical_measures(errors, step_error, max_error, min_error=0.):
         mad_val = mad(errors)
         max_val = np.max(errors)
         auc_val, fail_val = area_under_curve_and_failure_rate(
-                errors, step_error=step_error, max_error=max_error,
-                min_error=min_error)
+            errors, step_error=step_error, max_error=max_error,
+            min_error=min_error)
     return mean_val, std_val, median_val, mad_val, max_val, auc_val, fail_val
