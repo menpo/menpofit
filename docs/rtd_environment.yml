@@ -4,10 +4,11 @@ channels:
 dependencies:
   - python
   - setuptools
+  - pip
 
+  # Note that dlib and sklearn are mocked otherwise readthedocs runs out of
+  # memory setting up the environment
   - menpo >=0.9,<0.11
-  - scikit-learn
-  - dlib
   - pip:
       - sphinx >=2,<3
       - sphinx_rtd_theme

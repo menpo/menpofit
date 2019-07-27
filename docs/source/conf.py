@@ -11,6 +11,12 @@ sys.path.insert(0, os.path.abspath('..'))
 if not on_rtd:
     # Add the menpofit root so we can grab the version
     sys.path.insert(0, os.path.abspath('../../'))
+else:
+    from mock import MagicMock
+
+    MOCK_MODULES = ['dlib', 'sklearn']
+    for mod_name in MOCK_MODULES:
+        sys.modules[mod_name] = MagicMock()
 
 import menpofit
 
