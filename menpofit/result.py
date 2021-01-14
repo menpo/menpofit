@@ -19,9 +19,8 @@ def _rescale_shapes_to_reference(shapes, affine_transform, scale_transform):
 
 
 def _parse_iters(iters, n_shapes):
-    if not (iters is None or isinstance(iters, int) or
-            isinstance(iters, list)):
-        raise ValueError('iters must be either int or list or None')
+    if not (iters is None or isinstance(iters, int) or isinstance(iters, list)):
+        raise ValueError("iters must be either int or list or None")
     if iters is None:
         iters = list(range(n_shapes))
     if isinstance(iters, int):
@@ -57,8 +56,7 @@ class Result(object):
         ground truth shape is assigned.
     """
 
-    def __init__(self, final_shape, image=None, initial_shape=None,
-                 gt_shape=None):
+    def __init__(self, final_shape, image=None, initial_shape=None, gt_shape=None):
         self._final_shape = final_shape
         self._initial_shape = initial_shape
         self._gt_shape = gt_shape
@@ -143,8 +141,10 @@ class Result(object):
         if self.gt_shape is not None:
             return compute_error(self.final_shape, self.gt_shape)
         else:
-            raise ValueError('Ground truth shape has not been set, so the '
-                             'final error cannot be computed')
+            raise ValueError(
+                "Ground truth shape has not been set, so the "
+                "final error cannot be computed"
+            )
 
     def initial_error(self, compute_error=None):
         r"""
@@ -175,41 +175,84 @@ class Result(object):
         if compute_error is None:
             compute_error = euclidean_bb_normalised_error
         if self.initial_shape is None:
-            raise ValueError('Initial shape has not been set, so the initial '
-                             'error cannot be computed')
+            raise ValueError(
+                "Initial shape has not been set, so the initial "
+                "error cannot be computed"
+            )
         elif self.gt_shape is None:
-            raise ValueError('Ground truth shape has not been set, so the '
-                             'initial error cannot be computed')
+            raise ValueError(
+                "Ground truth shape has not been set, so the "
+                "initial error cannot be computed"
+            )
         else:
             return compute_error(self.initial_shape, self.gt_shape)
 
-    def view(self, figure_id=None, new_figure=False, render_image=True,
-             render_final_shape=True, render_initial_shape=False,
-             render_gt_shape=False, subplots_enabled=True, channels=None,
-             interpolation='bilinear', cmap_name=None, alpha=1., masked=True,
-             final_marker_face_colour='r', final_marker_edge_colour='k',
-             final_line_colour='r', initial_marker_face_colour='b',
-             initial_marker_edge_colour='k', initial_line_colour='b',
-             gt_marker_face_colour='y', gt_marker_edge_colour='k',
-             gt_line_colour='y', render_lines=True, line_style='-',
-             line_width=2, render_markers=True, marker_style='o', marker_size=4,
-             marker_edge_width=1., render_numbering=False,
-             numbers_horizontal_align='center',
-             numbers_vertical_align='bottom', numbers_font_name='sans-serif',
-             numbers_font_size=10, numbers_font_style='normal',
-             numbers_font_weight='normal', numbers_font_colour='k',
-             render_legend=True, legend_title='', legend_font_name='sans-serif',
-             legend_font_style='normal', legend_font_size=10,
-             legend_font_weight='normal', legend_marker_scale=None,
-             legend_location=2, legend_bbox_to_anchor=(1.05, 1.),
-             legend_border_axes_pad=None, legend_n_columns=1,
-             legend_horizontal_spacing=None, legend_vertical_spacing=None,
-             legend_border=True, legend_border_padding=None,
-             legend_shadow=False, legend_rounded_corners=False,
-             render_axes=False, axes_font_name='sans-serif', axes_font_size=10,
-             axes_font_style='normal', axes_font_weight='normal',
-             axes_x_limits=None, axes_y_limits=None, axes_x_ticks=None,
-             axes_y_ticks=None, figure_size=(7, 7)):
+    def view(
+        self,
+        figure_id=None,
+        new_figure=False,
+        render_image=True,
+        render_final_shape=True,
+        render_initial_shape=False,
+        render_gt_shape=False,
+        subplots_enabled=True,
+        channels=None,
+        interpolation="bilinear",
+        cmap_name=None,
+        alpha=1.0,
+        masked=True,
+        final_marker_face_colour="r",
+        final_marker_edge_colour="k",
+        final_line_colour="r",
+        initial_marker_face_colour="b",
+        initial_marker_edge_colour="k",
+        initial_line_colour="b",
+        gt_marker_face_colour="y",
+        gt_marker_edge_colour="k",
+        gt_line_colour="y",
+        render_lines=True,
+        line_style="-",
+        line_width=2,
+        render_markers=True,
+        marker_style="o",
+        marker_size=4,
+        marker_edge_width=1.0,
+        render_numbering=False,
+        numbers_horizontal_align="center",
+        numbers_vertical_align="bottom",
+        numbers_font_name="sans-serif",
+        numbers_font_size=10,
+        numbers_font_style="normal",
+        numbers_font_weight="normal",
+        numbers_font_colour="k",
+        render_legend=True,
+        legend_title="",
+        legend_font_name="sans-serif",
+        legend_font_style="normal",
+        legend_font_size=10,
+        legend_font_weight="normal",
+        legend_marker_scale=None,
+        legend_location=2,
+        legend_bbox_to_anchor=(1.05, 1.0),
+        legend_border_axes_pad=None,
+        legend_n_columns=1,
+        legend_horizontal_spacing=None,
+        legend_vertical_spacing=None,
+        legend_border=True,
+        legend_border_padding=None,
+        legend_shadow=False,
+        legend_rounded_corners=False,
+        render_axes=False,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=None,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(7, 7),
+    ):
         """
         Visualize the fitting result. The method renders the final fitted
         shape and optionally the initial shape, ground truth shape and the
@@ -505,38 +548,51 @@ class Result(object):
         line_colours = []
         subplots_titles = {}
         if render_final_shape:
-            image.landmarks['final'] = self.final_shape
-            groups.append('final')
+            image.landmarks["final"] = self.final_shape
+            groups.append("final")
             face_colours.append(final_marker_face_colour)
             edge_colours.append(final_marker_edge_colour)
             line_colours.append(final_line_colour)
-            subplots_titles['final'] = 'Final'
+            subplots_titles["final"] = "Final"
         if self.initial_shape is not None and render_initial_shape:
-            image.landmarks['initial'] = self.initial_shape
-            groups.append('initial')
+            image.landmarks["initial"] = self.initial_shape
+            groups.append("initial")
             face_colours.append(initial_marker_face_colour)
             edge_colours.append(initial_marker_edge_colour)
             line_colours.append(initial_line_colour)
-            subplots_titles['initial'] = 'Initial'
+            subplots_titles["initial"] = "Initial"
         if self.gt_shape is not None and render_gt_shape:
-            image.landmarks['groundtruth'] = self.gt_shape
-            groups.append('groundtruth')
+            image.landmarks["groundtruth"] = self.gt_shape
+            groups.append("groundtruth")
             face_colours.append(gt_marker_face_colour)
             edge_colours.append(gt_marker_edge_colour)
             line_colours.append(gt_line_colour)
-            subplots_titles['groundtruth'] = 'Groundtruth'
+            subplots_titles["groundtruth"] = "Groundtruth"
         # Render
         return view_image_multiple_landmarks(
-            image, groups, with_labels=None, figure_id=figure_id,
-            new_figure=new_figure, subplots_enabled=subplots_enabled,
-            subplots_titles=subplots_titles, render_image=render_image,
-            render_landmarks=True, masked=masked,
-            channels=channels, interpolation=interpolation,
-            cmap_name=cmap_name, alpha=alpha, image_view=True,
-            render_lines=render_lines, line_style=line_style,
-            line_width=line_width, line_colour=line_colours,
-            render_markers=render_markers, marker_style=marker_style,
-            marker_size=marker_size, marker_edge_width=marker_edge_width,
+            image,
+            groups,
+            with_labels=None,
+            figure_id=figure_id,
+            new_figure=new_figure,
+            subplots_enabled=subplots_enabled,
+            subplots_titles=subplots_titles,
+            render_image=render_image,
+            render_landmarks=True,
+            masked=masked,
+            channels=channels,
+            interpolation=interpolation,
+            cmap_name=cmap_name,
+            alpha=alpha,
+            image_view=True,
+            render_lines=render_lines,
+            line_style=line_style,
+            line_width=line_width,
+            line_colour=line_colours,
+            render_markers=render_markers,
+            marker_style=marker_style,
+            marker_size=marker_size,
+            marker_edge_width=marker_edge_width,
             marker_edge_colour=edge_colours,
             marker_face_colour=face_colours,
             render_numbering=render_numbering,
@@ -547,7 +603,8 @@ class Result(object):
             numbers_font_style=numbers_font_style,
             numbers_font_weight=numbers_font_weight,
             numbers_font_colour=numbers_font_colour,
-            render_legend=render_legend, legend_title=legend_title,
+            render_legend=render_legend,
+            legend_title=legend_title,
             legend_font_name=legend_font_name,
             legend_font_style=legend_font_style,
             legend_font_size=legend_font_size,
@@ -563,36 +620,27 @@ class Result(object):
             legend_border_padding=legend_border_padding,
             legend_shadow=legend_shadow,
             legend_rounded_corners=legend_rounded_corners,
-            render_axes=render_axes, axes_font_name=axes_font_name,
-            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
-            axes_font_weight=axes_font_weight, axes_x_limits=axes_x_limits,
-            axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-            axes_y_ticks=axes_y_ticks, figure_size=figure_size)
-
-    def view_widget(self, figure_size=(7, 7)):
-        r"""
-        Visualizes the result object using an interactive widget.
-
-        Parameters
-        ----------
-        figure_size : (`int`, `int`), optional
-            The initial size of the rendered figure.
-        """
-        try:
-            from menpowidgets import visualize_fitting_results
-            visualize_fitting_results(self, figure_size=figure_size)
-        except ImportError:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
+            render_axes=render_axes,
+            axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size,
+            axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight,
+            axes_x_limits=axes_x_limits,
+            axes_y_limits=axes_y_limits,
+            axes_x_ticks=axes_x_ticks,
+            axes_y_ticks=axes_y_ticks,
+            figure_size=figure_size,
+        )
 
     def __str__(self):
-        out = "Fitting result of {} landmark points.".format(
-            self.final_shape.n_points)
+        out = "Fitting result of {} landmark points.".format(self.final_shape.n_points)
         if self.gt_shape is not None:
             if self.initial_shape is not None:
                 out += "\nInitial error: {:.4f}".format(self.initial_error())
-                if hasattr(self, 'reconstructed_initial_error'):
-                    out += "\nReconstructed initial error: {:.4f}".format(self.reconstructed_initial_error())
+                if hasattr(self, "reconstructed_initial_error"):
+                    out += "\nReconstructed initial error: {:.4f}".format(
+                        self.reconstructed_initial_error()
+                    )
             out += "\nFinal error: {:.4f}".format(self.final_error())
         return out
 
@@ -627,11 +675,15 @@ class NonParametricIterativeResult(Result):
         have the same length as `shapes`.
     """
 
-    def __init__(self, shapes, initial_shape=None, image=None, gt_shape=None,
-                 costs=None):
+    def __init__(
+        self, shapes, initial_shape=None, image=None, gt_shape=None, costs=None
+    ):
         super(NonParametricIterativeResult, self).__init__(
-            final_shape=shapes[-1], image=image, initial_shape=initial_shape,
-            gt_shape=gt_shape)
+            final_shape=shapes[-1],
+            image=image,
+            initial_shape=initial_shape,
+            gt_shape=gt_shape,
+        )
         self._n_iters = len(shapes)
         # If initial shape is provided, then add it in the beginning of shapes
         self._shapes = shapes
@@ -669,8 +721,7 @@ class NonParametricIterativeResult(Result):
         """
         return self._n_iters
 
-    def to_result(self, pass_image=True, pass_initial_shape=True,
-                  pass_gt_shape=True):
+    def to_result(self, pass_image=True, pass_initial_shape=True, pass_gt_shape=True):
         r"""
         Returns a :map:`Result` instance of the object, i.e. a fitting result
         object that does not store the iterations. This can be useful for
@@ -700,8 +751,12 @@ class NonParametricIterativeResult(Result):
         gt_shape = None
         if pass_gt_shape:
             gt_shape = self.gt_shape
-        return Result(self.final_shape, image=image,
-                      initial_shape=initial_shape, gt_shape=gt_shape)
+        return Result(
+            self.final_shape,
+            image=image,
+            initial_shape=initial_shape,
+            gt_shape=gt_shape,
+        )
 
     def errors(self, compute_error=None):
         r"""
@@ -728,24 +783,42 @@ class NonParametricIterativeResult(Result):
         if compute_error is None:
             compute_error = euclidean_bb_normalised_error
         if self.gt_shape is not None:
-            return [compute_error(t, self.gt_shape)
-                    for t in self.shapes]
+            return [compute_error(t, self.gt_shape) for t in self.shapes]
         else:
-            raise ValueError('Ground truth shape has not been set, so the '
-                             'errors per iteration cannot be computed')
+            raise ValueError(
+                "Ground truth shape has not been set, so the "
+                "errors per iteration cannot be computed"
+            )
 
-    def plot_errors(self, compute_error=None, figure_id=None,
-                    new_figure=False, render_lines=True, line_colour='b',
-                    line_style='-', line_width=2, render_markers=True,
-                    marker_style='o', marker_size=4, marker_face_colour='b',
-                    marker_edge_colour='k', marker_edge_width=1.,
-                    render_axes=True, axes_font_name='sans-serif',
-                    axes_font_size=10, axes_font_style='normal',
-                    axes_font_weight='normal', axes_x_limits=0.,
-                    axes_y_limits=None, axes_x_ticks=None,
-                    axes_y_ticks=None, figure_size=(10, 6),
-                    render_grid=True, grid_line_style='--',
-                    grid_line_width=0.5):
+    def plot_errors(
+        self,
+        compute_error=None,
+        figure_id=None,
+        new_figure=False,
+        render_lines=True,
+        line_colour="b",
+        line_style="-",
+        line_width=2,
+        render_markers=True,
+        marker_style="o",
+        marker_size=4,
+        marker_face_colour="b",
+        marker_edge_colour="k",
+        marker_edge_width=1.0,
+        render_axes=True,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=0.0,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(10, 6),
+        render_grid=True,
+        grid_line_style="--",
+        grid_line_width=0.5,
+    ):
         r"""
         Plot of the error evolution at each fitting iteration.
 
@@ -858,24 +931,41 @@ class NonParametricIterativeResult(Result):
             The renderer object.
         """
         from menpo.visualize import plot_curve
+
         errors = self.errors(compute_error=compute_error)
         return plot_curve(
-            x_axis=list(range(len(errors))), y_axis=[errors], figure_id=figure_id,
-            new_figure=new_figure, title='Fitting Errors per Iteration',
-            x_label='Iteration', y_label='Fitting Error',
-            axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
-            axes_x_ticks=axes_x_ticks, axes_y_ticks=axes_y_ticks,
-            render_lines=render_lines, line_colour=line_colour,
-            line_style=line_style, line_width=line_width,
-            render_markers=render_markers, marker_style=marker_style,
-            marker_size=marker_size, marker_face_colour=marker_face_colour,
+            x_axis=list(range(len(errors))),
+            y_axis=[errors],
+            figure_id=figure_id,
+            new_figure=new_figure,
+            title="Fitting Errors per Iteration",
+            x_label="Iteration",
+            y_label="Fitting Error",
+            axes_x_limits=axes_x_limits,
+            axes_y_limits=axes_y_limits,
+            axes_x_ticks=axes_x_ticks,
+            axes_y_ticks=axes_y_ticks,
+            render_lines=render_lines,
+            line_colour=line_colour,
+            line_style=line_style,
+            line_width=line_width,
+            render_markers=render_markers,
+            marker_style=marker_style,
+            marker_size=marker_size,
+            marker_face_colour=marker_face_colour,
             marker_edge_colour=marker_edge_colour,
-            marker_edge_width=marker_edge_width, render_legend=False,
-            render_axes=render_axes, axes_font_name=axes_font_name,
-            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
-            axes_font_weight=axes_font_weight, figure_size=figure_size,
-            render_grid=render_grid, grid_line_style=grid_line_style,
-            grid_line_width=grid_line_width)
+            marker_edge_width=marker_edge_width,
+            render_legend=False,
+            render_axes=render_axes,
+            axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size,
+            axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight,
+            figure_size=figure_size,
+            render_grid=render_grid,
+            grid_line_style=grid_line_style,
+            grid_line_width=grid_line_width,
+        )
 
     def displacements(self):
         r"""
@@ -884,10 +974,12 @@ class NonParametricIterativeResult(Result):
 
         :type: `list` of `ndarray`
         """
-        return [np.linalg.norm(s1.points - s2.points, axis=1)
-                for s1, s2 in zip(self.shapes, self.shapes[1:])]
+        return [
+            np.linalg.norm(s1.points - s2.points, axis=1)
+            for s1, s2 in zip(self.shapes, self.shapes[1:])
+        ]
 
-    def displacements_stats(self, stat_type='mean'):
+    def displacements_stats(self, stat_type="mean"):
         r"""
         A list containing a statistical metric on the displacements between
         the shape of each iteration and the shape of the previous one.
@@ -908,29 +1000,46 @@ class NonParametricIterativeResult(Result):
         ValueError
             type must be 'mean', 'median', 'min' or 'max'
         """
-        if stat_type == 'mean':
+        if stat_type == "mean":
             return [np.mean(d) for d in self.displacements()]
-        elif stat_type == 'median':
+        elif stat_type == "median":
             return [np.median(d) for d in self.displacements()]
-        elif stat_type == 'max':
+        elif stat_type == "max":
             return [np.max(d) for d in self.displacements()]
-        elif stat_type == 'min':
+        elif stat_type == "min":
             return [np.min(d) for d in self.displacements()]
         else:
             raise ValueError("type must be 'mean', 'median', 'min' or 'max'")
 
-    def plot_displacements(self, stat_type='mean', figure_id=None,
-                           new_figure=False, render_lines=True, line_colour='b',
-                           line_style='-', line_width=2, render_markers=True,
-                           marker_style='o', marker_size=4,
-                           marker_face_colour='b', marker_edge_colour='k',
-                           marker_edge_width=1., render_axes=True,
-                           axes_font_name='sans-serif', axes_font_size=10,
-                           axes_font_style='normal', axes_font_weight='normal',
-                           axes_x_limits=0., axes_y_limits=None,
-                           axes_x_ticks=None, axes_y_ticks=None,
-                           figure_size=(10, 6), render_grid=True,
-                           grid_line_style='--', grid_line_width=0.5):
+    def plot_displacements(
+        self,
+        stat_type="mean",
+        figure_id=None,
+        new_figure=False,
+        render_lines=True,
+        line_colour="b",
+        line_style="-",
+        line_width=2,
+        render_markers=True,
+        marker_style="o",
+        marker_size=4,
+        marker_face_colour="b",
+        marker_edge_colour="k",
+        marker_edge_width=1.0,
+        render_axes=True,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=0.0,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(10, 6),
+        render_grid=True,
+        grid_line_style="--",
+        grid_line_width=0.5,
+    ):
         r"""
         Plot of a statistical metric of the displacement between the shape of
         each iteration and the shape of the previous one.
@@ -1044,40 +1153,56 @@ class NonParametricIterativeResult(Result):
             The renderer object.
         """
         from menpo.visualize import plot_curve
+
         # set labels
-        if stat_type == 'max':
-            name = 'Maximum'
-        elif stat_type == 'min':
-            name = 'Minimum'
-        elif stat_type == 'mean':
-            name = 'Mean'
-        elif stat_type == 'median':
-            name = 'Median'
+        if stat_type == "max":
+            name = "Maximum"
+        elif stat_type == "min":
+            name = "Minimum"
+        elif stat_type == "mean":
+            name = "Mean"
+        elif stat_type == "median":
+            name = "Median"
         else:
-            raise ValueError('stat_type must be one of {max, min, mean, '
-                             'median}.')
-        y_label = '{} Displacement'.format(name)
-        title = '{} displacement per Iteration'.format(name)
+            raise ValueError("stat_type must be one of {max, min, mean, " "median}.")
+        y_label = "{} Displacement".format(name)
+        title = "{} displacement per Iteration".format(name)
 
         # plot
         displacements = self.displacements_stats(stat_type=stat_type)
         return plot_curve(
-            x_axis=list(range(len(displacements))), y_axis=[displacements],
-            figure_id=figure_id, new_figure=new_figure, title=title,
-            x_label='Iteration', y_label=y_label,
-            axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
-            axes_x_ticks=axes_x_ticks, axes_y_ticks=axes_y_ticks,
-            render_lines=render_lines, line_colour=line_colour,
-            line_style=line_style, line_width=line_width,
-            render_markers=render_markers, marker_style=marker_style,
-            marker_size=marker_size, marker_face_colour=marker_face_colour,
+            x_axis=list(range(len(displacements))),
+            y_axis=[displacements],
+            figure_id=figure_id,
+            new_figure=new_figure,
+            title=title,
+            x_label="Iteration",
+            y_label=y_label,
+            axes_x_limits=axes_x_limits,
+            axes_y_limits=axes_y_limits,
+            axes_x_ticks=axes_x_ticks,
+            axes_y_ticks=axes_y_ticks,
+            render_lines=render_lines,
+            line_colour=line_colour,
+            line_style=line_style,
+            line_width=line_width,
+            render_markers=render_markers,
+            marker_style=marker_style,
+            marker_size=marker_size,
+            marker_face_colour=marker_face_colour,
             marker_edge_colour=marker_edge_colour,
-            marker_edge_width=marker_edge_width, render_legend=False,
-            render_axes=render_axes, axes_font_name=axes_font_name,
-            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
-            axes_font_weight=axes_font_weight, figure_size=figure_size,
-            render_grid=render_grid, grid_line_style=grid_line_style,
-            grid_line_width=grid_line_width)
+            marker_edge_width=marker_edge_width,
+            render_legend=False,
+            render_axes=render_axes,
+            axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size,
+            axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight,
+            figure_size=figure_size,
+            render_grid=render_grid,
+            grid_line_style=grid_line_style,
+            grid_line_width=grid_line_width,
+        )
 
     @property
     def costs(self):
@@ -1089,17 +1214,34 @@ class NonParametricIterativeResult(Result):
         """
         return self._costs
 
-    def plot_costs(self, figure_id=None, new_figure=False, render_lines=True,
-                   line_colour='b', line_style='-', line_width=2,
-                   render_markers=True, marker_style='o', marker_size=4,
-                   marker_face_colour='b', marker_edge_colour='k',
-                   marker_edge_width=1., render_axes=True,
-                   axes_font_name='sans-serif', axes_font_size=10,
-                   axes_font_style='normal', axes_font_weight='normal',
-                   axes_x_limits=0., axes_y_limits=None, axes_x_ticks=None,
-                   axes_y_ticks=None, figure_size=(10, 6),
-                   render_grid=True, grid_line_style='--',
-                   grid_line_width=0.5):
+    def plot_costs(
+        self,
+        figure_id=None,
+        new_figure=False,
+        render_lines=True,
+        line_colour="b",
+        line_style="-",
+        line_width=2,
+        render_markers=True,
+        marker_style="o",
+        marker_size=4,
+        marker_face_colour="b",
+        marker_edge_colour="k",
+        marker_edge_width=1.0,
+        render_axes=True,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=0.0,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(10, 6),
+        render_grid=True,
+        grid_line_style="--",
+        grid_line_width=0.5,
+    ):
         r"""
         Plot of the cost function evolution at each fitting iteration.
 
@@ -1204,60 +1346,106 @@ class NonParametricIterativeResult(Result):
             The renderer object.
         """
         from menpo.visualize import plot_curve
+
         costs = self.costs
         if costs is not None:
             return plot_curve(
-                x_axis=list(range(len(costs))), y_axis=[costs],
-                figure_id=figure_id, new_figure=new_figure,
-                title='Cost per Iteration', x_label='Iteration',
-                y_label='Cost Function', axes_x_limits=axes_x_limits,
-                axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-                axes_y_ticks=axes_y_ticks, render_lines=render_lines,
-                line_colour=line_colour, line_style=line_style,
-                line_width=line_width, render_markers=render_markers,
-                marker_style=marker_style, marker_size=marker_size,
+                x_axis=list(range(len(costs))),
+                y_axis=[costs],
+                figure_id=figure_id,
+                new_figure=new_figure,
+                title="Cost per Iteration",
+                x_label="Iteration",
+                y_label="Cost Function",
+                axes_x_limits=axes_x_limits,
+                axes_y_limits=axes_y_limits,
+                axes_x_ticks=axes_x_ticks,
+                axes_y_ticks=axes_y_ticks,
+                render_lines=render_lines,
+                line_colour=line_colour,
+                line_style=line_style,
+                line_width=line_width,
+                render_markers=render_markers,
+                marker_style=marker_style,
+                marker_size=marker_size,
                 marker_face_colour=marker_face_colour,
                 marker_edge_colour=marker_edge_colour,
-                marker_edge_width=marker_edge_width, render_legend=False,
-                render_axes=render_axes, axes_font_name=axes_font_name,
+                marker_edge_width=marker_edge_width,
+                render_legend=False,
+                render_axes=render_axes,
+                axes_font_name=axes_font_name,
                 axes_font_size=axes_font_size,
                 axes_font_style=axes_font_style,
-                axes_font_weight=axes_font_weight, figure_size=figure_size,
-                render_grid=render_grid, grid_line_style=grid_line_style,
-                grid_line_width=grid_line_width)
+                axes_font_weight=axes_font_weight,
+                figure_size=figure_size,
+                render_grid=render_grid,
+                grid_line_style=grid_line_style,
+                grid_line_width=grid_line_width,
+            )
         else:
-            raise ValueError('costs are either not returned or not well '
-                             'defined for the selected fitting algorithm')
+            raise ValueError(
+                "costs are either not returned or not well "
+                "defined for the selected fitting algorithm"
+            )
 
-    def view_iterations(self, figure_id=None, new_figure=False,
-                        iters=None, render_image=True, subplots_enabled=False,
-                        channels=None, interpolation='bilinear',
-                        cmap_name=None, alpha=1., masked=True, render_lines=True,
-                        line_style='-', line_width=2, line_colour=None,
-                        render_markers=True, marker_edge_colour=None,
-                        marker_face_colour=None, marker_style='o',
-                        marker_size=4, marker_edge_width=1.,
-                        render_numbering=False,
-                        numbers_horizontal_align='center',
-                        numbers_vertical_align='bottom',
-                        numbers_font_name='sans-serif', numbers_font_size=10,
-                        numbers_font_style='normal',
-                        numbers_font_weight='normal',
-                        numbers_font_colour='k', render_legend=True,
-                        legend_title='', legend_font_name='sans-serif',
-                        legend_font_style='normal', legend_font_size=10,
-                        legend_font_weight='normal', legend_marker_scale=None,
-                        legend_location=2, legend_bbox_to_anchor=(1.05, 1.),
-                        legend_border_axes_pad=None, legend_n_columns=1,
-                        legend_horizontal_spacing=None,
-                        legend_vertical_spacing=None, legend_border=True,
-                        legend_border_padding=None, legend_shadow=False,
-                        legend_rounded_corners=False, render_axes=False,
-                        axes_font_name='sans-serif', axes_font_size=10,
-                        axes_font_style='normal', axes_font_weight='normal',
-                        axes_x_limits=None, axes_y_limits=None,
-                        axes_x_ticks=None, axes_y_ticks=None,
-                        figure_size=(7, 7)):
+    def view_iterations(
+        self,
+        figure_id=None,
+        new_figure=False,
+        iters=None,
+        render_image=True,
+        subplots_enabled=False,
+        channels=None,
+        interpolation="bilinear",
+        cmap_name=None,
+        alpha=1.0,
+        masked=True,
+        render_lines=True,
+        line_style="-",
+        line_width=2,
+        line_colour=None,
+        render_markers=True,
+        marker_edge_colour=None,
+        marker_face_colour=None,
+        marker_style="o",
+        marker_size=4,
+        marker_edge_width=1.0,
+        render_numbering=False,
+        numbers_horizontal_align="center",
+        numbers_vertical_align="bottom",
+        numbers_font_name="sans-serif",
+        numbers_font_size=10,
+        numbers_font_style="normal",
+        numbers_font_weight="normal",
+        numbers_font_colour="k",
+        render_legend=True,
+        legend_title="",
+        legend_font_name="sans-serif",
+        legend_font_style="normal",
+        legend_font_size=10,
+        legend_font_weight="normal",
+        legend_marker_scale=None,
+        legend_location=2,
+        legend_bbox_to_anchor=(1.05, 1.0),
+        legend_border_axes_pad=None,
+        legend_n_columns=1,
+        legend_horizontal_spacing=None,
+        legend_vertical_spacing=None,
+        legend_border=True,
+        legend_border_padding=None,
+        legend_shadow=False,
+        legend_rounded_corners=False,
+        render_axes=False,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=None,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(7, 7),
+    ):
         """
         Visualize the iterations of the fitting process.
 
@@ -1532,10 +1720,10 @@ class NonParametricIterativeResult(Result):
             iters_offset = 0
         for j in iters:
             if j == 0 and self.initial_shape is not None:
-                name = 'Initial'
+                name = "Initial"
                 image.landmarks[name] = self.initial_shape
             elif j == len(self.shapes) - 1:
-                name = 'Final'
+                name = "Final"
                 image.landmarks[name] = self.final_shape
             else:
                 name = "iteration {:0{}d}".format(j + iters_offset, n_digits)
@@ -1544,16 +1732,29 @@ class NonParametricIterativeResult(Result):
             subplots_titles[name] = name
         # Render
         return view_image_multiple_landmarks(
-            image, groups, with_labels=None, figure_id=figure_id,
-            new_figure=new_figure, subplots_enabled=subplots_enabled,
-            subplots_titles=subplots_titles, render_image=render_image,
-            render_landmarks=True, masked=masked,
-            channels=channels, interpolation=interpolation,
-            cmap_name=cmap_name, alpha=alpha, image_view=True,
-            render_lines=render_lines, line_style=line_style,
-            line_width=line_width, line_colour=line_colour,
-            render_markers=render_markers, marker_style=marker_style,
-            marker_size=marker_size, marker_edge_width=marker_edge_width,
+            image,
+            groups,
+            with_labels=None,
+            figure_id=figure_id,
+            new_figure=new_figure,
+            subplots_enabled=subplots_enabled,
+            subplots_titles=subplots_titles,
+            render_image=render_image,
+            render_landmarks=True,
+            masked=masked,
+            channels=channels,
+            interpolation=interpolation,
+            cmap_name=cmap_name,
+            alpha=alpha,
+            image_view=True,
+            render_lines=render_lines,
+            line_style=line_style,
+            line_width=line_width,
+            line_colour=line_colour,
+            render_markers=render_markers,
+            marker_style=marker_style,
+            marker_size=marker_size,
+            marker_edge_width=marker_edge_width,
             marker_edge_colour=marker_edge_colour,
             marker_face_colour=marker_face_colour,
             render_numbering=render_numbering,
@@ -1564,7 +1765,8 @@ class NonParametricIterativeResult(Result):
             numbers_font_style=numbers_font_style,
             numbers_font_weight=numbers_font_weight,
             numbers_font_colour=numbers_font_colour,
-            render_legend=render_legend, legend_title=legend_title,
+            render_legend=render_legend,
+            legend_title=legend_title,
             legend_font_name=legend_font_name,
             legend_font_style=legend_font_style,
             legend_font_size=legend_font_size,
@@ -1580,11 +1782,17 @@ class NonParametricIterativeResult(Result):
             legend_border_padding=legend_border_padding,
             legend_shadow=legend_shadow,
             legend_rounded_corners=legend_rounded_corners,
-            render_axes=render_axes, axes_font_name=axes_font_name,
-            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
-            axes_font_weight=axes_font_weight, axes_x_limits=axes_x_limits,
-            axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-            axes_y_ticks=axes_y_ticks, figure_size=figure_size)
+            render_axes=render_axes,
+            axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size,
+            axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight,
+            axes_x_limits=axes_x_limits,
+            axes_y_limits=axes_y_limits,
+            axes_x_ticks=axes_x_ticks,
+            axes_y_ticks=axes_y_ticks,
+            figure_size=figure_size,
+        )
 
 
 class ParametricIterativeResult(NonParametricIterativeResult):
@@ -1628,16 +1836,27 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         have the same length as `shapes`.
     """
 
-    def __init__(self, shapes, shape_parameters, initial_shape=None, image=None,
-                 gt_shape=None, costs=None):
+    def __init__(
+        self,
+        shapes,
+        shape_parameters,
+        initial_shape=None,
+        image=None,
+        gt_shape=None,
+        costs=None,
+    ):
         # Assign shape parameters
         self._shape_parameters = shape_parameters
         # Get reconstructed initial shape
         self._reconstructed_initial_shape = shapes[0]
         # Call superclass
         super(ParametricIterativeResult, self).__init__(
-            shapes=shapes, initial_shape=initial_shape, image=image,
-            gt_shape=gt_shape, costs=costs)
+            shapes=shapes,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
         # Correct n_iters. The initial shape's reconstruction should not count
         # in the number of iterations.
         self._n_iters -= 1
@@ -1716,40 +1935,71 @@ class ParametricIterativeResult(NonParametricIterativeResult):
         if compute_error is None:
             compute_error = euclidean_bb_normalised_error
         if self.gt_shape is None:
-            raise ValueError('Ground truth shape has not been set, so the '
-                             'reconstructed initial error cannot be computed')
+            raise ValueError(
+                "Ground truth shape has not been set, so the "
+                "reconstructed initial error cannot be computed"
+            )
         else:
             return compute_error(self.reconstructed_initial_shape, self.gt_shape)
 
-    def view_iterations(self, figure_id=None, new_figure=False,
-                        iters=None, render_image=True, subplots_enabled=False,
-                        channels=None, interpolation='bilinear',
-                        cmap_name=None, alpha=1., masked=True, render_lines=True,
-                        line_style='-', line_width=2, line_colour=None,
-                        render_markers=True, marker_edge_colour=None,
-                        marker_face_colour=None, marker_style='o',
-                        marker_size=4, marker_edge_width=1.,
-                        render_numbering=False,
-                        numbers_horizontal_align='center',
-                        numbers_vertical_align='bottom',
-                        numbers_font_name='sans-serif', numbers_font_size=10,
-                        numbers_font_style='normal',
-                        numbers_font_weight='normal',
-                        numbers_font_colour='k', render_legend=True,
-                        legend_title='', legend_font_name='sans-serif',
-                        legend_font_style='normal', legend_font_size=10,
-                        legend_font_weight='normal', legend_marker_scale=None,
-                        legend_location=2, legend_bbox_to_anchor=(1.05, 1.),
-                        legend_border_axes_pad=None, legend_n_columns=1,
-                        legend_horizontal_spacing=None,
-                        legend_vertical_spacing=None, legend_border=True,
-                        legend_border_padding=None, legend_shadow=False,
-                        legend_rounded_corners=False, render_axes=False,
-                        axes_font_name='sans-serif', axes_font_size=10,
-                        axes_font_style='normal', axes_font_weight='normal',
-                        axes_x_limits=None, axes_y_limits=None,
-                        axes_x_ticks=None, axes_y_ticks=None,
-                        figure_size=(7, 7)):
+    def view_iterations(
+        self,
+        figure_id=None,
+        new_figure=False,
+        iters=None,
+        render_image=True,
+        subplots_enabled=False,
+        channels=None,
+        interpolation="bilinear",
+        cmap_name=None,
+        alpha=1.0,
+        masked=True,
+        render_lines=True,
+        line_style="-",
+        line_width=2,
+        line_colour=None,
+        render_markers=True,
+        marker_edge_colour=None,
+        marker_face_colour=None,
+        marker_style="o",
+        marker_size=4,
+        marker_edge_width=1.0,
+        render_numbering=False,
+        numbers_horizontal_align="center",
+        numbers_vertical_align="bottom",
+        numbers_font_name="sans-serif",
+        numbers_font_size=10,
+        numbers_font_style="normal",
+        numbers_font_weight="normal",
+        numbers_font_colour="k",
+        render_legend=True,
+        legend_title="",
+        legend_font_name="sans-serif",
+        legend_font_style="normal",
+        legend_font_size=10,
+        legend_font_weight="normal",
+        legend_marker_scale=None,
+        legend_location=2,
+        legend_bbox_to_anchor=(1.05, 1.0),
+        legend_border_axes_pad=None,
+        legend_n_columns=1,
+        legend_horizontal_spacing=None,
+        legend_vertical_spacing=None,
+        legend_border=True,
+        legend_border_padding=None,
+        legend_shadow=False,
+        legend_rounded_corners=False,
+        render_axes=False,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=None,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(7, 7),
+    ):
         """
         Visualize the iterations of the fitting process.
 
@@ -2025,13 +2275,13 @@ class ParametricIterativeResult(NonParametricIterativeResult):
             iters_offset = 1
         for j in iters:
             if j == 0 and self.initial_shape is not None:
-                name = 'Initial'
+                name = "Initial"
                 image.landmarks[name] = self.initial_shape
             elif j in self._reconstruction_indices:
-                name = 'Reconstruction'
+                name = "Reconstruction"
                 image.landmarks[name] = self.shapes[j]
             elif j == len(self.shapes) - 1:
-                name = 'Final'
+                name = "Final"
                 image.landmarks[name] = self.final_shape
             else:
                 s = _get_scale_of_iter(j, self._reconstruction_indices)
@@ -2041,16 +2291,29 @@ class ParametricIterativeResult(NonParametricIterativeResult):
             subplots_titles[name] = name
         # Render
         return view_image_multiple_landmarks(
-            image, groups, with_labels=None, figure_id=figure_id,
-            new_figure=new_figure, subplots_enabled=subplots_enabled,
-            subplots_titles=subplots_titles, render_image=render_image,
-            render_landmarks=True, masked=masked,
-            channels=channels, interpolation=interpolation,
-            cmap_name=cmap_name, alpha=alpha, image_view=True,
-            render_lines=render_lines, line_style=line_style,
-            line_width=line_width, line_colour=line_colour,
-            render_markers=render_markers, marker_style=marker_style,
-            marker_size=marker_size, marker_edge_width=marker_edge_width,
+            image,
+            groups,
+            with_labels=None,
+            figure_id=figure_id,
+            new_figure=new_figure,
+            subplots_enabled=subplots_enabled,
+            subplots_titles=subplots_titles,
+            render_image=render_image,
+            render_landmarks=True,
+            masked=masked,
+            channels=channels,
+            interpolation=interpolation,
+            cmap_name=cmap_name,
+            alpha=alpha,
+            image_view=True,
+            render_lines=render_lines,
+            line_style=line_style,
+            line_width=line_width,
+            line_colour=line_colour,
+            render_markers=render_markers,
+            marker_style=marker_style,
+            marker_size=marker_size,
+            marker_edge_width=marker_edge_width,
             marker_edge_colour=marker_edge_colour,
             marker_face_colour=marker_face_colour,
             render_numbering=render_numbering,
@@ -2061,7 +2324,8 @@ class ParametricIterativeResult(NonParametricIterativeResult):
             numbers_font_style=numbers_font_style,
             numbers_font_weight=numbers_font_weight,
             numbers_font_colour=numbers_font_colour,
-            render_legend=render_legend, legend_title=legend_title,
+            render_legend=render_legend,
+            legend_title=legend_title,
             legend_font_name=legend_font_name,
             legend_font_style=legend_font_style,
             legend_font_size=legend_font_size,
@@ -2077,11 +2341,17 @@ class ParametricIterativeResult(NonParametricIterativeResult):
             legend_border_padding=legend_border_padding,
             legend_shadow=legend_shadow,
             legend_rounded_corners=legend_rounded_corners,
-            render_axes=render_axes, axes_font_name=axes_font_name,
-            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
-            axes_font_weight=axes_font_weight, axes_x_limits=axes_x_limits,
-            axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-            axes_y_ticks=axes_y_ticks, figure_size=figure_size)
+            render_axes=render_axes,
+            axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size,
+            axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight,
+            axes_x_limits=axes_x_limits,
+            axes_y_limits=axes_y_limits,
+            axes_x_ticks=axes_x_ticks,
+            axes_y_ticks=axes_y_ticks,
+            figure_size=figure_size,
+        )
 
 
 class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
@@ -2112,8 +2382,15 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         ground truth shape is assigned.
     """
 
-    def __init__(self, results, scales, affine_transforms, scale_transforms,
-                 image=None, gt_shape=None):
+    def __init__(
+        self,
+        results,
+        scales,
+        affine_transforms,
+        scale_transforms,
+        image=None,
+        gt_shape=None,
+    ):
         # Make sure results and scales are iterable
         if not isinstance(results, collections_abc.Iterable):
             results = [results]
@@ -2121,15 +2398,18 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
             scales = [scales]
         # Check that results and scales have the same length
         if len(results) != len(scales):
-            raise ValueError('results and scales must have equal length ({} '
-                             '!= {})'.format(len(results), len(scales)))
+            raise ValueError(
+                "results and scales must have equal length ({} "
+                "!= {})".format(len(results), len(scales))
+            )
         # Get initial shape
         initial_shape = None
         if results[0].initial_shape is not None:
             initial_shape = _rescale_shapes_to_reference(
                 shapes=[results[0].initial_shape],
                 affine_transform=affine_transforms[0],
-                scale_transform=scale_transforms[0])[0]
+                scale_transform=scale_transforms[0],
+            )[0]
         # Create shapes list and n_iters_per_scale
         # If the result object has an initial shape, then it has to be
         # removed from the final shapes list
@@ -2141,16 +2421,18 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
                 shapes += _rescale_shapes_to_reference(
                     shapes=results[i].shapes,
                     affine_transform=affine_transforms[i],
-                    scale_transform=scale_transforms[i])
+                    scale_transform=scale_transforms[i],
+                )
             else:
                 shapes += _rescale_shapes_to_reference(
                     shapes=results[i].shapes[1:],
                     affine_transform=affine_transforms[i],
-                    scale_transform=scale_transforms[i])
+                    scale_transform=scale_transforms[i],
+                )
         # Call superclass
         super(MultiScaleNonParametricIterativeResult, self).__init__(
-            shapes=shapes, initial_shape=initial_shape, image=image,
-            gt_shape=gt_shape)
+            shapes=shapes, initial_shape=initial_shape, image=image, gt_shape=gt_shape
+        )
         # Get attributes
         self._n_iters_per_scale = n_iters_per_scale
         self._n_scales = len(scales)
@@ -2217,12 +2499,24 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
         ground truth shape is assigned.
     """
 
-    def __init__(self, results, scales, affine_transforms, scale_transforms,
-                 image=None, gt_shape=None):
+    def __init__(
+        self,
+        results,
+        scales,
+        affine_transforms,
+        scale_transforms,
+        image=None,
+        gt_shape=None,
+    ):
         # Call superclass
         super(MultiScaleParametricIterativeResult, self).__init__(
-            results=results, scales=scales, affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            results=results,
+            scales=scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
         # Create shape parameters, and reconstructed initial shapes lists
         self._shape_parameters = []
         for r in results:
@@ -2298,41 +2592,71 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
         if compute_error is None:
             compute_error = euclidean_bb_normalised_error
         if self.gt_shape is None:
-            raise ValueError('Ground truth shape has not been set, so the '
-                             'reconstructed initial error cannot be computed')
+            raise ValueError(
+                "Ground truth shape has not been set, so the "
+                "reconstructed initial error cannot be computed"
+            )
         else:
-            return compute_error(self.reconstructed_initial_shapes[0],
-                                 self.gt_shape)
+            return compute_error(self.reconstructed_initial_shapes[0], self.gt_shape)
 
-    def view_iterations(self, figure_id=None, new_figure=False,
-                        iters=None, render_image=True, subplots_enabled=False,
-                        channels=None, interpolation='bilinear',
-                        cmap_name=None, alpha=1., masked=True, render_lines=True,
-                        line_style='-', line_width=2, line_colour=None,
-                        render_markers=True, marker_edge_colour=None,
-                        marker_face_colour=None, marker_style='o',
-                        marker_size=4, marker_edge_width=1.,
-                        render_numbering=False,
-                        numbers_horizontal_align='center',
-                        numbers_vertical_align='bottom',
-                        numbers_font_name='sans-serif', numbers_font_size=10,
-                        numbers_font_style='normal',
-                        numbers_font_weight='normal',
-                        numbers_font_colour='k', render_legend=True,
-                        legend_title='', legend_font_name='sans-serif',
-                        legend_font_style='normal', legend_font_size=10,
-                        legend_font_weight='normal', legend_marker_scale=None,
-                        legend_location=2, legend_bbox_to_anchor=(1.05, 1.),
-                        legend_border_axes_pad=None, legend_n_columns=1,
-                        legend_horizontal_spacing=None,
-                        legend_vertical_spacing=None, legend_border=True,
-                        legend_border_padding=None, legend_shadow=False,
-                        legend_rounded_corners=False, render_axes=False,
-                        axes_font_name='sans-serif', axes_font_size=10,
-                        axes_font_style='normal', axes_font_weight='normal',
-                        axes_x_limits=None, axes_y_limits=None,
-                        axes_x_ticks=None, axes_y_ticks=None,
-                        figure_size=(7, 7)):
+    def view_iterations(
+        self,
+        figure_id=None,
+        new_figure=False,
+        iters=None,
+        render_image=True,
+        subplots_enabled=False,
+        channels=None,
+        interpolation="bilinear",
+        cmap_name=None,
+        alpha=1.0,
+        masked=True,
+        render_lines=True,
+        line_style="-",
+        line_width=2,
+        line_colour=None,
+        render_markers=True,
+        marker_edge_colour=None,
+        marker_face_colour=None,
+        marker_style="o",
+        marker_size=4,
+        marker_edge_width=1.0,
+        render_numbering=False,
+        numbers_horizontal_align="center",
+        numbers_vertical_align="bottom",
+        numbers_font_name="sans-serif",
+        numbers_font_size=10,
+        numbers_font_style="normal",
+        numbers_font_weight="normal",
+        numbers_font_colour="k",
+        render_legend=True,
+        legend_title="",
+        legend_font_name="sans-serif",
+        legend_font_style="normal",
+        legend_font_size=10,
+        legend_font_weight="normal",
+        legend_marker_scale=None,
+        legend_location=2,
+        legend_bbox_to_anchor=(1.05, 1.0),
+        legend_border_axes_pad=None,
+        legend_n_columns=1,
+        legend_horizontal_spacing=None,
+        legend_vertical_spacing=None,
+        legend_border=True,
+        legend_border_padding=None,
+        legend_shadow=False,
+        legend_rounded_corners=False,
+        render_axes=False,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=None,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(7, 7),
+    ):
         """
         Visualize the iterations of the fitting process.
 
@@ -2608,13 +2932,13 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
             iters_offset = -1
         for j in iters:
             if j == 0 and self.initial_shape is not None:
-                name = 'Initial'
+                name = "Initial"
                 image.landmarks[name] = self.initial_shape
             elif j in self._reconstruction_indices:
-                name = 'Reconstruction'
+                name = "Reconstruction"
                 image.landmarks[name] = self.shapes[j]
             elif j == len(self.shapes) - 1:
-                name = 'Final'
+                name = "Final"
                 image.landmarks[name] = self.final_shape
             else:
                 s = _get_scale_of_iter(j, self._reconstruction_indices)
@@ -2624,16 +2948,29 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
             subplots_titles[name] = name
         # Render
         return view_image_multiple_landmarks(
-            image, groups, with_labels=None, figure_id=figure_id,
-            new_figure=new_figure, subplots_enabled=subplots_enabled,
-            subplots_titles=subplots_titles, render_image=render_image,
-            render_landmarks=True, masked=masked,
-            channels=channels, interpolation=interpolation,
-            cmap_name=cmap_name, alpha=alpha, image_view=True,
-            render_lines=render_lines, line_style=line_style,
-            line_width=line_width, line_colour=line_colour,
-            render_markers=render_markers, marker_style=marker_style,
-            marker_size=marker_size, marker_edge_width=marker_edge_width,
+            image,
+            groups,
+            with_labels=None,
+            figure_id=figure_id,
+            new_figure=new_figure,
+            subplots_enabled=subplots_enabled,
+            subplots_titles=subplots_titles,
+            render_image=render_image,
+            render_landmarks=True,
+            masked=masked,
+            channels=channels,
+            interpolation=interpolation,
+            cmap_name=cmap_name,
+            alpha=alpha,
+            image_view=True,
+            render_lines=render_lines,
+            line_style=line_style,
+            line_width=line_width,
+            line_colour=line_colour,
+            render_markers=render_markers,
+            marker_style=marker_style,
+            marker_size=marker_size,
+            marker_edge_width=marker_edge_width,
             marker_edge_colour=marker_edge_colour,
             marker_face_colour=marker_face_colour,
             render_numbering=render_numbering,
@@ -2644,7 +2981,8 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
             numbers_font_style=numbers_font_style,
             numbers_font_weight=numbers_font_weight,
             numbers_font_colour=numbers_font_colour,
-            render_legend=render_legend, legend_title=legend_title,
+            render_legend=render_legend,
+            legend_title=legend_title,
             legend_font_name=legend_font_name,
             legend_font_style=legend_font_style,
             legend_font_size=legend_font_size,
@@ -2660,8 +2998,14 @@ class MultiScaleParametricIterativeResult(MultiScaleNonParametricIterativeResult
             legend_border_padding=legend_border_padding,
             legend_shadow=legend_shadow,
             legend_rounded_corners=legend_rounded_corners,
-            render_axes=render_axes, axes_font_name=axes_font_name,
-            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
-            axes_font_weight=axes_font_weight, axes_x_limits=axes_x_limits,
-            axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-            axes_y_ticks=axes_y_ticks, figure_size=figure_size)
+            render_axes=render_axes,
+            axes_font_name=axes_font_name,
+            axes_font_size=axes_font_size,
+            axes_font_style=axes_font_style,
+            axes_font_weight=axes_font_weight,
+            axes_x_limits=axes_x_limits,
+            axes_y_limits=axes_y_limits,
+            axes_x_ticks=axes_x_ticks,
+            axes_y_ticks=axes_y_ticks,
+            figure_size=figure_size,
+        )

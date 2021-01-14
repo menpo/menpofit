@@ -3,43 +3,47 @@ import sys
 
 # on_rtd is whether we are on readthedocs.org,
 # this line of code grabbed from docs.readthedocs.org
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+on_rtd = os.environ.get("READTHEDOCS", None) == "True"
 
 # Add the folder above so we can grab the sphinx extensions
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath(".."))
 
 if not on_rtd:
     # Add the menpofit root so we can grab the version
-    sys.path.insert(0, os.path.abspath('../../'))
+    sys.path.insert(0, os.path.abspath("../../"))
 else:
-    from mock import MagicMock
+    from unittest.mock import MagicMock
 
-    MOCK_MODULES = ['dlib', 'sklearn']
+    MOCK_MODULES = ["dlib", "sklearn"]
     for mod_name in MOCK_MODULES:
         sys.modules[mod_name] = MagicMock()
 
 import menpofit
 
 # add an up to date mathjax path
-mathjax_path = 'https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
+mathjax_path = (
+    "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
+)
 
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '2.0'
+needs_sphinx = "2.0"
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.todo',
-              'sphinx.ext.coverage',
-              'sphinx.ext.mathjax',
-              'sphinx.ext.viewcode',
-              'sphinx.ext.autosummary',
-              'sphinx.ext.napoleon',
-              'sphinxext.ref_prettify',
-              'sphinxext.theme_hack',
-              'sphinxmapxrefrole']
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.todo",
+    "sphinx.ext.coverage",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
+    "sphinxext.ref_prettify",
+    "sphinxext.theme_hack",
+    "sphinxmapxrefrole",
+]
 
 # Import the mapping dictionary and set it for sphinxmapxrefrole
 from xref_map import xref_map
@@ -47,8 +51,8 @@ from xref_map import xref_map
 xref_mapping_dict = xref_map
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
-html_static_path = ['_static']
+templates_path = ["_templates"]
+html_static_path = ["_static"]
 
 # Otherwise Sphinx emits thousands of warnings
 napoleon_include_special_with_doc = False
@@ -67,16 +71,18 @@ napoleon_use_admonition_for_references = True
 # source_encoding = 'utf-8-sig'
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # Sort attributes by type (functions separate from properties)
-autodoc_member_order = 'groupwise'
+autodoc_member_order = "groupwise"
 
 # General information about the project.
-project = u'MenpoFit'
-authors = (u'Joan Alabort-i-Medina, Epameinondas Antonakos, James Booth,'
-           u' Patrick Snape, and Stefanos Zafeiriou')
-copyright = u'2016, ' + authors
+project = u"MenpoFit"
+authors = (
+    u"Joan Alabort-i-Medina, Epameinondas Antonakos, James Booth,"
+    u" Patrick Snape, and Stefanos Zafeiriou"
+)
+copyright = u"2016, " + authors
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -99,7 +105,7 @@ release = menpofit.__version__
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', '**/test/**']
+exclude_patterns = ["_build", "**/test/**"]
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 # default_role = None
@@ -132,7 +138,7 @@ exclude_patterns = ['_build', '**/test/**']
 if not on_rtd:  # only import and set the theme if we're building docs locally
     import sphinx_rtd_theme
 
-    html_theme = 'sphinx_rtd_theme'
+    html_theme = "sphinx_rtd_theme"
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -206,7 +212,7 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 # html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'MenpoFitdoc'
+htmlhelp_basename = "MenpoFitdoc"
 
 # -- Options for LaTeX output --------------------------------------------------
 
@@ -217,19 +223,16 @@ latex_preamble = """
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
-    'preamble': latex_preamble
+    "preamble": latex_preamble
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'MenpoFit.tex', u'MenpoFit Documentation',
-     authors, 'manual'),
+    ("index", "MenpoFit.tex", u"MenpoFit Documentation", authors, "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -257,10 +260,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    ('index', 'menpofit', u'MenpoFit Documentation',
-     [authors], 1)
-]
+man_pages = [("index", "menpofit", u"MenpoFit Documentation", [authors], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -272,10 +272,15 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    ('index', 'MenpoFit', u'MenpoFit Documentation',
-     authors,
-     'MenpoFit', 'Python framework for fitting and training deformable models.',
-     'Miscellaneous'),
+    (
+        "index",
+        "MenpoFit",
+        u"MenpoFit Documentation",
+        authors,
+        "MenpoFit",
+        "Python framework for fitting and training deformable models.",
+        "Miscellaneous",
+    ),
 ]
 
 # Documents to append as an appendix to all manuals.

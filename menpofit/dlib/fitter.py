@@ -10,12 +10,16 @@ from menpo.base import name_of_callable
 
 from menpofit import checks
 from menpofit.visualize import print_progress
-from menpofit.compatibility import STRING_TYPES
-from menpofit.fitter import (noisy_shape_from_bounding_box,
-                             MultiScaleNonParametricFitter,
-                             generate_perturbations_from_gt)
-from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
-                              compute_reference_shape)
+from menpofit.fitter import (
+    noisy_shape_from_bounding_box,
+    MultiScaleNonParametricFitter,
+    generate_perturbations_from_gt,
+)
+from menpofit.builder import (
+    scale_images,
+    rescale_images_to_reference_shape,
+    compute_reference_shape,
+)
 from menpofit.result import Result
 
 from .algorithm import DlibAlgorithm
@@ -128,13 +132,28 @@ class DlibERT(MultiScaleNonParametricFitter):
         an ensemble of regression trees." Proceedings of the IEEE Conference
         on Computer Vision and Pattern Recognition. 2014.
     """
-    def __init__(self, images, group=None, bounding_box_group_glob=None,
-                 reference_shape=None, diagonal=None, scales=(0.5, 1.0),
-                 n_perturbations=30, n_dlib_perturbations=1,
-                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
-                 n_iterations=10, feature_padding=0, n_pixel_pairs=400,
-                 distance_prior_weighting=0.1, regularisation_weight=0.1,
-                 n_split_tests=20, n_trees=500, n_tree_levels=5, verbose=False):
+
+    def __init__(
+        self,
+        images,
+        group=None,
+        bounding_box_group_glob=None,
+        reference_shape=None,
+        diagonal=None,
+        scales=(0.5, 1.0),
+        n_perturbations=30,
+        n_dlib_perturbations=1,
+        perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
+        n_iterations=10,
+        feature_padding=0,
+        n_pixel_pairs=400,
+        distance_prior_weighting=0.1,
+        regularisation_weight=0.1,
+        n_split_tests=20,
+        n_trees=500,
+        n_tree_levels=5,
+        verbose=False,
+    ):
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
         n_scales = len(scales)
@@ -143,8 +162,11 @@ class DlibERT(MultiScaleNonParametricFitter):
 
         # Call superclass
         super(DlibERT, self).__init__(
-            scales=scales, reference_shape=reference_shape,
-            holistic_features=holistic_features, algorithms=[])
+            scales=scales,
+            reference_shape=reference_shape,
+            holistic_features=holistic_features,
+            algorithms=[],
+        )
 
         # Set parameters
         self.diagonal = diagonal
@@ -153,41 +175,58 @@ class DlibERT(MultiScaleNonParametricFitter):
         self._perturb_from_gt_bounding_box = perturb_from_gt_bounding_box
 
         # DLib options
-        self._setup_dlib_options(feature_padding, n_pixel_pairs,
-                                 distance_prior_weighting,
-                                 regularisation_weight, n_split_tests, n_trees,
-                                 n_dlib_perturbations, n_tree_levels)
+        self._setup_dlib_options(
+            feature_padding,
+            n_pixel_pairs,
+            distance_prior_weighting,
+            regularisation_weight,
+            n_split_tests,
+            n_trees,
+            n_dlib_perturbations,
+            n_tree_levels,
+        )
 
         # Set-up algorithms
         for j in range(self.n_scales):
-            self.algorithms.append(DlibAlgorithm(
-                self._dlib_options_templates[j],
-                n_iterations=self.n_iterations[j]))
+            self.algorithms.append(
+                DlibAlgorithm(
+                    self._dlib_options_templates[j], n_iterations=self.n_iterations[j]
+                )
+            )
 
         # Train DLIB over multiple scales
-        self._train(images, group=group,
-                    bounding_box_group_glob=bounding_box_group_glob,
-                    verbose=verbose)
+        self._train(
+            images,
+            group=group,
+            bounding_box_group_glob=bounding_box_group_glob,
+            verbose=verbose,
+        )
 
-    def _setup_dlib_options(self, feature_padding, n_pixel_pairs,
-                            distance_prior_weighting, regularisation_weight,
-                            n_split_tests, n_trees, n_dlib_perturbations,
-                            n_tree_levels):
-        check_int = partial(checks.check_multi_scale_param, self.n_scales,
-                            (int,))
-        check_float = partial(checks.check_multi_scale_param, self.n_scales,
-                              (float,))
-        feature_padding = check_int('feature_padding', feature_padding)
-        n_pixel_pairs = check_int('n_pixel_pairs', n_pixel_pairs)
-        distance_prior_weighting = check_float('distance_prior_weighting',
-                                               distance_prior_weighting)
-        regularisation_weight = check_float('regularisation_weight',
-                                            regularisation_weight)
-        n_split_tests = check_int('n_split_tests', n_split_tests)
-        n_trees = check_int('n_trees', n_trees)
-        n_dlib_perturbations = check_int('n_dlib_perturbations',
-                                         n_dlib_perturbations)
-        n_tree_levels = check_int('n_tree_levels', n_tree_levels)
+    def _setup_dlib_options(
+        self,
+        feature_padding,
+        n_pixel_pairs,
+        distance_prior_weighting,
+        regularisation_weight,
+        n_split_tests,
+        n_trees,
+        n_dlib_perturbations,
+        n_tree_levels,
+    ):
+        check_int = partial(checks.check_multi_scale_param, self.n_scales, (int,))
+        check_float = partial(checks.check_multi_scale_param, self.n_scales, (float,))
+        feature_padding = check_int("feature_padding", feature_padding)
+        n_pixel_pairs = check_int("n_pixel_pairs", n_pixel_pairs)
+        distance_prior_weighting = check_float(
+            "distance_prior_weighting", distance_prior_weighting
+        )
+        regularisation_weight = check_float(
+            "regularisation_weight", regularisation_weight
+        )
+        n_split_tests = check_int("n_split_tests", n_split_tests)
+        n_trees = check_int("n_trees", n_trees)
+        n_dlib_perturbations = check_int("n_dlib_perturbations", n_dlib_perturbations)
+        n_tree_levels = check_int("n_tree_levels", n_tree_levels)
         self._dlib_options_templates = []
         for j in range(self.n_scales):
             new_opts = dlib.shape_predictor_training_options()
@@ -219,8 +258,9 @@ class DlibERT(MultiScaleNonParametricFitter):
 
             self._dlib_options_templates.append(new_opts)
 
-    def _train(self, original_images, group=None, bounding_box_group_glob=None,
-               verbose=False):
+    def _train(
+        self, original_images, group=None, bounding_box_group_glob=None, verbose=False
+    ):
         # Dlib does not support incremental builds, so we must be passed a list
         if not isinstance(original_images, list):
             original_images = list(original_images)
@@ -231,40 +271,46 @@ class DlibERT(MultiScaleNonParametricFitter):
 
         # Temporarily store all the bounding boxes for rescaling
         for i in original_images:
-            i.landmarks['__gt_bb'] = i.landmarks[group].bounding_box()
+            i.landmarks["__gt_bb"] = i.landmarks[group].bounding_box()
 
         if self.reference_shape is None:
             # If no reference shape was given, use the mean of the first batch
             self._reference_shape = compute_reference_shape(
-                [i.landmarks['__gt_bb'] for i in original_images],
-                self.diagonal, verbose=verbose)
+                [i.landmarks["__gt_bb"] for i in original_images],
+                self.diagonal,
+                verbose=verbose,
+            )
 
         # Rescale images wrt the scale factor between the existing
         # reference_shape and their ground truth (group) bboxes
         images = rescale_images_to_reference_shape(
-            original_images, '__gt_bb', self.reference_shape,
-            verbose=verbose)
+            original_images, "__gt_bb", self.reference_shape, verbose=verbose
+        )
 
         # Scaling is done - remove temporary gt bounding boxes
         for i, i2 in zip(original_images, images):
-            del i.landmarks['__gt_bb']
-            del i2.landmarks['__gt_bb']
+            del i.landmarks["__gt_bb"]
+            del i2.landmarks["__gt_bb"]
 
         # Create a callable that generates perturbations of the bounding boxes
         # of the provided images.
         generated_bb_func = generate_perturbations_from_gt(
-            images, self.n_perturbations, self._perturb_from_gt_bounding_box,
-            gt_group=group, bb_group_glob=bounding_box_group_glob,
-            verbose=verbose)
+            images,
+            self.n_perturbations,
+            self._perturb_from_gt_bounding_box,
+            gt_group=group,
+            bb_group_glob=bounding_box_group_glob,
+            verbose=verbose,
+        )
 
         # For each scale (low --> high)
         for j in range(self.n_scales):
             # Print progress if asked
             if verbose:
                 if len(self.scales) > 1:
-                    scale_prefix = '  - Scale {}: '.format(j)
+                    scale_prefix = "  - Scale {}: ".format(j)
                 else:
-                    scale_prefix = '  - '
+                    scale_prefix = "  - "
             else:
                 scale_prefix = None
 
@@ -272,8 +318,12 @@ class DlibERT(MultiScaleNonParametricFitter):
             # enough in order not to rescale the images if the current scale
             # factor equals to 1.
             scaled_images, scale_transforms = scale_images(
-                images, self.scales[j], prefix=scale_prefix,
-                return_transforms=True, verbose=verbose)
+                images,
+                self.scales[j],
+                prefix=scale_prefix,
+                return_transforms=True,
+                verbose=verbose,
+            )
 
             # Get bbox estimations of current scale. If we are at the first
             # scale, this is done by using generated_bb_func. If we are at the
@@ -283,19 +333,20 @@ class DlibERT(MultiScaleNonParametricFitter):
             if j == 0:
                 # At the first scale, the current bboxes are created by calling
                 # generated_bb_func.
-                current_bounding_boxes = [generated_bb_func(im)
-                                          for im in scaled_images]
+                current_bounding_boxes = [generated_bb_func(im) for im in scaled_images]
             else:
                 # At the rest of the scales, extract the current bboxes that
                 # were attached to the images
-                msg = '{}Extracting bbox estimations from previous ' \
-                      'scale.'.format(scale_prefix)
-                wrap = partial(print_progress, prefix=msg,
-                               end_with_newline=False, verbose=verbose)
+                msg = "{}Extracting bbox estimations from previous " "scale.".format(
+                    scale_prefix
+                )
+                wrap = partial(
+                    print_progress, prefix=msg, end_with_newline=False, verbose=verbose
+                )
                 for ii in wrap(scaled_images):
                     c_bboxes = []
                     for k in list(range(self.n_perturbations)):
-                        c_key = '__ert_current_bbox_{}'.format(k)
+                        c_key = "__ert_current_bbox_{}".format(k)
                         c_bboxes.append(ii.landmarks[c_key])
                     current_bounding_boxes.append(c_bboxes)
 
@@ -305,8 +356,12 @@ class DlibERT(MultiScaleNonParametricFitter):
             # Train the Dlib model.  This returns the bbox estimations for the
             # next scale.
             current_bounding_boxes = self.algorithms[j].train(
-                scaled_images, scaled_gt_shapes, current_bounding_boxes,
-                prefix=scale_prefix, verbose=verbose)
+                scaled_images,
+                scaled_gt_shapes,
+                current_bounding_boxes,
+                prefix=scale_prefix,
+                verbose=verbose,
+            )
 
             # Scale the current bbox estimations for the next level. This
             # doesn't have to be done for the last scale. The only thing we need
@@ -315,9 +370,8 @@ class DlibERT(MultiScaleNonParametricFitter):
             if j < (self.n_scales - 1):
                 for jj, image_bboxes in enumerate(current_bounding_boxes):
                     for k, bbox in enumerate(image_bboxes):
-                        c_key = '__ert_current_bbox_{}'.format(k)
-                        images[jj].landmarks[c_key] = \
-                            scale_transforms[jj].apply(bbox)
+                        c_key = "__ert_current_bbox_{}".format(k)
+                        images[jj].landmarks[c_key] = scale_transforms[jj].apply(bbox)
 
     def fit_from_shape(self, image, initial_shape, gt_shape=None):
         r"""
@@ -342,9 +396,11 @@ class DlibERT(MultiScaleNonParametricFitter):
         fitting_result : :map:`MultiScaleNonParametricIterativeResult`
             The result of the fitting procedure.
         """
-        warnings.warn('Fitting from an initial shape is not supported by '
-                      'Dlib - therefore we are falling back to the tightest '
-                      'bounding box from the given initial_shape')
+        warnings.warn(
+            "Fitting from an initial shape is not supported by "
+            "Dlib - therefore we are falling back to the tightest "
+            "bounding box from the given initial_shape"
+        )
         tightest_bb = initial_shape.bounding_box()
         return self.fit_from_bb(image, tightest_bb, gt_shape=gt_shape)
 
@@ -376,23 +432,32 @@ class DlibERT(MultiScaleNonParametricFitter):
         # as potential affine transform from the features. The scale
         # transforms are the Scale objects that correspond to each level's
         # scale.
-        (images, bounding_boxes, gt_shapes, affine_transforms,
-         scale_transforms) = self._prepare_image(image, bounding_box,
-                                                 gt_shape=gt_shape)
+        (
+            images,
+            bounding_boxes,
+            gt_shapes,
+            affine_transforms,
+            scale_transforms,
+        ) = self._prepare_image(image, bounding_box, gt_shape=gt_shape)
 
         # Execute multi-scale fitting
-        algorithm_results = self._fit(images=images,
-                                      initial_shape=bounding_boxes[0],
-                                      affine_transforms=affine_transforms,
-                                      scale_transforms=scale_transforms,
-                                      return_costs=False, gt_shapes=gt_shapes)
+        algorithm_results = self._fit(
+            images=images,
+            initial_shape=bounding_boxes[0],
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            return_costs=False,
+            gt_shapes=gt_shapes,
+        )
 
         # Return multi-scale fitting result
-        return self._fitter_result(image=image,
-                                   algorithm_results=algorithm_results,
-                                   affine_transforms=affine_transforms,
-                                   scale_transforms=scale_transforms,
-                                   gt_shape=gt_shape)
+        return self._fitter_result(
+            image=image,
+            algorithm_results=algorithm_results,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            gt_shape=gt_shape,
+        )
 
     def __str__(self):
         if self.diagonal is not None:
@@ -414,7 +479,8 @@ class DlibERT(MultiScaleNonParametricFitter):
      - Perturbations generated per shape: {9}
      - Total perturbations generated: {10}"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
+            scales_info.append(
+                lvl_str_tmplt.format(
                     s,
                     self._dlib_options_templates[k].cascade_depth,
                     self._dlib_options_templates[k].tree_depth,
@@ -425,15 +491,19 @@ class DlibERT(MultiScaleNonParametricFitter):
                     self._dlib_options_templates[k].lambda_param,
                     self._dlib_options_templates[k].num_test_splits,
                     self._dlib_options_templates[k].oversampling_amount,
-                    self._dlib_options_templates[k].oversampling_amount *
-                    self.n_perturbations))
-        scales_info = '\n'.join(scales_info)
+                    self._dlib_options_templates[k].oversampling_amount
+                    * self.n_perturbations,
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
-        is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
-                                  noisy_shape_from_bounding_box)
+        is_custom_perturb_func = (
+            self._perturb_from_gt_bounding_box != noisy_shape_from_bounding_box
+        )
         if is_custom_perturb_func:
             is_custom_perturb_func = name_of_callable(
-                    self._perturb_from_gt_bounding_box)
+                self._perturb_from_gt_bounding_box
+            )
 
         cls_str = r"""{class_title}
  - Images scaled to diagonal: {diagonal:.2f}
@@ -441,12 +511,14 @@ class DlibERT(MultiScaleNonParametricFitter):
  - Custom perturbation scheme used: {is_custom_perturb_func}
  - Scales: {scales}
 {scales_info}
-""".format(class_title='Ensemble of Regression Trees',
-           diagonal=diagonal,
-           n_perturbations=self.n_perturbations,
-           is_custom_perturb_func=is_custom_perturb_func,
-           scales=self.scales,
-           scales_info=scales_info)
+""".format(
+            class_title="Ensemble of Regression Trees",
+            diagonal=diagonal,
+            n_perturbations=self.n_perturbations,
+            is_custom_perturb_func=is_custom_perturb_func,
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return cls_str
 
 
@@ -460,17 +532,19 @@ class DlibWrapper(object):
     model : `Path` or `str`
         Path to the pre-trained model.
     """
+
     def __init__(self, model):
-        if isinstance(model, STRING_TYPES) or isinstance(model, Path):
+        if isinstance(model, (str, Path)):
             m_path = Path(model)
             if not Path(m_path).exists():
-                raise ValueError('Model {} does not exist.'.format(m_path))
+                raise ValueError("Model {} does not exist.".format(m_path))
             model = dlib.shape_predictor(str(m_path))
 
         # Dlib doesn't expose any information about how the model was built,
         # so we just create dummy options
-        self.algorithm = DlibAlgorithm(dlib.shape_predictor_training_options(),
-                                       n_iterations=0)
+        self.algorithm = DlibAlgorithm(
+            dlib.shape_predictor_training_options(), n_iterations=0
+        )
         self.algorithm.dlib_model = model
         self.scales = [1]
 
@@ -497,9 +571,11 @@ class DlibWrapper(object):
         fitting_result : :map:`Result`
             The result of the fitting procedure.
         """
-        warnings.warn('Fitting from an initial shape is not supported by '
-                      'Dlib - therefore we are falling back to the tightest '
-                      'bounding box from the given initial_shape')
+        warnings.warn(
+            "Fitting from an initial shape is not supported by "
+            "Dlib - therefore we are falling back to the tightest "
+            "bounding box from the given initial_shape"
+        )
         tightest_bb = initial_shape.bounding_box()
         return self.fit_from_bb(image, tightest_bb, gt_shape=gt_shape)
 
@@ -525,8 +601,12 @@ class DlibWrapper(object):
         # which is pointless. Simply convert it to a Result instance without
         # passing in an initial shape.
         fit_result = self.algorithm.run(image, bounding_box, gt_shape=gt_shape)
-        return Result(final_shape=fit_result.final_shape, image=image,
-                      initial_shape=None, gt_shape=gt_shape)
+        return Result(
+            final_shape=fit_result.final_shape,
+            image=image,
+            initial_shape=None,
+            gt_shape=gt_shape,
+        )
 
     def __str__(self):
         return "Pre-trained DLib Ensemble of Regression Trees model"

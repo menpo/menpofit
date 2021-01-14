@@ -8,9 +8,13 @@ from menpo.visualize import print_dynamic
 
 from menpofit import checks
 from menpofit.base import batch
-from menpofit.builder import (compute_features, scale_images,
-                              MenpoFitBuilderWarning, compute_reference_shape,
-                              rescale_images_to_reference_shape)
+from menpofit.builder import (
+    compute_features,
+    scale_images,
+    MenpoFitBuilderWarning,
+    compute_reference_shape,
+    rescale_images_to_reference_shape,
+)
 from menpofit.modelinstance import OrthoPDM
 
 from .expert import CorrelationFilterExpertEnsemble
@@ -101,24 +105,35 @@ class CLM(object):
         Shape Models - their training and application", Computer Vision and Image
         Understanding (CVIU), 61(1): 38-59, 1995.
     """
-    def __init__(self, images, group=None, holistic_features=no_op,
-                 reference_shape=None, diagonal=None, scales=(0.5, 1),
-                 patch_shape=(17, 17), patch_normalisation=no_op,
-                 context_shape=(34, 34), cosine_mask=True, sample_offsets=None,
-                 shape_model_cls=OrthoPDM,
-                 expert_ensemble_cls=CorrelationFilterExpertEnsemble,
-                 max_shape_components=None, verbose=False, batch_size=None):
+
+    def __init__(
+        self,
+        images,
+        group=None,
+        holistic_features=no_op,
+        reference_shape=None,
+        diagonal=None,
+        scales=(0.5, 1),
+        patch_shape=(17, 17),
+        patch_normalisation=no_op,
+        context_shape=(34, 34),
+        cosine_mask=True,
+        sample_offsets=None,
+        shape_model_cls=OrthoPDM,
+        expert_ensemble_cls=CorrelationFilterExpertEnsemble,
+        max_shape_components=None,
+        verbose=False,
+        batch_size=None,
+    ):
         self.scales = checks.check_scales(scales)
         n_scales = len(scales)
         self.diagonal = checks.check_diagonal(diagonal)
-        self.holistic_features = checks.check_callable(holistic_features,
-                                                       n_scales)
-        self.expert_ensemble_cls = checks.check_callable(expert_ensemble_cls,
-                                                         n_scales)
-        self._shape_model_cls = checks.check_callable(shape_model_cls,
-                                                      n_scales)
+        self.holistic_features = checks.check_callable(holistic_features, n_scales)
+        self.expert_ensemble_cls = checks.check_callable(expert_ensemble_cls, n_scales)
+        self._shape_model_cls = checks.check_callable(shape_model_cls, n_scales)
         self.max_shape_components = checks.check_max_components(
-            max_shape_components, n_scales, 'max_shape_components')
+            max_shape_components, n_scales, "max_shape_components"
+        )
         self.reference_shape = reference_shape
         self.patch_shape = checks.check_patch_shape(patch_shape, n_scales)
         self.patch_normalisation = patch_normalisation
@@ -129,8 +144,9 @@ class CLM(object):
         self.expert_ensembles = []
 
         # Train CLM
-        self._train(images, increment=False, group=group, verbose=verbose,
-                    batch_size=batch_size)
+        self._train(
+            images, increment=False, group=group, verbose=verbose, batch_size=batch_size
+        )
 
     @property
     def _str_title(self):
@@ -145,8 +161,15 @@ class CLM(object):
         """
         return len(self.scales)
 
-    def _train(self, images, increment=False, group=None, verbose=False,
-               shape_forgetting_factor=1.0, batch_size=None):
+    def _train(
+        self,
+        images,
+        increment=False,
+        group=None,
+        verbose=False,
+        shape_forgetting_factor=1.0,
+        batch_size=None,
+    ):
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -162,45 +185,60 @@ class CLM(object):
                     # If no reference shape was given, use the mean of the first
                     # batch
                     if batch_size is not None:
-                        warnings.warn('No reference shape was provided. The '
-                                      'mean of the first batch will be the '
-                                      'reference shape. If the batch mean is '
-                                      'not representative of the true mean, '
-                                      'this may cause issues.',
-                                      MenpoFitBuilderWarning)
+                        warnings.warn(
+                            "No reference shape was provided. The "
+                            "mean of the first batch will be the "
+                            "reference shape. If the batch mean is "
+                            "not representative of the true mean, "
+                            "this may cause issues.",
+                            MenpoFitBuilderWarning,
+                        )
                     self.reference_shape = compute_reference_shape(
                         [i.landmarks[group] for i in image_batch],
-                        self.diagonal, verbose=verbose)
+                        self.diagonal,
+                        verbose=verbose,
+                    )
 
             # After the first batch, we are incrementing the model
             if k > 0:
                 increment = True
 
             if verbose:
-                print('Computing batch {}'.format(k))
+                print("Computing batch {}".format(k))
 
             # Train each batch
-            self._train_batch(image_batch, increment=increment, group=group,
-                              shape_forgetting_factor=shape_forgetting_factor,
-                              verbose=verbose)
+            self._train_batch(
+                image_batch,
+                increment=increment,
+                group=group,
+                shape_forgetting_factor=shape_forgetting_factor,
+                verbose=verbose,
+            )
 
-    def _train_batch(self, image_batch, increment=False, group=None,
-                     shape_forgetting_factor=1.0, verbose=False):
+    def _train_batch(
+        self,
+        image_batch,
+        increment=False,
+        group=None,
+        shape_forgetting_factor=1.0,
+        verbose=False,
+    ):
         # normalize images
         image_batch = rescale_images_to_reference_shape(
-            image_batch, group, self.reference_shape, verbose=verbose)
+            image_batch, group, self.reference_shape, verbose=verbose
+        )
 
         # build models at each scale
         if verbose:
-            print_dynamic('- Training models\n')
+            print_dynamic("- Training models\n")
 
         # for each level (low --> high)
         for i in range(self.n_scales):
             if verbose:
                 if self.n_scales > 1:
-                    prefix = '  - Scale {}: '.format(i)
+                    prefix = "  - Scale {}: ".format(i)
                 else:
-                    prefix = '  - '
+                    prefix = "  - "
             else:
                 prefix = None
 
@@ -208,74 +246,87 @@ class CLM(object):
             if i == 0 and self.holistic_features[i] == no_op:
                 # Saves a lot of memory
                 feature_images = image_batch
-            elif i == 0 or self.holistic_features[i] is not self.holistic_features[i - 1]:
+            elif (
+                i == 0 or self.holistic_features[i] is not self.holistic_features[i - 1]
+            ):
                 # compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
-                feature_images = compute_features(image_batch,
-                                                  self.holistic_features[i],
-                                                  prefix=prefix,
-                                                  verbose=verbose)
+                feature_images = compute_features(
+                    image_batch,
+                    self.holistic_features[i],
+                    prefix=prefix,
+                    verbose=verbose,
+                )
             # handle scales
             if self.scales[i] != 1:
                 # scale feature images only if scale is different than 1
-                scaled_images = scale_images(feature_images,
-                                             self.scales[i],
-                                             prefix=prefix,
-                                             verbose=verbose)
+                scaled_images = scale_images(
+                    feature_images, self.scales[i], prefix=prefix, verbose=verbose
+                )
             else:
                 scaled_images = feature_images
 
             # extract scaled shapes
-            scaled_shapes = [image.landmarks[group]
-                             for image in scaled_images]
+            scaled_shapes = [image.landmarks[group] for image in scaled_images]
 
             # train shape model
             if verbose:
-                print_dynamic('{}Training shape model'.format(prefix))
+                print_dynamic("{}Training shape model".format(prefix))
 
             if not increment:
                 shape_model = self._build_shape_model(scaled_shapes, i)
                 self.shape_models.append(shape_model)
             else:
                 self._increment_shape_model(
-                    scaled_shapes, i, forgetting_factor=shape_forgetting_factor)
+                    scaled_shapes, i, forgetting_factor=shape_forgetting_factor
+                )
 
             # train expert ensemble
             if verbose:
-                print_dynamic('{}Training expert ensemble'.format(prefix))
+                print_dynamic("{}Training expert ensemble".format(prefix))
 
             if increment:
-                self.expert_ensembles[i].increment(scaled_images,
-                                                   scaled_shapes,
-                                                   prefix=prefix,
-                                                   verbose=verbose)
+                self.expert_ensembles[i].increment(
+                    scaled_images, scaled_shapes, prefix=prefix, verbose=verbose
+                )
             else:
                 expert_ensemble = self.expert_ensemble_cls[i](
-                        images=scaled_images, shapes=scaled_shapes,
-                        patch_shape=self.patch_shape[i],
-                        patch_normalisation=self.patch_normalisation,
-                        cosine_mask=self.cosine_mask,
-                        context_shape=self.context_shape[i],
-                        sample_offsets=self.sample_offsets,
-                        prefix=prefix, verbose=verbose)
+                    images=scaled_images,
+                    shapes=scaled_shapes,
+                    patch_shape=self.patch_shape[i],
+                    patch_normalisation=self.patch_normalisation,
+                    cosine_mask=self.cosine_mask,
+                    context_shape=self.context_shape[i],
+                    sample_offsets=self.sample_offsets,
+                    prefix=prefix,
+                    verbose=verbose,
+                )
                 self.expert_ensembles.append(expert_ensemble)
 
             if verbose:
-                print_dynamic('{}Done\n'.format(prefix))
+                print_dynamic("{}Done\n".format(prefix))
 
     def _build_shape_model(self, shapes, scale_index):
         return self._shape_model_cls[scale_index](
-            shapes, max_n_components=self.max_shape_components[scale_index])
+            shapes, max_n_components=self.max_shape_components[scale_index]
+        )
 
-    def _increment_shape_model(self, shapes, scale_index,
-                               forgetting_factor=None):
+    def _increment_shape_model(self, shapes, scale_index, forgetting_factor=None):
         self.shape_models[scale_index].increment(
-            shapes, forgetting_factor=forgetting_factor,
-            max_n_components=self.max_shape_components[scale_index])
+            shapes,
+            forgetting_factor=forgetting_factor,
+            max_n_components=self.max_shape_components[scale_index],
+        )
 
-    def increment(self, images, group=None, shape_forgetting_factor=1.0,
-                  verbose=False, batch_size=None):
+    def increment(
+        self,
+        images,
+        group=None,
+        shape_forgetting_factor=1.0,
+        verbose=False,
+        batch_size=None,
+    ):
         r"""
         Method to increment the trained CLM with a new set of training images.
 
@@ -302,9 +353,14 @@ class CLM(object):
             value. If ``None``, then the training is performed directly on the
             all the images.
         """
-        return self._train(images, increment=True, group=group, verbose=verbose,
-                           shape_forgetting_factor=shape_forgetting_factor,
-                           batch_size=batch_size)
+        return self._train(
+            images,
+            increment=True,
+            group=group,
+            verbose=verbose,
+            shape_forgetting_factor=shape_forgetting_factor,
+            batch_size=batch_size,
+        )
 
     def shape_instance(self, shape_weights=None, scale_index=-1):
         r"""
@@ -330,111 +386,6 @@ class CLM(object):
         sm = self.shape_models[scale_index].model
         return sm.instance(shape_weights, normalized_weights=True)
 
-    def view_shape_models_widget(self, n_parameters=5,
-                                 parameters_bounds=(-3.0, 3.0),
-                                 mode='multiple', figure_size=(7, 7)):
-        r"""
-        Visualizes the shape models of the CLM object using an interactive
-        widget.
-
-        Parameters
-        ----------
-        n_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of shape principal components to be used for the
-            parameters sliders. If `int`, then the number of sliders per
-            scale is the minimum between `n_parameters` and the number of
-            active components per scale. If `list` of `int`, then a number of
-            sliders is defined per scale. If ``None``, all the active
-            components per scale will have a slider.
-        parameters_bounds : ``(float, float)``, optional
-            The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu. If ``'multiple'``, a slider is constructed for
-            each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the rendered figure.
-        """
-        try:
-            from menpowidgets import visualize_shape_model_2d
-            visualize_shape_model_2d(
-                [sm.model for sm in self.shape_models],
-                n_parameters=n_parameters, parameters_bounds=parameters_bounds,
-                figure_size=figure_size, mode=mode)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
-
-    def view_expert_ensemble_widget(self, figure_size=(7, 7)):
-        r"""
-        Visualizes the ensemble of experts of the CLM object using an
-        interactive widget.
-
-        Parameters
-        ----------
-        figure_size : (`int`, `int`), optional
-            The size of the plotted figures.
-
-        Raises
-        ------
-        ValueError
-            Only convolution-based expert ensembles can be visualized.
-        """
-        if not isinstance(self.expert_ensembles[0],
-                          ConvolutionBasedExpertEnsemble):
-            raise ValueError('Only convolution-based expert ensembles can be '
-                             'visualized.')
-        try:
-            from menpowidgets import visualize_expert_ensemble
-            centers = [sp.model.mean() for sp in self.shape_models]
-            visualize_expert_ensemble(self.expert_ensembles, centers,
-                                      figure_size=figure_size)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
-
-    def view_clm_widget(self, n_shape_parameters=5,
-                        parameters_bounds=(-3.0, 3.0), mode='multiple',
-                        figure_size=(7, 7)):
-        r"""
-        Visualizes the CLM object using an interactive widget.
-
-        Parameters
-        ----------
-        n_shape_parameters : `int` or `list` of `int` or ``None``, optional
-            The number of shape principal components to be used for the
-            parameters sliders. If `int`, then the number of sliders per
-            scale is the minimum between `n_parameters` and the number of
-            active components per scale. If `list` of `int`, then a number of
-            sliders is defined per scale. If ``None``, all the active
-            components per scale will have a slider.
-        parameters_bounds : ``(float, float)``, optional
-            The minimum and maximum bounds, in std units, for the sliders.
-        mode : {``single``, ``multiple``}, optional
-            If ``'single'``, only a single slider is constructed along with a
-            drop down menu. If ``'multiple'``, a slider is constructed for
-            each parameter.
-        figure_size : (`int`, `int`), optional
-            The size of the rendered figure.
-
-        Raises
-        ------
-        ValueError
-            Only convolution-based expert ensembles can be visualized.
-        """
-        if not isinstance(self.expert_ensembles[0],
-                          ConvolutionBasedExpertEnsemble):
-            raise ValueError('Only convolution-based expert ensembles can be '
-                             'visualized.')
-        try:
-            from menpowidgets import visualize_clm
-            visualize_clm(self, n_shape_parameters=n_shape_parameters,
-                          parameters_bounds=parameters_bounds,
-                          figure_size=figure_size, mode=mode)
-        except:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
-
     def __str__(self):
         if self.diagonal is not None:
             diagonal = self.diagonal
@@ -457,8 +408,10 @@ class CLM(object):
        - {} shape components
        - {} similarity transform parameters"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
-                    s, name_of_callable(self.holistic_features[k]),
+            scales_info.append(
+                lvl_str_tmplt.format(
+                    s,
+                    name_of_callable(self.holistic_features[k]),
                     name_of_callable(self.expert_ensemble_cls[k]),
                     self.expert_ensembles[k].n_experts,
                     name_of_callable(self.expert_ensembles[k]._icf),
@@ -470,15 +423,19 @@ class CLM(object):
                     self.expert_ensembles[k].cosine_mask,
                     name_of_callable(self.shape_models[k]),
                     self.shape_models[k].model.n_components,
-                    self.shape_models[k].n_global_parameters))
-        scales_info = '\n'.join(scales_info)
+                    self.shape_models[k].n_global_parameters,
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""{class_title}
  - Images scaled to diagonal: {diagonal:.2f}
  - Scales: {scales}
 {scales_info}
-""".format(class_title=self._str_title,
-           diagonal=diagonal,
-           scales=self.scales,
-           scales_info=scales_info)
+""".format(
+            class_title=self._str_title,
+            diagonal=diagonal,
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return cls_str

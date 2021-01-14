@@ -9,15 +9,15 @@ from menpo.image import Image
 from menpo.base import name_of_callable
 
 from menpofit.base import build_grid
-from menpofit.math.fft_utils import (fft2, ifft2, fftshift, pad, crop,
-                                     fft_convolve2d_sum)
+from menpofit.math.fft_utils import fft2, ifft2, fftshift, pad, crop, fft_convolve2d_sum
 from menpofit.visualize import print_progress
 
 from .base import IncrementalCorrelationFilterThinWrapper, probability_map
 
 
-channel_normalize_norm = partial(normalize_norm,  mode='per_channel',
-                                 error_on_divide_by_zero=False)
+channel_normalize_norm = partial(
+    normalize_norm, mode="per_channel", error_on_divide_by_zero=False
+)
 
 
 class ExpertEnsemble(object):
@@ -25,6 +25,7 @@ class ExpertEnsemble(object):
     Abstract class for defining an ensemble of patch experts that correspond
     to landmark points.
     """
+
     @property
     def n_experts(self):
         r"""
@@ -92,6 +93,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     r"""
     Base class for defining an ensemble of convolution-based patch experts.
     """
+
     @property
     def n_experts(self):
         r"""
@@ -132,7 +134,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         """
         return self.patch_shape
 
-    def increment(self, images, shapes, prefix='', verbose=False):
+    def increment(self, images, shapes, prefix="", verbose=False):
         r"""
         Increments the learned ensemble of convolution-based experts given a new
         set of training data.
@@ -149,8 +151,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
             If ``True``, then information about the training progress will be
             printed.
         """
-        self._train(images, shapes, prefix=prefix, verbose=verbose,
-                    increment=True)
+        self._train(images, shapes, prefix=prefix, verbose=verbose, increment=True)
 
     @property
     def spatial_filter_images(self):
@@ -162,8 +163,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         filter_images = []
         for fft_padded_filter in self.fft_padded_filters:
             spatial_filter = np.real(ifft2(fft_padded_filter))
-            spatial_filter = crop(spatial_filter,
-                                  self.patch_shape)[:, ::-1, ::-1]
+            spatial_filter = crop(spatial_filter, self.patch_shape)[:, ::-1, ::-1]
             filter_images.append(Image(spatial_filter))
         return filter_images
 
@@ -177,8 +177,7 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         filter_images = []
         for fft_padded_filter in self.fft_padded_filters:
             spatial_filter = np.real(ifft2(fft_padded_filter))
-            spatial_filter = crop(spatial_filter,
-                                  self.patch_shape)[:, ::-1, ::-1]
+            spatial_filter = crop(spatial_filter, self.patch_shape)[:, ::-1, ::-1]
             frequency_filter = np.abs(fftshift(fft2(spatial_filter)))
             filter_images.append(Image(frequency_filter))
         return filter_images
@@ -186,8 +185,11 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     def _extract_patch(self, image, landmark):
         # Extract patch from image
         patch = image.extract_patches(
-            landmark, patch_shape=self.patch_shape,
-            sample_offsets=self.sample_offsets, as_single_array=True)
+            landmark,
+            patch_shape=self.patch_shape,
+            sample_offsets=self.sample_offsets,
+            as_single_array=True,
+        )
         # Reshape patch
         # patch: (offsets x ch) x h x w
         patch = patch.reshape((-1,) + patch.shape[-2:])
@@ -197,9 +199,12 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
     def _extract_patches(self, image, shape):
         # Obtain patch ensemble, the whole shape is used to extract patches
         # from all landmarks at once
-        patches = image.extract_patches(shape, patch_shape=self.patch_shape,
-                                        sample_offsets=self.sample_offsets,
-                                        as_single_array=True)
+        patches = image.extract_patches(
+            shape,
+            patch_shape=self.patch_shape,
+            sample_offsets=self.sample_offsets,
+            as_single_array=True,
+        )
         # Reshape patches
         # patches: n_patches x (n_offsets x n_channels) x height x width
         patches = patches.reshape((patches.shape[0], -1) + patches.shape[-2:])
@@ -228,61 +233,9 @@ class ConvolutionBasedExpertEnsemble(ExpertEnsemble):
         # Extract patches
         patches = self._extract_patches(image, shape)
         # Predict responses
-        return fft_convolve2d_sum(patches, self.fft_padded_filters,
-                                  fft_filter=True, axis=1)
-
-    def view_spatial_filter_images_widget(self, figure_size=(7, 7),
-                                          style='coloured',
-                                          browser_style='buttons'):
-        r"""
-        Visualizes the filters on the spatial domain using an interactive widget.
-
-        Parameters
-        ----------
-        figure_size : (`int`, `int`), optional
-            The initial size of the rendered figure.
-        style : {``'coloured'``, ``'minimal'``}, optional
-            If ``'coloured'``, then the style of the widget will be coloured. If
-            ``minimal``, then the style is simple using black and white colours.
-        browser_style : {``'buttons'``, ``'slider'``}, optional
-            It defines whether the selector of the objects will have the form of
-            plus/minus buttons or a slider.
-        """
-        try:
-            from menpowidgets import visualize_images
-            visualize_images(self.spatial_filter_images,
-                             figure_size=figure_size, style=style,
-                             browser_style=browser_style)
-        except ImportError:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
-
-    def view_frequency_filter_images_widget(self, figure_size=(7, 7),
-                                            style='coloured',
-                                            browser_style='buttons'):
-        r"""
-        Visualizes the filters on the frequency domain using an interactive
-        widget.
-
-        Parameters
-        ----------
-        figure_size : (`int`, `int`), optional
-            The initial size of the rendered figure.
-        style : {``'coloured'``, ``'minimal'``}, optional
-            If ``'coloured'``, then the style of the widget will be coloured. If
-            ``minimal``, then the style is simple using black and white colours.
-        browser_style : {``'buttons'``, ``'slider'``}, optional
-            It defines whether the selector of the objects will have the form of
-            plus/minus buttons or a slider.
-        """
-        try:
-            from menpowidgets import visualize_images
-            visualize_images(self.frequency_filter_images,
-                             figure_size=figure_size, style=style,
-                             browser_style=browser_style)
-        except ImportError:
-            from menpo.visualize.base import MenpowidgetsMissingError
-            raise MenpowidgetsMissingError()
+        return fft_convolve2d_sum(
+            patches, self.fft_padded_filters, fft_filter=True, axis=1
+        )
 
 
 class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
@@ -321,13 +274,21 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         If ``True``, then information will be printed regarding the training
         progress.
     """
-    def __init__(self, images, shapes,
-                 icf_cls=IncrementalCorrelationFilterThinWrapper,
-                 patch_shape=(17, 17), context_shape=(34, 34),
-                 response_covariance=3,
-                 patch_normalisation=channel_normalize_norm,
-                 cosine_mask=True, sample_offsets=None, prefix='',
-                 verbose=False):
+
+    def __init__(
+        self,
+        images,
+        shapes,
+        icf_cls=IncrementalCorrelationFilterThinWrapper,
+        patch_shape=(17, 17),
+        context_shape=(34, 34),
+        response_covariance=3,
+        patch_normalisation=channel_normalize_norm,
+        cosine_mask=True,
+        sample_offsets=None,
+        prefix="",
+        verbose=False,
+    ):
         # TODO: check parameters?
         # Set parameters
         self._icf = icf_cls()
@@ -344,7 +305,8 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
         # Generate desired response, i.e. a Gaussian response with the
         # specified covariance centred at the middle of the patch
         self.response = generate_gaussian_response(
-            self.patch_shape, self.response_covariance)[None, ...]
+            self.patch_shape, self.response_covariance
+        )[None, ...]
 
         # Train ensemble of correlation filter experts
         self._train(images, shapes, verbose=verbose, prefix=prefix)
@@ -352,8 +314,11 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
     def _extract_patch(self, image, landmark):
         # Extract patch from image
         patch = image.extract_patches(
-            landmark, patch_shape=self.context_shape,
-            sample_offsets=self.sample_offsets, as_single_array=True)
+            landmark,
+            patch_shape=self.context_shape,
+            sample_offsets=self.sample_offsets,
+            as_single_array=True,
+        )
         # Reshape patch
         # patch: (offsets x ch) x h x w
         patch = patch.reshape((-1,) + patch.shape[-2:])
@@ -364,14 +329,14 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
             patch = self._cosine_mask * patch
         return patch
 
-    def _train(self, images, shapes, prefix='', verbose=False,
-               increment=False):
+    def _train(self, images, shapes, prefix="", verbose=False, increment=False):
         # Define print_progress partial
-        wrap = partial(print_progress,
-                       prefix='{}Training experts'
-                              .format(prefix),
-                       end_with_newline=not prefix,
-                       verbose=verbose)
+        wrap = partial(
+            print_progress,
+            prefix="{}Training experts".format(prefix),
+            end_with_newline=not prefix,
+            verbose=verbose,
+        )
 
         # If increment is False, we need to initialise/reset the ensemble of
         # experts
@@ -404,16 +369,24 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
 
             if increment:
                 # Increment correlation filter
-                correlation_filter, auto_correlation, cross_correlation = (
-                    self._icf.increment(self.auto_correlations[i],
-                                        self.cross_correlations[i],
-                                        self.n_images,
-                                        patches,
-                                        self.response))
+                (
+                    correlation_filter,
+                    auto_correlation,
+                    cross_correlation,
+                ) = self._icf.increment(
+                    self.auto_correlations[i],
+                    self.cross_correlations[i],
+                    self.n_images,
+                    patches,
+                    self.response,
+                )
             else:
                 # Train correlation filter
-                correlation_filter, auto_correlation, cross_correlation = (
-                    self._icf.train(patches, self.response))
+                (
+                    correlation_filter,
+                    auto_correlation,
+                    cross_correlation,
+                ) = self._icf.train(patches, self.response)
 
             # Pad filter with zeros
             padded_filter = pad(correlation_filter, self.padded_size)
@@ -437,14 +410,15 @@ class CorrelationFilterExpertEnsemble(ConvolutionBasedExpertEnsemble):
  - Patch normalisation: {patch_norm}
  - Context shape: {context_height} x {context_width}
  - Cosine mask: {cosine_mask}""".format(
-                n_experts=self.n_experts,
-                icf_cls=name_of_callable(self._icf),
-                patch_height=self.patch_shape[0],
-                patch_width=self.patch_shape[1],
-                patch_norm=name_of_callable(self.patch_normalisation),
-                context_height=self.context_shape[0],
-                context_width=self.context_shape[1],
-                cosine_mask=self.cosine_mask)
+            n_experts=self.n_experts,
+            icf_cls=name_of_callable(self._icf),
+            patch_height=self.patch_shape[0],
+            patch_width=self.patch_shape[1],
+            patch_norm=name_of_callable(self.patch_normalisation),
+            context_height=self.context_shape[0],
+            context_width=self.context_shape[1],
+            cosine_mask=self.cosine_mask,
+        )
         return cls_str
 
 
