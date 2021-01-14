@@ -1,3 +1,2 @@
-include versioneer.py
-include menpofit/_version.py
 include LICENSE.txt
+include AUTHORS.txt
