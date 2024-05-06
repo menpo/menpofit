@@ -54,11 +54,11 @@ class LucasKanadeBaseInterface(object):
         n_channels = self.template.n_channels
         n_parameters = self.transform.n_parameters
 
-        sampling_mask = np.zeros(n_true_pixels, dtype=np.bool)
+        sampling_mask = np.zeros(n_true_pixels, dtype=bool)
 
         if sampling is None:
             sampling = range(0, n_true_pixels, 1)
-        elif isinstance(sampling, np.int):
+        elif isinstance(sampling, np.int64):
             sampling = range(0, n_true_pixels, sampling)
 
         sampling_mask[sampling] = 1
@@ -473,7 +473,7 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
 
     def _build_sampling_mask(self, sampling):
         if sampling is None:
-            sampling = np.ones(self.patch_shape, dtype=np.bool)
+            sampling = np.ones(self.patch_shape, dtype=bool)
 
         image_shape = self.template.pixels.shape
         image_mask = np.tile(sampling[None, None, None, ...],

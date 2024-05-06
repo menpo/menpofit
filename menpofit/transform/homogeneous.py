@@ -304,7 +304,7 @@ def affine_d_dp(self, points):
     # prealloc the jacobian
     jac = np.zeros((n_points, self.n_parameters, self.n_dims))
     # a mask that we can apply at each iteration
-    dim_mask = np.eye(self.n_dims, dtype=np.bool)
+    dim_mask = np.eye(self.n_dims, dtype=bool)
 
     for i, s in enumerate(
             range(0, self.n_dims * self.n_dims, self.n_dims)):
@@ -383,7 +383,7 @@ def similarity_d_dp(sim, points):
 
 def _apply_jacobian_mask(sim, jac, param_mask, row_index, points):
     # make a mask for a single points jacobian
-    full_mask = np.zeros((sim.n_parameters, sim.n_dims), dtype=np.bool)
+    full_mask = np.zeros((sim.n_parameters, sim.n_dims), dtype=bool)
     # fill the mask in for the ith axis
     full_mask[row_index] = [True, True]
     # assign the ith axis points to this mask, broadcasting over all

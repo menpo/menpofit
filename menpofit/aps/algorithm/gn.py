@@ -53,7 +53,7 @@ class GaussNewtonBaseInterface(object):
 
     def _build_sampling_mask(self, sampling):
         if sampling is None:
-            sampling = np.ones(self.patch_shape, dtype=np.bool)
+            sampling = np.ones(self.patch_shape, dtype=bool)
 
         image_shape = self.template.pixels.shape
         image_mask = np.tile(sampling[None, None, None, ...],

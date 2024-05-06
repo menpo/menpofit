@@ -451,7 +451,7 @@ def holistic_sampling_from_scale(aam, scale=0.35):
     t = AlignmentUniformScale(scaled_reference.landmarks['source'],
                               reference.landmarks['source'])
     new_indices = np.require(np.round(t.apply(
-        scaled_reference.mask.true_indices())), dtype=np.int)
+        scaled_reference.mask.true_indices())), dtype=np.int64)
 
     modified_mask = deepcopy(reference.mask.pixels)
     modified_mask[:] = False
@@ -485,7 +485,7 @@ def holistic_sampling_from_step(aam, step=8):
     reference = aam.appearance_models[0].mean()
 
     n_true_pixels = reference.n_true_pixels()
-    true_positions = np.zeros(n_true_pixels, dtype=np.bool)
+    true_positions = np.zeros(n_true_pixels, dtype=bool)
     sampling = range(0, n_true_pixels, step)
     true_positions[sampling] = True
 

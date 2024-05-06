@@ -34,7 +34,7 @@ def load_balanced_frontal_face_fitter():
       patch_shape = (13, 13)
       sampling_step = 4
 
-      sampling_grid = np.zeros(patch_shape, dtype=np.bool)
+      sampling_grid = np.zeros(patch_shape, dtype=bool)
       sampling_grid[::sampling_step, ::sampling_step] = True
       sampling = [sampling_grid, sampling_grid]
 

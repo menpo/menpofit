@@ -315,7 +315,7 @@ def check_max_iters(max_iters, n_scales):
         raise ValueError('max_iters can be integer, integer list '
                          'containing 1 or {} elements or '
                          'None'.format(n_scales))
-    return np.require(max_iters, dtype=np.int)
+    return np.require(max_iters, dtype=np.int64)
 
 
 def check_sampling(sampling, n_scales):
@@ -344,7 +344,7 @@ def check_sampling(sampling, n_scales):
         containing 1 or {n_scales} elements or None
     """
     if (isinstance(sampling, (list, tuple)) and
-        np.alltrue([isinstance(s, (np.ndarray, np.int)) or sampling is None
+        np.alltrue([isinstance(s, (np.ndarray, np.int64)) or sampling is None
                     for s in sampling])):
         if len(sampling) == 1:
             return sampling * n_scales
@@ -354,7 +354,7 @@ def check_sampling(sampling, n_scales):
             raise ValueError('A sampling list can only '
                              'contain 1 element or {} '
                              'elements'.format(n_scales))
-    elif isinstance(sampling, (np.ndarray, np.int)) or sampling is None:
+    elif isinstance(sampling, (np.ndarray, np.int64)) or sampling is None:
         return [sampling] * n_scales
     else:
         raise ValueError('sampling can be an integer or ndarray, '
