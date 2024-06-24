@@ -13,6 +13,8 @@ requirements:
   host:
     - python
     - setuptools
+    - numpy 1.10.*
+    - cython 0.23.*
 
   run:
     - python
