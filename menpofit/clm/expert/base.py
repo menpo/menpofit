@@ -24,6 +24,8 @@ def probability_map(x, axes=(-2, -1)):
     """
     x -= np.min(x, axis=axes, keepdims=True)
     total = np.sum(x, axis=axes, keepdims=True)
+    for ax in axes:
+        total = np.repeat(total, x.shape[ax], ax)
     nonzero = total > 0
     if np.any(~nonzero):
         warnings.warn('some of x axes have 0 variance - uniform probability '
