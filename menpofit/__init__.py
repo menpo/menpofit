@@ -15,4 +15,12 @@ from . import transform
 from . import visualize
 
 
-from ._version import __version__
+try:
+    from ._version import __version__
+except ImportError:  # running from a source tree that has not been built or installed
+    from importlib.metadata import PackageNotFoundError, version as _version
+
+    try:
+        __version__ = _version("menpofit")
+    except PackageNotFoundError:
+        __version__ = "unknown"

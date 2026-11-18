@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "menpofit"
+dynamic = ["version"]
+description = "Menpo's image feature point localisation (AAMs, SDMs, CLMs)"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt", "AUTHORS.txt"]
+authors = [{ name = "The Menpo Development Team", email = "hello@menpo.org" }]
+requires-python = ">=3.10"
+dependencies = [
+    "menpo>=0.12",
+    "numpy>=1.23",
+    "scipy>=1.6",
+    "pandas>=1.5",
+]
+
+[project.optional-dependencies]
+dlib = ["dlib"]      # menpofit.dlib (DlibERT and the dlib wrapper)
+fft = ["pyfftw"]     # faster FFTs in menpofit.math
+
+[project.urls]
+Homepage = "https://www.menpo.org"
+Source = "https://github.com/menpo/menpofit"
+Documentation = "https://menpofit.readthedocs.io/en/stable/"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-mock>=3", "ruff"]
+
+[tool.setuptools.packages.find]
+include = ["menpofit*"]
+
+[tool.setuptools_scm]
+# The version comes from the vX.Y.Z git tag; the generated file replaces the old vendored miniver.
+version_file = "menpofit/_version.py"
+local_scheme = "no-local-version"
+
+[tool.pytest.ini_options]
+testpaths = ["menpofit"]
+
+[tool.ruff]
+line-length = 88
+extend-exclude = ["docs", "menpofit/_version.py"]
+
+[tool.ruff.lint]
+select = ["E9", "F"]
+# the package namespaces re-export names from __init__ files, some via star imports
+ignore = ["F401", "F403", "F405", "F841"]
