@@ -14,21 +14,17 @@ if not on_rtd:
 else:
     from unittest.mock import MagicMock
 
-    MOCK_MODULES = ["dlib", "sklearn"]
+    # dlib needs compiling and is only used by menpofit.dlib: mock it so that module is documented
+    MOCK_MODULES = ["dlib"]
     for mod_name in MOCK_MODULES:
         sys.modules[mod_name] = MagicMock()
 
 import menpofit
 
-# add an up to date mathjax path
-mathjax_path = (
-    "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
-)
-
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = "2.0"
+needs_sphinx = "5.0"
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -135,11 +131,7 @@ exclude_patterns = ["_build", "**/test/**"]
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-if not on_rtd:  # only import and set the theme if we're building docs locally
-    import sphinx_rtd_theme
-
-    html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -216,7 +208,7 @@ htmlhelp_basename = "MenpoFitdoc"
 
 # -- Options for LaTeX output --------------------------------------------------
 
-latex_preamble = """
+latex_preamble = r"""
 \usepackage{enumitem}
 \setlistdepth{999}
 """
