@@ -11,6 +11,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --group dev
       - run: uv run ruff check .
+      - run: uv run ruff format --check .
 
   test:
     needs: lint

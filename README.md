@@ -68,7 +68,7 @@ Specifically, the pretrained models in `menpofit.aam.pretrained` may only be use
 Development
 -----------
 With [uv](https://docs.astral.sh/uv/) installed, `uv run pytest` sets up an environment and runs the unit and
-smoke tests, and `uv run ruff check .` lints. The docs are built with Sphinx (`pip install -r docs/requirements.txt`,
+smoke tests, and `uv run ruff check .` lints and `uv run ruff format .` formats the code (CI checks both). The docs are built with Sphinx (`pip install -r docs/requirements.txt`,
 then `sphinx-build docs/source docs/_build`).
 
 Releasing
