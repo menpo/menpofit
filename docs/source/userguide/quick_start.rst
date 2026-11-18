@@ -7,20 +7,21 @@ for the project.
 
 Basic Installation
 ------------------
-In the Menpo Team, we **strongly** advocate the usage of conda for scientific
-Python, as it makes installation of compiled binaries much more simple. In
-particular, if you wish to use any of the related Menpo projects such as
-*menpofit*, *menpo3d* or *menpodetect*, you will not be able to easily do so
-without using conda. The installation of MenpoFit using conda is as easy as
+MenpoFit requires Python 3.10 or newer. It can be installed with pip, which also installs
+*menpo*:
 
 ::
 
-    $ conda install -c menpo menpofit
+    $ pip install menpofit
 
-Conda is able to work out all the requirements/dependencies of MenpoFit. You
-may for example notice that *menpo* is one of them. Please see the thorough
-installation instructions for each platform on the `Menpo website <http://www
-.menpo.org/installation/>`_.
+or with conda from conda-forge:
+
+::
+
+    $ conda install -c conda-forge menpofit
+
+Please see the installation instructions on the `Menpo website
+<http://www.menpo.org/installation/>`_ for more details.
 
 API Documentation
 -----------------

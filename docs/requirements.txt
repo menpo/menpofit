@@ -1,0 +1,4 @@
+# Documentation build dependencies (Read the Docs and CI). dlib is mocked in conf.py on Read the Docs.
+sphinx>=7
+sphinx_rtd_theme>=2
+sphinxmapxrefrole>=0.2
