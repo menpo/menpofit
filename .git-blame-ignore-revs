@@ -1,0 +1,5 @@
+# Commits to skip in `git blame` (GitHub's blame view reads this file automatically).
+# Locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Apply ruff format (no code changes)
+3b5a62a478175b946f43264edbc066abdf2274f1
