@@ -440,7 +440,7 @@ class Inverse(GaussNewton):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Inverse Gauss-Newton loop -------------------------------------
 
@@ -578,7 +578,7 @@ class Forward(GaussNewton):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Forward Gauss-Newton loop -------------------------------------
 

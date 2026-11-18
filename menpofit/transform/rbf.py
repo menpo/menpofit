@@ -17,7 +17,7 @@ class DifferentiableR2LogRRBF(R2LogRRBF, DL):
     """
 
     def d_dl(self, points):
-        """
+        r"""
         The derivative of the basis function wrt the coordinate system
         evaluated at `points`. Let `points` be :math:`x`, then
         :math:`(x - c)^T (1 + 2\log{r_{x, l}})`, where
@@ -53,7 +53,7 @@ class DifferentiableR2LogR2RBF(R2LogR2RBF, DL):
     """
 
     def d_dl(self, points):
-        """
+        r"""
         Apply the derivative of the basis function wrt the centres and the
         points given by `points`. Let `points` be :math:`x`, then
         :math:`2(x - c)^T (\log{r^2_{x, l}}+1) = 2(x - c)^T (2\log{r_{x, l}}+1)`

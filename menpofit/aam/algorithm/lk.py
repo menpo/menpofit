@@ -837,7 +837,7 @@ class ProjectOut(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Compositional Gauss-Newton loop -------------------------------------
 
@@ -1003,7 +1003,7 @@ class Simultaneous(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Compositional Gauss-Newton loop -------------------------------------
 
@@ -1178,7 +1178,7 @@ class Alternating(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Compositional Gauss-Newton loop -------------------------------------
 
@@ -1354,7 +1354,7 @@ class ModifiedAlternating(Alternating):
         a_m = self.a_bar_m
         c_list = []
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Compositional Gauss-Newton loop -------------------------------------
 
@@ -1518,7 +1518,7 @@ class Wiberg(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Compositional Gauss-Newton loop -------------------------------------
 

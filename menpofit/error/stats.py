@@ -1,7 +1,7 @@
 from __future__ import division
 
 import numpy as np
-from scipy.integrate import simps
+from scipy.integrate import simpson
 
 try:
     import collections.abc as collections_abc
@@ -73,7 +73,7 @@ def area_under_curve_and_failure_rate(errors, step_error, max_error,
     """
     x_axis = list(np.arange(min_error, max_error + step_error, step_error))
     ced = np.array(compute_cumulative_error(errors, x_axis))
-    return simps(ced, x=x_axis) / max_error, 1. - ced[-1]
+    return simpson(ced, x=x_axis) / max_error, 1. - ced[-1]
 
 
 def compute_statistical_measures(errors, step_error, max_error, min_error=0.):

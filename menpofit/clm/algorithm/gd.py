@@ -148,7 +148,7 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
 
         # Initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Expectation-Maximisation loop
         while k < max_iters and eps > self.eps:
@@ -291,7 +291,7 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
 
         # Initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Expectation-Maximisation loop
         while k < max_iters and eps > self.eps:
