@@ -1164,7 +1164,7 @@ class NonParametricIterativeResult(Result):
         elif stat_type == "median":
             name = "Median"
         else:
-            raise ValueError("stat_type must be one of {max, min, mean, " "median}.")
+            raise ValueError("stat_type must be one of {max, min, mean, median}.")
         y_label = "{} Displacement".format(name)
         title = "{} displacement per Iteration".format(name)
 
@@ -2399,8 +2399,9 @@ class MultiScaleNonParametricIterativeResult(NonParametricIterativeResult):
         # Check that results and scales have the same length
         if len(results) != len(scales):
             raise ValueError(
-                "results and scales must have equal length ({} "
-                "!= {})".format(len(results), len(scales))
+                "results and scales must have equal length ({} != {})".format(
+                    len(results), len(scales)
+                )
             )
         # Get initial shape
         initial_shape = None

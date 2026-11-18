@@ -6,7 +6,7 @@ from scipy.sparse.linalg import spsolve
 from menpofit.math.fft_utils import pad, crop
 
 
-def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
+def mosse(X, y, l=0.01, boundary="constant", crop_filter=True):
     r"""
     Minimum Output Sum of Squared Errors (MOSSE) filter.
 
@@ -90,8 +90,7 @@ def mosse(X, y, l=0.01, boundary='constant', crop_filter=True):
     return f, sXY, sXX
 
 
-def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
-           crop_filter=True, f=1.0):
+def imosse(A, B, n_ab, X, y, l=0.01, boundary="constant", crop_filter=True, f=1.0):
     r"""
     Incremental Minimum Output Sum of Squared Errors (iMOSSE) filter.
 
@@ -200,7 +199,7 @@ def imosse(A, B, n_ab, X, y, l=0.01, boundary='constant',
     return f, sXY, sXX
 
 
-def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
+def mccf(X, y, l=0.01, boundary="constant", crop_filter=True):
     r"""
     Multi-Channel Correlation Filter (MCCF).
 
@@ -268,8 +267,9 @@ def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
         fft_ext_x = fft2(ext_x)
 
         # store extended image fft as sparse diagonal matrix
-        diag_fft_x = spdiags(fft_ext_x.reshape((k, -1)),
-                             -np.arange(0, k) * ext_d, ext_d * k, ext_d).T
+        diag_fft_x = spdiags(
+            fft_ext_x.reshape((k, -1)), -np.arange(0, k) * ext_d, ext_d * k, ext_d
+        ).T
         # vectorize extended desired response fft
         diag_fft_y = fft_ext_y.ravel()
 
@@ -293,8 +293,7 @@ def mccf(X, y, l=0.01, boundary='constant', crop_filter=True):
     return f, sXY, sXX
 
 
-def imccf(A, B, n_ab, X, y, l=0.01, boundary='constant', crop_filter=True,
-          f=1.0):
+def imccf(A, B, n_ab, X, y, l=0.01, boundary="constant", crop_filter=True, f=1.0):
     r"""
     Incremental Multi-Channel Correlation Filter (MCCF)
 
@@ -387,8 +386,9 @@ def imccf(A, B, n_ab, X, y, l=0.01, boundary='constant', crop_filter=True,
         fft_ext_x = fft2(ext_x)
 
         # store extended image fft as sparse diagonal matrix
-        diag_fft_x = spdiags(fft_ext_x.reshape((k, -1)),
-                             -np.arange(0, k) * ext_d, ext_d * k, ext_d).T
+        diag_fft_x = spdiags(
+            fft_ext_x.reshape((k, -1)), -np.arange(0, k) * ext_d, ext_d * k, ext_d
+        ).T
         # vectorize extended desired response fft
         diag_fft_y = fft_ext_y.ravel()
 

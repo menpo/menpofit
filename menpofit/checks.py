@@ -77,12 +77,13 @@ def check_trilist(shape, transform):
         Delaunay Triangulation will be computed and used for warping. This may
         be suboptimal and cause warping artifacts.
     """
-    if not isinstance(shape, TriMesh) and isinstance(transform,
-                                                     PiecewiseAffine):
-        warnings.warn('The given images do not have an explicit triangulation '
-                      'applied. A Delaunay Triangulation will be computed '
-                      'and used for warping. This may be suboptimal and cause '
-                      'warping artifacts.')
+    if not isinstance(shape, TriMesh) and isinstance(transform, PiecewiseAffine):
+        warnings.warn(
+            "The given images do not have an explicit triangulation "
+            "applied. A Delaunay Triangulation will be computed "
+            "and used for warping. This may be suboptimal and cause "
+            "warping artifacts."
+        )
 
 
 def check_scales(scales):
@@ -112,8 +113,7 @@ def check_scales(scales):
     elif len(scales) > 1:
         return check_scales(scales[0]) + check_scales(scales[1:])
     else:
-        raise ValueError("scales must be an int/float or a list/tuple of "
-                         "int/float")
+        raise ValueError("scales must be an int/float or a list/tuple of int/float")
 
 
 def check_multi_scale_param(n_scales, types, param_name, param):
@@ -144,9 +144,11 @@ def check_multi_scale_param(n_scales, types, param_name, param):
         {param_name} must be in {types} or a list/tuple of {types} with the same
         length as the number of scales
     """
-    error_msg = "{0} must be in {1} or a list/tuple of " \
-                "{1} with the same length as the number " \
-                "of scales".format(param_name, types)
+    error_msg = (
+        "{0} must be in {1} or a list/tuple of "
+        "{1} with the same length as the number "
+        "of scales".format(param_name, types)
+    )
 
     # Could be a single value - or we have an error
     if isinstance(param, types):
@@ -192,13 +194,14 @@ def check_callable(callables, n_scales):
         return [callables] * n_scales
     elif len(callables) == 1 and np.all([callable(f) for f in callables]):
         return list(callables) * n_scales
-    elif len(callables) == n_scales and np.all([callable(f)
-                                                    for f in callables]):
+    elif len(callables) == n_scales and np.all([callable(f) for f in callables]):
         return list(callables)
     else:
-        raise ValueError("callables must be a callable or a list/tuple of "
-                         "callables with the same length as the number "
-                         "of scales")
+        raise ValueError(
+            "callables must be a callable or a list/tuple of "
+            "callables with the same length as the number "
+            "of scales"
+        )
 
 
 def check_patch_shape(patch_shape, n_scales):
@@ -229,12 +232,14 @@ def check_patch_shape(patch_shape, n_scales):
         return check_patch_shape(patch_shape[0], 1)
     elif len(patch_shape) == n_scales:
         l1 = check_patch_shape(patch_shape[0], 1)
-        l2 = check_patch_shape(patch_shape[1:], n_scales-1)
+        l2 = check_patch_shape(patch_shape[1:], n_scales - 1)
         return l1 + l2
     else:
-        raise ValueError("patch_shape must be a list/tuple of int or a "
-                         "list/tuple of lit/tuple of int/float with the "
-                         "same length as the number of scales")
+        raise ValueError(
+            "patch_shape must be a list/tuple of int or a "
+            "list/tuple of lit/tuple of int/float with the "
+            "same length as the number of scales"
+        )
 
 
 def check_max_components(max_components, n_scales, var_name):
@@ -263,9 +268,10 @@ def check_max_components(max_components, n_scales, var_name):
         {var_name} must be None or an int > 0 or a 0 <= float <= 1 or a list of
         those containing 1 or {n_scales} elements
     """
-    str_error = ("{} must be None or an int > 0 or a 0 <= float <= 1 or "
-                 "a list of those containing 1 or {} elements").format(
-        var_name, n_scales)
+    str_error = (
+        "{} must be None or an int > 0 or a 0 <= float <= 1 or "
+        "a list of those containing 1 or {} elements"
+    ).format(var_name, n_scales)
     if not isinstance(max_components, (list, tuple)):
         max_components_list = [max_components] * n_scales
     elif len(max_components) == 1:
@@ -306,15 +312,15 @@ def check_max_iters(max_iters, n_scales):
         elements or None
     """
     if type(max_iters) is int:
-        max_iters = [np.round(max_iters/n_scales)
-                     for _ in range(n_scales)]
+        max_iters = [np.round(max_iters / n_scales) for _ in range(n_scales)]
     elif len(max_iters) == 1 and n_scales > 1:
-        max_iters = [np.round(max_iters[0]/n_scales)
-                     for _ in range(n_scales)]
+        max_iters = [np.round(max_iters[0] / n_scales) for _ in range(n_scales)]
     elif len(max_iters) != n_scales:
-        raise ValueError('max_iters can be integer, integer list '
-                         'containing 1 or {} elements or '
-                         'None'.format(n_scales))
+        raise ValueError(
+            "max_iters can be integer, integer list "
+            "containing 1 or {} elements or "
+            "None".format(n_scales)
+        )
     return np.require(max_iters, dtype=np.int64)
 
 
@@ -343,24 +349,28 @@ def check_sampling(sampling, n_scales):
         sampling can be an integer or ndarray, a integer or ndarray list
         containing 1 or {n_scales} elements or None
     """
-    if (isinstance(sampling, (list, tuple)) and
-        np.all([isinstance(s, (np.ndarray, np.int64)) or sampling is None
-                    for s in sampling])):
+    if isinstance(sampling, (list, tuple)) and np.all(
+        [isinstance(s, (np.ndarray, np.int64)) or sampling is None for s in sampling]
+    ):
         if len(sampling) == 1:
             return sampling * n_scales
         elif len(sampling) == n_scales:
             return sampling
         else:
-            raise ValueError('A sampling list can only '
-                             'contain 1 element or {} '
-                             'elements'.format(n_scales))
+            raise ValueError(
+                "A sampling list can only contain 1 element or {} elements".format(
+                    n_scales
+                )
+            )
     elif isinstance(sampling, (np.ndarray, np.int64)) or sampling is None:
         return [sampling] * n_scales
     else:
-        raise ValueError('sampling can be an integer or ndarray, '
-                         'a integer or ndarray list '
-                         'containing 1 or {} elements or '
-                         'None'.format(n_scales))
+        raise ValueError(
+            "sampling can be an integer or ndarray, "
+            "a integer or ndarray list "
+            "containing 1 or {} elements or "
+            "None".format(n_scales)
+        )
 
 
 def set_models_components(models, n_components):
@@ -392,9 +402,11 @@ def set_models_components(models, n_components):
             for am, n in zip(models, n_components):
                 am.n_active_components = n
         else:
-            raise ValueError('n_components can be an integer or a float '
-                             'or None or a list containing 1 or {} of '
-                             'those'.format(n_scales))
+            raise ValueError(
+                "n_components can be an integer or a float "
+                "or None or a list containing 1 or {} of "
+                "those".format(n_scales)
+            )
 
 
 def check_model(model, cls):
@@ -415,8 +427,7 @@ def check_model(model, cls):
         Model must be a {cls} instance.
     """
     if not isinstance(model, cls):
-        raise ValueError('Model must be a {} instance.'.format(
-                name_of_callable(cls)))
+        raise ValueError("Model must be a {} instance.".format(name_of_callable(cls)))
 
 
 def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
@@ -440,24 +451,25 @@ def check_algorithm_cls(algorithm_cls, n_scales, base_algorithm_cls):
         of {base_algorithm_cls} subclasses with the same length as the number of
         scales {n_scales}
     """
-    if (isinstance(algorithm_cls, partial) and
-            base_algorithm_cls in algorithm_cls.func.mro()):
+    if (
+        isinstance(algorithm_cls, partial)
+        and base_algorithm_cls in algorithm_cls.func.mro()
+    ):
         return [algorithm_cls] * n_scales
-    elif (isinstance(algorithm_cls, type) and
-          base_algorithm_cls in algorithm_cls.mro()):
+    elif isinstance(algorithm_cls, type) and base_algorithm_cls in algorithm_cls.mro():
         return [algorithm_cls] * n_scales
     elif len(algorithm_cls) == 1:
-        return check_algorithm_cls(algorithm_cls[0], n_scales,
-                                   base_algorithm_cls)
+        return check_algorithm_cls(algorithm_cls[0], n_scales, base_algorithm_cls)
     elif len(algorithm_cls) == n_scales:
-        return [check_algorithm_cls(a, 1, base_algorithm_cls)[0]
-                for a in algorithm_cls]
+        return [check_algorithm_cls(a, 1, base_algorithm_cls)[0] for a in algorithm_cls]
     else:
-        raise ValueError("algorithm_cls must be a subclass of {} or a "
-                         "list/tuple of {} subclasses with the same length "
-                         "as the number of scales {}"
-                         .format(base_algorithm_cls, base_algorithm_cls,
-                                 n_scales))
+        raise ValueError(
+            "algorithm_cls must be a subclass of {} or a "
+            "list/tuple of {} subclasses with the same length "
+            "as the number of scales {}".format(
+                base_algorithm_cls, base_algorithm_cls, n_scales
+            )
+        )
 
 
 def check_graph(graph, graph_types, param_name, n_scales):
@@ -496,8 +508,11 @@ def check_graph(graph, graph_types, param_name, n_scales):
     elif len(graph) == n_scales:
         graphs = graph
     else:
-        raise ValueError('{} must be a list of length equal to the number of '
-                         'scales.'.format(param_name))
+        raise ValueError(
+            "{} must be a list of length equal to the number of scales.".format(
+                param_name
+            )
+        )
     # check if the provided graph_types is a list
     if not isinstance(graph_types, list):
         graph_types = [graph_types]
@@ -506,8 +521,10 @@ def check_graph(graph, graph_types, param_name, n_scales):
     for g in graphs:
         if g is not None:
             if type(g) not in graph_types:
-                graph_types_str = ' or '.join(gt.__name__ for gt in graph_types)
-                raise ValueError('{} must be a list of {}. {} given '
-                                 'instead.'.format(param_name, graph_types_str,
-                                                   type(g).__name__))
+                graph_types_str = " or ".join(gt.__name__ for gt in graph_types)
+                raise ValueError(
+                    "{} must be a list of {}. {} given instead.".format(
+                        param_name, graph_types_str, type(g).__name__
+                    )
+                )
     return graphs

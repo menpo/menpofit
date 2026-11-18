@@ -10,6 +10,7 @@ class DP(object):
     `menpo.base.Vectorizable` interface. As a result, :map:`DP` is a mix-in
     that should be inherited along with `menpo.base.Vectorizable`.
     """
+
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -39,6 +40,7 @@ class DX(object):
     Object that is able to take its own derivative with respect to spatial
     changes.
     """
+
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -72,6 +74,7 @@ class DL(object):
     Object that is able to take its own derivative with respect to landmark
     changes.
     """
+
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod

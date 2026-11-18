@@ -6,20 +6,19 @@ from menpo.visualize import print_dynamic
 
 from menpofit.fitter import raise_costs_warning
 from menpofit.visualize import print_progress
-from menpofit.result import (NonParametricIterativeResult,
-                             ParametricIterativeResult)
+from menpofit.result import NonParametricIterativeResult, ParametricIterativeResult
 
 
 class BaseSupervisedDescentAlgorithm(object):
     r"""
     Abstract class for defining a Supervised Descent algorithm.
     """
+
     @property
     def _multi_scale_fitter_result(self):
         raise NotImplementedError()
 
-    def train(self, images, gt_shapes, current_shapes, prefix='',
-              verbose=False):
+    def train(self, images, gt_shapes, current_shapes, prefix="", verbose=False):
         r"""
         Method to train the model given a set of initial shapes.
 
@@ -42,11 +41,16 @@ class BaseSupervisedDescentAlgorithm(object):
         current_shapes : `list` of `menpo.shape.PointCloud`
             The `list` of current shapes that correspond to the images.
         """
-        return self._train(images, gt_shapes, current_shapes, increment=False,
-                           prefix=prefix, verbose=verbose)
+        return self._train(
+            images,
+            gt_shapes,
+            current_shapes,
+            increment=False,
+            prefix=prefix,
+            verbose=verbose,
+        )
 
-    def increment(self, images, gt_shapes, current_shapes, prefix='',
-                  verbose=False):
+    def increment(self, images, gt_shapes, current_shapes, prefix="", verbose=False):
         r"""
         Method to increment the model with the set of current shapes.
 
@@ -68,17 +72,29 @@ class BaseSupervisedDescentAlgorithm(object):
         current_shapes : `list` of `menpo.shape.PointCloud`
             The `list` of current shapes that correspond to the images.
         """
-        return self._train(images, gt_shapes, current_shapes, increment=True,
-                           prefix=prefix, verbose=verbose)
+        return self._train(
+            images,
+            gt_shapes,
+            current_shapes,
+            increment=True,
+            prefix=prefix,
+            verbose=verbose,
+        )
 
-    def _train(self, images, gt_shapes, current_shapes, increment=False,
-               prefix='', verbose=False):
+    def _train(
+        self,
+        images,
+        gt_shapes,
+        current_shapes,
+        increment=False,
+        prefix="",
+        verbose=False,
+    ):
         if not increment:
             # Reset the regressors
             self.regressors = []
-        elif increment and not (hasattr(self, 'regressors') and self.regressors):
-            raise ValueError('Algorithm must be trained before it can be '
-                             'incremented.')
+        elif increment and not (hasattr(self, "regressors") and self.regressors):
+            raise ValueError("Algorithm must be trained before it can be incremented.")
 
         n_perturbations = len(current_shapes[0])
         template_shape = gt_shapes[0]
@@ -89,15 +105,19 @@ class BaseSupervisedDescentAlgorithm(object):
         # Cascaded Regression loop
         for k in range(self.n_iterations):
             # generate regression data
-            features_prefix = '{}(Iteration {}) - '.format(prefix, k)
-            features = self._compute_training_features(images, gt_shapes,
-                                                       current_shapes,
-                                                       prefix=features_prefix,
-                                                       verbose=verbose)
+            features_prefix = "{}(Iteration {}) - ".format(prefix, k)
+            features = self._compute_training_features(
+                images,
+                gt_shapes,
+                current_shapes,
+                prefix=features_prefix,
+                verbose=verbose,
+            )
 
             if verbose:
-                print_dynamic('{}(Iteration {}) - Performing regression'.format(
-                    prefix, k))
+                print_dynamic(
+                    "{}(Iteration {}) - Performing regression".format(prefix, k)
+                )
 
             if not increment:
                 r = self._regressor_cls()
@@ -109,32 +129,35 @@ class BaseSupervisedDescentAlgorithm(object):
             # Estimate delta_points
             estimated_delta_x = self.regressors[k].predict(features)
             if verbose:
-                self._print_regression_info(template_shape, gt_shapes,
-                                            n_perturbations, delta_x,
-                                            estimated_delta_x, k,
-                                            prefix=prefix)
+                self._print_regression_info(
+                    template_shape,
+                    gt_shapes,
+                    n_perturbations,
+                    delta_x,
+                    estimated_delta_x,
+                    k,
+                    prefix=prefix,
+                )
 
-            self._update_estimates(estimated_delta_x, delta_x, gt_x,
-                                   current_shapes)
+            self._update_estimates(estimated_delta_x, delta_x, gt_x, current_shapes)
 
         return current_shapes
 
     def _compute_delta_x(self, gt_shapes, current_shapes):
         raise NotImplementedError()
 
-    def _update_estimates(self, estimated_delta_x, delta_x, gt_x,
-                          current_shapes):
+    def _update_estimates(self, estimated_delta_x, delta_x, gt_x, current_shapes):
         raise NotImplementedError()
 
-    def _compute_training_features(self, images, gt_shapes, current_shapes,
-                                   prefix='', verbose=False):
+    def _compute_training_features(
+        self, images, gt_shapes, current_shapes, prefix="", verbose=False
+    ):
         raise NotImplementedError()
 
     def _compute_test_features(self, image, current_shape):
         raise NotImplementedError()
 
-    def run(self, image, initial_shape, gt_shape=None, return_costs=False,
-            **kwargs):
+    def run(self, image, initial_shape, gt_shape=None, return_costs=False, **kwargs):
         r"""
         Run the predictor to an image given an initial shape.
 
@@ -156,9 +179,16 @@ class BaseSupervisedDescentAlgorithm(object):
         """
         raise NotImplementedError()
 
-    def _print_regression_info(self, template_shape, gt_shapes, n_perturbations,
-                               delta_x, estimated_delta_x, level_index,
-                               prefix=''):
+    def _print_regression_info(
+        self,
+        template_shape,
+        gt_shapes,
+        n_perturbations,
+        delta_x,
+        estimated_delta_x,
+        level_index,
+        prefix="",
+    ):
         raise NotImplementedError()
 
 
@@ -182,8 +212,9 @@ def features_per_patch(image, shape, patch_shape, features_callable):
     features_per_patch : 1D `ndarray`
         The concatenated features.
     """
-    patches = image.extract_patches(shape, patch_shape=patch_shape,
-                                    as_single_array=True)
+    patches = image.extract_patches(
+        shape, patch_shape=patch_shape, as_single_array=True
+    )
     patch_features = [features_callable(p[0]).ravel() for p in patches]
     return np.hstack(patch_features)
 
@@ -209,14 +240,15 @@ def features_per_shapes(image, shapes, patch_shape, features_callable):
     features_per_shapes : ``(n_shapes, n_features)`` `ndarray`
         The concatenated feature vector per shape.
     """
-    patch_features = [features_per_patch(image, s, patch_shape,
-                                         features_callable)
-                      for s in shapes]
+    patch_features = [
+        features_per_patch(image, s, patch_shape, features_callable) for s in shapes
+    ]
     return np.vstack(patch_features)
 
 
-def features_per_image(images, shapes, patch_shape, features_callable,
-                       prefix='', verbose=False):
+def features_per_image(
+    images, shapes, patch_shape, features_callable, prefix="", verbose=False
+):
     r"""
     Method that given multiple images with multiple shapes per image, it first
     extracts patches that correspond to the shapes and then features from
@@ -242,12 +274,16 @@ def features_per_image(images, shapes, patch_shape, features_callable,
     features_per_image : ``(n_images * n_shapes, n_features)`` `ndarray`
         The concatenated feature vector per image and per shape.
     """
-    wrap = partial(print_progress,
-                   prefix='{}Extracting patches'.format(prefix),
-                   end_with_newline=not prefix, verbose=verbose)
-    patch_features = [features_per_shapes(i, shapes[j], patch_shape,
-                                          features_callable)
-                      for j, i in enumerate(wrap(images))]
+    wrap = partial(
+        print_progress,
+        prefix="{}Extracting patches".format(prefix),
+        end_with_newline=not prefix,
+        verbose=verbose,
+    )
+    patch_features = [
+        features_per_shapes(i, shapes[j], patch_shape, features_callable)
+        for j, i in enumerate(wrap(images))
+    ]
     return np.vstack(patch_features)
 
 
@@ -293,8 +329,7 @@ def compute_non_parametric_delta_x(gt_shapes, current_shapes):
     return delta_x, gt_x
 
 
-def update_non_parametric_estimates(estimated_delta_x, delta_x, gt_x,
-                                    current_shapes):
+def update_non_parametric_estimates(estimated_delta_x, delta_x, gt_x, current_shapes):
     r"""
     Method that updates the current shapes given the current estimation of the
     increments. Note that the `current_shapes` and `delta_x` get updated inplace.
@@ -324,9 +359,16 @@ def update_non_parametric_estimates(estimated_delta_x, delta_x, gt_x,
             j += 1
 
 
-def print_non_parametric_info(template_shape, gt_shapes, n_perturbations,
-                              delta_x, estimated_delta_x, level_index,
-                              compute_error_f, prefix=''):
+def print_non_parametric_info(
+    template_shape,
+    gt_shapes,
+    n_perturbations,
+    delta_x,
+    estimated_delta_x,
+    level_index,
+    compute_error_f,
+    prefix="",
+):
     r"""
     Method that prints information when training a non-parametric cascaded
     regression algorithm.
@@ -351,8 +393,7 @@ def print_non_parametric_info(template_shape, gt_shapes, n_perturbations,
     prefix : `str`
         The prefix attached to the printed information.
     """
-    print_dynamic('{}(Iteration {}) - Calculating errors'.format(
-        prefix, level_index))
+    print_dynamic("{}(Iteration {}) - Calculating errors".format(prefix, level_index))
     errors = []
     for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
         s1 = template_shape.from_vector(dx)
@@ -362,14 +403,24 @@ def print_non_parametric_info(template_shape, gt_shapes, n_perturbations,
     mean = np.mean(errors)
     std = np.std(errors)
     median = np.median(errors)
-    print_dynamic('{}(Iteration {}) - Training error -> '
-                  'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
-                  format(prefix, level_index, mean, std, median))
+    print_dynamic(
+        "{}(Iteration {}) - Training error -> "
+        "mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n".format(
+            prefix, level_index, mean, std, median
+        )
+    )
 
 
-def print_parametric_info(model, gt_shapes, n_perturbations,
-                          delta_x, estimated_delta_x, level_index,
-                          compute_error_f, prefix=''):
+def print_parametric_info(
+    model,
+    gt_shapes,
+    n_perturbations,
+    delta_x,
+    estimated_delta_x,
+    level_index,
+    compute_error_f,
+    prefix="",
+):
     r"""
     Method that prints information when training a parametric cascaded regression
     algorithm.
@@ -394,8 +445,7 @@ def print_parametric_info(model, gt_shapes, n_perturbations,
     prefix : `str`
         The prefix attached to the printed information.
     """
-    print_dynamic('{}(Iteration {}) - Calculating errors'.format(
-        prefix, level_index))
+    print_dynamic("{}(Iteration {}) - Calculating errors".format(prefix, level_index))
     errors = []
     for j, (dx, edx) in enumerate(zip(delta_x, estimated_delta_x)):
         model._from_vector_inplace(dx)
@@ -408,9 +458,12 @@ def print_parametric_info(model, gt_shapes, n_perturbations,
     mean = np.mean(errors)
     std = np.std(errors)
     median = np.median(errors)
-    print_dynamic('{}(Iteration {}) - Training error -> '
-                  'mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n'.
-                  format(prefix, level_index, mean, std, median))
+    print_dynamic(
+        "{}(Iteration {}) - Training error -> "
+        "mean: {:.4f}, std: {:.4f}, median: {:.4f}.\n".format(
+            prefix, level_index, mean, std, median
+        )
+    )
 
 
 def compute_parametric_delta_x(gt_shapes, current_shapes, model):
@@ -459,8 +512,9 @@ def compute_parametric_delta_x(gt_shapes, current_shapes, model):
     return delta_params, gt_params
 
 
-def update_parametric_estimates(estimated_delta_x, delta_x, gt_x,
-                                current_shapes, model):
+def update_parametric_estimates(
+    estimated_delta_x, delta_x, gt_x, current_shapes, model
+):
     r"""
     Method that updates the current shape parameters given the current estimation
     of the parameters increments. Note that the `current_shapes` and `delta_x`
@@ -498,8 +552,15 @@ def update_parametric_estimates(estimated_delta_x, delta_x, gt_x,
             j += 1
 
 
-def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
-                           appearance_model_cls, verbose=False, prefix=''):
+def build_appearance_model(
+    images,
+    gt_shapes,
+    patch_shape,
+    patch_features,
+    appearance_model_cls,
+    verbose=False,
+    prefix="",
+):
     r"""
     Method that builds a parametric patch-based appearance model.
 
@@ -523,23 +584,28 @@ def build_appearance_model(images, gt_shapes, patch_shape, patch_features,
     prefix : `str`, optional
         The prefix used in the printed information.
     """
-    wrap = partial(print_progress,
-                   prefix='{}Extracting ground truth patches'.format(prefix),
-                   end_with_newline=not prefix, verbose=verbose)
+    wrap = partial(
+        print_progress,
+        prefix="{}Extracting ground truth patches".format(prefix),
+        end_with_newline=not prefix,
+        verbose=verbose,
+    )
     n_images = len(images)
     # Extract patches from ground truth
-    gt_patches = [features_per_patch(im, gt_s, patch_shape,
-                                     patch_features)
-                  for gt_s, im in wrap(list(zip(gt_shapes, images)))]
+    gt_patches = [
+        features_per_patch(im, gt_s, patch_shape, patch_features)
+        for gt_s, im in wrap(list(zip(gt_shapes, images)))
+    ]
     # Calculate appearance model from extracted gt patches
     gt_patches = np.array(gt_patches).reshape([n_images, -1])
     if verbose:
-        print_dynamic('{}Building Appearance Model'.format(prefix))
+        print_dynamic("{}Building Appearance Model".format(prefix))
     return appearance_model_cls(gt_patches)
 
 
-def fit_parametric_shape(image, initial_shape, parametric_algorithm,
-                         gt_shape=None, return_costs=False):
+def fit_parametric_shape(
+    image, initial_shape, parametric_algorithm, gt_shape=None, return_costs=False
+):
     r"""
     Method that fits a parametric cascaded regression algorithm to an image.
 
@@ -573,15 +639,15 @@ def fit_parametric_shape(image, initial_shape, parametric_algorithm,
     # set current shape and initialize list of shapes
     parametric_algorithm.shape_model.set_target(initial_shape)
     current_shape = initial_shape.from_vector(
-            parametric_algorithm.shape_model.target.as_vector().copy())
+        parametric_algorithm.shape_model.target.as_vector().copy()
+    )
     shapes = []
     shape_parameters = [parametric_algorithm.shape_model.as_vector()]
 
     # Cascaded Regression loop
     for r in parametric_algorithm.regressors:
         # compute regression features
-        features = parametric_algorithm._compute_test_features(image,
-                                                               current_shape)
+        features = parametric_algorithm._compute_test_features(image, current_shape)
 
         # solve for increments on the shape vector
         dx = r.predict(features).ravel()
@@ -590,18 +656,24 @@ def fit_parametric_shape(image, initial_shape, parametric_algorithm,
         p = parametric_algorithm.shape_model.as_vector() + dx
         parametric_algorithm.shape_model._from_vector_inplace(p)
         current_shape = current_shape.from_vector(
-                parametric_algorithm.shape_model.target.as_vector().copy())
+            parametric_algorithm.shape_model.target.as_vector().copy()
+        )
         shapes.append(current_shape)
         shape_parameters.append(p)
 
     # return algorithm result
     return ParametricIterativeResult(
-            shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape)
+        shapes=shapes,
+        shape_parameters=shape_parameters,
+        initial_shape=initial_shape,
+        image=image,
+        gt_shape=gt_shape,
+    )
 
 
-def fit_non_parametric_shape(image, initial_shape, non_parametric_algorithm,
-                             gt_shape=None, return_costs=False):
+def fit_non_parametric_shape(
+    image, initial_shape, non_parametric_algorithm, gt_shape=None, return_costs=False
+):
     r"""
     Method that fits a non-parametric cascaded regression algorithm to an image.
 
@@ -639,18 +711,16 @@ def fit_non_parametric_shape(image, initial_shape, non_parametric_algorithm,
     # Cascaded Regression loop
     for r in non_parametric_algorithm.regressors:
         # compute regression features
-        features = non_parametric_algorithm._compute_test_features(image,
-                                                                   current_shape)
+        features = non_parametric_algorithm._compute_test_features(image, current_shape)
 
         # solve for increments on the shape vector
         dx = r.predict(features)
 
         # update current shape
-        current_shape = current_shape.from_vector(
-            current_shape.as_vector() + dx)
+        current_shape = current_shape.from_vector(current_shape.as_vector() + dx)
         shapes.append(current_shape)
 
     # return algorithm result
     return NonParametricIterativeResult(
-            shapes=shapes, initial_shape=initial_shape, image=image,
-            gt_shape=gt_shape)
+        shapes=shapes, initial_shape=initial_shape, image=image, gt_shape=gt_shape
+    )

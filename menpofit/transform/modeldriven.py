@@ -10,8 +10,9 @@ from menpofit.differentiable import DP
 
 
 # TODO: Should MDT implement VComposable and VInvertible?
-class ModelDrivenTransform(Transform, Targetable, Vectorizable,
-                           VComposable, VInvertible, DP):
+class ModelDrivenTransform(
+    Transform, Targetable, Vectorizable, VComposable, VInvertible, DP
+):
     r"""
     A transform that couples a traditional landmark-based transform to a
     statistical linear model such that source points of the alignment transform
@@ -34,6 +35,7 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         The source landmarks of the transform. If ``None``, the mean of the
         model is used.
     """
+
     def __init__(self, model, transform_cls, source=None):
         # Check the provided model
         check_model(model, PDM)
@@ -164,12 +166,12 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         dW_dx = self.transform.d_dx(points)
 
         # (n_points, n_params, n_dims)
-        dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> eilk', dW_dx, dW_dp_0)
+        dW_dx_dW_dp_0 = np.einsum("ijk, ilk -> eilk", dW_dx, dW_dp_0)
 
         # (n_params, n_params)
-        J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
+        J = np.einsum("ijk, ilk -> jl", dW_dp, dW_dx_dW_dp_0)
         # (n_params, n_params)
-        H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
+        H = np.einsum("ijk, ilk -> jl", dW_dp, dW_dp)
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
         self._from_vector_inplace(self.as_vector() + np.dot(Jp, delta))
@@ -286,12 +288,12 @@ class ModelDrivenTransform(Transform, Targetable, Vectorizable,
         dW_dx = self.transform.d_dx(points)
 
         # (n_points, n_params, n_dims)
-        dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> eilk', dW_dx, dW_dp_0)
+        dW_dx_dW_dp_0 = np.einsum("ijk, ilk -> eilk", dW_dx, dW_dp_0)
 
         # (n_params, n_params)
-        J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
+        J = np.einsum("ijk, ilk -> jl", dW_dp, dW_dx_dW_dp_0)
         # (n_params, n_params)
-        H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
+        H = np.einsum("ijk, ilk -> jl", dW_dp, dW_dp)
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
 
@@ -323,12 +325,12 @@ class GlobalMDTransform(ModelDrivenTransform):
         The source landmarks of the transform. If ``None``, the mean of the
         model is used.
     """
+
     def __init__(self, model, transform_cls, source=None):
         # Check the provided model
         check_model(model, GlobalPDM)
         # Assign attributes
-        super(GlobalMDTransform, self).__init__(model, transform_cls,
-                                                source=source)
+        super(GlobalMDTransform, self).__init__(model, transform_cls, source=source)
 
     def compose_after_from_vector_inplace(self, delta):
         r"""
@@ -381,7 +383,7 @@ class GlobalMDTransform(ModelDrivenTransform):
         # (n_points, n_dims, n_dims)
         dW_dS = self.pdm.global_transform.d_dx(points)
         # (n_points, n_weights, n_dims)
-        dW_db = np.einsum('ilj, idj -> idj', dW_dS, dW_db_0)
+        dW_db = np.einsum("ilj, idj -> idj", dW_dS, dW_db_0)
 
         # dW/dp is simply the concatenation of dW_dq with dW_db
         # (n_points, n_params, n_dims)
@@ -393,12 +395,12 @@ class GlobalMDTransform(ModelDrivenTransform):
         dW_dx = self.transform.d_dx(points)
 
         # (n_points, n_params, n_dims)
-        dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> ilk', dW_dx, dW_dp_0)
+        dW_dx_dW_dp_0 = np.einsum("ijk, ilk -> ilk", dW_dx, dW_dp_0)
 
         # (n_params, n_params)
-        J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
+        J = np.einsum("ijk, ilk -> jl", dW_dp, dW_dx_dW_dp_0)
         # (n_params, n_params)
-        H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
+        H = np.einsum("ijk, ilk -> jl", dW_dp, dW_dp)
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
 
@@ -449,7 +451,7 @@ class GlobalMDTransform(ModelDrivenTransform):
         # (n_points, n_dims, n_dims)
         dW_dS = self.pdm.global_transform.d_dx(points)
         # (n_points, n_weights, n_dims)
-        dW_db = np.einsum('ilj, idj -> idj', dW_dS, dW_db_0)
+        dW_db = np.einsum("ilj, idj -> idj", dW_dS, dW_db_0)
 
         # dW/dp is simply the concatenation of dW_dq with dW_db
         # (n_points, n_params, n_dims)
@@ -461,12 +463,12 @@ class GlobalMDTransform(ModelDrivenTransform):
         dW_dx = self.transform.d_dx(points)
 
         # (n_points, n_params, n_dims)
-        dW_dx_dW_dp_0 = np.einsum('ijk, ilk -> ilk', dW_dx, dW_dp_0)
+        dW_dx_dW_dp_0 = np.einsum("ijk, ilk -> ilk", dW_dx, dW_dp_0)
 
         # (n_params, n_params)
-        J = np.einsum('ijk, ilk -> jl', dW_dp, dW_dx_dW_dp_0)
+        J = np.einsum("ijk, ilk -> jl", dW_dp, dW_dx_dW_dp_0)
         # (n_params, n_params)
-        H = np.einsum('ijk, ilk -> jl', dW_dp, dW_dp)
+        H = np.einsum("ijk, ilk -> jl", dW_dp, dW_dp)
         # (n_params, n_params)
         Jp = np.linalg.solve(H, J)
 
@@ -503,12 +505,12 @@ class OrthoMDTransform(GlobalMDTransform):
         The source landmarks of the transform. If ``None``, the mean of the
         model is used.
     """
+
     def __init__(self, model, transform_cls, source=None):
         # Check the provided model
         check_model(model, OrthoPDM)
         # Assign attributes
-        super(OrthoMDTransform, self).__init__(model, transform_cls,
-                                               source=source)
+        super(OrthoMDTransform, self).__init__(model, transform_cls, source=source)
 
     def pseudoinverse(self):
         raise NotImplementedError()
@@ -540,12 +542,12 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
     sparse_instance : `menpo.shape.PointCloud`
         The source landmarks of the transform.
     """
+
     def __init__(self, model, sparse_instance):
         super(LinearOrthoMDTransform, self).__init__(model)
         self._sparse_instance = sparse_instance
-        self.W = np.vstack((self.similarity_model.components,
-                            self.model.components))
-        V = self.W[:, :self.n_dims*self.n_landmarks]
+        self.W = np.vstack((self.similarity_model.components, self.model.components))
+        V = self.W[:, : self.n_dims * self.n_landmarks]
         self.pinv_V = np.linalg.pinv(V)
 
     @property
@@ -564,7 +566,7 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
 
         :type: `menpo.shape.PointCloud`
         """
-        return PointCloud(self.target.points[self.n_landmarks:])
+        return PointCloud(self.target.points[self.n_landmarks :])
 
     @property
     def sparse_target(self):
@@ -573,7 +575,7 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
 
         :type: `menpo.shape.PointCloud`
         """
-        sparse_target = PointCloud(self.target.points[:self.n_landmarks])
+        sparse_target = PointCloud(self.target.points[: self.n_landmarks])
         return self._sparse_instance.from_vector(sparse_target.as_vector())
 
     def set_target(self, target):
@@ -592,7 +594,7 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
         OrthoPDM.set_target(self, target)
 
     def _apply(self, _, **kwargs):
-        return self.target.points[self.n_landmarks:]
+        return self.target.points[self.n_landmarks :]
 
     def d_dp(self, _):
         r"""
@@ -609,4 +611,4 @@ class LinearOrthoMDTransform(OrthoPDM, Transform):
         d_dp : ``(n_points, n_parameters, n_dims)`` `ndarray`
             The Jacobian with respect to the parametrisation.
         """
-        return OrthoPDM.d_dp(self, _)[self.n_landmarks:, ...]
+        return OrthoPDM.d_dp(self, _)[self.n_landmarks :, ...]

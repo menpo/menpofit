@@ -5,15 +5,22 @@ import warnings
 
 from menpo.base import name_of_callable
 from menpo.shape import PointCloud
-from menpo.transform import (scale_about_centre, rotate_ccw_about_centre,
-                             Translation, Scale, AlignmentAffine,
-                             AlignmentSimilarity)
+from menpo.transform import (
+    scale_about_centre,
+    rotate_ccw_about_centre,
+    Translation,
+    Scale,
+    AlignmentAffine,
+    AlignmentSimilarity,
+)
 
 from menpofit.base import MenpoFitCostsWarning
 import menpofit.checks as checks
 from menpofit.visualize import print_progress
-from menpofit.result import (MultiScaleNonParametricIterativeResult,
-                             MultiScaleParametricIterativeResult)
+from menpofit.result import (
+    MultiScaleNonParametricIterativeResult,
+    MultiScaleParametricIterativeResult,
+)
 
 
 def raise_costs_warning(cls):
@@ -27,13 +34,18 @@ def raise_costs_warning(cls):
         The optimisation (fitting) class.
     """
     cls_name = name_of_callable(cls)
-    warnings.warn("costs cannot be computed for {}".format(cls_name),
-                  MenpoFitCostsWarning)
+    warnings.warn(
+        "costs cannot be computed for {}".format(cls_name), MenpoFitCostsWarning
+    )
 
 
-def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
-                                         noise_percentage=0.1,
-                                         allow_alignment_rotation=False):
+def noisy_alignment_similarity_transform(
+    source,
+    target,
+    noise_type="uniform",
+    noise_percentage=0.1,
+    allow_alignment_rotation=False,
+):
     r"""
     Constructs and perturbs the optimal similarity transform between the source
     and target shapes by adding noise to its parameters.
@@ -67,10 +79,9 @@ def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
     elif len(noise_percentage) == 1:
         noise_percentage *= 3
 
-    similarity = AlignmentSimilarity(source, target,
-                                     rotation=allow_alignment_rotation)
+    similarity = AlignmentSimilarity(source, target, rotation=allow_alignment_rotation)
 
-    if noise_type == 'gaussian':
+    if noise_type == "gaussian":
         s = noise_percentage[0] * (0.5 / 3) * np.random.randn(1)[0]
         r = noise_percentage[1] * (180 / 3) * np.random.randn(1)[0]
         t = noise_percentage[2] * (target.range() / 3) * np.random.randn(2)
@@ -78,24 +89,25 @@ def noisy_alignment_similarity_transform(source, target, noise_type='uniform',
         s = scale_about_centre(target, 1 + s)
         r = rotate_ccw_about_centre(target, r)
         t = Translation(t, source.n_dims)
-    elif noise_type == 'uniform':
+    elif noise_type == "uniform":
         s = noise_percentage[0] * 0.5 * (2 * np.random.randn(1)[0] - 1)
         r = noise_percentage[1] * 180 * (2 * np.random.rand(1)[0] - 1)
         t = noise_percentage[2] * target.range() * (2 * np.random.rand(2) - 1)
 
-        s = scale_about_centre(target, 1. + s)
+        s = scale_about_centre(target, 1.0 + s)
         r = rotate_ccw_about_centre(target, r)
         t = Translation(t, source.n_dims)
     else:
-        raise ValueError('Unexpected noise type. '
-                         'Supported values are {gaussian, uniform}')
+        raise ValueError(
+            "Unexpected noise type. Supported values are {gaussian, uniform}"
+        )
 
     return similarity.compose_after(t.compose_after(s.compose_after(r)))
 
 
-def noisy_target_alignment_transform(source, target,
-                                     alignment_transform_cls=AlignmentAffine,
-                                     noise_std=0.1, **kwargs):
+def noisy_target_alignment_transform(
+    source, target, alignment_transform_cls=AlignmentAffine, noise_std=0.1, **kwargs
+):
     r"""
     Constructs the optimal alignment transform between the source and a noisy
     version of the target obtained by adding white noise to each of its points.
@@ -118,15 +130,18 @@ def noisy_target_alignment_transform(source, target,
     noisy_transform : `menpo.transform.Alignment`
         The noisy Similarity Transform
     """
-    noise = noise_std * target.range() * np.random.randn(target.n_points,
-                                                         target.n_dims)
+    noise = noise_std * target.range() * np.random.randn(target.n_points, target.n_dims)
     noisy_target = PointCloud(target.points + noise)
     return alignment_transform_cls(source, noisy_target, **kwargs)
 
 
-def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
-                                  noise_percentage=0.05,
-                                  allow_alignment_rotation=False):
+def noisy_shape_from_bounding_box(
+    shape,
+    bounding_box,
+    noise_type="uniform",
+    noise_percentage=0.05,
+    allow_alignment_rotation=False,
+):
     r"""
     Constructs and perturbs the optimal similarity transform between the bounding
     box of the source shape and the target bounding box, by adding noise to its
@@ -158,15 +173,22 @@ def noisy_shape_from_bounding_box(shape, bounding_box, noise_type='uniform',
         The noisy shape.
     """
     transform = noisy_alignment_similarity_transform(
-            shape.bounding_box(), bounding_box, noise_type=noise_type,
-            noise_percentage=noise_percentage,
-            allow_alignment_rotation=allow_alignment_rotation)
+        shape.bounding_box(),
+        bounding_box,
+        noise_type=noise_type,
+        noise_percentage=noise_percentage,
+        allow_alignment_rotation=allow_alignment_rotation,
+    )
     return transform.apply(shape)
 
 
-def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
-                           noise_percentage=0.05,
-                           allow_alignment_rotation=False):
+def noisy_shape_from_shape(
+    reference_shape,
+    shape,
+    noise_type="uniform",
+    noise_percentage=0.05,
+    allow_alignment_rotation=False,
+):
     r"""
     Constructs and perturbs the optimal similarity transform between the
     provided reference shape and the target shape, by adding noise to its
@@ -197,15 +219,18 @@ def noisy_shape_from_shape(reference_shape, shape, noise_type='uniform',
         The noisy reference shape.
     """
     transform = noisy_alignment_similarity_transform(
-            reference_shape, shape, noise_type=noise_type,
-            noise_percentage=noise_percentage,
-            allow_alignment_rotation=allow_alignment_rotation)
+        reference_shape,
+        shape,
+        noise_type=noise_type,
+        noise_percentage=noise_percentage,
+        allow_alignment_rotation=allow_alignment_rotation,
+    )
     return transform.apply(reference_shape)
 
 
-def align_shape_with_bounding_box(shape, bounding_box,
-                                  alignment_transform_cls=AlignmentSimilarity,
-                                  **kwargs):
+def align_shape_with_bounding_box(
+    shape, bounding_box, alignment_transform_cls=AlignmentSimilarity, **kwargs
+):
     r"""
     Aligns the provided shape with the bounding box using a particular alignment
     transform.
@@ -249,6 +274,7 @@ class MultiScaleNonParametricFitter(object):
     algorithms : `list` of `class`
         The list of algorithm objects that will perform the fitting per scale.
     """
+
     def __init__(self, scales, reference_shape, holistic_features, algorithms):
         self._scales = scales
         self._reference_shape = reference_shape
@@ -335,14 +361,15 @@ class MultiScaleNonParametricFitter(object):
             The list of inverse scaling transforms per scale.
         """
         # Attach landmarks to the image, in order to make transforms easier
-        image.landmarks['__initial_shape'] = initial_shape
+        image.landmarks["__initial_shape"] = initial_shape
         if gt_shape:
-            image.landmarks['__gt_shape'] = gt_shape
+            image.landmarks["__gt_shape"] = gt_shape
 
         # Rescale image wrt the scale factor between reference_shape and
         # initial_shape
-        tmp_image = image.rescale_to_pointcloud(self.reference_shape,
-                                                group='__initial_shape')
+        tmp_image = image.rescale_to_pointcloud(
+            self.reference_shape, group="__initial_shape"
+        )
 
         # For each scale:
         #     1. Compute features
@@ -355,8 +382,7 @@ class MultiScaleNonParametricFitter(object):
         scale_transforms = []
         for i in range(self.n_scales):
             # Extract features
-            if (i == 0 or
-                    self.holistic_features[i] != self.holistic_features[i - 1]):
+            if i == 0 or self.holistic_features[i] != self.holistic_features[i - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
@@ -368,9 +394,11 @@ class MultiScaleNonParametricFitter(object):
                 # features. We need to store this transform (estimated by
                 # AlignmentAffine) in order to be able to revert it at the
                 # final fitting result.
-                affine_transforms.append(AlignmentAffine(
-                    feature_image.landmarks['__initial_shape'],
-                    initial_shape))
+                affine_transforms.append(
+                    AlignmentAffine(
+                        feature_image.landmarks["__initial_shape"], initial_shape
+                    )
+                )
             else:
                 # If features are not extracted, then the affine transform
                 # should be identical with the one of the first (lowest) level.
@@ -380,12 +408,13 @@ class MultiScaleNonParametricFitter(object):
             if self.scales[i] != 1:
                 # Scale feature images only if scale is different than 1
                 scaled_image, scale_transform = feature_image.rescale(
-                    self.scales[i], return_transform=True)
+                    self.scales[i], return_transform=True
+                )
             else:
                 # Otherwise the image remains the same and the transform is the
                 # identity matrix.
                 scaled_image = feature_image
-                scale_transform = Scale(1., initial_shape.n_dims)
+                scale_transform = Scale(1.0, initial_shape.n_dims)
 
             # Add scale transform to list
             scale_transforms.append(scale_transform)
@@ -394,24 +423,32 @@ class MultiScaleNonParametricFitter(object):
             images.append(scaled_image)
 
         # Get initial shapes per level
-        initial_shapes = [i.landmarks['__initial_shape'] for i in images]
+        initial_shapes = [i.landmarks["__initial_shape"] for i in images]
 
         # Get ground truth shapes per level
         if gt_shape:
-            gt_shapes = [i.landmarks['__gt_shape'] for i in images]
+            gt_shapes = [i.landmarks["__gt_shape"] for i in images]
         else:
             gt_shapes = None
 
         # Detach added landmarks from image
-        del image.landmarks['__initial_shape']
+        del image.landmarks["__initial_shape"]
         if gt_shape:
-            del image.landmarks['__gt_shape']
+            del image.landmarks["__gt_shape"]
 
-        return (images, initial_shapes, gt_shapes, affine_transforms,
-                scale_transforms)
+        return (images, initial_shapes, gt_shapes, affine_transforms, scale_transforms)
 
-    def _fit(self, images, initial_shape, affine_transforms, scale_transforms,
-             gt_shapes=None, max_iters=20, return_costs=False, **kwargs):
+    def _fit(
+        self,
+        images,
+        initial_shape,
+        affine_transforms,
+        scale_transforms,
+        gt_shapes=None,
+        max_iters=20,
+        return_costs=False,
+        **kwargs,
+    ):
         r"""
         Function the applies the multi-scale fitting procedure on an image, given
         the initial shape.
@@ -466,11 +503,14 @@ class MultiScaleNonParametricFitter(object):
                 gt_shape = gt_shapes[i]
 
             # Run algorithm
-            algorithm_result = self.algorithms[i].run(images[i], shape,
-                                                      gt_shape=gt_shape,
-                                                      max_iters=max_iters[i],
-                                                      return_costs=return_costs,
-                                                      **kwargs)
+            algorithm_result = self.algorithms[i].run(
+                images[i],
+                shape,
+                gt_shape=gt_shape,
+                max_iters=max_iters[i],
+                return_costs=return_costs,
+                **kwargs,
+            )
             # Add algorithm result to the list
             algorithm_results.append(algorithm_result)
 
@@ -493,10 +533,14 @@ class MultiScaleNonParametricFitter(object):
                     #    A_{i+1} : affine transform of next scale
                     t1 = scale_transforms[i].compose_after(affine_transforms[i])
                     t2 = affine_transforms[i + 1].pseudoinverse().compose_after(t1)
-                    transform = scale_transforms[i + 1].pseudoinverse().compose_after(t2)
+                    transform = (
+                        scale_transforms[i + 1].pseudoinverse().compose_after(t2)
+                    )
                     shape = transform.apply(shape)
-                elif (self.holistic_features[i + 1] == self.holistic_features[i] and
-                      self.scales[i] != self.scales[i + 1]):
+                elif (
+                    self.holistic_features[i + 1] == self.holistic_features[i]
+                    and self.scales[i] != self.scales[i + 1]
+                ):
                     # If the features function of the current scale is the same
                     # as the one of the next scale, this means that the affine
                     # transform is the same as well, and thus can be omitted.
@@ -508,14 +552,24 @@ class MultiScaleNonParametricFitter(object):
                     # where:
                     #    S_i : scaling transform of current scale
                     #    S_{i+1} : scaling transform of next scale
-                    transform = scale_transforms[i + 1].pseudoinverse().compose_after(scale_transforms[i])
+                    transform = (
+                        scale_transforms[i + 1]
+                        .pseudoinverse()
+                        .compose_after(scale_transforms[i])
+                    )
                     shape = transform.apply(shape)
 
         # Return list of algorithm results
         return algorithm_results
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -541,12 +595,23 @@ class MultiScaleNonParametricFitter(object):
             procedure.
         """
         return MultiScaleNonParametricIterativeResult(
-            results=algorithm_results, scales=self.scales,
+            results=algorithm_results,
+            scales=self.scales,
             affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
-    def fit_from_shape(self, image, initial_shape, max_iters=20, gt_shape=None,
-                       return_costs=False, **kwargs):
+    def fit_from_shape(
+        self,
+        image,
+        initial_shape,
+        max_iters=20,
+        gt_shape=None,
+        return_costs=False,
+        **kwargs,
+    ):
         r"""
         Fits the multi-scale fitter to an image given an initial shape.
 
@@ -589,27 +654,40 @@ class MultiScaleNonParametricFitter(object):
         # as potential affine transform from the features. The scale
         # transforms are the Scale objects that correspond to each level's
         # scale.
-        (images, initial_shapes, gt_shapes, affine_transforms,
-         scale_transforms) = self._prepare_image(image, initial_shape,
-                                                 gt_shape=gt_shape)
+        (images, initial_shapes, gt_shapes, affine_transforms, scale_transforms) = (
+            self._prepare_image(image, initial_shape, gt_shape=gt_shape)
+        )
 
         # Execute multi-scale fitting
-        algorithm_results = self._fit(images=images,
-                                      initial_shape=initial_shapes[0],
-                                      affine_transforms=affine_transforms,
-                                      scale_transforms=scale_transforms,
-                                      max_iters=max_iters, gt_shapes=gt_shapes,
-                                      return_costs=return_costs, **kwargs)
+        algorithm_results = self._fit(
+            images=images,
+            initial_shape=initial_shapes[0],
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            max_iters=max_iters,
+            gt_shapes=gt_shapes,
+            return_costs=return_costs,
+            **kwargs,
+        )
 
         # Return multi-scale fitting result
-        return self._fitter_result(image=image,
-                                   algorithm_results=algorithm_results,
-                                   affine_transforms=affine_transforms,
-                                   scale_transforms=scale_transforms,
-                                   gt_shape=gt_shape)
+        return self._fitter_result(
+            image=image,
+            algorithm_results=algorithm_results,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            gt_shape=gt_shape,
+        )
 
-    def fit_from_bb(self, image, bounding_box, max_iters=20, gt_shape=None,
-                    return_costs=False, **kwargs):
+    def fit_from_bb(
+        self,
+        image,
+        bounding_box,
+        max_iters=20,
+        gt_shape=None,
+        return_costs=False,
+        **kwargs,
+    ):
         r"""
         Fits the multi-scale fitter to an image given an initial bounding box.
 
@@ -644,11 +722,17 @@ class MultiScaleNonParametricFitter(object):
             The multi-scale fitting result containing the result of the fitting
             procedure.
         """
-        initial_shape = align_shape_with_bounding_box(self.reference_shape,
-                                                      bounding_box)
-        return self.fit_from_shape(image=image, initial_shape=initial_shape,
-                                   max_iters=max_iters, gt_shape=gt_shape,
-                                   return_costs=return_costs, **kwargs)
+        initial_shape = align_shape_with_bounding_box(
+            self.reference_shape, bounding_box
+        )
+        return self.fit_from_shape(
+            image=image,
+            initial_shape=initial_shape,
+            max_iters=max_iters,
+            gt_shape=gt_shape,
+            return_costs=return_costs,
+            **kwargs,
+        )
 
 
 class MultiScaleParametricFitter(MultiScaleNonParametricFitter):
@@ -678,13 +762,23 @@ class MultiScaleParametricFitter(MultiScaleNonParametricFitter):
     algorithms : `list` of `class`
         The list of algorithm objects that will perform the fitting per scale.
     """
+
     def __init__(self, scales, reference_shape, holistic_features, algorithms):
         super(MultiScaleParametricFitter, self).__init__(
-            scales=scales, reference_shape=reference_shape,
-            holistic_features=holistic_features, algorithms=algorithms)
+            scales=scales,
+            reference_shape=reference_shape,
+            holistic_features=holistic_features,
+            algorithms=algorithms,
+        )
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -710,14 +804,23 @@ class MultiScaleParametricFitter(MultiScaleNonParametricFitter):
             procedure.
         """
         return MultiScaleParametricIterativeResult(
-            results=algorithm_results, scales=self.scales,
+            results=algorithm_results,
+            scales=self.scales,
             affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
 
-def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
-                                   gt_group=None, bb_group_glob=None,
-                                   verbose=False):
+def generate_perturbations_from_gt(
+    images,
+    n_perturbations,
+    perturb_func,
+    gt_group=None,
+    bb_group_glob=None,
+    verbose=False,
+):
     """
     Function that returns a callable that generates perturbations of the bounding
     boxes of the provided images.
@@ -746,26 +849,36 @@ def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
         bb_generator = lambda im: [im.landmarks[gt_group].bounding_box()]
         n_bbs = 1
     else:
+
         def bb_glob(im):
-            return [v.bounding_box()
-                    for _, v in im.landmarks.items_matching(bb_group_glob)]
+            return [
+                v.bounding_box() for _, v in im.landmarks.items_matching(bb_group_glob)
+            ]
+
         bb_generator = bb_glob
         n_bbs = len(bb_glob(images[0]))
 
     if n_bbs == 0:
-        raise ValueError('Must provide a valid bounding box glob - no bounding '
-                         'boxes matched the following '
-                         'glob: {}'.format(bb_group_glob))
+        raise ValueError(
+            "Must provide a valid bounding box glob - no bounding "
+            "boxes matched the following "
+            "glob: {}".format(bb_group_glob)
+        )
 
     # If we have multiple boxes - we didn't just throw them away, we re-add them
     # to the end
     if bb_group_glob is not None:
-        msg = '- Generating {0} ({1} perturbations * {2} provided boxes) new ' \
-              'initial bounding boxes + {2} provided boxes per image'.format(
-            n_perturbations * n_bbs, n_perturbations, n_bbs)
+        msg = (
+            "- Generating {0} ({1} perturbations * {2} provided boxes) new "
+            "initial bounding boxes + {2} provided boxes per image".format(
+                n_perturbations * n_bbs, n_perturbations, n_bbs
+            )
+        )
     else:
-        msg = '- Generating {} new bounding boxes directly from the ' \
-              'ground truth shape'.format(n_perturbations)
+        msg = (
+            "- Generating {} new bounding boxes directly from the "
+            "ground truth shape".format(n_perturbations)
+        )
 
     wrap = partial(print_progress, prefix=msg, verbose=verbose)
     for im in wrap(images):
@@ -776,15 +889,16 @@ def generate_perturbations_from_gt(images, n_perturbations, perturb_func,
         for bb in bb_generator(im):
             for _ in range(n_perturbations):
                 p_s = perturb_func(gt_s, bb).bounding_box()
-                perturb_bbox_group = '__generated_bb_{}'.format(k)
+                perturb_bbox_group = "__generated_bb_{}".format(k)
                 im.landmarks[perturb_bbox_group] = p_s.constrain_to_bounds(im_bounds)
                 k += 1
 
             if bb_group_glob is not None:
-                perturb_bbox_group = '__generated_bb_{}'.format(k)
+                perturb_bbox_group = "__generated_bb_{}".format(k)
                 im.landmarks[perturb_bbox_group] = bb.constrain_to_bounds(im_bounds)
                 k += 1
 
-    generated_bb_func = lambda x: [v for k, v in x.landmarks.items_matching(
-        '__generated_bb_*')]
+    generated_bb_func = lambda x: [
+        v for k, v in x.landmarks.items_matching("__generated_bb_*")
+    ]
     return generated_bb_func

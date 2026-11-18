@@ -9,7 +9,7 @@ from menpo.io import import_pickle
 from menpofit.base import menpofit_src_dir_path
 
 # The remote URL that should be queried to download pre-trained models
-MENPO_URL = 'http://static.menpo.org'
+MENPO_URL = "http://static.menpo.org"
 
 # All remote models are versioned based on a binary compatibility number.
 # This needs to be bumped every time an existing remote model is no longer
@@ -48,13 +48,14 @@ def image_greyscale_crop_preprocess(image, pointcloud, crop_proportion=1.0):
     """
     # Convert image to greyscale
     if image.n_channels == 3:
-        new_image = image.as_greyscale(mode='luminosity')
+        new_image = image.as_greyscale(mode="luminosity")
     else:
         new_image = image.copy()
 
     # Crop image and return
-    return new_image.crop_to_pointcloud_proportion(pointcloud, crop_proportion,
-                                                   return_transform=True)
+    return new_image.crop_to_pointcloud_proportion(
+        pointcloud, crop_proportion, return_transform=True
+    )
 
 
 class PickleWrappedFitter(object):
@@ -167,9 +168,16 @@ class PickleWrappedFitter(object):
         # the internally-held wrapped fitter)
         fitter = mio.import_pickle('pretrained_aam.pkl')()
     """
-    def __init__(self, fitter_cls, fitter_args, fitter_kwargs,
-                 fit_from_bb_kwargs, fit_from_shape_kwargs,
-                 image_preprocess=image_greyscale_crop_preprocess):
+
+    def __init__(
+        self,
+        fitter_cls,
+        fitter_args,
+        fitter_kwargs,
+        fit_from_bb_kwargs,
+        fit_from_shape_kwargs,
+        image_preprocess=image_greyscale_crop_preprocess,
+    ):
         self.wrapped_fitter = fitter_cls(*fitter_args, **fitter_kwargs)
         self._fit_from_bb_kwargs = fit_from_bb_kwargs
         self._fit_from_shape_kwargs = fit_from_shape_kwargs
@@ -206,15 +214,16 @@ class PickleWrappedFitter(object):
         # check if pre-processing function exists
         if self._image_preprocess is None:
             # call the wrapped fitter with the updated kwargs
-            result = self.wrapped_fitter.fit_from_bb(image, bounding_box,
-                                                     **final_kwargs)
+            result = self.wrapped_fitter.fit_from_bb(
+                image, bounding_box, **final_kwargs
+            )
         else:
             # pre-process the image
             proc_image, trans = self._image_preprocess(image, bounding_box)
             # call the wrapped fitter with the updated kwargs
             result = self.wrapped_fitter.fit_from_bb(
-                proc_image, trans.pseudoinverse().apply(bounding_box),
-                **final_kwargs)
+                proc_image, trans.pseudoinverse().apply(bounding_box), **final_kwargs
+            )
             # update result attributes
             result._image = image
             result._final_shape = trans.apply(result.final_shape)
@@ -253,15 +262,16 @@ class PickleWrappedFitter(object):
         # check if pre-processing function exists
         if self._image_preprocess is None:
             # call the wrapped fitter with the updated kwargs
-            result = self.wrapped_fitter.fit_from_shape(image, initial_shape,
-                                                        **final_kwargs)
+            result = self.wrapped_fitter.fit_from_shape(
+                image, initial_shape, **final_kwargs
+            )
         else:
             # pre-process the image
             proc_image, trans = self._image_preprocess(image, initial_shape)
             # call the wrapped fitter with the updated kwargs
             result = self.wrapped_fitter.fit_from_shape(
-                proc_image, trans.pseudoinverse().apply(initial_shape),
-                **final_kwargs)
+                proc_image, trans.pseudoinverse().apply(initial_shape), **final_kwargs
+            )
             # update result attributes
             result._image = image
             result._final_shape = trans.apply(result.final_shape)
@@ -280,7 +290,7 @@ def menpofit_data_dir_path():
     path : `Path`
         The path to the data directory (which will be instantiated)
     """
-    data_path = menpofit_src_dir_path() / 'data'
+    data_path = menpofit_src_dir_path() / "data"
     if not data_path.exists():
         data_path.mkdir()
     return data_path
@@ -301,8 +311,9 @@ def filename_for_fitter(name):
     filename : `str`
         The filename of the fitter
     """
-    return '{}_v{}_py{}.pkl'.format(name, MENPOFIT_BINARY_VERSION,
-                                    sys.version_info.major)
+    return "{}_v{}_py{}.pkl".format(
+        name, MENPOFIT_BINARY_VERSION, sys.version_info.major
+    )
 
 
 def url_of_fitter(name):
@@ -320,7 +331,7 @@ def url_of_fitter(name):
         The URL that this fitter is stored at for this installation of
         menpofit
     """
-    return '{}/menpofit/{}'.format(MENPO_URL, filename_for_fitter(name))
+    return "{}/menpofit/{}".format(MENPO_URL, filename_for_fitter(name))
 
 
 def path_of_fitter(name):
@@ -341,7 +352,7 @@ def path_of_fitter(name):
     return menpofit_data_dir_path() / filename_for_fitter(name)
 
 
-def copy_and_yield(fsrc, fdst, length=1024*1024):
+def copy_and_yield(fsrc, fdst, length=1024 * 1024):
     """copy data from file-like object fsrc to file-like object fdst"""
     while 1:
         buf = fsrc.read(length)
@@ -365,22 +376,23 @@ def download_file(url, destination, verbose=False):
         If ``True``, report the progress of the download dynamically.
     """
     from menpo.visualize.textutils import print_progress, bytes_str
+
     req = urlopen(url)
     chunk_size_bytes = 512 * 1024
 
-    with open(str(destination), 'wb') as fp:
-
+    with open(str(destination), "wb") as fp:
         # Retrieve a generator that we can keep yielding from to download the
         # file in chunks.
         copy_progress = copy_and_yield(req, fp, length=chunk_size_bytes)
 
         if verbose:
             # wrap the download object with print progress to log the status
-            n_bytes = int(req.headers['content-length'])
+            n_bytes = int(req.headers["content-length"])
             n_items = int(ceil((1.0 * n_bytes) / chunk_size_bytes))
-            prefix = 'Downloading {}'.format(bytes_str(n_bytes))
-            copy_progress = print_progress(copy_progress, n_items=n_items,
-                                           show_count=False, prefix=prefix)
+            prefix = "Downloading {}".format(bytes_str(n_bytes))
+            copy_progress = print_progress(
+                copy_progress, n_items=n_items, show_count=False, prefix=prefix
+            )
 
         for _ in copy_progress:
             pass
@@ -405,7 +417,7 @@ def load_fitter(name):
     """
     path = path_of_fitter(name)
     if not path.exists():
-        print('Downloading {} fitter'.format(name))
+        print("Downloading {} fitter".format(name))
         url = url_of_fitter(name)
         print(url, path)
         download_file(url, path, verbose=True)
@@ -415,7 +427,7 @@ def load_fitter(name):
     except Exception as e:
         # Hmm something went wrong, and we couldn't load this fitter.
         # Purge it so next time we will redownload.
-        print('Error loading fitter - purging damaged file: {}'.format(path))
-        print('Please try running again')
+        print("Error loading fitter - purging damaged file: {}".format(path))
+        print("Please try running again")
         path.unlink()
         raise e

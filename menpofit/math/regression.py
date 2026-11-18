@@ -17,6 +17,7 @@ class IRLRegression(object):
         If ``True``, then the regression model will have the ability to get
         incremented.
     """
+
     def __init__(self, alpha=0, bias=True, incrementable=False):
         self.alpha = alpha
         self.bias = bias
@@ -66,7 +67,7 @@ class IRLRegression(object):
             Model is not incrementable
         """
         if not self.incrementable:
-            raise ValueError('Model is not incrementable')
+            raise ValueError("Model is not incrementable")
 
         if self.bias:
             # add bias
@@ -117,6 +118,7 @@ class IIRLRegression(IRLRegression):
     alpha2 : `float`, optional
         The regularization parameter of the Hessian.
     """
+
     def __init__(self, alpha=0, bias=False, alpha2=0):
         # TODO: Can we model the bias? May need to slice off of prediction?
         super(IIRLRegression, self).__init__(alpha=alpha, bias=False)
@@ -200,6 +202,7 @@ class PCRRegression(object):
     bias : `bool`, optional
         If ``True``, a bias term is used.
     """
+
     def __init__(self, variance=None, bias=True):
         self.variance = variance
         self.bias = bias
@@ -287,6 +290,7 @@ class OptimalLinearRegression(object):
     bias : `bool`, optional
         If ``True``, a bias term is used.
     """
+
     def __init__(self, variance=None, bias=True):
         self.variance = variance
         self.bias = bias
@@ -379,6 +383,7 @@ class OPPRegression(object):
     whiten : `bool`, optional
         Whether to use a whitened PCA model.
     """
+
     def __init__(self, bias=True, whiten=False):
         self.bias = bias
         self.R = None
@@ -397,7 +402,7 @@ class OPPRegression(object):
         """
         if self.bias:
             # add bias
-             X = np.hstack((X, np.ones((X.shape[0], 1))))
+            X = np.hstack((X, np.ones((X.shape[0], 1))))
 
         # Whiten
         if self.whiten:

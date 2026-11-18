@@ -1,5 +1,7 @@
-from menpofit.result import (ParametricIterativeResult,
-                             MultiScaleParametricIterativeResult)
+from menpofit.result import (
+    ParametricIterativeResult,
+    MultiScaleParametricIterativeResult,
+)
 
 
 class LucasKanadeAlgorithmResult(ParametricIterativeResult):
@@ -30,12 +32,24 @@ class LucasKanadeAlgorithmResult(ParametricIterativeResult):
         The `list` of cost per iteration. If ``None``, then it is assumed that
         the cost function cannot be computed for the specific algorithm.
     """
-    def __init__(self, shapes, homogeneous_parameters, initial_shape=None,
-                 image=None, gt_shape=None, costs=None):
+
+    def __init__(
+        self,
+        shapes,
+        homogeneous_parameters,
+        initial_shape=None,
+        image=None,
+        gt_shape=None,
+        costs=None,
+    ):
         super(LucasKanadeAlgorithmResult, self).__init__(
-            shapes=shapes, shape_parameters=homogeneous_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            shape_parameters=homogeneous_parameters,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
         self._homogeneous_parameters = homogeneous_parameters
 
     @property
@@ -75,11 +89,24 @@ class LucasKanadeResult(MultiScaleParametricIterativeResult):
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, results, scales, affine_transforms, scale_transforms,
-                 image=None, gt_shape=None):
+
+    def __init__(
+        self,
+        results,
+        scales,
+        affine_transforms,
+        scale_transforms,
+        image=None,
+        gt_shape=None,
+    ):
         super(LucasKanadeResult, self).__init__(
-            results=results, scales=scales, affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            results=results,
+            scales=scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
         # Create parameters list
         self._homogeneous_parameters = []
         for r in results:

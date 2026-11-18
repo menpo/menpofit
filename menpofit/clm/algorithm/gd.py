@@ -22,6 +22,7 @@ class GradientDescentCLMAlgorithm(object):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
+
     def __init__(self, expert_ensemble, shape_model, eps=10**-5):
         # Set parameters
         self.expert_ensemble = expert_ensemble
@@ -84,11 +85,14 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
     .. [3] A. Blake, and M. Isard. "Active Shape Models", Active Contours,
         Springer, pp. 25-37, 1998.
     """
-    def __init__(self, expert_ensemble, shape_model, gaussian_covariance=10,
-                 eps=10**-5):
+
+    def __init__(
+        self, expert_ensemble, shape_model, gaussian_covariance=10, eps=10**-5
+    ):
         self.gaussian_covariance = gaussian_covariance
-        super(ActiveShapeModel, self).__init__(expert_ensemble=expert_ensemble,
-                                               shape_model=shape_model, eps=eps)
+        super(ActiveShapeModel, self).__init__(
+            expert_ensemble=expert_ensemble, shape_model=shape_model, eps=eps
+        )
 
     def _precompute(self):
         # Call super method
@@ -96,15 +100,22 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
 
         # Build grid associated to size of the search space
         self.half_search_shape = np.round(
-            np.asarray(self.expert_ensemble.search_shape) / 2).astype(np.int64)
+            np.asarray(self.expert_ensemble.search_shape) / 2
+        ).astype(np.int64)
         self.search_grid = self.search_grid[None, None]
 
         # Compute Gaussian-KDE grid
-        self.mvn = multivariate_normal(mean=np.zeros(2),
-                                       cov=self.gaussian_covariance)
+        self.mvn = multivariate_normal(mean=np.zeros(2), cov=self.gaussian_covariance)
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -152,38 +163,41 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
 
         # Expectation-Maximisation loop
         while k < max_iters and eps > self.eps:
-
             target = self.transform.target
             # Obtain all landmark positions l_i = (x_i, y_i) being considered
             # ie all pixel positions in each landmark's search space
-            candidate_landmarks = (target.points[:, None, None, None, :] +
-                                   self.search_grid)
+            candidate_landmarks = (
+                target.points[:, None, None, None, :] + self.search_grid
+            )
 
             # Compute responses
             responses = self.expert_ensemble.predict_probability(image, target)
             # Approximate responses using isotropic Gaussian
             max_indices = np.argmax(
-                responses.reshape(responses.shape[:2] + (-1,)), axis=-1)
+                responses.reshape(responses.shape[:2] + (-1,)), axis=-1
+            )
             max_indices = np.unravel_index(max_indices, responses.shape)[-2:]
             max_indices = np.hstack((max_indices[0], max_indices[1]))
             max_indices = max_indices[:, None, None, None, ...]
             max_indices -= self.half_search_shape
             gaussian_responses = self.mvn.pdf(max_indices + self.search_grid)
             # Normalise smoothed responses
-            gaussian_responses /= np.sum(gaussian_responses,
-                                         axis=(-2, -1))[..., None, None]
+            gaussian_responses /= np.sum(gaussian_responses, axis=(-2, -1))[
+                ..., None, None
+            ]
 
             # Compute new target
-            new_target = np.sum(gaussian_responses[:, None, ..., None] *
-                                candidate_landmarks, axis=(-3, -2))
+            new_target = np.sum(
+                gaussian_responses[:, None, ..., None] * candidate_landmarks,
+                axis=(-3, -2),
+            )
 
             # Compute shape error term
             error = target.as_vector() - new_target.ravel()
 
             # Solve for increments on the shape parameters
             if map_inference:
-                Je = (self.rho2_inv_L * self.transform.as_vector() -
-                      self.J.T.dot(error))
+                Je = self.rho2_inv_L * self.transform.as_vector() - self.J.T.dot(error)
                 dp = -self.inv_JJ_prior.dot(Je)
             else:
                 dp = self.pinv_J.dot(error)
@@ -201,9 +215,13 @@ class ActiveShapeModel(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
-                                         initial_shape=initial_shape,
-                                         image=image, gt_shape=gt_shape)
+        return ParametricIterativeResult(
+            shapes=shapes,
+            shape_parameters=p_list,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
     def __str__(self):
         return "Active Shape Model Algorithm"
@@ -231,12 +249,12 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
         regularized landmark mean-shift", International Journal of Computer
         Vision (IJCV), 91(2): 200-215, 2011.
     """
-    def __init__(self, expert_ensemble, shape_model, kernel_covariance=10,
-                 eps=10**-5):
+
+    def __init__(self, expert_ensemble, shape_model, kernel_covariance=10, eps=10**-5):
         self.kernel_covariance = kernel_covariance
         super(RegularisedLandmarkMeanShift, self).__init__(
-                expert_ensemble=expert_ensemble, shape_model=shape_model,
-                eps=eps)
+            expert_ensemble=expert_ensemble, shape_model=shape_model, eps=eps
+        )
 
     def _precompute(self):
         # Call super method
@@ -246,8 +264,15 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
         mvn = multivariate_normal(mean=np.zeros(2), cov=self.kernel_covariance)
         self.kernel_grid = mvn.pdf(self.search_grid)[None, None]
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -295,34 +320,32 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
 
         # Expectation-Maximisation loop
         while k < max_iters and eps > self.eps:
-
             target = self.transform.target
             # Obtain all landmark positions l_i = (x_i, y_i) being considered
             # ie all pixel positions in each landmark's search space
-            candidate_landmarks = (target.points[:, None, None, None, :] +
-                                   self.search_grid)
+            candidate_landmarks = (
+                target.points[:, None, None, None, :] + self.search_grid
+            )
 
             # Compute patch responses
-            patch_responses = self.expert_ensemble.predict_probability(image,
-                                                                       target)
+            patch_responses = self.expert_ensemble.predict_probability(image, target)
 
             # Smooth responses using the Gaussian-KDE grid
             patch_kernels = patch_responses * self.kernel_grid
             # Normalise smoothed responses
-            patch_kernels /= np.sum(patch_kernels,
-                                    axis=(-2, -1))[..., None, None]
+            patch_kernels /= np.sum(patch_kernels, axis=(-2, -1))[..., None, None]
 
             # Compute mean shift target
-            mean_shift_target = np.sum(patch_kernels[..., None] *
-                                       candidate_landmarks, axis=(-3, -2))
+            mean_shift_target = np.sum(
+                patch_kernels[..., None] * candidate_landmarks, axis=(-3, -2)
+            )
 
             # Compute shape error term
             error = mean_shift_target.ravel() - target.as_vector()
 
             # Solve for increments on the shape parameters
             if map_inference:
-                Je = (self.rho2_inv_L * self.transform.as_vector() -
-                      self.J.T.dot(error))
+                Je = self.rho2_inv_L * self.transform.as_vector() - self.J.T.dot(error)
                 dp = -self.inv_JJ_prior.dot(Je)
             else:
                 dp = self.pinv_J.dot(error)
@@ -340,9 +363,13 @@ class RegularisedLandmarkMeanShift(GradientDescentCLMAlgorithm):
             k += 1
 
         # Return algorithm result
-        return ParametricIterativeResult(shapes=shapes, shape_parameters=p_list,
-                                         initial_shape=initial_shape,
-                                         image=image, gt_shape=gt_shape)
+        return ParametricIterativeResult(
+            shapes=shapes,
+            shape_parameters=p_list,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
     def __str__(self):
         return "Regularised Landmark Mean Shift Algorithm"

@@ -82,15 +82,22 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
         Efficient Parametric Face Alignment", IEEE Proceedings of International
         Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
-    def __init__(self, template, group=None, holistic_features=no_op,
-                 diagonal=None, transform=DifferentiableAlignmentAffine,
-                 scales=(0.5, 1.0), algorithm_cls=InverseCompositional,
-                 residual_cls=SSD):
+
+    def __init__(
+        self,
+        template,
+        group=None,
+        holistic_features=no_op,
+        diagonal=None,
+        transform=DifferentiableAlignmentAffine,
+        scales=(0.5, 1.0),
+        algorithm_cls=InverseCompositional,
+        residual_cls=SSD,
+    ):
         # Check arguments
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
-        holistic_features = checks.check_callable(holistic_features,
-                                                  len(scales))
+        holistic_features = checks.check_callable(holistic_features, len(scales))
         # Assign attributes
         self.transform_cls = transform
         self.diagonal = diagonal
@@ -101,17 +108,20 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
         # Get reference shape
         if self.diagonal:
             template = template.rescale_landmarks_to_diagonal_range(
-                self.diagonal, group=group)
+                self.diagonal, group=group
+            )
         reference_shape = template.landmarks[group]
 
         # Call superclass
         super(LucasKanadeFitter, self).__init__(
-            scales=list(scales), reference_shape=reference_shape,
-            holistic_features=holistic_features, algorithms=[])
+            scales=list(scales),
+            reference_shape=reference_shape,
+            holistic_features=holistic_features,
+            algorithms=[],
+        )
 
         # Create templates
-        self.templates, self.sources = self._prepare_template(template,
-                                                              group=group)
+        self.templates, self.sources = self._prepare_template(template, group=group)
 
         # Get list of algorithm objects per scale
         self.algorithms = []
@@ -122,12 +132,19 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
 
     def _prepare_template(self, template, group=None):
         gt_shape = template.landmarks[group]
-        templates, _, sources, _, _ = self._prepare_image(template, gt_shape,
-                                                          gt_shape=gt_shape)
+        templates, _, sources, _, _ = self._prepare_image(
+            template, gt_shape, gt_shape=gt_shape
+        )
         return templates, sources
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -153,9 +170,13 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
             procedure.
         """
         return LucasKanadeResult(
-            results=algorithm_results, scales=self.scales,
+            results=algorithm_results,
+            scales=self.scales,
             affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
     def warped_images(self, image, shapes):
         r"""
@@ -183,7 +204,7 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
             diagonal = self.diagonal
         else:
             y, x = self.reference_shape.range()
-            diagonal = np.sqrt(x ** 2 + y ** 2)
+            diagonal = np.sqrt(x**2 + y**2)
 
         # Compute scale info strings
         scales_info = []
@@ -191,10 +212,14 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
      - Holistic feature: {}
      - Template shape: {}"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
-                    s, name_of_callable(self.holistic_features[k]),
-                    self.templates[k].shape))
-        scales_info = '\n'.join(scales_info)
+            scales_info.append(
+                lvl_str_tmplt.format(
+                    s,
+                    name_of_callable(self.holistic_features[k]),
+                    self.templates[k].shape,
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""Lucas-Kanade {class_title}
  - {residual}
@@ -202,10 +227,12 @@ class LucasKanadeFitter(MultiScaleNonParametricFitter):
  - Images scaled to diagonal: {diagonal:.2f}
  - Scales: {scales}
 {scales_info}
-""".format(class_title=self.algorithms[0],
-           residual=self.algorithms[0].residual,
-           transform=name_of_callable(self.transform_cls),
-           diagonal=diagonal,
-           scales=self.scales,
-           scales_info=scales_info)
+""".format(
+            class_title=self.algorithms[0],
+            residual=self.algorithms[0].residual,
+            transform=name_of_callable(self.transform_cls),
+            diagonal=diagonal,
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return cls_str

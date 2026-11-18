@@ -8,13 +8,19 @@ from menpo.base import name_of_callable
 
 from menpofit.visualize import print_progress
 from menpofit.base import batch
-from menpofit.builder import (scale_images, rescale_images_to_reference_shape,
-                              compute_reference_shape, MenpoFitBuilderWarning,
-                              compute_features)
-from menpofit.fitter import (MultiScaleNonParametricFitter,
-                             noisy_shape_from_bounding_box,
-                             align_shape_with_bounding_box,
-                             generate_perturbations_from_gt)
+from menpofit.builder import (
+    scale_images,
+    rescale_images_to_reference_shape,
+    compute_reference_shape,
+    MenpoFitBuilderWarning,
+    compute_features,
+)
+from menpofit.fitter import (
+    MultiScaleNonParametricFitter,
+    noisy_shape_from_bounding_box,
+    align_shape_with_bounding_box,
+    generate_perturbations_from_gt,
+)
 import menpofit.checks as checks
 
 from .algorithm import NonParametricNewton
@@ -146,16 +152,30 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         of the IEEE Conference on Computer Vision and Pattern Recognition
         (CVPR), 2011.
     """
-    def __init__(self, images, group=None, bounding_box_group_glob=None,
-                 sd_algorithm_cls=None, reference_shape=None, diagonal=None,
-                 holistic_features=no_op, patch_features=no_op,
-                 patch_shape=(17, 17), scales=(0.5, 1.0), n_iterations=3,
-                 n_perturbations=30,
-                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
-                 batch_size=None, verbose=False):
+
+    def __init__(
+        self,
+        images,
+        group=None,
+        bounding_box_group_glob=None,
+        sd_algorithm_cls=None,
+        reference_shape=None,
+        diagonal=None,
+        holistic_features=no_op,
+        patch_features=no_op,
+        patch_shape=(17, 17),
+        scales=(0.5, 1.0),
+        n_iterations=3,
+        n_perturbations=30,
+        perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
+        batch_size=None,
+        verbose=False,
+    ):
         if batch_size is not None:
-            raise NotImplementedError('Training an SDM with a batch size '
-                                      '(incrementally) is not implemented yet.')
+            raise NotImplementedError(
+                "Training an SDM with a batch size "
+                "(incrementally) is not implemented yet."
+            )
         # Check parameters
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
@@ -167,8 +187,11 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
 
         # Call superclass
         super(SupervisedDescentFitter, self).__init__(
-            scales=scales, reference_shape=reference_shape,
-            holistic_features=holistic_features, algorithms=[])
+            scales=scales,
+            reference_shape=reference_shape,
+            holistic_features=holistic_features,
+            algorithms=[],
+        )
 
         # Set parameters
         self._sd_algorithm_cls = sd_algorithm_cls
@@ -183,18 +206,34 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         self._setup_algorithms()
 
         # Now, train the model!
-        self._train(images, increment=False,  group=group,
-                    bounding_box_group_glob=bounding_box_group_glob,
-                    verbose=verbose, batch_size=batch_size)
+        self._train(
+            images,
+            increment=False,
+            group=group,
+            bounding_box_group_glob=bounding_box_group_glob,
+            verbose=verbose,
+            batch_size=batch_size,
+        )
 
     def _setup_algorithms(self):
-        self.algorithms = [self._sd_algorithm_cls[j](
-            patch_features=self.patch_features[j],
-            patch_shape=self.patch_shape[j], n_iterations=self.n_iterations[j])
-                           for j in range(self.n_scales)]
+        self.algorithms = [
+            self._sd_algorithm_cls[j](
+                patch_features=self.patch_features[j],
+                patch_shape=self.patch_shape[j],
+                n_iterations=self.n_iterations[j],
+            )
+            for j in range(self.n_scales)
+        ]
 
-    def _train(self, images, increment=False, group=None,
-               bounding_box_group_glob=None, verbose=False, batch_size=None):
+    def _train(
+        self,
+        images,
+        increment=False,
+        group=None,
+        bounding_box_group_glob=None,
+        verbose=False,
+        batch_size=None,
+    ):
         # If batch_size is not None, then we may have a generator, else we
         # assume we have a list.
         if batch_size is not None:
@@ -210,15 +249,19 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                     # If no reference shape was given, use the mean of the first
                     # batch
                     if batch_size is not None:
-                        warnings.warn('No reference shape was provided. The '
-                                      'mean of the first batch will be the '
-                                      'reference shape. If the batch mean is '
-                                      'not representative of the true mean, '
-                                      'this may cause issues.',
-                                      MenpoFitBuilderWarning)
+                        warnings.warn(
+                            "No reference shape was provided. The "
+                            "mean of the first batch will be the "
+                            "reference shape. If the batch mean is "
+                            "not representative of the true mean, "
+                            "this may cause issues.",
+                            MenpoFitBuilderWarning,
+                        )
                     self._reference_shape = compute_reference_shape(
                         [i.landmarks[group] for i in image_batch],
-                        self.diagonal, verbose=verbose)
+                        self.diagonal,
+                        verbose=verbose,
+                    )
             # We set landmarks on the images to archive the perturbations, so
             # when the default 'None' is used, we need to grab the actual
             # label to sort out the ambiguity
@@ -230,37 +273,50 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                 increment = True
 
             if verbose:
-                print('Computing batch {}'.format(k))
+                print("Computing batch {}".format(k))
 
             # Train each batch
             self._train_batch(
-                image_batch, increment=increment, group=group,
+                image_batch,
+                increment=increment,
+                group=group,
                 bounding_box_group_glob=bounding_box_group_glob,
-                verbose=verbose)
+                verbose=verbose,
+            )
 
-    def _train_batch(self, image_batch, increment=False, group=None,
-                     bounding_box_group_glob=None, verbose=False):
+    def _train_batch(
+        self,
+        image_batch,
+        increment=False,
+        group=None,
+        bounding_box_group_glob=None,
+        verbose=False,
+    ):
         # Rescale images wrt the scale factor between the existing
         # reference_shape and their ground truth (group) shapes
         image_batch = rescale_images_to_reference_shape(
-            image_batch, group, self.reference_shape,
-            verbose=verbose)
+            image_batch, group, self.reference_shape, verbose=verbose
+        )
 
         # Create a callable that generates perturbations of the bounding boxes
         # of the provided images.
         generated_bb_func = generate_perturbations_from_gt(
-            image_batch, self.n_perturbations,
-            self._perturb_from_gt_bounding_box, gt_group=group,
-            bb_group_glob=bounding_box_group_glob, verbose=verbose)
+            image_batch,
+            self.n_perturbations,
+            self._perturb_from_gt_bounding_box,
+            gt_group=group,
+            bb_group_glob=bounding_box_group_glob,
+            verbose=verbose,
+        )
 
         # For each scale (low --> high)
         for j in range(self.n_scales):
             # Print progress if asked
             if verbose:
                 if len(self.scales) > 1:
-                    scale_prefix = '  - Scale {}: '.format(j)
+                    scale_prefix = "  - Scale {}: ".format(j)
                 else:
-                    scale_prefix = '  - '
+                    scale_prefix = "  - "
             else:
                 scale_prefix = None
 
@@ -270,22 +326,27 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             if j == 0 and self.holistic_features[j] == no_op:
                 # Saves a lot of memory
                 feature_images = image_batch
-            elif (j == 0 or
-                  self.holistic_features[j] != self.holistic_features[j - 1]):
+            elif j == 0 or self.holistic_features[j] != self.holistic_features[j - 1]:
                 # Compute features only if this is the first pass through
                 # the loop or the features at this scale are different from
                 # the features at the previous scale
-                feature_images = compute_features(image_batch,
-                                                  self.holistic_features[j],
-                                                  prefix=scale_prefix,
-                                                  verbose=verbose)
+                feature_images = compute_features(
+                    image_batch,
+                    self.holistic_features[j],
+                    prefix=scale_prefix,
+                    verbose=verbose,
+                )
 
             # Rescale images according to scales. Note that scale_images is smart
             # enough in order not to rescale the images if the current scale
             # factor equals to 1.
             scaled_images, scale_transforms = scale_images(
-                feature_images, self.scales[j], prefix=scale_prefix,
-                return_transforms=True, verbose=verbose)
+                feature_images,
+                self.scales[j],
+                prefix=scale_prefix,
+                return_transforms=True,
+                verbose=verbose,
+            )
 
             # Extract scaled ground truth shapes for current scale
             scaled_shapes = [i.landmarks[group] for i in scaled_images]
@@ -299,29 +360,32 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             if j == 0:
                 # At the first scale, the current shapes are created by aligning
                 # the reference shape to the perturbed bounding boxes.
-                msg = '{}Aligning reference shape with bounding boxes.'.format(
-                    scale_prefix)
-                wrap = partial(print_progress, prefix=msg,
-                               end_with_newline=False, verbose=verbose)
+                msg = "{}Aligning reference shape with bounding boxes.".format(
+                    scale_prefix
+                )
+                wrap = partial(
+                    print_progress, prefix=msg, end_with_newline=False, verbose=verbose
+                )
                 # Extract perturbations at the very bottom level
                 for ii in wrap(scaled_images):
                     c_shapes = []
                     for bbox in generated_bb_func(ii):
-                        c_s = align_shape_with_bounding_box(
-                            self.reference_shape, bbox)
+                        c_s = align_shape_with_bounding_box(self.reference_shape, bbox)
                         c_shapes.append(c_s)
                     current_shapes.append(c_shapes)
             else:
                 # At the rest of the scales, extract the current shapes that
                 # were attached to the images
-                msg = '{}Extracting shape estimations from previous ' \
-                      'scale.'.format(scale_prefix)
-                wrap = partial(print_progress, prefix=msg,
-                               end_with_newline=False, verbose=verbose)
+                msg = "{}Extracting shape estimations from previous scale.".format(
+                    scale_prefix
+                )
+                wrap = partial(
+                    print_progress, prefix=msg, end_with_newline=False, verbose=verbose
+                )
                 for ii in wrap(scaled_images):
                     c_shapes = []
                     for k in list(range(self.n_perturbations)):
-                        c_key = '__sdm_current_shape_{}'.format(k)
+                        c_key = "__sdm_current_shape_{}".format(k)
                         c_shapes.append(ii.landmarks[c_key])
                     current_shapes.append(c_shapes)
 
@@ -329,12 +393,20 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             # estimations for the next scale.
             if not increment:
                 current_shapes = self.algorithms[j].train(
-                    scaled_images, scaled_shapes, current_shapes,
-                    prefix=scale_prefix, verbose=verbose)
+                    scaled_images,
+                    scaled_shapes,
+                    current_shapes,
+                    prefix=scale_prefix,
+                    verbose=verbose,
+                )
             else:
                 current_shapes = self.algorithms[j].increment(
-                    scaled_images, scaled_shapes, current_shapes,
-                    prefix=scale_prefix, verbose=verbose)
+                    scaled_images,
+                    scaled_shapes,
+                    current_shapes,
+                    prefix=scale_prefix,
+                    verbose=verbose,
+                )
 
             # Scale the current shape estimations for the next level. This
             # doesn't have to be done for the last scale. The only thing we need
@@ -346,29 +418,37 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                     # the training images (image_batch)
                     for jj, image_shapes in enumerate(current_shapes):
                         for k, shape in enumerate(image_shapes):
-                            c_key = '__sdm_current_shape_{}'.format(k)
-                            image_batch[jj].landmarks[c_key] = \
-                                scale_transforms[jj].apply(shape)
+                            c_key = "__sdm_current_shape_{}".format(k)
+                            image_batch[jj].landmarks[c_key] = scale_transforms[
+                                jj
+                            ].apply(shape)
                 else:
                     # Features won't be extracted;. the same feature_images will
                     # be used for the next scale, thus attach current_shapes on
                     # them.
                     for jj, image_shapes in enumerate(current_shapes):
                         for k, shape in enumerate(image_shapes):
-                            c_key = '__sdm_current_shape_{}'.format(k)
-                            feature_images[jj].landmarks[c_key] = \
-                                scale_transforms[jj].apply(shape)
+                            c_key = "__sdm_current_shape_{}".format(k)
+                            feature_images[jj].landmarks[c_key] = scale_transforms[
+                                jj
+                            ].apply(shape)
             else:
                 # Check if original training image (image_batch) got some current
                 # shape estimations attached. If yes, delete them.
-                if '__sdm_current_shape_0' in image_batch[0].landmarks:
+                if "__sdm_current_shape_0" in image_batch[0].landmarks:
                     for image in image_batch:
                         for k in list(range(self.n_perturbations)):
-                            c_key = '__sdm_current_shape_{}'.format(k)
+                            c_key = "__sdm_current_shape_{}".format(k)
                             del image.landmarks[c_key]
 
-    def increment(self, images, group=None, bounding_box_group_glob=None,
-                  verbose=False, batch_size=None):
+    def increment(
+        self,
+        images,
+        group=None,
+        bounding_box_group_glob=None,
+        verbose=False,
+        batch_size=None,
+    ):
         r"""
         Method to increment the trained SDM with a new set of training images.
 
@@ -393,13 +473,21 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             value. If ``None``, then the training is performed directly on the
             all the images.
         """
-        raise NotImplementedError('Incrementing SDM methods is not yet '
-                                  'implemented as careful attention must '
-                                  'be taken when considering the relationships '
-                                  'between cascade levels.')
+        raise NotImplementedError(
+            "Incrementing SDM methods is not yet "
+            "implemented as careful attention must "
+            "be taken when considering the relationships "
+            "between cascade levels."
+        )
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -425,21 +513,27 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             procedure.
         """
         return self.algorithms[0]._multi_scale_fitter_result(
-            results=algorithm_results, scales=self.scales,
+            results=algorithm_results,
+            scales=self.scales,
             affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
     def __str__(self):
         if self.diagonal is not None:
             diagonal = self.diagonal
         else:
             y, x = self.reference_shape.range()
-            diagonal = np.sqrt(x ** 2 + y ** 2)
-        is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
-                                  noisy_shape_from_bounding_box)
+            diagonal = np.sqrt(x**2 + y**2)
+        is_custom_perturb_func = (
+            self._perturb_from_gt_bounding_box != noisy_shape_from_bounding_box
+        )
         if is_custom_perturb_func:
             is_custom_perturb_func = name_of_callable(
-                    self._perturb_from_gt_bounding_box)
+                self._perturb_from_gt_bounding_box
+            )
         regressor_cls = self.algorithms[0]._regressor_cls
 
         # Compute scale info strings
@@ -450,11 +544,16 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
      - Holistic feature: {}
      - Patch feature: {}"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
-                s, self.n_iterations[k], self.patch_shape[k],
-                name_of_callable(self.holistic_features[k]),
-                name_of_callable(self.patch_features[k])))
-        scales_info = '\n'.join(scales_info)
+            scales_info.append(
+                lvl_str_tmplt.format(
+                    s,
+                    self.n_iterations[k],
+                    self.patch_shape[k],
+                    name_of_callable(self.holistic_features[k]),
+                    name_of_callable(self.patch_features[k]),
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""Supervised Descent Method
  - Regression performed using the {reg_alg} algorithm
@@ -471,7 +570,8 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             diagonal=diagonal,
             is_custom_perturb_func=is_custom_perturb_func,
             scales=self.scales,
-            scales_info=scales_info)
+            scales_info=scales_info,
+        )
         return cls_str
 
 
@@ -550,23 +650,41 @@ class SDM(SupervisedDescentFitter):
         applications to face alignment", Proceedings of the IEEE Conference on
         Computer Vision and Pattern Recognition (CVPR), 2013.
     """
-    def __init__(self, images, group=None, bounding_box_group_glob=None,
-                 reference_shape=None,  diagonal=None, holistic_features=no_op,
-                 patch_features=no_op, patch_shape=(17, 17), scales=(0.5, 1.0),
-                 n_iterations=3, n_perturbations=30,
-                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
-                 batch_size=None, verbose=False):
+
+    def __init__(
+        self,
+        images,
+        group=None,
+        bounding_box_group_glob=None,
+        reference_shape=None,
+        diagonal=None,
+        holistic_features=no_op,
+        patch_features=no_op,
+        patch_shape=(17, 17),
+        scales=(0.5, 1.0),
+        n_iterations=3,
+        n_perturbations=30,
+        perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
+        batch_size=None,
+        verbose=False,
+    ):
         super(SDM, self).__init__(
-                images, group=group,
-                bounding_box_group_glob=bounding_box_group_glob,
-                reference_shape=reference_shape,
-                sd_algorithm_cls=NonParametricNewton,
-                holistic_features=holistic_features,
-                patch_features=patch_features, patch_shape=patch_shape,
-                diagonal=diagonal, scales=scales, n_iterations=n_iterations,
-                n_perturbations=n_perturbations,
-                perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
-                batch_size=batch_size, verbose=verbose)
+            images,
+            group=group,
+            bounding_box_group_glob=bounding_box_group_glob,
+            reference_shape=reference_shape,
+            sd_algorithm_cls=NonParametricNewton,
+            holistic_features=holistic_features,
+            patch_features=patch_features,
+            patch_shape=patch_shape,
+            diagonal=diagonal,
+            scales=scales,
+            n_iterations=n_iterations,
+            n_perturbations=n_perturbations,
+            perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
+            batch_size=batch_size,
+            verbose=verbose,
+        )
 
 
 class RegularizedSDM(SupervisedDescentFitter):
@@ -642,20 +760,39 @@ class RegularizedSDM(SupervisedDescentFitter):
         applications to face alignment", Proceedings of the IEEE Conference on
         Computer Vision and Pattern Recognition (CVPR), 2013.
     """
-    def __init__(self, images, group=None, bounding_box_group_glob=None,
-                 alpha=0.0001, reference_shape=None, diagonal=None,
-                 holistic_features=no_op, patch_features=no_op,
-                 patch_shape=(17, 17), scales=(0.5, 1.0), n_iterations=6,
-                 n_perturbations=30,
-                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
-                 batch_size=None, verbose=False):
+
+    def __init__(
+        self,
+        images,
+        group=None,
+        bounding_box_group_glob=None,
+        alpha=0.0001,
+        reference_shape=None,
+        diagonal=None,
+        holistic_features=no_op,
+        patch_features=no_op,
+        patch_shape=(17, 17),
+        scales=(0.5, 1.0),
+        n_iterations=6,
+        n_perturbations=30,
+        perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
+        batch_size=None,
+        verbose=False,
+    ):
         super(RegularizedSDM, self).__init__(
-            images, group=group,
+            images,
+            group=group,
             bounding_box_group_glob=bounding_box_group_glob,
             reference_shape=reference_shape,
             sd_algorithm_cls=partial(NonParametricNewton, alpha=alpha),
-            holistic_features=holistic_features, patch_features=patch_features,
-            patch_shape=patch_shape, diagonal=diagonal, scales=scales,
-            n_iterations=n_iterations, n_perturbations=n_perturbations,
+            holistic_features=holistic_features,
+            patch_features=patch_features,
+            patch_shape=patch_shape,
+            diagonal=diagonal,
+            scales=scales,
+            n_iterations=n_iterations,
+            n_perturbations=n_perturbations,
             perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
-            batch_size=batch_size, verbose=verbose)
+            batch_size=batch_size,
+            verbose=verbose,
+        )

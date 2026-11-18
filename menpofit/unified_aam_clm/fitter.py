@@ -58,30 +58,40 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         explicitly defines the sampling mask. If ``None``, then no
         sub-sampling is applied.
     """
-    def __init__(self, unified_aam_clm,
-                 algorithm_cls=AlternatingRegularisedLandmarkMeanShift,
-                 n_shape=None, n_appearance=None, sampling=None):
+
+    def __init__(
+        self,
+        unified_aam_clm,
+        algorithm_cls=AlternatingRegularisedLandmarkMeanShift,
+        n_shape=None,
+        n_appearance=None,
+        sampling=None,
+    ):
         self._model = unified_aam_clm
         # Check parameters
         checks.set_models_components(self._model.shape_models, n_shape)
-        checks.set_models_components(self._model.appearance_models,
-                                     n_appearance)
+        checks.set_models_components(self._model.appearance_models, n_appearance)
         self._sampling = checks.check_sampling(sampling, self._model.n_scales)
 
         # Get list of algorithm objects per scale
         interfaces = unified_aam_clm.build_fitter_interfaces(self._sampling)
-        algorithms = [algorithm_cls(interface,
-                                    self._model.expert_ensembles[k],
-                                    self._model.patch_shape[k],
-                                    self._model.response_covariance)
-                      for k, interface in enumerate(interfaces)]
+        algorithms = [
+            algorithm_cls(
+                interface,
+                self._model.expert_ensembles[k],
+                self._model.patch_shape[k],
+                self._model.response_covariance,
+            )
+            for k, interface in enumerate(interfaces)
+        ]
 
         # Call superclass
         super(UnifiedAAMCLMFitter, self).__init__(
             scales=self._model.scales,
             reference_shape=self._model.reference_shape,
             holistic_features=self._model.holistic_features,
-            algorithms=algorithms)
+            algorithms=algorithms,
+        )
 
     @property
     def unified_aam_clm(self):
@@ -92,8 +102,7 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         """
         return self._model
 
-    def appearance_reconstructions(self, appearance_parameters,
-                                   n_iters_per_scale):
+    def appearance_reconstructions(self, appearance_parameters, n_iters_per_scale):
         r"""
         Method that generates the appearance reconstructions given a set of
         appearance parameters. This is to be combined with a
@@ -119,7 +128,8 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         """
         return self.unified_aam_clm.appearance_reconstructions(
             appearance_parameters=appearance_parameters,
-            n_iters_per_scale=n_iters_per_scale)
+            n_iters_per_scale=n_iters_per_scale,
+        )
 
     def warped_images(self, image, shapes):
         r"""
@@ -140,8 +150,7 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
             The warped images.
         """
-        return self.algorithms[-1].interface.warped_images(image=image,
-                                                           shapes=shapes)
+        return self.algorithms[-1].interface.warped_images(image=image, shapes=shapes)
 
     @property
     def response_covariance(self):
@@ -153,8 +162,14 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         """
         return self._model.response_covariance
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -180,9 +195,13 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
             procedure.
         """
         return UnifiedAAMCLMResult(
-            results=algorithm_results, scales=self.scales,
+            results=algorithm_results,
+            scales=self.scales,
             affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
     def __str__(self):
         # Compute scale info strings
@@ -192,17 +211,22 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
      - {} similarity transform components
      - {} active appearance components"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
+            scales_info.append(
+                lvl_str_tmplt.format(
                     s,
                     self._model.shape_models[k].model.n_active_components,
                     self._model.shape_models[k].n_global_parameters,
-                    self._model.appearance_models[k].n_active_components))
-        scales_info = '\n'.join(scales_info)
+                    self._model.appearance_models[k].n_active_components,
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""{class_title}
   - Scales: {scales}
 {scales_info}
-    """.format(class_title=name_of_callable(self.algorithms[0]),
-               scales=self.scales,
-               scales_info=scales_info)
+    """.format(
+            class_title=name_of_callable(self.algorithms[0]),
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return self._model.__str__() + cls_str

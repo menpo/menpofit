@@ -32,6 +32,7 @@ class LucasKanade(object):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
+
     def __init__(self, template, transform, residual, eps=10**-10):
         self.template = template
         self.transform = transform
@@ -60,8 +61,11 @@ class LucasKanade(object):
         warped_images = []
         for s in shapes:
             self.transform.set_target(s)
-            warped_images.append(image.warp_to_mask(
-                    self.template.mask, self.transform, warp_landmarks=False))
+            warped_images.append(
+                image.warp_to_mask(
+                    self.template.mask, self.transform, warp_landmarks=False
+                )
+            )
         return warped_images
 
 
@@ -69,8 +73,10 @@ class ForwardAdditive(LucasKanade):
     r"""
     Forward Additive (FA) Lucas-Kanade algorithm.
     """
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False):
+
+    def run(
+        self, image, initial_shape, gt_shape=None, max_iters=20, return_costs=False
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -116,25 +122,28 @@ class ForwardAdditive(LucasKanade):
         # Forward Compositional Algorithm
         while k < max_iters and eps > self.eps:
             # warp image
-            IWxp = image.warp_to_mask(self.template.mask, self.transform,
-                                      warp_landmarks=False)
+            IWxp = image.warp_to_mask(
+                self.template.mask, self.transform, warp_landmarks=False
+            )
 
             # compute warp jacobian
-            dW_dp = np.rollaxis(
-                self.transform.d_dp(self.template.indices()), -1)
-            dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +
-                                  dW_dp.shape[-1:])
+            dW_dp = np.rollaxis(self.transform.d_dp(self.template.indices()), -1)
+            dW_dp = dW_dp.reshape(
+                dW_dp.shape[:1] + self.template.shape + dW_dp.shape[-1:]
+            )
 
             # compute steepest descent images
             filtered_J, J = self.residual.steepest_descent_images(
-                image, dW_dp, forward=(self.template, self.transform))
+                image, dW_dp, forward=(self.template, self.transform)
+            )
 
             # compute hessian
             H = self.residual.hessian(filtered_J, sdi2=J)
 
             # compute steepest descent parameter updates.
             sd_dp = self.residual.steepest_descent_update(
-                filtered_J, IWxp, self.template)
+                filtered_J, IWxp, self.template
+            )
 
             # compute gradient descent parameter updates
             dp = -np.real(np.linalg.solve(H, sd_dp))
@@ -156,9 +165,13 @@ class ForwardAdditive(LucasKanade):
 
         # return algorithm result
         return LucasKanadeAlgorithmResult(
-            shapes=shapes, homogeneous_parameters=p_list,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            homogeneous_parameters=p_list,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
     def __str__(self):
         return "Forward Additive Algorithm"
@@ -190,20 +203,23 @@ class ForwardCompositional(LucasKanade):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
+
     def __init__(self, template, transform, residual, eps=10**-10):
         super(ForwardCompositional, self).__init__(
-            template, transform, residual, eps=eps)
+            template, transform, residual, eps=eps
+        )
         self._precompute()
 
     def _precompute(self):
         # compute warp jacobian
-        dW_dp = np.rollaxis(
-            self.transform.d_dp(self.template.indices()), -1)
-        self.dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +
-                                   dW_dp.shape[-1:])
+        dW_dp = np.rollaxis(self.transform.d_dp(self.template.indices()), -1)
+        self.dW_dp = dW_dp.reshape(
+            dW_dp.shape[:1] + self.template.shape + dW_dp.shape[-1:]
+        )
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False):
+    def run(
+        self, image, initial_shape, gt_shape=None, max_iters=20, return_costs=False
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -249,19 +265,20 @@ class ForwardCompositional(LucasKanade):
         # Forward Compositional Algorithm
         while k < max_iters and eps > self.eps:
             # warp image
-            IWxp = image.warp_to_mask(self.template.mask, self.transform,
-                                      warp_landmarks=False)
+            IWxp = image.warp_to_mask(
+                self.template.mask, self.transform, warp_landmarks=False
+            )
 
             # compute steepest descent images
-            filtered_J, J = self.residual.steepest_descent_images(
-                IWxp, self.dW_dp)
+            filtered_J, J = self.residual.steepest_descent_images(IWxp, self.dW_dp)
 
             # compute hessian
             H = self.residual.hessian(filtered_J, sdi2=J)
 
             # compute steepest descent parameter updates.
             sd_dp = self.residual.steepest_descent_update(
-                filtered_J, IWxp, self.template)
+                filtered_J, IWxp, self.template
+            )
 
             # compute gradient descent parameter updates
             dp = -np.real(np.linalg.solve(H, sd_dp))
@@ -283,9 +300,13 @@ class ForwardCompositional(LucasKanade):
 
         # return algorithm result
         return LucasKanadeAlgorithmResult(
-            shapes=shapes, homogeneous_parameters=p_list,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            homogeneous_parameters=p_list,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
     def __str__(self):
         return "Forward Compositional Algorithm"
@@ -317,24 +338,25 @@ class InverseCompositional(LucasKanade):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
+
     def __init__(self, template, transform, residual, eps=10**-10):
         super(InverseCompositional, self).__init__(
-            template, transform, residual, eps=eps)
+            template, transform, residual, eps=eps
+        )
         self._precompute()
 
     def _precompute(self):
         # compute warp jacobian
         dW_dp = np.rollaxis(self.transform.d_dp(self.template.indices()), -1)
-        dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape +
-                              dW_dp.shape[-1:])
+        dW_dp = dW_dp.reshape(dW_dp.shape[:1] + self.template.shape + dW_dp.shape[-1:])
         # compute steepest descent images
-        self.filtered_J, J = self.residual.steepest_descent_images(
-            self.template, dW_dp)
+        self.filtered_J, J = self.residual.steepest_descent_images(self.template, dW_dp)
         # compute hessian
         self.H = self.residual.hessian(self.filtered_J, sdi2=J)
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False):
+    def run(
+        self, image, initial_shape, gt_shape=None, max_iters=20, return_costs=False
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -380,12 +402,14 @@ class InverseCompositional(LucasKanade):
         # Baker-Matthews, Inverse Compositional Algorithm
         while k < max_iters and eps > self.eps:
             # warp image
-            IWxp = image.warp_to_mask(self.template.mask, self.transform,
-                                      warp_landmarks=False)
+            IWxp = image.warp_to_mask(
+                self.template.mask, self.transform, warp_landmarks=False
+            )
 
             # compute steepest descent parameter updates.
             sd_dp = self.residual.steepest_descent_update(
-                self.filtered_J, IWxp, self.template)
+                self.filtered_J, IWxp, self.template
+            )
 
             # compute gradient descent parameter updates
             dp = np.real(np.linalg.solve(self.H, sd_dp))
@@ -408,10 +432,13 @@ class InverseCompositional(LucasKanade):
 
         # return algorithm result
         return LucasKanadeAlgorithmResult(
-            shapes=shapes, homogeneous_parameters=p_list,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            homogeneous_parameters=p_list,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
     def __str__(self):
         return "Inverse Compositional Algorithm"
-

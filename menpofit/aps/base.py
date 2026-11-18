@@ -445,7 +445,7 @@ class GenerativeAPS(object):
             )
         else:
             raise NotImplementedError(
-                "The full appearance model is not " "implemented yet."
+                "The full appearance model is not implemented yet."
             )
 
     def _increment_appearance_model(
@@ -455,7 +455,7 @@ class GenerativeAPS(object):
             appearance_model.increment(images, verbose=verbose)
         else:
             raise NotImplementedError(
-                "The full appearance model is not " "implemented yet."
+                "The full appearance model is not implemented yet."
             )
 
     def _warp_images(self, images, shapes, scale_index, prefix, verbose):
@@ -795,8 +795,9 @@ def _compute_minimum_spanning_tree(shapes, root_vertex=0, prefix="", verbose=Fal
         range1 = print_progress(
             range1,
             end_with_newline=False,
-            prefix="{}Deformation graph - Computing complete graph`s "
-            "weights".format(prefix),
+            prefix="{}Deformation graph - Computing complete graph`s weights".format(
+                prefix
+            ),
         )
 
     # compute weights
@@ -823,7 +824,7 @@ def _compute_minimum_spanning_tree(shapes, root_vertex=0, prefix="", verbose=Fal
 
     if verbose:
         print_dynamic(
-            "{}Deformation graph - Minimum spanning graph " "computed.\n".format(prefix)
+            "{}Deformation graph - Minimum spanning graph computed.\n".format(prefix)
         )
 
     # compute minimum spanning graph
@@ -835,7 +836,7 @@ def _aps_str(aps):
         diagonal = aps.diagonal
     else:
         y, x = aps.reference_shape.range()
-        diagonal = np.sqrt(x ** 2 + y ** 2)
+        diagonal = np.sqrt(x**2 + y**2)
 
     # Compute scale info strings
     scales_info = []

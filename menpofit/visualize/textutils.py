@@ -4,9 +4,17 @@ import numpy as np
 from menpo.visualize import print_progress as menpo_print_progress
 
 
-def print_progress(iterable, prefix='', n_items=None, offset=0,
-                   show_bar=True, show_count=True, show_eta=True,
-                   end_with_newline=True, verbose=True):
+def print_progress(
+    iterable,
+    prefix="",
+    n_items=None,
+    offset=0,
+    show_bar=True,
+    show_count=True,
+    show_eta=True,
+    end_with_newline=True,
+    verbose=True,
+):
     r"""
     Print the remaining time needed to compute over an iterable.
 
@@ -71,10 +79,16 @@ def print_progress(iterable, prefix='', n_items=None, offset=0,
     if verbose:
         # Yield the images from the menpo print_progress (yield from would
         # be perfect here :( )
-        for i in menpo_print_progress(iterable, prefix=prefix, n_items=n_items,
-                                      offset=offset, show_bar=show_bar,
-                                      show_count=show_count, show_eta=show_eta,
-                                      end_with_newline=end_with_newline):
+        for i in menpo_print_progress(
+            iterable,
+            prefix=prefix,
+            n_items=n_items,
+            offset=offset,
+            show_bar=show_bar,
+            show_count=show_count,
+            show_eta=show_eta,
+            end_with_newline=end_with_newline,
+        ):
             yield i
     else:
         # Skip the verbosity!
@@ -82,9 +96,17 @@ def print_progress(iterable, prefix='', n_items=None, offset=0,
             yield i
 
 
-def statistics_table(errors, method_names, auc_max_error, auc_error_step,
-                     auc_min_error=0., stats_types=None, stats_names=None,
-                     sort_by=None, precision=4):
+def statistics_table(
+    errors,
+    method_names,
+    auc_max_error,
+    auc_error_step,
+    auc_min_error=0.0,
+    stats_types=None,
+    stats_names=None,
+    sort_by=None,
+    precision=4,
+):
     r"""
     Function that generates a table with statistical measures on the fitting
     results of various methods using pandas. It supports multiple types of
@@ -201,11 +223,14 @@ def statistics_table(errors, method_names, auc_max_error, auc_error_step,
 
     # Compute statistics
     means, stds, medians, mads, maxs, aucs, frs = compute_statistical_measures(
-            errors, step_error=auc_error_step, max_error=auc_max_error,
-            min_error=auc_min_error)
+        errors,
+        step_error=auc_error_step,
+        max_error=auc_max_error,
+        min_error=auc_min_error,
+    )
 
     # Check stats types
-    supported_types = ['mean', 'std', 'median', 'mad', 'max', 'auc', 'fr']
+    supported_types = ["mean", "std", "median", "mad", "max", "auc", "fr"]
     if stats_types is None:
         stats_types = supported_types
 
@@ -215,28 +240,28 @@ def statistics_table(errors, method_names, auc_max_error, auc_error_step,
 
     # Check stats_types and stats_names lists
     if len(stats_types) != len(stats_names):
-        raise ValueError('stats_types and stats_names must have the same '
-                         'length')
+        raise ValueError("stats_types and stats_names must have the same length")
 
     # Create data dict
     data = OrderedDict()
     for stat_type, stat_name in zip(stats_types, stats_names):
         if stat_type not in supported_types:
-            raise ValueError('stat_type must be selected from [mean, std, '
-                             'median, mad, max, auc, fr]')
-        if stat_type == 'mean':
+            raise ValueError(
+                "stat_type must be selected from [mean, std, median, mad, max, auc, fr]"
+            )
+        if stat_type == "mean":
             data[stat_name] = np.array(means)
-        if stat_type == 'std':
+        if stat_type == "std":
             data[stat_name] = np.array(stds)
-        if stat_type == 'median':
+        if stat_type == "median":
             data[stat_name] = np.array(medians)
-        if stat_type == 'mad':
+        if stat_type == "mad":
             data[stat_name] = np.array(mads)
-        if stat_type == 'max':
+        if stat_type == "max":
             data[stat_name] = np.array(maxs)
-        if stat_type == 'auc':
+        if stat_type == "auc":
             data[stat_name] = np.array(aucs)
-        if stat_type == 'fr':
+        if stat_type == "fr":
             data[stat_name] = np.array(frs)
 
     # Create pandas table
@@ -246,14 +271,18 @@ def statistics_table(errors, method_names, auc_max_error, auc_error_step,
     ascending = True
     if sort_by is not None:
         if sort_by not in stats_types:
-            raise ValueError('sort_by must be selected from [mean, std, '
-                             'median, mad, max, auc, fr]')
-        if sort_by == 'auc':
+            raise ValueError(
+                "sort_by must be selected from [mean, std, median, mad, max, auc, fr]"
+            )
+        if sort_by == "auc":
             ascending = False
-        tab.sort_values(by=stats_names[stats_types.index(sort_by)],
-                        inplace=True, ascending=ascending)
+        tab.sort_values(
+            by=stats_names[stats_types.index(sort_by)],
+            inplace=True,
+            ascending=ascending,
+        )
 
     # Set precision
-    pn.set_option('precision', precision)
+    pn.set_option("precision", precision)
 
     return tab

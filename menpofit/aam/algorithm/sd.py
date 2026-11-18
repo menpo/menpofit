@@ -5,10 +5,12 @@ import numpy as np
 from menpofit.fitter import raise_costs_warning
 from menpofit.math import IRLRegression, IIRLRegression
 from menpofit.result import euclidean_bb_normalised_error
-from menpofit.sdm.algorithm.base import (BaseSupervisedDescentAlgorithm,
-                                         compute_parametric_delta_x,
-                                         update_parametric_estimates,
-                                         print_parametric_info)
+from menpofit.sdm.algorithm.base import (
+    BaseSupervisedDescentAlgorithm,
+    compute_parametric_delta_x,
+    update_parametric_estimates,
+    print_parametric_info,
+)
 from menpofit.visualize import print_progress
 
 
@@ -34,8 +36,13 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
         The function to be used for computing the fitting error when training
         each cascade.
     """
-    def __init__(self, aam_interface, n_iterations=10,
-                 compute_error=euclidean_bb_normalised_error):
+
+    def __init__(
+        self,
+        aam_interface,
+        n_iterations=10,
+        compute_error=euclidean_bb_normalised_error,
+    ):
         super(ParametricSupervisedDescentAlgorithm, self).__init__()
 
         self.interface = aam_interface
@@ -72,19 +79,22 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
 
     def _compute_delta_x(self, gt_shapes, current_shapes):
         # This is called first - so train shape model here
-        return compute_parametric_delta_x(gt_shapes, current_shapes,
-                                          self.transform)
+        return compute_parametric_delta_x(gt_shapes, current_shapes, self.transform)
 
-    def _update_estimates(self, estimated_delta_x, delta_x, gt_x,
-                          current_shapes):
-        update_parametric_estimates(estimated_delta_x, delta_x, gt_x,
-                                    current_shapes, self.transform)
+    def _update_estimates(self, estimated_delta_x, delta_x, gt_x, current_shapes):
+        update_parametric_estimates(
+            estimated_delta_x, delta_x, gt_x, current_shapes, self.transform
+        )
 
-    def _compute_training_features(self, images, gt_shapes, current_shapes,
-                                   prefix='', verbose=False):
-        wrap = partial(print_progress,
-                       prefix='{}Extracting patches'.format(prefix),
-                       end_with_newline=not prefix, verbose=verbose)
+    def _compute_training_features(
+        self, images, gt_shapes, current_shapes, prefix="", verbose=False
+    ):
+        wrap = partial(
+            print_progress,
+            prefix="{}Extracting patches".format(prefix),
+            end_with_newline=not prefix,
+            verbose=verbose,
+        )
 
         features = []
         for im, shapes in wrap(list(zip(images, current_shapes))):
@@ -99,15 +109,28 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
         # before calculating the warp
         raise NotImplementedError()
 
-    def _print_regression_info(self, _, gt_shapes, n_perturbations,
-                               delta_x, estimated_delta_x, level_index,
-                               prefix=''):
-        print_parametric_info(self.transform, gt_shapes, n_perturbations,
-                              delta_x, estimated_delta_x, level_index,
-                              self._compute_error, prefix=prefix)
+    def _print_regression_info(
+        self,
+        _,
+        gt_shapes,
+        n_perturbations,
+        delta_x,
+        estimated_delta_x,
+        level_index,
+        prefix="",
+    ):
+        print_parametric_info(
+            self.transform,
+            gt_shapes,
+            n_perturbations,
+            delta_x,
+            estimated_delta_x,
+            level_index,
+            self._compute_error,
+            prefix=prefix,
+        )
 
-    def run(self, image, initial_shape, gt_shape=None, return_costs=False,
-            **kwargs):
+    def run(self, image, initial_shape, gt_shape=None, return_costs=False, **kwargs):
         r"""
         Run the algorithm to an image given an initial shape.
 
@@ -144,8 +167,7 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
         # Cascaded Regression loop
         for r in self.regressors:
             # Assumes that the transform is correctly set
-            features = self._compute_test_features(image,
-                                                   self.transform.target)
+            features = self._compute_test_features(image, self.transform.target)
 
             # solve for increments on the shape parameters
             dx = r.predict(features)
@@ -159,8 +181,12 @@ class ParametricSupervisedDescentAlgorithm(BaseSupervisedDescentAlgorithm):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, gt_shape=gt_shape)
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            initial_shape=initial_shape,
+            gt_shape=gt_shape,
+        )
 
 
 class MeanTemplate(ParametricSupervisedDescentAlgorithm):
@@ -169,6 +195,7 @@ class MeanTemplate(ParametricSupervisedDescentAlgorithm):
     given a trained AAM model. The algorithm uses the centered appearance vectors
     as features in the regression.
     """
+
     def _compute_test_features(self, image, current_shape):
         self.transform.set_target(current_shape)
         i = self.interface.warp(image)
@@ -204,12 +231,18 @@ class MeanTemplateNewton(MeanTemplate):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     """
-    def __init__(self, aam_interface, n_iterations=3,
-                 compute_error=euclidean_bb_normalised_error,
-                 alpha=0, bias=True):
+
+    def __init__(
+        self,
+        aam_interface,
+        n_iterations=3,
+        compute_error=euclidean_bb_normalised_error,
+        alpha=0,
+        bias=True,
+    ):
         super(MeanTemplateNewton, self).__init__(
-            aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error)
+            aam_interface, n_iterations=n_iterations, compute_error=compute_error
+        )
 
         self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
 
@@ -244,15 +277,23 @@ class MeanTemplateGaussNewton(MeanTemplate):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     """
-    def __init__(self, aam_interface, n_iterations=3,
-                 compute_error=euclidean_bb_normalised_error,
-                 alpha=0, alpha2=0, bias=True):
-        super(MeanTemplateGaussNewton, self).__init__(
-            aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error)
 
-        self._regressor_cls = partial(IIRLRegression, alpha=alpha,
-                                      alpha2=alpha2, bias=bias)
+    def __init__(
+        self,
+        aam_interface,
+        n_iterations=3,
+        compute_error=euclidean_bb_normalised_error,
+        alpha=0,
+        alpha2=0,
+        bias=True,
+    ):
+        super(MeanTemplateGaussNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations, compute_error=compute_error
+        )
+
+        self._regressor_cls = partial(
+            IIRLRegression, alpha=alpha, alpha2=alpha2, bias=bias
+        )
 
 
 class ProjectOut(ParametricSupervisedDescentAlgorithm):
@@ -261,6 +302,7 @@ class ProjectOut(ParametricSupervisedDescentAlgorithm):
     given a trained AAM model. The algorithm uses the projected-out appearance
     vectors as features in the regression.
     """
+
     def _precompute(self):
         super(ProjectOut, self)._precompute()
         A = self.appearance_model.components
@@ -318,12 +360,18 @@ class ProjectOutNewton(ProjectOut):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     """
-    def __init__(self, aam_interface, n_iterations=3,
-                 compute_error=euclidean_bb_normalised_error,
-                 alpha=0, bias=True):
+
+    def __init__(
+        self,
+        aam_interface,
+        n_iterations=3,
+        compute_error=euclidean_bb_normalised_error,
+        alpha=0,
+        bias=True,
+    ):
         super(ProjectOutNewton, self).__init__(
-            aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error)
+            aam_interface, n_iterations=n_iterations, compute_error=compute_error
+        )
 
         self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
 
@@ -358,15 +406,23 @@ class ProjectOutGaussNewton(ProjectOut):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     """
-    def __init__(self, aam_interface, n_iterations=3,
-                 compute_error=euclidean_bb_normalised_error,
-                 alpha=0, alpha2=0, bias=True):
-        super(ProjectOutGaussNewton, self).__init__(
-            aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error)
 
-        self._regressor_cls = partial(IIRLRegression, alpha=alpha,
-                                      alpha2=alpha2, bias=bias)
+    def __init__(
+        self,
+        aam_interface,
+        n_iterations=3,
+        compute_error=euclidean_bb_normalised_error,
+        alpha=0,
+        alpha2=0,
+        bias=True,
+    ):
+        super(ProjectOutGaussNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations, compute_error=compute_error
+        )
+
+        self._regressor_cls = partial(
+            IIRLRegression, alpha=alpha, alpha2=alpha2, bias=bias
+        )
 
 
 class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
@@ -375,6 +431,7 @@ class AppearanceWeights(ParametricSupervisedDescentAlgorithm):
     given a trained AAM model. The algorithm uses the projection weights of the
     appearance vectors as features in the regression.
     """
+
     def _precompute(self):
         super(AppearanceWeights, self)._precompute()
         A = self.appearance_model.components
@@ -427,15 +484,20 @@ class AppearanceWeightsNewton(AppearanceWeights):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     """
-    def __init__(self, aam_interface, n_iterations=3,
-                 compute_error=euclidean_bb_normalised_error,
-                 alpha=0, bias=True):
-        super(AppearanceWeightsNewton, self).__init__(
-            aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error)
 
-        self._regressor_cls = partial(IRLRegression, alpha=alpha,
-                                      bias=bias)
+    def __init__(
+        self,
+        aam_interface,
+        n_iterations=3,
+        compute_error=euclidean_bb_normalised_error,
+        alpha=0,
+        bias=True,
+    ):
+        super(AppearanceWeightsNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations, compute_error=compute_error
+        )
+
+        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
 
 
 class AppearanceWeightsGaussNewton(AppearanceWeights):
@@ -468,12 +530,20 @@ class AppearanceWeightsGaussNewton(AppearanceWeights):
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
     """
-    def __init__(self, aam_interface, n_iterations=3,
-                 compute_error=euclidean_bb_normalised_error,
-                 alpha=0, alpha2=0, bias=True):
-        super(AppearanceWeightsGaussNewton, self).__init__(
-            aam_interface, n_iterations=n_iterations,
-            compute_error=compute_error)
 
-        self._regressor_cls = partial(IIRLRegression, alpha=alpha,
-                                      alpha2=alpha2, bias=bias)
+    def __init__(
+        self,
+        aam_interface,
+        n_iterations=3,
+        compute_error=euclidean_bb_normalised_error,
+        alpha=0,
+        alpha2=0,
+        bias=True,
+    ):
+        super(AppearanceWeightsGaussNewton, self).__init__(
+            aam_interface, n_iterations=n_iterations, compute_error=compute_error
+        )
+
+        self._regressor_cls = partial(
+            IIRLRegression, alpha=alpha, alpha2=alpha2, bias=bias
+        )

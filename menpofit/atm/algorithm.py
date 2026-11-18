@@ -2,8 +2,10 @@ from __future__ import division
 import numpy as np
 
 from menpofit.result import ParametricIterativeResult
-from menpofit.aam.algorithm.lk import (LucasKanadeBaseInterface,
-                                       LucasKanadePatchBaseInterface)
+from menpofit.aam.algorithm.lk import (
+    LucasKanadeBaseInterface,
+    LucasKanadePatchBaseInterface,
+)
 
 
 # ----------- INTERFACES -----------
@@ -25,12 +27,21 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
         sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
         defines the sampling mask. If ``None``, then no sub-sampling is applied.
     """
+
     def __init__(self, transform, template, sampling=None):
         super(ATMLucasKanadeStandardInterface, self).__init__(
-                transform, template, sampling=sampling)
+            transform, template, sampling=sampling
+        )
 
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         initial_shape=None, gt_shape=None, costs=None):
+    def algorithm_result(
+        self,
+        image,
+        shapes,
+        shape_parameters,
+        initial_shape=None,
+        gt_shape=None,
+        costs=None,
+    ):
         r"""
         Returns an ATM iterative optimization result object.
 
@@ -58,9 +69,13 @@ class ATMLucasKanadeStandardInterface(LucasKanadeBaseInterface):
             The optimization result object.
         """
         return ParametricIterativeResult(
-            shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            shape_parameters=shape_parameters,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
 
 class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
@@ -68,6 +83,7 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
     Interface for Lucas-Kanade optimization of linear ATM. Suitable for
     `menpofit.atm.LinearATM` and `menpofit.atm.LinearMaskedATM`.
     """
+
     @property
     def shape_model(self):
         r"""
@@ -77,8 +93,15 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
         """
         return self.transform.model
 
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         initial_shape=None, costs=None, gt_shape=None):
+    def algorithm_result(
+        self,
+        image,
+        shapes,
+        shape_parameters,
+        initial_shape=None,
+        costs=None,
+        gt_shape=None,
+    ):
         r"""
         Returns an ATM iterative optimization result object.
 
@@ -108,12 +131,15 @@ class ATMLucasKanadeLinearInterface(ATMLucasKanadeStandardInterface):
         # TODO: Separate result for linear ATM that stores both the sparse
         #       and dense shapes per iteration (@patricksnape will fix this)
         # This means that the linear ATM will only store the sparse shapes
-        shapes = [self.transform.from_vector(p).sparse_target
-                  for p in shape_parameters]
+        shapes = [self.transform.from_vector(p).sparse_target for p in shape_parameters]
         return ParametricIterativeResult(
-            shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            shape_parameters=shape_parameters,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
 
 class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
@@ -121,8 +147,16 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     Interface for Lucas-Kanade optimization of patch-based ATM. Suitable for
     `menpofit.atm.PatchATM`.
     """
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         initial_shape=None, costs=None, gt_shape=None):
+
+    def algorithm_result(
+        self,
+        image,
+        shapes,
+        shape_parameters,
+        initial_shape=None,
+        costs=None,
+        gt_shape=None,
+    ):
         r"""
         Returns an ATM iterative optimization result object.
 
@@ -150,9 +184,13 @@ class ATMLucasKanadePatchInterface(LucasKanadePatchBaseInterface):
             The optimization result object.
         """
         return ParametricIterativeResult(
-            shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            shape_parameters=shape_parameters,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
 
 # ----------- ALGORITHMS -----------
@@ -173,6 +211,7 @@ class LucasKanade(object):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
+
     def __init__(self, atm_interface, eps=10**-5):
         self.eps = eps
         self.interface = atm_interface
@@ -220,8 +259,16 @@ class Compositional(LucasKanade):
     r"""
     Abstract class for defining Compositional ATM optimization algorithms.
     """
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -254,6 +301,7 @@ class Compositional(LucasKanade):
         fitting_result : :map:`ParametricIterativeResult`
             The parametric iterative fitting result.
         """
+
         # define cost closure
         def cost_closure(x):
             return x.T.dot(x)
@@ -312,14 +360,20 @@ class Compositional(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, gt_shape=gt_shape, costs=costs)
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            initial_shape=initial_shape,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
 
 class ForwardCompositional(Compositional):
     r"""
     Forward Compositional (FC) Gauss-Newton algorithm.
     """
+
     def _solve(self, map_inference):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
@@ -330,15 +384,14 @@ class ForwardCompositional(Compositional):
         # solve for increments on the shape parameters
         if map_inference:
             return self.interface.solve_shape_map(
-                JJ_m, J_m, self.e_m,  self.s2_inv_L,
-                self.transform.as_vector())
+                JJ_m, J_m, self.e_m, self.s2_inv_L, self.transform.as_vector()
+            )
         else:
             return self.interface.solve_shape_ml(JJ_m, J_m, self.e_m)
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() + self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() + self.dp)
 
     def __str__(self):
         return "Forward Compositional Algorithm"
@@ -348,6 +401,7 @@ class InverseCompositional(Compositional):
     r"""
     Inverse Compositional (IC) Gauss-Newton algorithm.
     """
+
     def _precompute(self):
         # call super method
         super(InverseCompositional, self)._precompute()
@@ -364,15 +418,14 @@ class InverseCompositional(Compositional):
         # solve for increments on the shape parameters
         if map_inference:
             return self.interface.solve_shape_map(
-                self.JJ_m, self.J_m, self.e_m, self.s2_inv_L,
-                self.transform.as_vector())
+                self.JJ_m, self.J_m, self.e_m, self.s2_inv_L, self.transform.as_vector()
+            )
         else:
             return -self.pinv_J_m.dot(self.e_m)
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() - self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() - self.dp)
 
     def __str__(self):
         return "Inverse Compositional Algorithm"

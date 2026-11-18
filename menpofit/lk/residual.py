@@ -16,6 +16,7 @@ class Residual(object):
     guarantee is made that calling methods on these subclasses will generate
     correct results.
     """
+
     @classmethod
     def gradient(cls, image, forward=None):
         r"""
@@ -41,8 +42,7 @@ class Residual(object):
             # Warp gradient for forward additive using the given transform
             # grad:  (dims x ch) x h x w
             template, transform = forward
-            grad = grad.warp_to_mask(template.mask, transform,
-                                     warp_landmarks=False)
+            grad = grad.warp_to_mask(template.mask, transform, warp_landmarks=False)
         else:
             # Calculate the gradient over the image and set one pixels along
             # the boundary of the image mask to zero (no reliable gradient
@@ -154,6 +154,7 @@ class SSD(Residual):
         technique with an application to stereo vision", International Joint
         Conference on Artificial Intelligence, pp. 674-679, 1981.
     """
+
     def __init__(self, kernel=None):
         self._kernel = kernel
 
@@ -191,8 +192,9 @@ class SSD(Residual):
         # compute gradient
         # grad:  dims x ch x h x w
         nabla = self.gradient(image, forward=forward)
-        nabla = nabla.as_vector().reshape((image.n_dims, image.n_channels) +
-                                          nabla.shape)
+        nabla = nabla.as_vector().reshape(
+            (image.n_dims, image.n_channels) + nabla.shape
+        )
 
         # compute steepest descent images
         # gradient: dims x ch x h x w
@@ -212,9 +214,9 @@ class SSD(Residual):
         else:
             # if required, filter steepest descent images
             # fft_sdi:  ch x h x w x params
-            filtered_sdi = ifftn(self._kernel[..., None] *
-                                 fftn(sdi, axes=(-3, -2)),
-                                 axes=(-3, -2))
+            filtered_sdi = ifftn(
+                self._kernel[..., None] * fftn(sdi, axes=(-3, -2)), axes=(-3, -2)
+            )
             # reshape steepest descent images
             # sdi:           (ch x h x w) x params
             # filtered_sdi:  (ch x h x w) x params
@@ -291,14 +293,15 @@ class SSD(Residual):
         cost : `float`
             The cost value.
         """
+
         def cost_closure(x, k):
             if k is None:
                 return x.T.dot(x)
             else:
                 x = x.reshape((-1,) + k.shape[-2:])
-                kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
-                           axes=(-2, -1))
+                kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)), axes=(-2, -1))
                 return x.ravel().T.dot(kx.ravel())
+
         return cost_closure(self._error_img, self._kernel)
 
     def __str__(self):
@@ -316,6 +319,7 @@ class FourierSSD(Residual):
         Fourier Domain", IEEE Proceedings of International Conference on
         Computer Vision and Pattern Recognition, pp. 2480-2487, 2010.
     """
+
     def __init__(self, kernel=None):
         self._kernel = kernel
 
@@ -353,8 +357,9 @@ class FourierSSD(Residual):
         # compute gradient
         # grad:  dims x ch x h x w
         nabla = self.gradient(image, forward=forward)
-        nabla = nabla.as_vector().reshape((image.n_dims, image.n_channels) +
-                                          nabla.shape)
+        nabla = nabla.as_vector().reshape(
+            (image.n_dims, image.n_channels) + nabla.shape
+        )
 
         # compute steepest descent images
         # gradient: dims x ch x h x w
@@ -461,13 +466,14 @@ class FourierSSD(Residual):
         cost : `float`
             The cost value.
         """
+
         def cost_closure(x, k):
             if k is None:
                 return x.ravel().T.dot(x.ravel())
             else:
-                kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)),
-                           axes=(-2, -1))
+                kx = ifftn(k[..., None] * fftn(x, axes=(-2, -1)), axes=(-2, -1))
                 return x.ravel().T.dot(kx.ravel())
+
         return cost_closure(self._error_img, self._kernel)
 
     def __str__(self):
@@ -484,6 +490,7 @@ class ECC(Residual):
         Using Enhanced Correlation Coefficient Maximization", IEEE Transactions
         on Pattern Analysis and Machine Intelligence, 30(10): 1858-1865, 2008.
     """
+
     def _normalise_images(self, image):
         # TODO: do we need to copy the image?
         # TODO: is this supposed to be per channel normalization?
@@ -528,8 +535,7 @@ class ECC(Residual):
         # compute gradient
         # gradient:  dims x ch x pixels
         grad = self.gradient(norm_image, forward=forward)
-        grad = grad.as_vector().reshape((image.n_dims, image.n_channels) +
-                                         grad.shape)
+        grad = grad.as_vector().reshape((image.n_dims, image.n_channels) + grad.shape)
 
         # compute steepest descent images
         # gradient: dims x ch x pixels
@@ -604,15 +610,14 @@ class ECC(Residual):
             The steepest descent parameter updates.
         """
         self._normalised_IWxp = self._normalise_images(image).as_vector()
-        self._normalised_template = self._normalise_images(
-            template).as_vector()
+        self._normalised_template = self._normalise_images(template).as_vector()
 
         Gt = sdi.T.dot(self._normalised_template)
         Gw = sdi.T.dot(self._normalised_IWxp)
 
         # Calculate the numerator
         IWxp_norm = scipy.linalg.norm(self._normalised_IWxp)
-        num1 = IWxp_norm ** 2
+        num1 = IWxp_norm**2
         num2 = np.dot(Gw.T, np.dot(self._H_inv, Gw))
         num = num1 - num2
 
@@ -628,7 +633,7 @@ class ECC(Residual):
         else:
             den3 = np.dot(Gt.T, np.dot(self._H_inv, Gt))
             l1 = np.sqrt(num2 / den3)
-            l2 = - den / den3
+            l2 = -den / den3
             l = np.maximum(l1, l2)
 
         self._error_img = l * self._normalised_IWxp - self._normalised_template
@@ -644,8 +649,10 @@ class ECC(Residual):
         cost : `float`
             The cost value.
         """
+
         def cost_closure(x, y):
             return x.T.dot(y)
+
         return cost_closure(self._normalised_IWxp, self._normalised_template)
 
     def __str__(self):
@@ -662,6 +669,7 @@ class GradientImages(Residual):
         Efficient Parametric Face Alignment", IEEE Proceedings of International
         Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
+
     def _regularise_gradients(self, grad):
         pixels = grad.pixels
         ab = np.sqrt(np.sum(pixels**2, axis=0))
@@ -711,8 +719,11 @@ class GradientImages(Residual):
         # compute gradient
         # second_grad:  dims x dims x ch x pixels
         second_grad = self.gradient(self._template_grad)
-        second_grad = second_grad.masked_pixels().flatten().reshape(
-            (n_dims, n_dims,  n_channels) + second_grad.shape)
+        second_grad = (
+            second_grad.masked_pixels()
+            .flatten()
+            .reshape((n_dims, n_dims, n_channels) + second_grad.shape)
+        )
 
         # Fix crossed derivatives: dydx = dxdy
         second_grad[1, 0, ...] = second_grad[0, 1, ...]
@@ -794,8 +805,7 @@ class GradientImages(Residual):
 
         # compute vectorized error_image
         # error_img: (dims x ch x pixels)
-        self._error_img = (IWxp_grad.as_vector() -
-                           self._template_grad.as_vector())
+        self._error_img = IWxp_grad.as_vector() - self._template_grad.as_vector()
 
         # compute steepest descent update
         # sdi.T:      params x (dims x ch x pixels)
@@ -812,8 +822,10 @@ class GradientImages(Residual):
         cost : `float`
             The cost value.
         """
+
         def cost_closure(x):
             return x.T.dot(x)
+
         return cost_closure(self._error_img)
 
     def __str__(self):
@@ -830,6 +842,7 @@ class GradientCorrelation(Residual):
         Efficient Parametric Face Alignment", IEEE Proceedings of International
         Conference on Computer Vision (ICCV), pp. 1847-1854, November 2011.
     """
+
     def steepest_descent_images(self, image, dW_dp, forward=None):
         r"""
         Calculates the standard steepest descent images.
@@ -885,22 +898,27 @@ class GradientCorrelation(Residual):
         # sin_phi:         ch  x pixels
         # grad:    (dims x ch) x pixels
         grad.from_vector_inplace(
-            np.concatenate((self._sin_phi[None, ...],
-                            self._cos_phi[None, ...]), axis=0).ravel())
+            np.concatenate(
+                (self._sin_phi[None, ...], self._cos_phi[None, ...]), axis=0
+            ).ravel()
+        )
 
         # compute IGOs gradient
         # second_grad:  dims x dims x ch x pixels
         second_grad = self.gradient(grad)
-        second_grad = second_grad.masked_pixels().flatten().reshape(
-            (n_dims, n_dims,  n_channels) + second_grad.shape)
+        second_grad = (
+            second_grad.masked_pixels()
+            .flatten()
+            .reshape((n_dims, n_dims, n_channels) + second_grad.shape)
+        )
 
         # Fix crossed derivatives: dydx = dxdy
         second_grad[1, 0, ...] = second_grad[0, 1, ...]
 
         # complete full IGOs gradient computation
         # second_grad:  dims x dims x ch x pixels
-        second_grad[1, ...] = (-self._sin_phi[None, ...] * second_grad[1, ...])
-        second_grad[0, ...] = (self._cos_phi[None, ...] * second_grad[0, ...])
+        second_grad[1, ...] = -self._sin_phi[None, ...] * second_grad[1, ...]
+        second_grad[0, ...] = self._cos_phi[None, ...] * second_grad[0, ...]
 
         # compute steepest descent images
         # gradient: dims x dims x ch x pixels
@@ -909,7 +927,7 @@ class GradientCorrelation(Residual):
         sdi = 0
         aux = second_grad[..., None] * dW_dp[None, :, None, ...]
         for a in aux.reshape(((-1,) + aux.shape[2:])):
-                sdi += a
+            sdi += a
 
         # compute constant N
         # N:  1
@@ -982,8 +1000,7 @@ class GradientCorrelation(Residual):
 
         # compute image gradient
         IWxp_grad = self.gradient(image)
-        IWxp_grad = IWxp_grad.as_vector().reshape(
-            (n_dims, n_channels) + image.shape)
+        IWxp_grad = IWxp_grad.as_vector().reshape((n_dims, n_channels) + image.shape)
 
         # compute IGOs (remember axis 0 is y, axis 1 is x)
         # IWxp_grad:     dims x ch x pixels
@@ -996,8 +1013,9 @@ class GradientCorrelation(Residual):
 
         # compute error image
         # error_img:  (ch x h x w)
-        self._error_img = (self._cos_phi * IWxp_sin_phi -
-                           self._sin_phi * IWxp_cos_phi).ravel()
+        self._error_img = (
+            self._cos_phi * IWxp_sin_phi - self._sin_phi * IWxp_cos_phi
+        ).ravel()
 
         # compute steepest descent update
         # sdi:       (ch x pixels) x params
@@ -1006,8 +1024,7 @@ class GradientCorrelation(Residual):
         sdu = sdi.T.dot(self._error_img)
 
         # compute step size
-        qp = np.sum(self._cos_phi * IWxp_cos_phi +
-                    self._sin_phi * IWxp_sin_phi)
+        qp = np.sum(self._cos_phi * IWxp_cos_phi + self._sin_phi * IWxp_sin_phi)
         self._l = self._N / qp
         return self._l * sdu
 
@@ -1020,8 +1037,10 @@ class GradientCorrelation(Residual):
         cost : `float`
             The cost value.
         """
+
         def cost_closure(x):
-            return 1/x
+            return 1 / x
+
         return cost_closure(self._l)
 
     def __str__(self):

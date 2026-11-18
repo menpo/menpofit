@@ -1,5 +1,7 @@
-from menpofit.result import (ParametricIterativeResult,
-                             MultiScaleParametricIterativeResult)
+from menpofit.result import (
+    ParametricIterativeResult,
+    MultiScaleParametricIterativeResult,
+)
 
 
 class UnifiedAAMCLMAlgorithmResult(ParametricIterativeResult):
@@ -38,12 +40,25 @@ class UnifiedAAMCLMAlgorithmResult(ParametricIterativeResult):
         The `list` of cost per iteration. If ``None``, then it is assumed that
         the cost function cannot be computed for the specific algorithm.
     """
-    def __init__(self, shapes, shape_parameters, appearance_parameters,
-                 initial_shape=None, image=None, gt_shape=None, costs=None):
+
+    def __init__(
+        self,
+        shapes,
+        shape_parameters,
+        appearance_parameters,
+        initial_shape=None,
+        image=None,
+        gt_shape=None,
+        costs=None,
+    ):
         super(UnifiedAAMCLMAlgorithmResult, self).__init__(
-            shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            shape_parameters=shape_parameters,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
         self._appearance_parameters = appearance_parameters
 
     @property
@@ -89,11 +104,24 @@ class UnifiedAAMCLMResult(MultiScaleParametricIterativeResult):
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, results, scales, affine_transforms, scale_transforms,
-                 image=None, gt_shape=None):
+
+    def __init__(
+        self,
+        results,
+        scales,
+        affine_transforms,
+        scale_transforms,
+        image=None,
+        gt_shape=None,
+    ):
         super(UnifiedAAMCLMResult, self).__init__(
-            results=results, scales=scales, affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            results=results,
+            scales=scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
         # Create appearance parameters list
         self._appearance_parameters = None
         if results[0].appearance_parameters is not None:

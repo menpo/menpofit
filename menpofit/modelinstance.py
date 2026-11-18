@@ -10,7 +10,6 @@ from menpofit.differentiable import DP
 
 
 class _SimilarityModel(VectorizableBackedModel, MeanLinearModel):
-
     def __init__(self, components, mean):
         MeanLinearModel.__init__(self, components, mean.as_vector())
         VectorizableBackedModel.__init__(self, mean)
@@ -31,11 +30,14 @@ class _SimilarityModel(VectorizableBackedModel, MeanLinearModel):
         return MeanLinearModel.project_out(self, instance_vector)
 
     def __str__(self):
-        str_out = 'Similarity Transform Model \n' \
-                  ' - # features:           {}\n' \
-                  ' - total # components:   {}\n' \
-                  ' - components shape:     {}\n'.format(
-            self.n_features, self.n_components, self.components.shape)
+        str_out = (
+            "Similarity Transform Model \n"
+            " - # features:           {}\n"
+            " - total # components:   {}\n"
+            " - components shape:     {}\n".format(
+                self.n_features, self.n_components, self.components.shape
+            )
+        )
         return str_out
 
 
@@ -79,6 +81,7 @@ class ModelInstance(Targetable, Vectorizable, DP):
     model : `class`
         The trained model (e.g. `menpo.model.PCAModel`).
     """
+
     def __init__(self, model):
         self.model = model
         self._target = None
@@ -190,6 +193,7 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
     data : `list` of `menpo.shape.PointCloud`
         The `list` of shapes to use as training data.
     """
+
     def __init__(self, data, **kwargs):
         from menpofit.transform import DifferentiableAlignmentSimilarity
 
@@ -197,8 +201,7 @@ class GlobalSimilarityModel(Targetable, Vectorizable):
         self.mean = mean_pointcloud(aligned_shapes)
         # Default target is the mean
         self._target = self.mean
-        self.transform = DifferentiableAlignmentSimilarity(self.target,
-                                                           self.target)
+        self.transform = DifferentiableAlignmentSimilarity(self.target, self.target)
 
     @property
     def n_weights(self):
@@ -295,6 +298,7 @@ class PDM(ModelInstance):
         The maximum number of components that the model will keep. If ``None``,
         then all the components will be kept.
     """
+
     def __init__(self, data, max_n_components=None):
         if isinstance(data, PCAModel):
             shape_model = data
@@ -361,12 +365,19 @@ class PDM(ModelInstance):
         jacobian : ``(n_features, n_components, n_dims)`` `ndarray`
             The Jacobian of the model in the standard Jacobian shape.
         """
-        d_dp = self.model.components.reshape(self.model.n_active_components,
-                                             -1, self.n_dims)
+        d_dp = self.model.components.reshape(
+            self.model.n_active_components, -1, self.n_dims
+        )
         return d_dp.swapaxes(0, 1)
 
-    def increment(self, shapes, n_shapes=None, forgetting_factor=1.0,
-                  max_n_components=None, verbose=False):
+    def increment(
+        self,
+        shapes,
+        n_shapes=None,
+        forgetting_factor=1.0,
+        max_n_components=None,
+        verbose=False,
+    ):
         r"""
         Update the eigenvectors, eigenvalues and mean vector of this model
         by performing incremental PCA on the given samples.
@@ -399,27 +410,38 @@ class PDM(ModelInstance):
         """
         old_target = self.target
         aligned_shapes = align_shapes(shapes)
-        self.model.increment(aligned_shapes, n_samples=n_shapes,
-                             forgetting_factor=forgetting_factor,
-                             verbose=verbose)
+        self.model.increment(
+            aligned_shapes,
+            n_samples=n_shapes,
+            forgetting_factor=forgetting_factor,
+            verbose=verbose,
+        )
         if max_n_components is not None:
             self.model.trim_components(max_n_components)
         # Reset the target given the new model
         self.set_target(old_target)
 
     def __str__(self):
-        str_out = 'Point Distribution Model \n' \
-                  ' - centred:              {}\n' \
-                  ' - # features:           {}\n' \
-                  ' - # active components:  {}\n' \
-                  ' - kept variance:        {:.2}  {:.1%}\n' \
-                  ' - noise variance:       {:.2}  {:.1%}\n' \
-                  ' - total # components:   {}\n' \
-                  ' - components shape:     {}\n'.format(
-            self.model.centred,  self.model.n_features, self.n_active_components,
-            self.model.variance(), self.model.variance_ratio(),
-            self.model.noise_variance(), self.model.noise_variance_ratio(),
-            self.model.n_components, self.model.components.shape)
+        str_out = (
+            "Point Distribution Model \n"
+            " - centred:              {}\n"
+            " - # features:           {}\n"
+            " - # active components:  {}\n"
+            " - kept variance:        {:.2}  {:.1%}\n"
+            " - noise variance:       {:.2}  {:.1%}\n"
+            " - total # components:   {}\n"
+            " - components shape:     {}\n".format(
+                self.model.centred,
+                self.model.n_features,
+                self.n_active_components,
+                self.model.variance(),
+                self.model.variance_ratio(),
+                self.model.noise_variance(),
+                self.model.noise_variance_ratio(),
+                self.model.n_components,
+                self.model.components.shape,
+            )
+        )
         return str_out
 
 
@@ -444,6 +466,7 @@ class GlobalPDM(PDM):
         The maximum number of components that the model will keep. If ``None``,
         then all the components will be kept.
     """
+
     def __init__(self, data, global_transform_cls, max_n_components=None):
         super(GlobalPDM, self).__init__(data, max_n_components=max_n_components)
         # Start the global_transform as an identity (first call to
@@ -506,8 +529,8 @@ class GlobalPDM(PDM):
         # TODO investigate the impact of this, could be problematic
         # the model can't perfectly reproduce the target we asked for -
         # reset the global_transform.target to what it CAN produce
-        #refined_target = self._target_for_weights(new_weights)
-        #self.global_transform.target = refined_target
+        # refined_target = self._target_for_weights(new_weights)
+        # self.global_transform.target = refined_target
         return new_weights
 
     def _update_global_transform(self, target):
@@ -527,10 +550,10 @@ class GlobalPDM(PDM):
 
     def _from_vector_inplace(self, vector):
         # First, update the global transform
-        global_parameters = vector[:self.n_global_parameters]
+        global_parameters = vector[: self.n_global_parameters]
         self._update_global_weights(global_parameters)
         # Now extract the weights, and let super handle the update
-        weights = vector[self.n_global_parameters:]
+        weights = vector[self.n_global_parameters :]
         PDM._from_vector_inplace(self, weights)
 
     def _update_global_weights(self, global_weights):
@@ -573,7 +596,7 @@ class GlobalPDM(PDM):
         # (n_points, n_dims, n_dims)
         dX_dS = self.global_transform.d_dx(points)
         # (n_points, n_weights, n_dims)
-        dX_db = np.einsum('ilj, idj -> idj', dX_dS, dS_db)
+        dX_db = np.einsum("ilj, idj -> idj", dX_dS, dS_db)
 
         # dX/dp is simply the concatenation of the previous two terms
         # (n_points, n_params, n_dims)
@@ -606,11 +629,13 @@ class OrthoPDM(GlobalPDM):
         The maximum number of components that the model will keep. If ``None``,
         then all the components will be kept.
     """
+
     def __init__(self, data, max_n_components=None):
         from menpofit.transform import DifferentiableAlignmentSimilarity
+
         super(OrthoPDM, self).__init__(
-            data,  DifferentiableAlignmentSimilarity,
-            max_n_components=max_n_components)
+            data, DifferentiableAlignmentSimilarity, max_n_components=max_n_components
+        )
         self._construct_similarity_model()
         # Set target from state (after orthonormalizing)
         self._sync_target_from_state()
@@ -646,10 +671,17 @@ class OrthoPDM(GlobalPDM):
 
     def _global_transform_d_dp(self, points):
         return self.similarity_model.components.reshape(
-            self.n_global_parameters, -1, self.n_dims).swapaxes(0, 1)
+            self.n_global_parameters, -1, self.n_dims
+        ).swapaxes(0, 1)
 
-    def increment(self, shapes, n_shapes=None, forgetting_factor=1.0,
-                  max_n_components=None, verbose=False):
+    def increment(
+        self,
+        shapes,
+        n_shapes=None,
+        forgetting_factor=1.0,
+        max_n_components=None,
+        verbose=False,
+    ):
         r"""
         Update the eigenvectors, eigenvalues and mean vector of this model
         by performing incremental PCA on the given samples.
@@ -682,9 +714,12 @@ class OrthoPDM(GlobalPDM):
         """
         old_target = self.target
         aligned_shapes = align_shapes(shapes)
-        self.model.increment(aligned_shapes, n_samples=n_shapes,
-                             forgetting_factor=forgetting_factor,
-                             verbose=verbose)
+        self.model.increment(
+            aligned_shapes,
+            n_samples=n_shapes,
+            forgetting_factor=forgetting_factor,
+            verbose=verbose,
+        )
         if max_n_components is not None:
             self.model.trim_components(max_n_components)
         # Re-orthonormalize
@@ -693,21 +728,30 @@ class OrthoPDM(GlobalPDM):
         self.set_target(old_target)
 
     def __str__(self):
-        str_out = 'Point Distribution Model with Similarity Transform \n' \
-                  ' - total # components:      {}\n' \
-                  ' - # similarity components: {}\n' \
-                  ' - # PCA components:        {}\n' \
-                  ' - # active components:     {} + {} = {}\n' \
-                  ' - centred:                 {}\n' \
-                  ' - # features:              {}\n' \
-                  ' - kept variance:           {:.2}  {:.1%}\n' \
-                  ' - noise variance:          {:.2}  {:.1%}\n' \
-                  ' - components shape:        {}\n'.format(
-            self.similarity_model.n_components + self.model.n_components,
-            self.similarity_model.n_components, self.model.n_components,
-            self.similarity_model.n_components, self.n_active_components,
-            self.n_parameters, self.model.centred, self.model.n_features,
-            self.model.variance(), self.model.variance_ratio(),
-            self.model.noise_variance(), self.model.noise_variance_ratio(),
-            self.model.components.shape)
+        str_out = (
+            "Point Distribution Model with Similarity Transform \n"
+            " - total # components:      {}\n"
+            " - # similarity components: {}\n"
+            " - # PCA components:        {}\n"
+            " - # active components:     {} + {} = {}\n"
+            " - centred:                 {}\n"
+            " - # features:              {}\n"
+            " - kept variance:           {:.2}  {:.1%}\n"
+            " - noise variance:          {:.2}  {:.1%}\n"
+            " - components shape:        {}\n".format(
+                self.similarity_model.n_components + self.model.n_components,
+                self.similarity_model.n_components,
+                self.model.n_components,
+                self.similarity_model.n_components,
+                self.n_active_components,
+                self.n_parameters,
+                self.model.centred,
+                self.model.n_features,
+                self.model.variance(),
+                self.model.variance_ratio(),
+                self.model.noise_variance(),
+                self.model.noise_variance_ratio(),
+                self.model.components.shape,
+            )
+        )
         return str_out

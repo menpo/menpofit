@@ -25,30 +25,67 @@ def _check_multi_argument(arg, n_objects, dtypes, error_str):
 
 
 def view_image_multiple_landmarks(
-        image, groups, with_labels=None, figure_id=None, new_figure=False,
-        subplots_enabled=True, subplots_titles=None, render_image=True,
-        render_landmarks=True, masked=True, channels=None,
-        interpolation='bilinear', cmap_name=None, alpha=1.,
-        image_view=True, render_lines=True, line_style='-', line_width=1,
-        line_colour='r', render_markers=True, marker_style='o',
-        marker_size=5, marker_edge_width=1, marker_edge_colour='k',
-        marker_face_colour='r', render_numbering=False,
-        numbers_horizontal_align='center', numbers_vertical_align='bottom',
-        numbers_font_name='sans-serif', numbers_font_size=10,
-        numbers_font_style='normal', numbers_font_weight='normal',
-        numbers_font_colour='k', render_legend=True, legend_title='',
-        legend_font_name='sans-serif', legend_font_style='normal',
-        legend_font_size=10, legend_font_weight='normal',
-        legend_marker_scale=None, legend_location=2,
-        legend_bbox_to_anchor=(1.05, 1.), legend_border_axes_pad=None,
-        legend_n_columns=1, legend_horizontal_spacing=None,
-        legend_vertical_spacing=None, legend_border=True,
-        legend_border_padding=None, legend_shadow=False,
-        legend_rounded_corners=False, render_axes=False,
-        axes_font_name='sans-serif', axes_font_size=10,
-        axes_font_style='normal', axes_font_weight='normal',
-        axes_x_limits=None, axes_y_limits=None, axes_x_ticks=None,
-        axes_y_ticks=None, figure_size=(7, 7)):
+    image,
+    groups,
+    with_labels=None,
+    figure_id=None,
+    new_figure=False,
+    subplots_enabled=True,
+    subplots_titles=None,
+    render_image=True,
+    render_landmarks=True,
+    masked=True,
+    channels=None,
+    interpolation="bilinear",
+    cmap_name=None,
+    alpha=1.0,
+    image_view=True,
+    render_lines=True,
+    line_style="-",
+    line_width=1,
+    line_colour="r",
+    render_markers=True,
+    marker_style="o",
+    marker_size=5,
+    marker_edge_width=1,
+    marker_edge_colour="k",
+    marker_face_colour="r",
+    render_numbering=False,
+    numbers_horizontal_align="center",
+    numbers_vertical_align="bottom",
+    numbers_font_name="sans-serif",
+    numbers_font_size=10,
+    numbers_font_style="normal",
+    numbers_font_weight="normal",
+    numbers_font_colour="k",
+    render_legend=True,
+    legend_title="",
+    legend_font_name="sans-serif",
+    legend_font_style="normal",
+    legend_font_size=10,
+    legend_font_weight="normal",
+    legend_marker_scale=None,
+    legend_location=2,
+    legend_bbox_to_anchor=(1.05, 1.0),
+    legend_border_axes_pad=None,
+    legend_n_columns=1,
+    legend_horizontal_spacing=None,
+    legend_vertical_spacing=None,
+    legend_border=True,
+    legend_border_padding=None,
+    legend_shadow=False,
+    legend_rounded_corners=False,
+    render_axes=False,
+    axes_font_name="sans-serif",
+    axes_font_size=10,
+    axes_font_style="normal",
+    axes_font_weight="normal",
+    axes_x_limits=None,
+    axes_y_limits=None,
+    axes_x_ticks=None,
+    axes_y_ticks=None,
+    figure_size=(7, 7),
+):
     """
     Visualize an image with its attached landmark groups. The method can
     visualize multiple landmark groups on the same figure either on subplots
@@ -299,9 +336,11 @@ def view_image_multiple_landmarks(
     renderer : `class`
         The renderer object.
     """
-    from menpo.visualize.viewmatplotlib import (MatplotlibSubplots,
-                                                MatplotlibRenderer,
-                                                _check_colours_list)
+    from menpo.visualize.viewmatplotlib import (
+        MatplotlibSubplots,
+        MatplotlibRenderer,
+        _check_colours_list,
+    )
     from menpo.image import MaskedImage
     import matplotlib.pyplot as plt
 
@@ -312,60 +351,94 @@ def view_image_multiple_landmarks(
 
     # This makes the code shorter for dealing with masked images vs non-masked
     # images
-    mask_arguments = ({'masked': masked} if isinstance(image, MaskedImage)
-                      else {})
+    mask_arguments = {"masked": masked} if isinstance(image, MaskedImage) else {}
 
     # Parse arguments
     render_lines = _check_multi_argument(
-            render_lines, len(groups), bool,
-            'render_lines must be a bool or a list of bool with length equal '
-            'to the number of landmark groups')
+        render_lines,
+        len(groups),
+        bool,
+        "render_lines must be a bool or a list of bool with length equal "
+        "to the number of landmark groups",
+    )
     line_style = _check_multi_argument(
-            line_style, len(groups), str,
-            'line_style must be a str or a list of str with length equal '
-            'to the number of landmark groups')
+        line_style,
+        len(groups),
+        str,
+        "line_style must be a str or a list of str with length equal "
+        "to the number of landmark groups",
+    )
     line_width = _check_multi_argument(
-            line_width, len(groups), [int, float],
-            'line_width must be an int/float or a list of int/float with '
-            'length equal to the number of landmark groups')
+        line_width,
+        len(groups),
+        [int, float],
+        "line_width must be an int/float or a list of int/float with "
+        "length equal to the number of landmark groups",
+    )
     line_colour = _check_colours_list(
-            True, line_colour, len(groups),
-            'line_colour must be a colour value or a list of colours with '
-            'length equal to the number of landmark groups')
+        True,
+        line_colour,
+        len(groups),
+        "line_colour must be a colour value or a list of colours with "
+        "length equal to the number of landmark groups",
+    )
     render_markers = _check_multi_argument(
-            render_markers, len(groups), bool,
-            'render_markers must be a bool or a list of bool with length equal '
-            'to the number of landmark groups')
+        render_markers,
+        len(groups),
+        bool,
+        "render_markers must be a bool or a list of bool with length equal "
+        "to the number of landmark groups",
+    )
     marker_style = _check_multi_argument(
-            marker_style, len(groups), str,
-            'marker_style must be a str or a list of str with length equal '
-            'to the number of landmark groups')
+        marker_style,
+        len(groups),
+        str,
+        "marker_style must be a str or a list of str with length equal "
+        "to the number of landmark groups",
+    )
     marker_size = _check_multi_argument(
-            marker_size, len(groups), [int, float],
-            'marker_size must be an int/float or a list of int/float with '
-            'length equal to the number of landmark groups')
+        marker_size,
+        len(groups),
+        [int, float],
+        "marker_size must be an int/float or a list of int/float with "
+        "length equal to the number of landmark groups",
+    )
     marker_edge_width = _check_multi_argument(
-            marker_edge_width, len(groups), [int, float],
-            'marker_edge_width must be an int/float or a list of int/float '
-            'with length equal to the number of landmark groups')
+        marker_edge_width,
+        len(groups),
+        [int, float],
+        "marker_edge_width must be an int/float or a list of int/float "
+        "with length equal to the number of landmark groups",
+    )
     marker_edge_colour = _check_colours_list(
-            True, marker_edge_colour, len(groups),
-            'marker_edge_colour must be a colour value or a list of colours '
-            'with length equal to the number of landmark groups')
+        True,
+        marker_edge_colour,
+        len(groups),
+        "marker_edge_colour must be a colour value or a list of colours "
+        "with length equal to the number of landmark groups",
+    )
     marker_face_colour = _check_colours_list(
-            True, marker_face_colour, len(groups),
-            'marker_face_colour must be a colour value or a list of colours '
-            'with length equal to the number of landmark groups')
-    if (with_labels is None or (isinstance(with_labels, list) and
-                                isinstance(with_labels[0], str))):
+        True,
+        marker_face_colour,
+        len(groups),
+        "marker_face_colour must be a colour value or a list of colours "
+        "with length equal to the number of landmark groups",
+    )
+    if with_labels is None or (
+        isinstance(with_labels, list) and isinstance(with_labels[0], str)
+    ):
         with_labels = [with_labels] * len(groups)
     elif isinstance(with_labels, list) and isinstance(with_labels[0], list):
         if len(with_labels) != len(groups):
-            raise ValueError('with_labels must be a list of length equal to '
-                             'the number of landmark groups')
+            raise ValueError(
+                "with_labels must be a list of length equal to "
+                "the number of landmark groups"
+            )
     else:
-        raise ValueError('with_labels must be a list of length equal to '
-                         'the number of landmark groups')
+        raise ValueError(
+            "with_labels must be a list of length equal to "
+            "the number of landmark groups"
+        )
     if subplots_titles is None:
         subplots_titles = {}
         for g in groups:
@@ -389,93 +462,117 @@ def view_image_multiple_landmarks(
                     plt.subplot(subplots[0], subplots[1], k + 1)
                     if render_legend:
                         # set subplot's title
-                        plt.title(subplots_titles[group],
-                                  fontname=legend_font_name,
-                                  fontstyle=legend_font_style,
-                                  fontweight=legend_font_weight,
-                                  fontsize=legend_font_size)
+                        plt.title(
+                            subplots_titles[group],
+                            fontname=legend_font_name,
+                            fontstyle=legend_font_style,
+                            fontweight=legend_font_weight,
+                            fontsize=legend_font_size,
+                        )
                 renderer = image.view_landmarks(
-                        channels=channels, group=group,
-                        with_labels=with_labels[k], without_labels=None,
-                        figure_id=renderer.figure_id, new_figure=False,
-                        render_lines=render_lines[k], line_style=line_style[k],
-                        line_width=line_width[k], line_colour=line_colour[k],
-                        render_markers=render_markers[k],
-                        marker_style=marker_style[k],
-                        marker_size=marker_size[k],
-                        marker_edge_width=marker_edge_width[k],
-                        marker_edge_colour=marker_edge_colour[k],
-                        marker_face_colour=marker_face_colour[k],
-                        render_numbering=render_numbering,
-                        numbers_horizontal_align=numbers_horizontal_align,
-                        numbers_vertical_align=numbers_vertical_align,
-                        numbers_font_name=numbers_font_name,
-                        numbers_font_size=numbers_font_size,
-                        numbers_font_style=numbers_font_style,
-                        numbers_font_weight=numbers_font_weight,
-                        numbers_font_colour=numbers_font_colour,
-                        render_legend=render_legend and not subplots_enabled,
-                        legend_title=legend_title,
-                        legend_font_name=legend_font_name,
-                        legend_font_style=legend_font_style,
-                        legend_font_size=legend_font_size,
-                        legend_font_weight=legend_font_weight,
-                        legend_marker_scale=legend_marker_scale,
-                        legend_location=legend_location,
-                        legend_bbox_to_anchor=legend_bbox_to_anchor,
-                        legend_border_axes_pad=legend_border_axes_pad,
-                        legend_n_columns=legend_n_columns,
-                        legend_horizontal_spacing=legend_horizontal_spacing,
-                        legend_vertical_spacing=legend_vertical_spacing,
-                        legend_border=legend_border,
-                        legend_border_padding=legend_border_padding,
-                        legend_shadow=legend_shadow,
-                        legend_rounded_corners=legend_rounded_corners,
-                        render_axes=render_axes, axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits,
-                        axes_x_ticks=axes_x_ticks, axes_y_ticks=axes_y_ticks,
-                        interpolation=interpolation, alpha=alpha,
-                        cmap_name=cmap_name, figure_size=figure_size,
-                        **mask_arguments)
-            if not subplots_enabled:
-                if render_legend:
-                    # Options related to legend's font
-                    prop = {'family': legend_font_name,
-                            'size': legend_font_size,
-                            'style': legend_font_style,
-                            'weight': legend_font_weight}
-
-                    # display legend on side
-                    plt.gca().legend([subplots_titles[g] for g in groups],
-                                     title=legend_title, prop=prop,
-                                     loc=legend_location,
-                                     bbox_to_anchor=legend_bbox_to_anchor,
-                                     borderaxespad=legend_border_axes_pad,
-                                     ncol=legend_n_columns,
-                                     columnspacing=legend_horizontal_spacing,
-                                     labelspacing=legend_vertical_spacing,
-                                     frameon=legend_border,
-                                     borderpad=legend_border_padding,
-                                     shadow=legend_shadow,
-                                     fancybox=legend_rounded_corners,
-                                     markerscale=legend_marker_scale)
-        else:
-            # either there are not any landmark groups selected or they won't
-            # be displayed
-            renderer = image.view(
-                    channels=channels, render_axes=render_axes,
+                    channels=channels,
+                    group=group,
+                    with_labels=with_labels[k],
+                    without_labels=None,
+                    figure_id=renderer.figure_id,
+                    new_figure=False,
+                    render_lines=render_lines[k],
+                    line_style=line_style[k],
+                    line_width=line_width[k],
+                    line_colour=line_colour[k],
+                    render_markers=render_markers[k],
+                    marker_style=marker_style[k],
+                    marker_size=marker_size[k],
+                    marker_edge_width=marker_edge_width[k],
+                    marker_edge_colour=marker_edge_colour[k],
+                    marker_face_colour=marker_face_colour[k],
+                    render_numbering=render_numbering,
+                    numbers_horizontal_align=numbers_horizontal_align,
+                    numbers_vertical_align=numbers_vertical_align,
+                    numbers_font_name=numbers_font_name,
+                    numbers_font_size=numbers_font_size,
+                    numbers_font_style=numbers_font_style,
+                    numbers_font_weight=numbers_font_weight,
+                    numbers_font_colour=numbers_font_colour,
+                    render_legend=render_legend and not subplots_enabled,
+                    legend_title=legend_title,
+                    legend_font_name=legend_font_name,
+                    legend_font_style=legend_font_style,
+                    legend_font_size=legend_font_size,
+                    legend_font_weight=legend_font_weight,
+                    legend_marker_scale=legend_marker_scale,
+                    legend_location=legend_location,
+                    legend_bbox_to_anchor=legend_bbox_to_anchor,
+                    legend_border_axes_pad=legend_border_axes_pad,
+                    legend_n_columns=legend_n_columns,
+                    legend_horizontal_spacing=legend_horizontal_spacing,
+                    legend_vertical_spacing=legend_vertical_spacing,
+                    legend_border=legend_border,
+                    legend_border_padding=legend_border_padding,
+                    legend_shadow=legend_shadow,
+                    legend_rounded_corners=legend_rounded_corners,
+                    render_axes=render_axes,
                     axes_font_name=axes_font_name,
                     axes_font_size=axes_font_size,
                     axes_font_style=axes_font_style,
                     axes_font_weight=axes_font_weight,
-                    axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
-                    axes_x_ticks=axes_x_ticks, axes_y_ticks=axes_y_ticks,
-                    figure_size=figure_size, interpolation=interpolation,
-                    alpha=alpha, cmap_name=cmap_name, **mask_arguments)
+                    axes_x_limits=axes_x_limits,
+                    axes_y_limits=axes_y_limits,
+                    axes_x_ticks=axes_x_ticks,
+                    axes_y_ticks=axes_y_ticks,
+                    interpolation=interpolation,
+                    alpha=alpha,
+                    cmap_name=cmap_name,
+                    figure_size=figure_size,
+                    **mask_arguments,
+                )
+            if not subplots_enabled:
+                if render_legend:
+                    # Options related to legend's font
+                    prop = {
+                        "family": legend_font_name,
+                        "size": legend_font_size,
+                        "style": legend_font_style,
+                        "weight": legend_font_weight,
+                    }
+
+                    # display legend on side
+                    plt.gca().legend(
+                        [subplots_titles[g] for g in groups],
+                        title=legend_title,
+                        prop=prop,
+                        loc=legend_location,
+                        bbox_to_anchor=legend_bbox_to_anchor,
+                        borderaxespad=legend_border_axes_pad,
+                        ncol=legend_n_columns,
+                        columnspacing=legend_horizontal_spacing,
+                        labelspacing=legend_vertical_spacing,
+                        frameon=legend_border,
+                        borderpad=legend_border_padding,
+                        shadow=legend_shadow,
+                        fancybox=legend_rounded_corners,
+                        markerscale=legend_marker_scale,
+                    )
+        else:
+            # either there are not any landmark groups selected or they won't
+            # be displayed
+            renderer = image.view(
+                channels=channels,
+                render_axes=render_axes,
+                axes_font_name=axes_font_name,
+                axes_font_size=axes_font_size,
+                axes_font_style=axes_font_style,
+                axes_font_weight=axes_font_weight,
+                axes_x_limits=axes_x_limits,
+                axes_y_limits=axes_y_limits,
+                axes_x_ticks=axes_x_ticks,
+                axes_y_ticks=axes_y_ticks,
+                figure_size=figure_size,
+                interpolation=interpolation,
+                alpha=alpha,
+                cmap_name=cmap_name,
+                **mask_arguments,
+            )
     else:
         # image won't be displayed
         if render_landmarks and len(groups) > 0:
@@ -490,76 +587,117 @@ def view_image_multiple_landmarks(
                     plt.subplot(subplots[0], subplots[1], k + 1)
                     if render_legend:
                         # set subplot's title
-                        plt.title(subplots_titles[group],
-                                  fontname=legend_font_name,
-                                  fontstyle=legend_font_style,
-                                  fontweight=legend_font_weight,
-                                  fontsize=legend_font_size)
+                        plt.title(
+                            subplots_titles[group],
+                            fontname=legend_font_name,
+                            fontstyle=legend_font_style,
+                            fontweight=legend_font_weight,
+                            fontsize=legend_font_size,
+                        )
                 image.landmarks[group].view(
-                        image_view=image_view, render_lines=render_lines[k],
-                        line_style=line_style[k], line_width=line_width[k],
-                        line_colour=line_colour[k],
-                        render_markers=render_markers[k],
-                        marker_style=marker_style[k],
-                        marker_size=marker_size[k],
-                        marker_edge_width=marker_edge_width[k],
-                        marker_edge_colour=marker_edge_colour[k],
-                        marker_face_colour=marker_face_colour[k],
-                        render_axes=render_axes, axes_font_name=axes_font_name,
-                        axes_font_size=axes_font_size,
-                        axes_font_style=axes_font_style,
-                        axes_font_weight=axes_font_weight,
-                        axes_x_limits=axes_x_limits,
-                        axes_y_limits=axes_y_limits,
-                        axes_x_ticks=axes_x_ticks, axes_y_ticks=axes_y_ticks,
-                        figure_size=figure_size)
+                    image_view=image_view,
+                    render_lines=render_lines[k],
+                    line_style=line_style[k],
+                    line_width=line_width[k],
+                    line_colour=line_colour[k],
+                    render_markers=render_markers[k],
+                    marker_style=marker_style[k],
+                    marker_size=marker_size[k],
+                    marker_edge_width=marker_edge_width[k],
+                    marker_edge_colour=marker_edge_colour[k],
+                    marker_face_colour=marker_face_colour[k],
+                    render_axes=render_axes,
+                    axes_font_name=axes_font_name,
+                    axes_font_size=axes_font_size,
+                    axes_font_style=axes_font_style,
+                    axes_font_weight=axes_font_weight,
+                    axes_x_limits=axes_x_limits,
+                    axes_y_limits=axes_y_limits,
+                    axes_x_ticks=axes_x_ticks,
+                    axes_y_ticks=axes_y_ticks,
+                    figure_size=figure_size,
+                )
             if not subplots_enabled:
                 if render_legend:
                     # Options related to legend's font
-                    prop = {'family': legend_font_name,
-                            'size': legend_font_size,
-                            'style': legend_font_style,
-                            'weight': legend_font_weight}
+                    prop = {
+                        "family": legend_font_name,
+                        "size": legend_font_size,
+                        "style": legend_font_style,
+                        "weight": legend_font_weight,
+                    }
 
                     # display legend on side
-                    plt.gca().legend([subplots_titles[g] for g in groups],
-                                     title=legend_title, prop=prop,
-                                     loc=legend_location,
-                                     bbox_to_anchor=legend_bbox_to_anchor,
-                                     borderaxespad=legend_border_axes_pad,
-                                     ncol=legend_n_columns,
-                                     columnspacing=legend_horizontal_spacing,
-                                     labelspacing=legend_vertical_spacing,
-                                     frameon=legend_border,
-                                     borderpad=legend_border_padding,
-                                     shadow=legend_shadow,
-                                     fancybox=legend_rounded_corners,
-                                     markerscale=legend_marker_scale)
+                    plt.gca().legend(
+                        [subplots_titles[g] for g in groups],
+                        title=legend_title,
+                        prop=prop,
+                        loc=legend_location,
+                        bbox_to_anchor=legend_bbox_to_anchor,
+                        borderaxespad=legend_border_axes_pad,
+                        ncol=legend_n_columns,
+                        columnspacing=legend_horizontal_spacing,
+                        labelspacing=legend_vertical_spacing,
+                        frameon=legend_border,
+                        borderpad=legend_border_padding,
+                        shadow=legend_shadow,
+                        fancybox=legend_rounded_corners,
+                        markerscale=legend_marker_scale,
+                    )
 
     return renderer
 
 
 def plot_cumulative_error_distribution(
-        errors, error_range=None, figure_id=None, new_figure=False,
-        title='Cumulative Error Distribution',
-        x_label='Normalized Point-to-Point Error', y_label='Images Proportion',
-        legend_entries=None, render_lines=True, line_colour=None,
-        line_style='-', line_width=2, render_markers=True, marker_style='s',
-        marker_size=7, marker_face_colour='w', marker_edge_colour=None,
-        marker_edge_width=2, render_legend=True, legend_title=None,
-        legend_font_name='sans-serif', legend_font_style='normal',
-        legend_font_size=10, legend_font_weight='normal',
-        legend_marker_scale=1., legend_location=2,
-        legend_bbox_to_anchor=(1.05, 1.), legend_border_axes_pad=1.,
-        legend_n_columns=1, legend_horizontal_spacing=1.,
-        legend_vertical_spacing=1., legend_border=True,
-        legend_border_padding=0.5, legend_shadow=False,
-        legend_rounded_corners=False, render_axes=True,
-        axes_font_name='sans-serif', axes_font_size=10,
-        axes_font_style='normal', axes_font_weight='normal', axes_x_limits=None,
-        axes_y_limits=None, axes_x_ticks=None, axes_y_ticks=None,
-        figure_size=(7, 7), render_grid=True, grid_line_style='--',
-        grid_line_width=0.5):
+    errors,
+    error_range=None,
+    figure_id=None,
+    new_figure=False,
+    title="Cumulative Error Distribution",
+    x_label="Normalized Point-to-Point Error",
+    y_label="Images Proportion",
+    legend_entries=None,
+    render_lines=True,
+    line_colour=None,
+    line_style="-",
+    line_width=2,
+    render_markers=True,
+    marker_style="s",
+    marker_size=7,
+    marker_face_colour="w",
+    marker_edge_colour=None,
+    marker_edge_width=2,
+    render_legend=True,
+    legend_title=None,
+    legend_font_name="sans-serif",
+    legend_font_style="normal",
+    legend_font_size=10,
+    legend_font_weight="normal",
+    legend_marker_scale=1.0,
+    legend_location=2,
+    legend_bbox_to_anchor=(1.05, 1.0),
+    legend_border_axes_pad=1.0,
+    legend_n_columns=1,
+    legend_horizontal_spacing=1.0,
+    legend_vertical_spacing=1.0,
+    legend_border=True,
+    legend_border_padding=0.5,
+    legend_shadow=False,
+    legend_rounded_corners=False,
+    render_axes=True,
+    axes_font_name="sans-serif",
+    axes_font_size=10,
+    axes_font_style="normal",
+    axes_font_weight="normal",
+    axes_x_limits=None,
+    axes_y_limits=None,
+    axes_x_ticks=None,
+    axes_y_ticks=None,
+    figure_size=(7, 7),
+    render_grid=True,
+    grid_line_style="--",
+    grid_line_width=0.5,
+):
     r"""
     Plot the cumulative error distribution (CED) of the provided fitting errors.
 
@@ -776,7 +914,7 @@ def plot_cumulative_error_distribution(
 
     # create x and y axes lists
     if error_range is None:
-        error_range = [0., 0.101, 0.005]
+        error_range = [0.0, 0.101, 0.005]
     x_axis = list(np.arange(error_range[0], error_range[1], error_range[2]))
     ceds = [compute_cumulative_error(e, x_axis) for e in errors]
 
@@ -784,43 +922,60 @@ def plot_cumulative_error_distribution(
     if legend_entries is None:
         legend_entries = ["Curve {}".format(k) for k in range(len(ceds))]
     if len(legend_entries) != len(ceds):
-        raise ValueError('legend_entries list has different length than errors '
-                         'list')
+        raise ValueError("legend_entries list has different length than errors list")
     if axes_x_limits is None:
-        axes_x_limits = (0., x_axis[-1])
+        axes_x_limits = (0.0, x_axis[-1])
     if axes_y_limits is None:
-        axes_y_limits = (0., 1.)
+        axes_y_limits = (0.0, 1.0)
 
     # render
     return plot_curve(
-            x_axis=x_axis, y_axis=ceds, figure_id=figure_id,
-            new_figure=new_figure, legend_entries=legend_entries,
-            title=title, x_label=x_label, y_label=y_label,
-            axes_x_limits=axes_x_limits, axes_y_limits=axes_y_limits,
-            axes_x_ticks=axes_x_ticks, axes_y_ticks=axes_y_ticks,
-            render_lines=render_lines, line_colour=line_colour,
-            line_style=line_style, line_width=line_width,
-            render_markers=render_markers, marker_style=marker_style,
-            marker_size=marker_size, marker_face_colour=marker_face_colour,
-            marker_edge_colour=marker_edge_colour,
-            marker_edge_width=marker_edge_width, render_legend=render_legend,
-            legend_title=legend_title, legend_font_name=legend_font_name,
-            legend_font_style=legend_font_style,
-            legend_font_size=legend_font_size,
-            legend_font_weight=legend_font_weight,
-            legend_marker_scale=legend_marker_scale,
-            legend_location=legend_location,
-            legend_bbox_to_anchor=legend_bbox_to_anchor,
-            legend_border_axes_pad=legend_border_axes_pad,
-            legend_n_columns=legend_n_columns,
-            legend_horizontal_spacing=legend_horizontal_spacing,
-            legend_vertical_spacing=legend_vertical_spacing,
-            legend_border=legend_border,
-            legend_border_padding=legend_border_padding,
-            legend_shadow=legend_shadow,
-            legend_rounded_corners=legend_rounded_corners,
-            render_axes=render_axes, axes_font_name=axes_font_name,
-            axes_font_size=axes_font_size, axes_font_style=axes_font_style,
-            axes_font_weight=axes_font_weight, figure_size=figure_size,
-            render_grid=render_grid, grid_line_style=grid_line_style,
-            grid_line_width=grid_line_width)
+        x_axis=x_axis,
+        y_axis=ceds,
+        figure_id=figure_id,
+        new_figure=new_figure,
+        legend_entries=legend_entries,
+        title=title,
+        x_label=x_label,
+        y_label=y_label,
+        axes_x_limits=axes_x_limits,
+        axes_y_limits=axes_y_limits,
+        axes_x_ticks=axes_x_ticks,
+        axes_y_ticks=axes_y_ticks,
+        render_lines=render_lines,
+        line_colour=line_colour,
+        line_style=line_style,
+        line_width=line_width,
+        render_markers=render_markers,
+        marker_style=marker_style,
+        marker_size=marker_size,
+        marker_face_colour=marker_face_colour,
+        marker_edge_colour=marker_edge_colour,
+        marker_edge_width=marker_edge_width,
+        render_legend=render_legend,
+        legend_title=legend_title,
+        legend_font_name=legend_font_name,
+        legend_font_style=legend_font_style,
+        legend_font_size=legend_font_size,
+        legend_font_weight=legend_font_weight,
+        legend_marker_scale=legend_marker_scale,
+        legend_location=legend_location,
+        legend_bbox_to_anchor=legend_bbox_to_anchor,
+        legend_border_axes_pad=legend_border_axes_pad,
+        legend_n_columns=legend_n_columns,
+        legend_horizontal_spacing=legend_horizontal_spacing,
+        legend_vertical_spacing=legend_vertical_spacing,
+        legend_border=legend_border,
+        legend_border_padding=legend_border_padding,
+        legend_shadow=legend_shadow,
+        legend_rounded_corners=legend_rounded_corners,
+        render_axes=render_axes,
+        axes_font_name=axes_font_name,
+        axes_font_size=axes_font_size,
+        axes_font_style=axes_font_style,
+        axes_font_weight=axes_font_weight,
+        figure_size=figure_size,
+        render_grid=render_grid,
+        grid_line_style=grid_line_style,
+        grid_line_width=grid_line_width,
+    )
