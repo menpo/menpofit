@@ -11,6 +11,8 @@ features = landmarks x patch pixels x channels, so the default 17 x 17 patches o
 (about 59,000 features for 68 landmarks) need tens of GB.
 """
 
+from functools import partial
+
 import numpy as np
 import pytest
 
@@ -68,15 +70,26 @@ def build_clm(images):
     return clm.GradientDescentCLMFitter(model, **LK)
 
 
+# The SDM regression solves (features x features) normal equations. With a handful of images the
+# unregularised system is singular, and whether LAPACK reports it ("Singular matrix") or returns
+# numerical noise depends on the CPU kernel OpenBLAS picks, so these tests must be well posed:
+# a ridge penalty for the algorithm variants, and for the plain SDM (which has no ridge parameter)
+# more samples than features: 6 images x 20 perturbations = 120 > 68 landmarks x 1 pixel.
+RIDGE = 1e-2
+
+
 def build_sdm(cls=None, algorithm=None, **extra):
     def build(images):
-        kwargs = dict(patch_shape=(5, 5), n_iterations=2, n_perturbations=4, **COMMON)
+        kwargs = dict(n_iterations=2, **COMMON)
         if algorithm is not None:
             return sdm.SupervisedDescentFitter(
-                images, sd_algorithm_cls=algorithm, **kwargs
+                images,
+                sd_algorithm_cls=partial(algorithm, alpha=RIDGE),
+                patch_shape=(5, 5),
+                n_perturbations=4,
+                **kwargs,
             )
-        kwargs.update(extra)
-        return cls(images, **kwargs)
+        return cls(images, **kwargs, **extra)
 
     return build
 
@@ -93,8 +106,10 @@ MODELS = {
     "atm-linear": build_atm(atm.LinearATM, {}),
     "atm-linear-masked": build_atm(atm.LinearMaskedATM, PATCH),
     "clm": build_clm,
-    "sdm": build_sdm(sdm.SDM),
-    "sdm-regularized": build_sdm(sdm.RegularizedSDM),
+    "sdm": build_sdm(sdm.SDM, patch_shape=(1, 1), n_perturbations=20),
+    "sdm-regularized": build_sdm(
+        sdm.RegularizedSDM, alpha=RIDGE, patch_shape=(5, 5), n_perturbations=4
+    ),
     "sdm-parametric-shape": build_sdm(algorithm=sdm.ParametricShapeNewton),
     "sdm-parametric-appearance": build_sdm(
         algorithm=sdm.ParametricAppearanceWeightsNewton
