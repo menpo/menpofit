@@ -27,10 +27,17 @@ def probability_map(x, axes=(-2, -1)):
     nonzero = total > 0
     if np.any(~nonzero):
         warnings.warn(
-            "some of x axes have 0 variance - uniform probability maps are used them."
+            "some of x axes have 0 variance - uniform probability maps are used "
+            "for them."
         )
-        x[nonzero] /= total[nonzero]
-        x[~nonzero] = 1 / np.prod(axes)
+        # `nonzero` has size 1 along the normalised axes, so it can only be
+        # broadcast against x, not used to index it
+        if axes is None:
+            n_elements = x.size
+        else:
+            n_elements = int(np.prod([x.shape[a] for a in np.atleast_1d(axes)]))
+        np.divide(x, total, out=x, where=nonzero)
+        x[...] = np.where(nonzero, x, 1.0 / n_elements)
     else:
         x /= total
     return x
