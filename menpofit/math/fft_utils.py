@@ -54,7 +54,7 @@ def pad(pixels, ext_shape, boundary="constant"):
     pad_width += [(h_margin, h_margin2), (w_margin, w_margin2)]
     pad_width = tuple(pad_width)
 
-    return np.lib.pad(pixels, pad_width, mode=boundary)
+    return np.pad(pixels, pad_width, mode=boundary)
 
 
 # TODO: Document me!
@@ -68,9 +68,9 @@ def crop(pixels, shape):
     h_corrector = 1 if np.remainder(h - shape[0], 2) != 0 else 0
     w_corrector = 1 if np.remainder(w - shape[1], 2) != 0 else 0
 
-    return pixels[
-        ..., h_margin + h_corrector : -h_margin, w_margin + w_corrector : -w_margin
-    ]
+    # explicit end indices: with a margin of 0 the old "...: -margin" slice was [...:-0], i.e. empty
+    top, left = h_margin + h_corrector, w_margin + w_corrector
+    return pixels[..., top : top + shape[0], left : left + shape[1]]
 
 
 # TODO: Document me!
