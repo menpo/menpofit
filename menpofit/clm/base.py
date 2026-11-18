@@ -126,7 +126,7 @@ class CLM(object):
         batch_size=None,
     ):
         self.scales = checks.check_scales(scales)
-        n_scales = len(scales)
+        n_scales = len(self.scales)
         self.diagonal = checks.check_diagonal(diagonal)
         self.holistic_features = checks.check_callable(holistic_features, n_scales)
         self.expert_ensemble_cls = checks.check_callable(expert_ensemble_cls, n_scales)
