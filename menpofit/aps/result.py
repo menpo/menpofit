@@ -1,5 +1,7 @@
-from menpofit.result import (ParametricIterativeResult,
-                             MultiScaleParametricIterativeResult)
+from menpofit.result import (
+    ParametricIterativeResult,
+    MultiScaleParametricIterativeResult,
+)
 
 
 class APSAlgorithmResult(ParametricIterativeResult):
@@ -43,13 +45,26 @@ class APSAlgorithmResult(ParametricIterativeResult):
         assumed that the cost function cannot be computed for the specific
         algorithm.
     """
-    def __init__(self, shapes, shape_parameters, initial_shape=None,
-                 image=None, gt_shape=None, appearance_costs=None,
-                 deformation_costs=None, costs=None):
+
+    def __init__(
+        self,
+        shapes,
+        shape_parameters,
+        initial_shape=None,
+        image=None,
+        gt_shape=None,
+        appearance_costs=None,
+        deformation_costs=None,
+        costs=None,
+    ):
         super(APSAlgorithmResult, self).__init__(
-            shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            shapes=shapes,
+            shape_parameters=shape_parameters,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
         self._appearance_costs = appearance_costs
         self._deformation_costs = deformation_costs
 
@@ -105,11 +120,24 @@ class APSResult(MultiScaleParametricIterativeResult):
         The ground truth shape associated with the image. If ``None``, then no
         ground truth shape is assigned.
     """
-    def __init__(self, results, scales, affine_transforms, scale_transforms,
-                 image=None, gt_shape=None):
+
+    def __init__(
+        self,
+        results,
+        scales,
+        affine_transforms,
+        scale_transforms,
+        image=None,
+        gt_shape=None,
+    ):
         super(APSResult, self).__init__(
-            results=results, scales=scales, affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            results=results,
+            scales=scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
         # Create appearance costs list
         self._appearance_costs = None
         if results[0].appearance_costs is not None:
@@ -143,16 +171,34 @@ class APSResult(MultiScaleParametricIterativeResult):
         """
         return self._deformation_costs
 
-    def plot_costs(self, figure_id=None, new_figure=False, render_lines=True,
-                   line_colour='b', line_style='-', line_width=2,
-                   render_markers=True, marker_style='o', marker_size=4,
-                   marker_face_colour='b', marker_edge_colour='k',
-                   marker_edge_width=1., render_axes=True,
-                   axes_font_name='sans-serif', axes_font_size=10,
-                   axes_font_style='normal', axes_font_weight='normal',
-                   axes_x_limits=0., axes_y_limits=None, axes_x_ticks=None,
-                   axes_y_ticks=None, figure_size=(10, 6),
-                   render_grid=True, grid_line_style='--', grid_line_width=0.5):
+    def plot_costs(
+        self,
+        figure_id=None,
+        new_figure=False,
+        render_lines=True,
+        line_colour="b",
+        line_style="-",
+        line_width=2,
+        render_markers=True,
+        marker_style="o",
+        marker_size=4,
+        marker_face_colour="b",
+        marker_edge_colour="k",
+        marker_edge_width=1.0,
+        render_axes=True,
+        axes_font_name="sans-serif",
+        axes_font_size=10,
+        axes_font_style="normal",
+        axes_font_weight="normal",
+        axes_x_limits=0.0,
+        axes_y_limits=None,
+        axes_x_ticks=None,
+        axes_y_ticks=None,
+        figure_size=(10, 6),
+        render_grid=True,
+        grid_line_style="--",
+        grid_line_width=0.5,
+    ):
         r"""
         Plot of the cost function evolution at each fitting iteration.
 
@@ -257,27 +303,44 @@ class APSResult(MultiScaleParametricIterativeResult):
             The renderer object.
         """
         from menpo.visualize import plot_curve
+
         costs = self.costs
         if costs is not None:
             return plot_curve(
-                x_axis=list(range(len(costs))), y_axis=[costs],
-                figure_id=figure_id, new_figure=new_figure,
-                title='Cost per Iteration', x_label='Iteration',
-                y_label='Cost Function', axes_x_limits=axes_x_limits,
-                axes_y_limits=axes_y_limits, axes_x_ticks=axes_x_ticks,
-                axes_y_ticks=axes_y_ticks, render_lines=render_lines,
-                line_colour=line_colour, line_style=line_style,
-                line_width=line_width, render_markers=render_markers,
-                marker_style=marker_style, marker_size=marker_size,
+                x_axis=list(range(len(costs))),
+                y_axis=[costs],
+                figure_id=figure_id,
+                new_figure=new_figure,
+                title="Cost per Iteration",
+                x_label="Iteration",
+                y_label="Cost Function",
+                axes_x_limits=axes_x_limits,
+                axes_y_limits=axes_y_limits,
+                axes_x_ticks=axes_x_ticks,
+                axes_y_ticks=axes_y_ticks,
+                render_lines=render_lines,
+                line_colour=line_colour,
+                line_style=line_style,
+                line_width=line_width,
+                render_markers=render_markers,
+                marker_style=marker_style,
+                marker_size=marker_size,
                 marker_face_colour=marker_face_colour,
                 marker_edge_colour=marker_edge_colour,
-                marker_edge_width=marker_edge_width, render_legend=False,
-                render_axes=render_axes, axes_font_name=axes_font_name,
+                marker_edge_width=marker_edge_width,
+                render_legend=False,
+                render_axes=render_axes,
+                axes_font_name=axes_font_name,
                 axes_font_size=axes_font_size,
                 axes_font_style=axes_font_style,
-                axes_font_weight=axes_font_weight, figure_size=figure_size,
-                render_grid=render_grid,  grid_line_style=grid_line_style,
-                grid_line_width=grid_line_width)
+                axes_font_weight=axes_font_weight,
+                figure_size=figure_size,
+                render_grid=render_grid,
+                grid_line_style=grid_line_style,
+                grid_line_width=grid_line_width,
+            )
         else:
-            raise ValueError('costs are either not returned or not well '
-                             'defined for the selected fitting algorithm')
+            raise ValueError(
+                "costs are either not returned or not well "
+                "defined for the selected fitting algorithm"
+            )

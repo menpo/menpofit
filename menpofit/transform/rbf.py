@@ -37,8 +37,7 @@ class DifferentiableR2LogRRBF(R2LogRRBF, DL):
         component_distances = points[:, None, :] - self.c
         # Avoid log(0) and set to 1 so that log(1) = 0
         euclidean_distance[euclidean_distance == 0] = 1
-        d_dl = (component_distances *
-                (1 + 2 * np.log(euclidean_distance[..., None])))
+        d_dl = component_distances * (1 + 2 * np.log(euclidean_distance[..., None]))
         return d_dl
 
 
@@ -75,6 +74,5 @@ class DifferentiableR2LogR2RBF(R2LogR2RBF, DL):
         component_distances = points[:, None, :] - self.c
         # Avoid log(0) and set to 1 so that log(1) = 0
         euclidean_distance[euclidean_distance == 0] = 1
-        d_dl = (2 * component_distances *
-                (2 * np.log(euclidean_distance[..., None]) + 1))
+        d_dl = 2 * component_distances * (2 * np.log(euclidean_distance[..., None]) + 1)
         return d_dl

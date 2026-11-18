@@ -24,6 +24,7 @@ class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
         :map:`DifferentiableR2LogRRBF` and :map:`DifferentiableR2LogR2RBF`. If
         ``None``, then :map:`DifferentiableR2LogR2RBF` is used.
     """
+
     def __init__(self, source, target, kernel=None):
         if kernel is None:
             kernel = DifferentiableR2LogR2RBF(source.points)
@@ -83,7 +84,6 @@ class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
             keep = _s.shape[0] - sum(_s < self.min_singular_val)
             inv_L = _u[:, :keep].dot(1.0 / _s[:keep, None] * _v[:keep, :])
 
-
         # Taking the derivative of L for changes in l must yield an x,y change
         # for each centre.
         # (n_centres+3, n_centres+3, n_centres, n_dims)
@@ -99,7 +99,7 @@ class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
         # i'th centre for L[j, k] -> first axis is just looping over centres
         # and last looping over dims
         # (n_centres, n_centres, n_centres, n_dims)
-        dK_dl = np.zeros((n_centres, ) + dK_dl_at_tgt.shape)
+        dK_dl = np.zeros((n_centres,) + dK_dl_at_tgt.shape)
 
         # make a linear iterator over the centres
         iter = np.arange(n_centres)
@@ -161,14 +161,16 @@ class DifferentiableThinPlateSplines(ThinPlateSplines, DL, DX):
             in this case axis zero may have length ``1`` to allow for
             broadcasting.
         """
-        dk_dx = np.zeros((points.shape[0] + 3,   # i
-                          self.source.n_points,  # k
-                          self.source.n_dims))   # l
+        dk_dx = np.zeros(
+            (
+                points.shape[0] + 3,  # i
+                self.source.n_points,  # k
+                self.source.n_dims,
+            )
+        )  # l
         dk_dx[:-3, :] = self.kernel.d_dl(points)
 
-        affine_derivative = np.array([[0, 0],
-                                      [1, 0],
-                                      [0, 1]])
+        affine_derivative = np.array([[0, 0], [1, 0], [0, 1]])
         dk_dx[-3:, :] = affine_derivative[:, None]
 
-        return np.einsum('ij, ikl -> klj', self.coefficients, dk_dx)
+        return np.einsum("ij, ikl -> klj", self.coefficients, dk_dx)

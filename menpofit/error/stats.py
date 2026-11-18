@@ -47,8 +47,7 @@ def mad(errors):
     return np.median(np.abs(errors - med))
 
 
-def area_under_curve_and_failure_rate(errors, step_error, max_error,
-                                      min_error=0.):
+def area_under_curve_and_failure_rate(errors, step_error, max_error, min_error=0.0):
     r"""
     Computes the Area Under the Curve (AUC) and Failure Rate (FR) of a given
     Cumulative Distribution Error (CED).
@@ -73,10 +72,10 @@ def area_under_curve_and_failure_rate(errors, step_error, max_error,
     """
     x_axis = list(np.arange(min_error, max_error + step_error, step_error))
     ced = np.array(compute_cumulative_error(errors, x_axis))
-    return simpson(ced, x=x_axis) / max_error, 1. - ced[-1]
+    return simpson(ced, x=x_axis) / max_error, 1.0 - ced[-1]
 
 
-def compute_statistical_measures(errors, step_error, max_error, min_error=0.):
+def compute_statistical_measures(errors, step_error, max_error, min_error=0.0):
     r"""
     Computes various statistics given a set of errors that correspond to
     multiple images. It can also deal with multiple sets of errors that
@@ -129,8 +128,8 @@ def compute_statistical_measures(errors, step_error, max_error, min_error=0.):
             mad_val.append(mad(e))
             max_val.append(np.max(e))
             auc_v, fail_v = area_under_curve_and_failure_rate(
-                e, step_error=step_error, max_error=max_error,
-                min_error=min_error)
+                e, step_error=step_error, max_error=max_error, min_error=min_error
+            )
             auc_val.append(auc_v)
             fail_val.append(fail_v)
     else:
@@ -140,6 +139,6 @@ def compute_statistical_measures(errors, step_error, max_error, min_error=0.):
         mad_val = mad(errors)
         max_val = np.max(errors)
         auc_val, fail_val = area_under_curve_and_failure_rate(
-            errors, step_error=step_error, max_error=max_error,
-            min_error=min_error)
+            errors, step_error=step_error, max_error=max_error, min_error=min_error
+        )
     return mean_val, std_val, median_val, mad_val, max_val, auc_val, fail_val

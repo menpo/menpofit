@@ -23,12 +23,16 @@ class APSFitter(MultiScaleParametricFitter):
     algorithms : `list` of `class`
         The list of algorithm objects that will perform the fitting per scale.
     """
+
     def __init__(self, aps, algorithms):
         self._model = aps
         # Call superclass
         super(APSFitter, self).__init__(
-            scales=aps.scales, reference_shape=aps.reference_shape,
-            holistic_features=aps.holistic_features, algorithms=algorithms)
+            scales=aps.scales,
+            reference_shape=aps.reference_shape,
+            holistic_features=aps.holistic_features,
+            algorithms=algorithms,
+        )
 
     @property
     def aps(self):
@@ -58,11 +62,16 @@ class APSFitter(MultiScaleParametricFitter):
         warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
             The warped images.
         """
-        return self.algorithms[-1].interface.warped_images(image=image,
-                                                           shapes=shapes)
+        return self.algorithms[-1].interface.warped_images(image=image, shapes=shapes)
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -87,10 +96,14 @@ class APSFitter(MultiScaleParametricFitter):
             The multi-scale fitting result containing the result of the fitting
             procedure.
         """
-        return APSResult(results=algorithm_results, scales=self.scales,
-                         affine_transforms=affine_transforms,
-                         scale_transforms=scale_transforms, image=image,
-                         gt_shape=gt_shape)
+        return APSResult(
+            results=algorithm_results,
+            scales=self.scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
 
 class GaussNewtonAPSFitter(APSFitter):
@@ -140,13 +153,16 @@ class GaussNewtonAPSFitter(APSFitter):
         back to `scipy.sparse.bsr_matrix`, which is a memory intensive
         procedure.
     """
-    def __init__(self, aps, gn_algorithm_cls=Inverse, n_shape=None,
-                 weight=200., sampling=None):
+
+    def __init__(
+        self, aps, gn_algorithm_cls=Inverse, n_shape=None, weight=200.0, sampling=None
+    ):
         # Check parameters
         checks.set_models_components(aps.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, aps.n_scales)
         self.weight = checks.check_multi_scale_param(
-            aps.n_scales, (float, int), 'weight', weight)
+            aps.n_scales, (float, int), "weight", weight
+        )
 
         # Get list of algorithm objects per scale
         algorithms = []
@@ -155,18 +171,20 @@ class GaussNewtonAPSFitter(APSFitter):
             interface = GaussNewtonBaseInterface(
                 appearance_model=aps.appearance_models[j],
                 deformation_model=aps.deformation_models[j],
-                transform=aps.shape_models[j], weight=self.weight[j],
+                transform=aps.shape_models[j],
+                weight=self.weight[j],
                 use_procrustes=aps.use_procrustes,
                 template=aps.appearance_models[j].mean(),
-                sampling=self._sampling[j], patch_shape=aps.patch_shape[j],
-                patch_normalisation=aps.patch_normalisation[j])
+                sampling=self._sampling[j],
+                patch_shape=aps.patch_shape[j],
+                patch_normalisation=aps.patch_normalisation[j],
+            )
 
             # create the algorithm object and append it
             algorithms.append(gn_algorithm_cls(interface))
 
         # Call superclass
-        super(GaussNewtonAPSFitter, self).__init__(aps=aps,
-                                                   algorithms=algorithms)
+        super(GaussNewtonAPSFitter, self).__init__(aps=aps, algorithms=algorithms)
 
     def __str__(self):
         # Compute scale info strings
@@ -176,15 +194,22 @@ class GaussNewtonAPSFitter(APSFitter):
      - {} similarity transform components
      - Weight: {:.1f}"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
-                s, self.aps.shape_models[k].n_active_components,
-                self.aps.shape_models[k].n_global_parameters, self.weight[k]))
-        scales_info = '\n'.join(scales_info)
+            scales_info.append(
+                lvl_str_tmplt.format(
+                    s,
+                    self.aps.shape_models[k].n_active_components,
+                    self.aps.shape_models[k].n_global_parameters,
+                    self.weight[k],
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""{class_title}
  - Scales: {scales}
 {scales_info}
-    """.format(class_title=self.algorithms[0].__str__(),
-               scales=self.scales,
-               scales_info=scales_info)
+    """.format(
+            class_title=self.algorithms[0].__str__(),
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return self.aps.__str__() + cls_str

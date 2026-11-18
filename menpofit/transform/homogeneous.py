@@ -1,7 +1,6 @@
 import numpy as np
 
-from menpo.transform import (Affine, AlignmentAffine, Similarity,
-                             AlignmentSimilarity)
+from menpo.transform import Affine, AlignmentAffine, Similarity, AlignmentSimilarity
 
 from menpofit.differentiable import DP, DX
 
@@ -11,6 +10,7 @@ class DifferentiableAffine(Affine, DP, DX):
     Base class for an affine transformation that can compute its own derivative
     with respect to spatial changes, as well as its parametrisation.
     """
+
     def d_dp(self, points):
         r"""
         The derivative with respect to the parametrisation changes evaluated at
@@ -64,6 +64,7 @@ class DifferentiableAlignmentAffine(AlignmentAffine, DP, DX):
     transform to align the `source` to the `target`. It can compute its own
     derivative with respect to spatial changes, as well as its parametrisation.
     """
+
     def as_non_alignment(self):
         r"""
         Returns the non-alignment version of the transform.
@@ -124,6 +125,7 @@ class DifferentiableSimilarity(Similarity, DP, DX):
     Base class for a similarity transformation that can compute its own
     derivative  with respect to spatial changes, as well as its parametrisation.
     """
+
     def d_dp(self, points):
         r"""
         The derivative with respect to the parametrisation changes evaluated at
@@ -177,6 +179,7 @@ class DifferentiableAlignmentSimilarity(AlignmentSimilarity, DP, DX):
     transform to align the `source` to the `target`. It can compute its own
     derivative with respect to spatial changes, as well as its parametrisation.
     """
+
     def as_non_alignment(self):
         r"""
         Returns the non-alignment version of the transform.
@@ -299,15 +302,14 @@ def affine_d_dp(self, points):
     if points_n_dim != self.n_dims:
         raise ValueError(
             "Trying to sample jacobian in incorrect dimensions "
-            "(transform is {0}D, sampling at {1}D)".format(
-                self.n_dims, points_n_dim))
+            "(transform is {0}D, sampling at {1}D)".format(self.n_dims, points_n_dim)
+        )
     # prealloc the jacobian
     jac = np.zeros((n_points, self.n_parameters, self.n_dims))
     # a mask that we can apply at each iteration
     dim_mask = np.eye(self.n_dims, dtype=bool)
 
-    for i, s in enumerate(
-            range(0, self.n_dims * self.n_dims, self.n_dims)):
+    for i, s in enumerate(range(0, self.n_dims * self.n_dims, self.n_dims)):
         # i is current axis
         # s is slicing offset
         # make a mask for a single points jacobian
@@ -359,13 +361,16 @@ def similarity_d_dp(sim, points):
     """
     n_points, points_n_dim = points.shape
     if points_n_dim != sim.n_dims:
-        raise ValueError('Trying to sample jacobian in incorrect '
-                         'dimensions (transform is {0}D, sampling '
-                         'at {1}D)'.format(sim.n_dims, points_n_dim))
+        raise ValueError(
+            "Trying to sample jacobian in incorrect "
+            "dimensions (transform is {0}D, sampling "
+            "at {1}D)".format(sim.n_dims, points_n_dim)
+        )
     elif sim.n_dims != 2:
         # TODO: implement 3D Jacobian
-        raise ValueError("Only the Jacobian of a 2D similarity "
-                         "transform is currently supported.")
+        raise ValueError(
+            "Only the Jacobian of a 2D similarity transform is currently supported."
+        )
 
     # prealloc the jacobian
     jac = np.zeros((n_points, sim.n_parameters, sim.n_dims))

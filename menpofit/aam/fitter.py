@@ -5,8 +5,7 @@ from menpo.base import name_of_callable
 from menpo.transform import AlignmentUniformScale
 from menpo.image import BooleanImage
 
-from menpofit.fitter import (MultiScaleParametricFitter,
-                             noisy_shape_from_bounding_box)
+from menpofit.fitter import MultiScaleParametricFitter, noisy_shape_from_bounding_box
 from menpofit.sdm import SupervisedDescentFitter
 import menpofit.checks as checks
 from menpofit.result import MultiScaleParametricIterativeResult
@@ -34,12 +33,16 @@ class AAMFitter(MultiScaleParametricFitter):
     algorithms : `list` of `class`
         The list of algorithm objects that will perform the fitting per scale.
     """
+
     def __init__(self, aam, algorithms):
         self._model = aam
         # Call superclass
         super(AAMFitter, self).__init__(
-            scales=aam.scales, reference_shape=aam.reference_shape,
-            holistic_features=aam.holistic_features, algorithms=algorithms)
+            scales=aam.scales,
+            reference_shape=aam.reference_shape,
+            holistic_features=aam.holistic_features,
+            algorithms=algorithms,
+        )
 
     @property
     def aam(self):
@@ -50,8 +53,14 @@ class AAMFitter(MultiScaleParametricFitter):
         """
         return self._model
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -76,10 +85,14 @@ class AAMFitter(MultiScaleParametricFitter):
             The multi-scale fitting result containing the result of the fitting
             procedure.
         """
-        return AAMResult(results=algorithm_results, scales=self.scales,
-                         affine_transforms=affine_transforms,
-                         scale_transforms=scale_transforms, image=image,
-                         gt_shape=gt_shape)
+        return AAMResult(
+            results=algorithm_results,
+            scales=self.scales,
+            affine_transforms=affine_transforms,
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
 
 class LucasKanadeAAMFitter(AAMFitter):
@@ -142,8 +155,15 @@ class LucasKanadeAAMFitter(AAMFitter):
         explicitly defines the sampling mask. If ``None``, then no
         sub-sampling is applied.
     """
-    def __init__(self, aam, lk_algorithm_cls=WibergInverseCompositional,
-                 n_shape=None, n_appearance=None, sampling=None):
+
+    def __init__(
+        self,
+        aam,
+        lk_algorithm_cls=WibergInverseCompositional,
+        n_shape=None,
+        n_appearance=None,
+        sampling=None,
+    ):
         # Check parameters
         checks.set_models_components(aam.shape_models, n_shape)
         checks.set_models_components(aam.appearance_models, n_appearance)
@@ -154,11 +174,9 @@ class LucasKanadeAAMFitter(AAMFitter):
         algorithms = [lk_algorithm_cls(interface) for interface in interfaces]
 
         # Call superclass
-        super(LucasKanadeAAMFitter, self).__init__(aam=aam,
-                                                   algorithms=algorithms)
+        super(LucasKanadeAAMFitter, self).__init__(aam=aam, algorithms=algorithms)
 
-    def appearance_reconstructions(self, appearance_parameters,
-                                   n_iters_per_scale):
+    def appearance_reconstructions(self, appearance_parameters, n_iters_per_scale):
         r"""
         Method that generates the appearance reconstructions given a set of
         appearance parameters. This is to be combined with a :map:`AAMResult`
@@ -183,8 +201,9 @@ class LucasKanadeAAMFitter(AAMFitter):
             provided parameters.
         """
         return self.aam.appearance_reconstructions(
-                appearance_parameters=appearance_parameters,
-                n_iters_per_scale=n_iters_per_scale)
+            appearance_parameters=appearance_parameters,
+            n_iters_per_scale=n_iters_per_scale,
+        )
 
     def warped_images(self, image, shapes):
         r"""
@@ -205,8 +224,7 @@ class LucasKanadeAAMFitter(AAMFitter):
         warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
             The warped images.
         """
-        return self.algorithms[-1].interface.warped_images(image=image,
-                                                           shapes=shapes)
+        return self.algorithms[-1].interface.warped_images(image=image, shapes=shapes)
 
     def __str__(self):
         # Compute scale info strings
@@ -216,19 +234,24 @@ class LucasKanadeAAMFitter(AAMFitter):
      - {} similarity transform components
      - {} active appearance components"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
+            scales_info.append(
+                lvl_str_tmplt.format(
                     s,
                     self.aam.shape_models[k].n_active_components,
                     self.aam.shape_models[k].n_global_parameters,
-                    self.aam.appearance_models[k].n_active_components))
-        scales_info = '\n'.join(scales_info)
+                    self.aam.appearance_models[k].n_active_components,
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""{class_title}
  - Scales: {scales}
 {scales_info}
-    """.format(class_title=self.algorithms[0].__str__(),
-               scales=self.scales,
-               scales_info=scales_info)
+    """.format(
+            class_title=self.algorithms[0].__str__(),
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return self.aam.__str__() + cls_str
 
 
@@ -306,12 +329,23 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
     verbose : `bool`, optional
         If ``True``, then the progress of training will be printed.
     """
-    def __init__(self, images, aam, group=None, bounding_box_group_glob=None,
-                 n_shape=None, n_appearance=None, sampling=None,
-                 sd_algorithm_cls=ProjectOutNewton,
-                 n_iterations=6, n_perturbations=30,
-                 perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
-                 batch_size=None, verbose=False):
+
+    def __init__(
+        self,
+        images,
+        aam,
+        group=None,
+        bounding_box_group_glob=None,
+        n_shape=None,
+        n_appearance=None,
+        sampling=None,
+        sd_algorithm_cls=ProjectOutNewton,
+        n_iterations=6,
+        n_perturbations=30,
+        perturb_from_gt_bounding_box=noisy_shape_from_bounding_box,
+        batch_size=None,
+        verbose=False,
+    ):
         self.aam = aam
         # Check parameters
         checks.set_models_components(aam.shape_models, n_shape)
@@ -322,24 +356,36 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         # used because they are fully defined by the AAM already. Therefore,
         # we just leave them as their 'defaults' because they won't be used.
         super(SupervisedDescentAAMFitter, self).__init__(
-            images, group=group, bounding_box_group_glob=bounding_box_group_glob,
+            images,
+            group=group,
+            bounding_box_group_glob=bounding_box_group_glob,
             reference_shape=self.aam.reference_shape,
             sd_algorithm_cls=sd_algorithm_cls,
             holistic_features=self.aam.holistic_features,
             diagonal=self.aam.diagonal,
-            scales=self.aam.scales, n_iterations=n_iterations,
+            scales=self.aam.scales,
+            n_iterations=n_iterations,
             n_perturbations=n_perturbations,
             perturb_from_gt_bounding_box=perturb_from_gt_bounding_box,
-            batch_size=batch_size, verbose=verbose)
+            batch_size=batch_size,
+            verbose=verbose,
+        )
 
     def _setup_algorithms(self):
         interfaces = self.aam.build_fitter_interfaces(self._sampling)
-        self.algorithms = [self._sd_algorithm_cls[j](
-                               interface, n_iterations=self.n_iterations[j])
-                           for j, interface in enumerate(interfaces)]
+        self.algorithms = [
+            self._sd_algorithm_cls[j](interface, n_iterations=self.n_iterations[j])
+            for j, interface in enumerate(interfaces)
+        ]
 
-    def _fitter_result(self, image, algorithm_results, affine_transforms,
-                       scale_transforms, gt_shape=None):
+    def _fitter_result(
+        self,
+        image,
+        algorithm_results,
+        affine_transforms,
+        scale_transforms,
+        gt_shape=None,
+    ):
         r"""
         Function the creates the multi-scale fitting result object.
 
@@ -365,9 +411,13 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
             procedure.
         """
         return MultiScaleParametricIterativeResult(
-            results=algorithm_results, scales=self.scales,
+            results=algorithm_results,
+            scales=self.scales,
             affine_transforms=affine_transforms,
-            scale_transforms=scale_transforms, image=image, gt_shape=gt_shape)
+            scale_transforms=scale_transforms,
+            image=image,
+            gt_shape=gt_shape,
+        )
 
     def warped_images(self, image, shapes):
         r"""
@@ -389,15 +439,16 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
             The warped images.
         """
-        return self.algorithms[-1].interface.warped_images(image=image,
-                                                           shapes=shapes)
+        return self.algorithms[-1].interface.warped_images(image=image, shapes=shapes)
 
     def __str__(self):
-        is_custom_perturb_func = (self._perturb_from_gt_bounding_box !=
-                                  noisy_shape_from_bounding_box)
+        is_custom_perturb_func = (
+            self._perturb_from_gt_bounding_box != noisy_shape_from_bounding_box
+        )
         if is_custom_perturb_func:
             is_custom_perturb_func = name_of_callable(
-                    self._perturb_from_gt_bounding_box)
+                self._perturb_from_gt_bounding_box
+            )
         regressor_cls = self.algorithms[0]._regressor_cls
 
         # Compute scale info strings
@@ -406,7 +457,7 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
      - {} iterations"""
         for k, s in enumerate(self.scales):
             scales_info.append(lvl_str_tmplt.format(s, self.n_iterations[k]))
-        scales_info = '\n'.join(scales_info)
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""Supervised Descent Method
  - Regression performed using the {reg_alg} algorithm
@@ -416,12 +467,13 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
  - Scales: {scales}
 {scales_info}
 """.format(
-                reg_alg=name_of_callable(self._sd_algorithm_cls[0]),
-                reg_cls=name_of_callable(regressor_cls),
-                n_perturbations=self.n_perturbations,
-                is_custom_perturb_func=is_custom_perturb_func,
-                scales=self.scales,
-                scales_info=scales_info)
+            reg_alg=name_of_callable(self._sd_algorithm_cls[0]),
+            reg_cls=name_of_callable(regressor_cls),
+            n_perturbations=self.n_perturbations,
+            is_custom_perturb_func=is_custom_perturb_func,
+            scales=self.scales,
+            scales_info=scales_info,
+        )
 
         return self.aam.__str__() + cls_str
 
@@ -448,17 +500,18 @@ def holistic_sampling_from_scale(aam, scale=0.35):
     reference = aam.appearance_models[0].mean()
     scaled_reference = reference.rescale(scale)
 
-    t = AlignmentUniformScale(scaled_reference.landmarks['source'],
-                              reference.landmarks['source'])
-    new_indices = np.require(np.round(t.apply(
-        scaled_reference.mask.true_indices())), dtype=np.int64)
+    t = AlignmentUniformScale(
+        scaled_reference.landmarks["source"], reference.landmarks["source"]
+    )
+    new_indices = np.require(
+        np.round(t.apply(scaled_reference.mask.true_indices())), dtype=np.int64
+    )
 
     modified_mask = deepcopy(reference.mask.pixels)
     modified_mask[:] = False
     modified_mask[:, new_indices[:, 0], new_indices[:, 1]] = True
 
-    true_positions = np.nonzero(
-        modified_mask[:, reference.mask.mask].ravel())[0]
+    true_positions = np.nonzero(modified_mask[:, reference.mask.mask].ravel())[0]
 
     return true_positions, BooleanImage(modified_mask[0])
 

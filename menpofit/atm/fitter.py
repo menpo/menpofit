@@ -39,8 +39,10 @@ class LucasKanadeATMFitter(MultiScaleParametricFitter):
         explicitly defines the sampling mask. If ``None``, then no
         sub-sampling is applied.
     """
-    def __init__(self, atm, lk_algorithm_cls=InverseCompositional,
-                 n_shape=None, sampling=None):
+
+    def __init__(
+        self, atm, lk_algorithm_cls=InverseCompositional, n_shape=None, sampling=None
+    ):
         # Store model
         self._model = atm
 
@@ -54,8 +56,11 @@ class LucasKanadeATMFitter(MultiScaleParametricFitter):
 
         # Call superclass
         super(LucasKanadeATMFitter, self).__init__(
-            scales=atm.scales, reference_shape=atm.reference_shape,
-            holistic_features=atm.holistic_features, algorithms=algorithms)
+            scales=atm.scales,
+            reference_shape=atm.reference_shape,
+            holistic_features=atm.holistic_features,
+            algorithms=algorithms,
+        )
 
     @property
     def atm(self):
@@ -86,8 +91,7 @@ class LucasKanadeATMFitter(MultiScaleParametricFitter):
         warped_images : `list` of `menpo.image.MaskedImage` or `ndarray`
             The warped images.
         """
-        return self.algorithms[-1].interface.warped_images(image=image,
-                                                           shapes=shapes)
+        return self.algorithms[-1].interface.warped_images(image=image, shapes=shapes)
 
     def __str__(self):
         # Compute scale info strings
@@ -96,16 +100,21 @@ class LucasKanadeATMFitter(MultiScaleParametricFitter):
      - {} active shape components
      - {} similarity transform components"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
+            scales_info.append(
+                lvl_str_tmplt.format(
                     s,
                     self.atm.shape_models[k].n_active_components,
-                    self.atm.shape_models[k].n_global_parameters))
-        scales_info = '\n'.join(scales_info)
+                    self.atm.shape_models[k].n_global_parameters,
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""{class_title}
  - Scales: {scales}
 {scales_info}
-    """.format(class_title=self.algorithms[0].__str__(),
-               scales=self.scales,
-               scales_info=scales_info)
+    """.format(
+            class_title=self.algorithms[0].__str__(),
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return self.atm.__str__() + cls_str

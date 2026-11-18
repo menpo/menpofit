@@ -22,12 +22,16 @@ class CLMFitter(MultiScaleParametricFitter):
     algorithms : `list` of `class`
         The list of algorithm objects that will perform the fitting per scale.
     """
+
     def __init__(self, clm, algorithms):
         self._model = clm
         # Call superclass
         super(CLMFitter, self).__init__(
-            scales=clm.scales, reference_shape=clm.reference_shape,
-            holistic_features=clm.holistic_features, algorithms=algorithms)
+            scales=clm.scales,
+            reference_shape=clm.reference_shape,
+            holistic_features=clm.holistic_features,
+            algorithms=algorithms,
+        )
 
     @property
     def clm(self):
@@ -69,8 +73,10 @@ class GradientDescentCLMFitter(CLMFitter):
         components may have already been trimmed to `max_shape_components`
         during training.
     """
-    def __init__(self, clm, gd_algorithm_cls=RegularisedLandmarkMeanShift,
-                 n_shape=None):
+
+    def __init__(
+        self, clm, gd_algorithm_cls=RegularisedLandmarkMeanShift, n_shape=None
+    ):
         # Store CLM trained model
         self._model = clm
 
@@ -78,13 +84,13 @@ class GradientDescentCLMFitter(CLMFitter):
         checks.set_models_components(clm.shape_models, n_shape)
 
         # Get list of algorithm objects per scale
-        algorithms = [gd_algorithm_cls(clm.expert_ensembles[i],
-                                       clm.shape_models[i])
-                      for i in range(clm.n_scales)]
+        algorithms = [
+            gd_algorithm_cls(clm.expert_ensembles[i], clm.shape_models[i])
+            for i in range(clm.n_scales)
+        ]
 
         # Call superclass
-        super(GradientDescentCLMFitter, self).__init__(clm=clm,
-                                                       algorithms=algorithms)
+        super(GradientDescentCLMFitter, self).__init__(clm=clm, algorithms=algorithms)
 
     def __str__(self):
         # Compute scale info strings
@@ -93,16 +99,21 @@ class GradientDescentCLMFitter(CLMFitter):
      - {} active shape components
      - {} similarity transform components"""
         for k, s in enumerate(self.scales):
-            scales_info.append(lvl_str_tmplt.format(
+            scales_info.append(
+                lvl_str_tmplt.format(
                     s,
                     self.clm.shape_models[k].n_active_components,
-                    self.clm.shape_models[k].n_global_parameters))
-        scales_info = '\n'.join(scales_info)
+                    self.clm.shape_models[k].n_global_parameters,
+                )
+            )
+        scales_info = "\n".join(scales_info)
 
         cls_str = r"""{class_title}
  - Scales: {scales}
 {scales_info}
-    """.format(class_title=self.algorithms[0].__str__(),
-               scales=self.scales,
-               scales_info=scales_info)
+    """.format(
+            class_title=self.algorithms[0].__str__(),
+            scales=self.scales,
+            scales_info=scales_info,
+        )
         return self.clm.__str__() + cls_str

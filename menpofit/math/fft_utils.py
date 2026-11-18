@@ -14,24 +14,27 @@ try:
         # problem in some linux distributions)
         fft2(np.zeros((1, 1, 1, 1)))
     except RuntimeError:
-        warnings.warn("pyfftw is known to be buggy on your system, numpy.fft "
-                      "will be used instead. Consequently, all algorithms "
-                      "using ffts will be running at a slower speed.",
-                      RuntimeWarning)
+        warnings.warn(
+            "pyfftw is known to be buggy on your system, numpy.fft "
+            "will be used instead. Consequently, all algorithms "
+            "using ffts will be running at a slower speed.",
+            RuntimeWarning,
+        )
         from numpy.fft import fft2, ifft2, fftshift, ifftshift
 except ImportError:
-    warnings.warn("pyfftw is not installed on your system, numpy.fft will be "
-                  "used instead. Consequently, all algorithms using ffts "
-                  "will be running at a slower speed. Consider installing "
-                  "pyfftw (pip install pyfftw) to speed up your ffts.",
-                  ImportWarning)
+    warnings.warn(
+        "pyfftw is not installed on your system, numpy.fft will be "
+        "used instead. Consequently, all algorithms using ffts "
+        "will be running at a slower speed. Consider installing "
+        "pyfftw (pip install pyfftw) to speed up your ffts.",
+        ImportWarning,
+    )
     from numpy.fft import fft2, ifft2, fftshift, ifftshift
 
 
 # TODO: Document me!
-def pad(pixels, ext_shape, boundary='constant'):
-    r"""
-    """
+def pad(pixels, ext_shape, boundary="constant"):
+    r""" """
     h, w = pixels.shape[-2:]
 
     h_margin = (ext_shape[0] - h) // 2
@@ -56,8 +59,7 @@ def pad(pixels, ext_shape, boundary='constant'):
 
 # TODO: Document me!
 def crop(pixels, shape):
-    r"""
-    """
+    r""" """
     h, w = pixels.shape[-2:]
 
     h_margin = (h - shape[0]) // 2
@@ -66,15 +68,15 @@ def crop(pixels, shape):
     h_corrector = 1 if np.remainder(h - shape[0], 2) != 0 else 0
     w_corrector = 1 if np.remainder(w - shape[1], 2) != 0 else 0
 
-    return pixels[...,
-                  h_margin + h_corrector:-h_margin,
-                  w_margin + w_corrector:-w_margin]
+    return pixels[
+        ..., h_margin + h_corrector : -h_margin, w_margin + w_corrector : -w_margin
+    ]
 
 
 # TODO: Document me!
 def ndconvolution(wrapped):
-    r"""
-    """
+    r""" """
+
     @wraps(wrapped)
     def wrapper(image, filter, *args, **kwargs):
         if not isinstance(image, np.ndarray) and not isinstance(filter, np.ndarray):
@@ -90,12 +92,13 @@ def ndconvolution(wrapped):
             return wrapped(image, filter, *args, **kwargs)
         else:
             return wrapped(image, filter, *args, **kwargs)
+
     return wrapper
 
 
 # TODO: Document me!
 @ndconvolution
-def fft_convolve2d(x, f, mode='same', boundary='constant', fft_filter=False):
+def fft_convolve2d(x, f, mode="same", boundary="constant", fft_filter=False):
     r"""
     Performs fast 2d convolution in the frequency domain convolving each image
     channel with its corresponding filter channel.
@@ -152,22 +155,24 @@ def fft_convolve2d(x, f, mode='same', boundary='constant', fft_filter=False):
     # compute ifft of extended convolution
     ext_c = np.real(ifftshift(ifft2(fft_ext_c), axes=(-2, -1)))
 
-    if mode == 'full':
+    if mode == "full":
         return ext_c
-    elif mode == 'same':
+    elif mode == "same":
         return crop(ext_c, x_shape)
-    elif mode == 'valid':
+    elif mode == "valid":
         return crop(ext_c, x_shape - f_half_shape + 1)
     else:
         raise ValueError(
             "mode={}, is not supported. The only supported "
-            "modes are: 'full', 'same' and 'valid'.".format(mode))
+            "modes are: 'full', 'same' and 'valid'.".format(mode)
+        )
 
 
 # TODO: Document me!
 @ndconvolution
-def fft_convolve2d_sum(x, f, mode='same', boundary='constant',
-                       fft_filter=False, axis=0, keepdims=True):
+def fft_convolve2d_sum(
+    x, f, mode="same", boundary="constant", fft_filter=False, axis=0, keepdims=True
+):
     r"""
     Performs fast 2d convolution in the frequency domain convolving each image
     channel with its corresponding filter channel and summing across the
@@ -234,13 +239,14 @@ def fft_convolve2d_sum(x, f, mode='same', boundary='constant',
     # compute ifft of extended convolution
     ext_c = np.real(ifftshift(ifft2(fft_ext_c), axes=(-2, -1)))
 
-    if mode == 'full':
+    if mode == "full":
         return ext_c
-    elif mode == 'same':
+    elif mode == "same":
         return crop(ext_c, x_shape)
-    elif mode == 'valid':
+    elif mode == "valid":
         return crop(ext_c, x_shape - f_half_shape + 1)
     else:
         raise ValueError(
             "mode={}, is not supported. The only supported "
-            "modes are: 'full', 'same' and 'valid'.".format(mode))
+            "modes are: 'full', 'same' and 'valid'.".format(mode)
+        )

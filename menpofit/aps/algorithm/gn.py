@@ -36,9 +36,19 @@ class GaussNewtonBaseInterface(object):
     patch_normalisation : `callable`
         The method for normalizing the patches.
     """
-    def __init__(self, appearance_model, deformation_model, transform,
-                 weight, use_procrustes, template, sampling, patch_shape,
-                 patch_normalisation):
+
+    def __init__(
+        self,
+        appearance_model,
+        deformation_model,
+        transform,
+        weight,
+        use_procrustes,
+        template,
+        sampling,
+        patch_shape,
+        patch_normalisation,
+    ):
         self.appearance_model = appearance_model
         self.deformation_model = deformation_model
         self.weight = weight
@@ -56,13 +66,14 @@ class GaussNewtonBaseInterface(object):
             sampling = np.ones(self.patch_shape, dtype=bool)
 
         image_shape = self.template.pixels.shape
-        image_mask = np.tile(sampling[None, None, None, ...],
-                             image_shape[:3] + (1, 1))
+        image_mask = np.tile(sampling[None, None, None, ...], image_shape[:3] + (1, 1))
         self.i_mask = np.nonzero(image_mask.flatten())[0]
-        self.gradient_mask = np.nonzero(np.tile(
-            image_mask[None, ...], (2, 1, 1, 1, 1, 1)))
-        self.gradient2_mask = np.nonzero(np.tile(
-            image_mask[None, None, ...], (2, 2, 1, 1, 1, 1, 1)))
+        self.gradient_mask = np.nonzero(
+            np.tile(image_mask[None, ...], (2, 1, 1, 1, 1, 1))
+        )
+        self.gradient2_mask = np.nonzero(
+            np.tile(image_mask[None, None, ...], (2, 2, 1, 1, 1, 1, 1))
+        )
         self.sampling = sampling
 
     def ds_dp(self):
@@ -92,7 +103,7 @@ class GaussNewtonBaseInterface(object):
         :type: `ndarray`
         """
         n_params = self.ds_dp().shape[-1]
-        return self.ds_dp().reshape([-1, n_params], order='F')
+        return self.ds_dp().reshape([-1, n_params], order="F")
 
     def Q_d(self):
         r"""
@@ -133,9 +144,9 @@ class GaussNewtonBaseInterface(object):
         parts : :map:`Image`
             The part-based image.
         """
-        parts = image.extract_patches(self.transform.target,
-                                      patch_shape=self.patch_shape,
-                                      as_single_array=True)
+        parts = image.extract_patches(
+            self.transform.target, patch_shape=self.patch_shape, as_single_array=True
+        )
         parts = self.patch_normalisation(parts)
         return Image(parts, copy=False)
 
@@ -251,10 +262,17 @@ class GaussNewtonBaseInterface(object):
             warped_images.append(self.warp(image).pixels)
         return warped_images
 
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         initial_shape=None, gt_shape=None,
-                         appearance_costs=None, deformation_costs=None,
-                         costs=None):
+    def algorithm_result(
+        self,
+        image,
+        shapes,
+        shape_parameters,
+        initial_shape=None,
+        gt_shape=None,
+        appearance_costs=None,
+        deformation_costs=None,
+        costs=None,
+    ):
         r"""
         Returns an APS iterative optimization result object.
 
@@ -290,10 +308,15 @@ class GaussNewtonBaseInterface(object):
             The optimization result object.
         """
         return APSAlgorithmResult(
-            shapes=shapes, shape_parameters=shape_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
+            shapes=shapes,
+            shape_parameters=shape_parameters,
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
             appearance_costs=appearance_costs,
-            deformation_costs=deformation_costs, costs=costs)
+            deformation_costs=deformation_costs,
+            costs=costs,
+        )
 
 
 # ----------- ALGORITHMS -----------
@@ -308,6 +331,7 @@ class GaussNewton(object):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
+
     def __init__(self, aps_interface, eps=10**-5):
         self.eps = eps
         self.interface = aps_interface
@@ -371,6 +395,7 @@ class Inverse(GaussNewton):
     r"""
     Inverse Gauss-Newton algorithm for APS.
     """
+
     def _precompute(self):
         # call super method
         super(Inverse, self)._precompute()
@@ -388,10 +413,11 @@ class Inverse(GaussNewton):
         self._inv_H = np.linalg.inv(H)
 
     def _algorithm_str(self):
-        return 'Inverse Gauss-Newton'
+        return "Inverse Gauss-Newton"
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False):
+    def run(
+        self, image, initial_shape, gt_shape=None, max_iters=20, return_costs=False
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -421,19 +447,24 @@ class Inverse(GaussNewton):
         fitting_result : :map:`APSAlgorithmResult`
             The parametric iterative fitting result.
         """
+
         # define cost closures
         def appearance_cost_closure(x):
             return self.appearance_model._mahalanobis_distance(
-                x[..., None].T, subtract_mean=False, square_root=False)
+                x[..., None].T, subtract_mean=False, square_root=False
+            )
 
         def deformation_cost_closure(x):
-            tmp_shape = x.from_vector(x.as_vector() -
-                                      self.deformation_model.mean_vector)
+            tmp_shape = x.from_vector(
+                x.as_vector() - self.deformation_model.mean_vector
+            )
             cost = self.deformation_model.mahalanobis_distance(
-                tmp_shape, subtract_mean=False, square_root=False)
+                tmp_shape, subtract_mean=False, square_root=False
+            )
             return cost * self.interface.weight
 
             # initialize transform
+
         self.transform.set_target(initial_shape)
         p_list = [self.transform.as_vector()]
         shapes = [self.transform.target]
@@ -472,8 +503,7 @@ class Inverse(GaussNewton):
 
             # update warp
             s_k = self.transform.target.points
-            self.transform._from_vector_inplace(
-                self.transform.as_vector() - dp)
+            self.transform._from_vector_inplace(self.transform.as_vector() - dp)
             p_list.append(self.transform.as_vector())
             shapes.append(self.transform.target)
 
@@ -499,14 +529,18 @@ class Inverse(GaussNewton):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, gt_shape=gt_shape,
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            initial_shape=initial_shape,
+            gt_shape=gt_shape,
             appearance_costs=appearance_costs,
-            deformation_costs=deformation_costs, costs=costs)
+            deformation_costs=deformation_costs,
+            costs=costs,
+        )
 
     def __str__(self):
-        return "Inverse Weighted Gauss-Newton Algorithm with fixed Jacobian " \
-               "and Hessian"
+        return "Inverse Weighted Gauss-Newton Algorithm with fixed Jacobian and Hessian"
 
 
 class Forward(GaussNewton):
@@ -517,6 +551,7 @@ class Forward(GaussNewton):
               used for fitting an APS and is only included for comparison
               purposes. Use `Inverse` instead.
     """
+
     def _precompute(self):
         # call super method
         super(Forward, self)._precompute()
@@ -526,10 +561,11 @@ class Forward(GaussNewton):
         self._H_s = self.interface.H_s()
 
     def _algorithm_str(self):
-        return 'Forward Gauss-Newton'
+        return "Forward Gauss-Newton"
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False):
+    def run(
+        self, image, initial_shape, gt_shape=None, max_iters=20, return_costs=False
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -559,16 +595,20 @@ class Forward(GaussNewton):
         fitting_result : :map:`APSAlgorithmResult`
             The parametric iterative fitting result.
         """
+
         # define cost closures
         def appearance_cost_closure(x):
             return self.appearance_model._mahalanobis_distance(
-                x[..., None].T, subtract_mean=False, square_root=False)
+                x[..., None].T, subtract_mean=False, square_root=False
+            )
 
         def deformation_cost_closure(x):
-            tmp_shape = x.from_vector(x.as_vector() -
-                                      self.deformation_model.mean_vector)
+            tmp_shape = x.from_vector(
+                x.as_vector() - self.deformation_model.mean_vector
+            )
             cost = self.deformation_model.mahalanobis_distance(
-                tmp_shape, subtract_mean=False, square_root=False)
+                tmp_shape, subtract_mean=False, square_root=False
+            )
             return cost * self.interface.weight
 
         # initialize transform
@@ -622,8 +662,7 @@ class Forward(GaussNewton):
 
             # update warp
             s_k = self.transform.target.points
-            self.transform._from_vector_inplace(
-                self.transform.as_vector() + dp)
+            self.transform._from_vector_inplace(self.transform.as_vector() + dp)
             p_list.append(self.transform.as_vector())
             shapes.append(self.transform.target)
 
@@ -649,10 +688,15 @@ class Forward(GaussNewton):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, gt_shape=gt_shape,
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            initial_shape=initial_shape,
+            gt_shape=gt_shape,
             appearance_costs=appearance_costs,
-            deformation_costs=deformation_costs, costs=costs)
+            deformation_costs=deformation_costs,
+            costs=costs,
+        )
 
     def __str__(self):
         return "Forward Gauss-Newton Algorithm"

@@ -15,6 +15,7 @@ def pointcloud_to_points(wrapped):
             if isinstance(kwargs[key], PointCloud):
                 kwargs[key] = kwargs[key].points
         return wrapped(*args, **kwargs)
+
     return wrapper
 
 
@@ -114,14 +115,14 @@ def bb_diagonal(shape):
     """
     # sqrt(w**2 + h**2)
     height, width = np.max(shape, axis=0) - np.min(shape, axis=0)
-    return np.sqrt(width ** 2 + height ** 2)
+    return np.sqrt(width**2 + height**2)
 
 
 bb_norm_types = {
-    'avg_edge_length': bb_avg_edge_length,
-    'perimeter': bb_perimeter,
-    'diagonal': bb_diagonal,
-    'area': bb_area
+    "avg_edge_length": bb_avg_edge_length,
+    "perimeter": bb_perimeter,
+    "diagonal": bb_diagonal,
+    "area": bb_area,
 }
 
 
@@ -212,8 +213,9 @@ def distance_two_indices(index1, index2, shape):
 
 # GENERIC NORMALISED ERROR FUNCTIONS
 @pointcloud_to_points
-def bb_normalised_error(shape_error_f, shape, gt_shape,
-                        norm_shape=None, norm_type='avg_edge_length'):
+def bb_normalised_error(
+    shape_error_f, shape, gt_shape, norm_shape=None, norm_type="avg_edge_length"
+):
     r"""
     Computes an error normalised by a measure based on the shape's bounding
     box, i.e.
@@ -255,12 +257,12 @@ def bb_normalised_error(shape_error_f, shape, gt_shape,
         The computed normalised error.
     """
     if norm_type not in bb_norm_types:
-        raise ValueError('norm_type must be one of '
-                         '{avg_edge_length, perimeter, diagonal, area}.')
+        raise ValueError(
+            "norm_type must be one of {avg_edge_length, perimeter, diagonal, area}."
+        )
     if norm_shape is None:
         norm_shape = gt_shape
-    return (shape_error_f(shape, gt_shape) /
-            bb_norm_types[norm_type](norm_shape))
+    return shape_error_f(shape, gt_shape) / bb_norm_types[norm_type](norm_shape)
 
 
 @pointcloud_to_points
@@ -296,8 +298,7 @@ def distance_normalised_error(shape_error_f, distance_norm_f, shape, gt_shape):
 
 
 @pointcloud_to_points
-def distance_indexed_normalised_error(shape_error_f, index1, index2, shape,
-                                      gt_shape):
+def distance_indexed_normalised_error(shape_error_f, index1, index2, shape, gt_shape):
     r"""
     Computes an error normalised by the distance measure between two points
     of the ground truth shape, i.e.
@@ -328,13 +329,15 @@ def distance_indexed_normalised_error(shape_error_f, index1, index2, shape,
     normalised_error : `float`
         The computed normalised error.
     """
-    return shape_error_f(shape, gt_shape) / distance_two_indices(index1, index2,
-                                                                 gt_shape)
+    return shape_error_f(shape, gt_shape) / distance_two_indices(
+        index1, index2, gt_shape
+    )
 
 
 # EUCLIDEAN AND ROOT MEAN SQUARE NORMALISED ERRORS
-def root_mean_square_bb_normalised_error(shape, gt_shape, norm_shape=None,
-                                         norm_type='avg_edge_length'):
+def root_mean_square_bb_normalised_error(
+    shape, gt_shape, norm_shape=None, norm_type="avg_edge_length"
+):
     r"""
     Computes the root mean square error between two shapes normalised by a
     measure based on the ground truth shape's bounding box, i.e.
@@ -380,13 +383,16 @@ def root_mean_square_bb_normalised_error(shape, gt_shape, norm_shape=None,
     error : `float`
         The computed root mean square normalised error.
     """
-    return bb_normalised_error(shape_error_f=root_mean_square_error,
-                               shape=shape, gt_shape=gt_shape,
-                               norm_shape=norm_shape, norm_type=norm_type)
+    return bb_normalised_error(
+        shape_error_f=root_mean_square_error,
+        shape=shape,
+        gt_shape=gt_shape,
+        norm_shape=norm_shape,
+        norm_type=norm_type,
+    )
 
 
-def root_mean_square_distance_normalised_error(shape, gt_shape,
-                                               distance_norm_f):
+def root_mean_square_distance_normalised_error(shape, gt_shape, distance_norm_f):
     r"""
     Computes the root mean square error between two shapes normalised by a
     distance measure between two shapes, i.e.
@@ -419,13 +425,15 @@ def root_mean_square_distance_normalised_error(shape, gt_shape,
     error : `float`
         The computed root mean square normalised error.
     """
-    return distance_normalised_error(shape_error_f=root_mean_square_error,
-                                     distance_norm_f=distance_norm_f,
-                                     shape=shape, gt_shape=gt_shape)
+    return distance_normalised_error(
+        shape_error_f=root_mean_square_error,
+        distance_norm_f=distance_norm_f,
+        shape=shape,
+        gt_shape=gt_shape,
+    )
 
 
-def root_mean_square_distance_indexed_normalised_error(shape, gt_shape,
-                                                       index1, index2):
+def root_mean_square_distance_indexed_normalised_error(shape, gt_shape, index1, index2):
     r"""
     Computes the root mean square error between two shapes normalised by the
     distance measure between two points of the ground truth shape, i.e.
@@ -462,12 +470,17 @@ def root_mean_square_distance_indexed_normalised_error(shape, gt_shape,
         The computed root mean square normalised error.
     """
     return distance_indexed_normalised_error(
-            shape_error_f=root_mean_square_error, index1=index1, index2=index2,
-            shape=shape, gt_shape=gt_shape)
+        shape_error_f=root_mean_square_error,
+        index1=index1,
+        index2=index2,
+        shape=shape,
+        gt_shape=gt_shape,
+    )
 
 
-def euclidean_bb_normalised_error(shape, gt_shape, norm_shape=None,
-                                  norm_type='avg_edge_length'):
+def euclidean_bb_normalised_error(
+    shape, gt_shape, norm_shape=None, norm_type="avg_edge_length"
+):
     r"""
     Computes the Euclidean error between two shapes normalised by a measure
     based on the ground truth shape's bounding box, i.e.
@@ -514,9 +527,13 @@ def euclidean_bb_normalised_error(shape, gt_shape, norm_shape=None,
     error : `float`
         The computed Euclidean normalised error.
     """
-    return bb_normalised_error(shape_error_f=euclidean_error,
-                               shape=shape, gt_shape=gt_shape,
-                               norm_shape=norm_shape, norm_type=norm_type)
+    return bb_normalised_error(
+        shape_error_f=euclidean_error,
+        shape=shape,
+        gt_shape=gt_shape,
+        norm_shape=norm_shape,
+        norm_type=norm_type,
+    )
 
 
 def euclidean_distance_normalised_error(shape, gt_shape, distance_norm_f):
@@ -554,13 +571,15 @@ def euclidean_distance_normalised_error(shape, gt_shape, distance_norm_f):
     error : `float`
         The computed Euclidean normalised error.
     """
-    return distance_normalised_error(shape_error_f=euclidean_error,
-                                     distance_norm_f=distance_norm_f,
-                                     shape=shape, gt_shape=gt_shape)
+    return distance_normalised_error(
+        shape_error_f=euclidean_error,
+        distance_norm_f=distance_norm_f,
+        shape=shape,
+        gt_shape=gt_shape,
+    )
 
 
-def euclidean_distance_indexed_normalised_error(shape, gt_shape, index1,
-                                                index2):
+def euclidean_distance_indexed_normalised_error(shape, gt_shape, index1, index2):
     r"""
     Computes the Euclidean error between two shapes normalised by the
     distance measure between two points of the ground truth shape, i.e.
@@ -598,5 +617,9 @@ def euclidean_distance_indexed_normalised_error(shape, gt_shape, index1,
         The computed Euclidean normalised error.
     """
     return distance_indexed_normalised_error(
-            shape_error_f=euclidean_error, index1=index1, index2=index2,
-            shape=shape, gt_shape=gt_shape)
+        shape_error_f=euclidean_error,
+        index1=index1,
+        index2=index2,
+        shape=shape,
+        gt_shape=gt_shape,
+    )

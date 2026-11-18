@@ -58,9 +58,9 @@ class DifferentiablePiecewiseAffine(PiecewiseAffine, DL, DX):
         #
         # we stack all the gamma's together
         # so gamma_ijk.shape = (n_sample_points, 3)
-        gamma_ijk = np.hstack(((1 - alpha_i - beta_i)[:, None],
-                               alpha_i[:, None],
-                               beta_i[:, None]))
+        gamma_ijk = np.hstack(
+            ((1 - alpha_i - beta_i)[:, None], alpha_i[:, None], beta_i[:, None])
+        )
         # the jacobian wrt source is of shape
         # (n_sample_points, n_source_points, 2)
         jac = np.zeros((points.shape[0], self.n_points, 2))

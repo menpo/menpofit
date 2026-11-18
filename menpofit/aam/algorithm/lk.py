@@ -16,13 +16,13 @@ def _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p, m, n):
     J_prior = np.hstack((Ja_prior, Js_prior))
     H += np.diag(J_prior)
     Je = J_prior * np.hstack((c, p)) + J.T.dot(e)
-    dq = - np.linalg.solve(H, Je)
+    dq = -np.linalg.solve(H, Je)
     return dq[:m], dq[m:]
 
 
 def _solve_all_ml(H, J, e, m):
     # compute ML solution
-    dq = - np.linalg.solve(H, J.T.dot(e))
+    dq = -np.linalg.solve(H, J.T.dot(e))
     return dq[:m], dq[m:]
 
 
@@ -44,6 +44,7 @@ class LucasKanadeBaseInterface(object):
         sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
         defines the sampling mask. If ``None``, then no sub-sampling is applied.
     """
+
     def __init__(self, transform, template, sampling=None):
         self.transform = transform
         self.template = template
@@ -63,14 +64,18 @@ class LucasKanadeBaseInterface(object):
 
         sampling_mask[sampling] = 1
 
-        self.i_mask = np.nonzero(np.tile(
-            sampling_mask[None, ...], (n_channels, 1)).flatten())[0]
-        self.dW_dp_mask = np.nonzero(np.tile(
-            sampling_mask[None, ..., None], (2, 1, n_parameters)))
-        self.nabla_mask = np.nonzero(np.tile(
-            sampling_mask[None, None, ...], (2, n_channels, 1)))
-        self.nabla2_mask = np.nonzero(np.tile(
-            sampling_mask[None, None, None, ...], (2, 2, n_channels, 1)))
+        self.i_mask = np.nonzero(
+            np.tile(sampling_mask[None, ...], (n_channels, 1)).flatten()
+        )[0]
+        self.dW_dp_mask = np.nonzero(
+            np.tile(sampling_mask[None, ..., None], (2, 1, n_parameters))
+        )
+        self.nabla_mask = np.nonzero(
+            np.tile(sampling_mask[None, None, ...], (2, n_channels, 1))
+        )
+        self.nabla2_mask = np.nonzero(
+            np.tile(sampling_mask[None, None, None, ...], (2, 2, n_channels, 1))
+        )
 
     @property
     def shape_model(self):
@@ -106,8 +111,7 @@ class LucasKanadeBaseInterface(object):
         :type: ``(n_dims, n_pixels, n_params)`` `ndarray`
         """
         dW_dp = np.rollaxis(self.transform.d_dp(self.true_indices), -1)
-        return dW_dp[self.dW_dp_mask].reshape((dW_dp.shape[0], -1,
-                                               dW_dp.shape[2]))
+        return dW_dp[self.dW_dp_mask].reshape((dW_dp.shape[0], -1, dW_dp.shape[2]))
 
     def warp(self, image):
         r"""
@@ -123,8 +127,9 @@ class LucasKanadeBaseInterface(object):
         warped_image : `menpo.image.Image` or subclass
             The warped image.
         """
-        return image.warp_to_mask(self.template.mask, self.transform,
-                                  warp_landmarks=False)
+        return image.warp_to_mask(
+            self.template.mask, self.transform, warp_landmarks=False
+        )
 
     def warped_images(self, image, shapes):
         r"""
@@ -231,7 +236,7 @@ class LucasKanadeBaseInterface(object):
         # compute and return MAP solution
         H += np.diag(J_prior)
         Je = J_prior * p + J.T.dot(e)
-        return - np.linalg.solve(H, Je)
+        return -np.linalg.solve(H, Je)
 
     @classmethod
     def solve_shape_ml(cls, H, J, e):
@@ -255,9 +260,16 @@ class LucasKanadeBaseInterface(object):
         # compute and return ML solution
         return -np.linalg.solve(H, J.T.dot(e))
 
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, initial_shape=None,
-                         gt_shape=None, costs=None):
+    def algorithm_result(
+        self,
+        image,
+        shapes,
+        shape_parameters,
+        appearance_parameters=None,
+        initial_shape=None,
+        gt_shape=None,
+        costs=None,
+    ):
         r"""
         Returns an AAM iterative optimization result object.
 
@@ -289,10 +301,14 @@ class LucasKanadeBaseInterface(object):
             The optimization result object.
         """
         return AAMAlgorithmResult(
-            shapes=shapes, shape_parameters=shape_parameters,
+            shapes=shapes,
+            shape_parameters=shape_parameters,
             appearance_parameters=appearance_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
 
 class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
@@ -315,9 +331,11 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
         sub-sampling step of the sampling mask. If `ndarray`, then it explicitly
         defines the sampling mask. If ``None``, then no sub-sampling is applied.
     """
+
     def __init__(self, appearance_model, transform, template, sampling=None):
-        super(LucasKanadeStandardInterface, self).__init__(transform, template,
-                                                           sampling=sampling)
+        super(LucasKanadeStandardInterface, self).__init__(
+            transform, template, sampling=sampling
+        )
         self.appearance_model = appearance_model
 
     @property
@@ -357,8 +375,7 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
         app_params : ``(n_app_params, )`` `ndarray`
             The MAP solution for the appearance parameters.
         """
-        return _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p,
-                              self.m, self.n)
+        return _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p, self.m, self.n)
 
     def solve_all_ml(self, H, J, e):
         r"""
@@ -388,6 +405,7 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
     Interface for Lucas-Kanade optimization of linear AAMs. Suitable for
     `menpofit.aam.LinearAAM` and `menpofit.aam.LinearMaskedAAM`.
     """
+
     @property
     def shape_model(self):
         r"""
@@ -397,9 +415,16 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
         """
         return self.transform.model
 
-    def algorithm_result(self, image, shapes, shape_parameters,
-                         appearance_parameters=None, initial_shape=None,
-                         gt_shape=None, costs=None):
+    def algorithm_result(
+        self,
+        image,
+        shapes,
+        shape_parameters,
+        appearance_parameters=None,
+        initial_shape=None,
+        gt_shape=None,
+        costs=None,
+    ):
         r"""
         Returns an AAM iterative optimization result object.
 
@@ -433,13 +458,16 @@ class LucasKanadeLinearInterface(LucasKanadeStandardInterface):
         # TODO: Separate result for linear AAMs that stores both the sparse
         #       and dense shapes per iteration (@patricksnape will fix this)
         # This means that the linear AAM will only store the sparse shapes
-        shapes = [self.transform.from_vector(p).sparse_target
-                  for p in shape_parameters]
+        shapes = [self.transform.from_vector(p).sparse_target for p in shape_parameters]
         return AAMAlgorithmResult(
-            shapes=shapes, shape_parameters=shape_parameters,
+            shapes=shapes,
+            shape_parameters=shape_parameters,
             appearance_parameters=appearance_parameters,
-            initial_shape=initial_shape, image=image, gt_shape=gt_shape,
-            costs=costs)
+            initial_shape=initial_shape,
+            image=image,
+            gt_shape=gt_shape,
+            costs=costs,
+        )
 
 
 class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
@@ -463,26 +491,35 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
     patch_normalisation : `closure`, optional
         A method for normalizing the values of the extracted patches.
     """
-    def __init__(self, transform, template, sampling=None,
-                 patch_shape=(17, 17), patch_normalisation=no_op):
+
+    def __init__(
+        self,
+        transform,
+        template,
+        sampling=None,
+        patch_shape=(17, 17),
+        patch_normalisation=no_op,
+    ):
         self.patch_shape = patch_shape
         self.patch_normalisation = patch_normalisation
 
         super(LucasKanadePatchBaseInterface, self).__init__(
-            transform, template, sampling=sampling)
+            transform, template, sampling=sampling
+        )
 
     def _build_sampling_mask(self, sampling):
         if sampling is None:
             sampling = np.ones(self.patch_shape, dtype=bool)
 
         image_shape = self.template.pixels.shape
-        image_mask = np.tile(sampling[None, None, None, ...],
-                             image_shape[:3] + (1, 1))
+        image_mask = np.tile(sampling[None, None, None, ...], image_shape[:3] + (1, 1))
         self.i_mask = np.nonzero(image_mask.flatten())[0]
-        self.gradient_mask = np.nonzero(np.tile(
-            image_mask[None, ...], (2, 1, 1, 1, 1, 1)))
-        self.gradient2_mask = np.nonzero(np.tile(
-            image_mask[None, None, ...], (2, 2, 1, 1, 1, 1, 1)))
+        self.gradient_mask = np.nonzero(
+            np.tile(image_mask[None, ...], (2, 1, 1, 1, 1, 1))
+        )
+        self.gradient2_mask = np.nonzero(
+            np.tile(image_mask[None, None, ...], (2, 2, 1, 1, 1, 1, 1))
+        )
 
     @property
     def shape_model(self):
@@ -516,9 +553,9 @@ class LucasKanadePatchBaseInterface(LucasKanadeBaseInterface):
         patches_image : `menpo.image.Image`
             The image patches.
         """
-        parts = image.extract_patches(self.transform.target,
-                                      patch_shape=self.patch_shape,
-                                      as_single_array=True)
+        parts = image.extract_patches(
+            self.transform.target, patch_shape=self.patch_shape, as_single_array=True
+        )
         parts = self.patch_normalisation(parts)
         return Image(parts, copy=False)
 
@@ -625,12 +662,24 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
     patch_normalisation : `closure`, optional
         A method for normalizing the values of the extracted patches.
     """
-    def __init__(self, appearance_model, transform, template, sampling=None,
-                 patch_shape=(17, 17), patch_normalisation=no_op):
+
+    def __init__(
+        self,
+        appearance_model,
+        transform,
+        template,
+        sampling=None,
+        patch_shape=(17, 17),
+        patch_normalisation=no_op,
+    ):
         self.appearance_model = appearance_model
         super(LucasKanadePatchInterface, self).__init__(
-            transform, template, patch_shape=patch_shape,
-            patch_normalisation=patch_normalisation, sampling=sampling)
+            transform,
+            template,
+            patch_shape=patch_shape,
+            patch_normalisation=patch_normalisation,
+            sampling=sampling,
+        )
 
     @property
     def m(self):
@@ -669,8 +718,7 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
         app_params : ``(n_app_params, )`` `ndarray`
             The MAP solution for the appearance parameters.
         """
-        return _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p,
-                              self.m, self.n)
+        return _solve_all_map(H, J, e, Ja_prior, c, Js_prior, p, self.m, self.n)
 
     def solve_all_ml(self, H, J, e):
         r"""
@@ -713,6 +761,7 @@ class LucasKanade(object):
     eps : `float`, optional
         Value for checking the convergence of the optimization.
     """
+
     def __init__(self, aam_interface, eps=10**-5):
         self.eps = eps
         self.interface = aam_interface
@@ -783,6 +832,7 @@ class ProjectOut(LucasKanade):
     r"""
     Abstract class for defining Project-out AAM optimization algorithms.
     """
+
     def project_out(self, J):
         r"""
         Projects-out the appearance subspace from a given vector or matrix.
@@ -792,8 +842,15 @@ class ProjectOut(LucasKanade):
         # project-out appearance bases from a particular vector or matrix
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -826,6 +883,7 @@ class ProjectOut(LucasKanade):
         fitting_result : :map:`AAMAlgorithmResult`
             The parametric iterative fitting result.
         """
+
         # define cost function
         def cost_closure(x, f):
             return x.T.dot(f(x))
@@ -884,14 +942,20 @@ class ProjectOut(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            initial_shape=initial_shape, costs=costs, gt_shape=gt_shape)
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            initial_shape=initial_shape,
+            costs=costs,
+            gt_shape=gt_shape,
+        )
 
 
 class ProjectOutForwardCompositional(ProjectOut):
     r"""
     Project-out Forward Compositional (POFC) Gauss-Newton algorithm.
     """
+
     def _solve(self, map_inference):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
@@ -904,15 +968,14 @@ class ProjectOutForwardCompositional(ProjectOut):
         # solve for increments on the shape parameters
         if map_inference:
             return self.interface.solve_shape_map(
-                JQJ_m, QJ_m, self.e_m,  self.s2_inv_L,
-                self.transform.as_vector())
+                JQJ_m, QJ_m, self.e_m, self.s2_inv_L, self.transform.as_vector()
+            )
         else:
             return self.interface.solve_shape_ml(JQJ_m, QJ_m, self.e_m)
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() + self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() + self.dp)
 
     def __str__(self):
         return "Project-Out Forward Compositional Algorithm"
@@ -922,6 +985,7 @@ class ProjectOutInverseCompositional(ProjectOut):
     r"""
     Project-out Inverse Compositional (POIC) Gauss-Newton algorithm.
     """
+
     def _precompute(self):
         # call super method
         super(ProjectOutInverseCompositional, self)._precompute()
@@ -940,15 +1004,18 @@ class ProjectOutInverseCompositional(ProjectOut):
         # solve for increments on the shape parameters
         if map_inference:
             return self.interface.solve_shape_map(
-                self.JQJ_m, self.QJ_m, self.e_m, self.s2_inv_L,
-                self.transform.as_vector())
+                self.JQJ_m,
+                self.QJ_m,
+                self.e_m,
+                self.s2_inv_L,
+                self.transform.as_vector(),
+            )
         else:
             return -self.pinv_QJ_m.dot(self.e_m)
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() - self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() - self.dp)
 
     def __str__(self):
         return "Project-Out Inverse Compositional Algorithm"
@@ -958,8 +1025,16 @@ class Simultaneous(LucasKanade):
     r"""
     Abstract class for defining Simultaneous AAM optimization algorithms.
     """
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -992,6 +1067,7 @@ class Simultaneous(LucasKanade):
         fitting_result : :map:`AAMAlgorithmResult`
             The parametric iterative fitting result.
         """
+
         # define cost closure
         def cost_closure(x):
             return x.T.dot(x)
@@ -1064,9 +1140,14 @@ class Simultaneous(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            appearance_parameters=c_list, initial_shape=initial_shape,
-            costs=costs, gt_shape=gt_shape)
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            appearance_parameters=c_list,
+            initial_shape=initial_shape,
+            costs=costs,
+            gt_shape=gt_shape,
+        )
 
     def _solve(self, map_inference):
         # compute masked Jacobian
@@ -1079,8 +1160,14 @@ class Simultaneous(LucasKanade):
         # simultaneously
         if map_inference:
             return self.interface.solve_all_map(
-                H_sim_m, J_sim_m, self.e_m, self.s2_inv_S, self.c,
-                self.s2_inv_L, self.transform.as_vector())
+                H_sim_m,
+                J_sim_m,
+                self.e_m,
+                self.s2_inv_S,
+                self.c,
+                self.s2_inv_L,
+                self.transform.as_vector(),
+            )
         else:
             return self.interface.solve_all_ml(H_sim_m, J_sim_m, self.e_m)
 
@@ -1089,6 +1176,7 @@ class SimultaneousForwardCompositional(Simultaneous):
     r"""
     Simultaneous Forward Compositional (SFC) Gauss-Newton algorithm.
     """
+
     def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
@@ -1097,8 +1185,7 @@ class SimultaneousForwardCompositional(Simultaneous):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() + self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() + self.dp)
 
     def __str__(self):
         return "Simultaneous Forward Compositional Algorithm"
@@ -1108,6 +1195,7 @@ class SimultaneousInverseCompositional(Simultaneous):
     r"""
     Simultaneous Inverse Compositional (SIC) Gauss-Newton algorithm.
     """
+
     def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
@@ -1116,8 +1204,7 @@ class SimultaneousInverseCompositional(Simultaneous):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() - self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() - self.dp)
 
     def __str__(self):
         return "Project-Out Inverse Compositional Algorithm"
@@ -1127,14 +1214,22 @@ class Alternating(LucasKanade):
     r"""
     Abstract class for defining Alternating AAM optimization algorithms.
     """
+
     def _precompute(self, **kwargs):
         # call super method
         super(Alternating, self)._precompute()
         # compute MAP appearance Hessian
         self.AA_m_map = self.A_m.T.dot(self.A_m) + np.diag(self.s2_inv_S)
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -1167,6 +1262,7 @@ class Alternating(LucasKanade):
         fitting_result : :map:`AAMAlgorithmResult`
             The parametric iterative fitting result.
         """
+
         # define cost closure
         def cost_closure(x):
             return x.T.dot(x)
@@ -1206,7 +1302,7 @@ class Alternating(LucasKanade):
         while k < max_iters and eps > self.eps:
             # solve for increment on the appearance parameters
             if map_inference:
-                Ae_m_map = - self.s2_inv_S * c + self.A_m.dot(e_m + Jdp)
+                Ae_m_map = -self.s2_inv_S * c + self.A_m.dot(e_m + Jdp)
                 dc = np.linalg.solve(self.AA_m_map, Ae_m_map)
             else:
                 dc = self.pinv_A_m.dot(e_m + Jdp)
@@ -1218,11 +1314,16 @@ class Alternating(LucasKanade):
             # solve for increments on the shape parameters
             if map_inference:
                 self.dp = self.interface.solve_shape_map(
-                    H_m, J_m, e_m - self.A_m.T.dot(dc), self.s2_inv_L,
-                    self.transform.as_vector())
+                    H_m,
+                    J_m,
+                    e_m - self.A_m.T.dot(dc),
+                    self.s2_inv_L,
+                    self.transform.as_vector(),
+                )
             else:
-                self.dp = self.interface.solve_shape_ml(H_m, J_m,
-                                                        e_m - self.A_m.dot(dc))
+                self.dp = self.interface.solve_shape_ml(
+                    H_m, J_m, e_m - self.A_m.dot(dc)
+                )
 
             # update appearance parameters
             c = c + dc
@@ -1259,15 +1360,21 @@ class Alternating(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            appearance_parameters=c_list, initial_shape=initial_shape,
-            costs=costs, gt_shape=gt_shape)
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            appearance_parameters=c_list,
+            initial_shape=initial_shape,
+            costs=costs,
+            gt_shape=gt_shape,
+        )
 
 
 class AlternatingForwardCompositional(Alternating):
     r"""
     Alternating Forward Compositional (AFC) Gauss-Newton algorithm.
     """
+
     def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
@@ -1276,8 +1383,7 @@ class AlternatingForwardCompositional(Alternating):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() + self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() + self.dp)
 
     def __str__(self):
         return "Alternating Forward Compositional Algorithm"
@@ -1287,6 +1393,7 @@ class AlternatingInverseCompositional(Alternating):
     r"""
     Alternating Inverse Compositional (AIC) Gauss-Newton algorithm.
     """
+
     def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
@@ -1295,8 +1402,7 @@ class AlternatingInverseCompositional(Alternating):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() - self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() - self.dp)
 
     def __str__(self):
         return "Alternating Inverse Compositional Algorithm"
@@ -1307,8 +1413,16 @@ class ModifiedAlternating(Alternating):
     Abstract class for defining Modified Alternating AAM optimization
     algorithms.
     """
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -1341,6 +1455,7 @@ class ModifiedAlternating(Alternating):
         fitting_result : :map:`AAMAlgorithmResult`
             The parametric iterative fitting result.
         """
+
         # define cost closure
         def cost_closure(x):
             return x.T.dot(x)
@@ -1386,7 +1501,8 @@ class ModifiedAlternating(Alternating):
             # solve for increments on the shape parameters
             if map_inference:
                 self.dp = self.interface.solve_shape_map(
-                    H_m, J_m, e_m, self.s2_inv_L, self.transform.as_vector())
+                    H_m, J_m, e_m, self.s2_inv_L, self.transform.as_vector()
+                )
             else:
                 self.dp = self.interface.solve_shape_ml(H_m, J_m, e_m)
 
@@ -1422,15 +1538,21 @@ class ModifiedAlternating(Alternating):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            appearance_parameters=c_list, initial_shape=initial_shape,
-            costs=costs, gt_shape=gt_shape)
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            appearance_parameters=c_list,
+            initial_shape=initial_shape,
+            costs=costs,
+            gt_shape=gt_shape,
+        )
 
 
 class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
     r"""
     Modified Alternating Forward Compositional (MAFC) Gauss-Newton algorithm
     """
+
     def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
@@ -1439,8 +1561,7 @@ class ModifiedAlternatingForwardCompositional(ModifiedAlternating):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() + self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() + self.dp)
 
     def __str__(self):
         return "Modified Alternating Forward Compositional Algorithm"
@@ -1450,6 +1571,7 @@ class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
     r"""
     Modified Alternating Inverse Compositional (MAIC) Gauss-Newton algorithm
     """
+
     def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
@@ -1458,8 +1580,7 @@ class ModifiedAlternatingInverseCompositional(ModifiedAlternating):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() - self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() - self.dp)
 
     def __str__(self):
         return "Modified Alternating Inverse Compositional Algorithm"
@@ -1469,12 +1590,20 @@ class Wiberg(LucasKanade):
     r"""
     Abstract class for defining Wiberg AAM optimization algorithms.
     """
+
     def project_out(self, J):
         # project-out appearance bases from a particular vector or matrix
         return J - self.A_m.dot(self.pinv_A_m.dot(J))
 
-    def run(self, image, initial_shape, gt_shape=None, max_iters=20,
-            return_costs=False, map_inference=False):
+    def run(
+        self,
+        image,
+        initial_shape,
+        gt_shape=None,
+        max_iters=20,
+        return_costs=False,
+        map_inference=False,
+    ):
         r"""
         Execute the optimization algorithm.
 
@@ -1507,6 +1636,7 @@ class Wiberg(LucasKanade):
         fitting_result : :map:`AAMAlgorithmResult`
             The parametric iterative fitting result.
         """
+
         # define cost closure
         def cost_closure(x, f):
             return x.T.dot(f(x))
@@ -1552,8 +1682,8 @@ class Wiberg(LucasKanade):
             # solve for increments on the shape parameters
             if map_inference:
                 self.dp = self.interface.solve_shape_map(
-                    JQJ_m, QJ_m, e_m, self.s2_inv_L,
-                    self.transform.as_vector())
+                    JQJ_m, QJ_m, e_m, self.s2_inv_L, self.transform.as_vector()
+                )
             else:
                 self.dp = self.interface.solve_shape_ml(JQJ_m, QJ_m, e_m)
 
@@ -1590,15 +1720,21 @@ class Wiberg(LucasKanade):
 
         # return algorithm result
         return self.interface.algorithm_result(
-            image=image, shapes=shapes, shape_parameters=p_list,
-            appearance_parameters=c_list, initial_shape=initial_shape,
-            costs=costs, gt_shape=gt_shape)
+            image=image,
+            shapes=shapes,
+            shape_parameters=p_list,
+            appearance_parameters=c_list,
+            initial_shape=initial_shape,
+            costs=costs,
+            gt_shape=gt_shape,
+        )
 
 
 class WibergForwardCompositional(Wiberg):
     r"""
     Wiberg Forward Compositional (WFC) Gauss-Newton algorithm.
     """
+
     def _compute_jacobian(self):
         # compute warped image gradient
         nabla_i = self.interface.gradient(self.i)
@@ -1607,8 +1743,7 @@ class WibergForwardCompositional(Wiberg):
 
     def _update_warp(self):
         # update warp based on forward composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() + self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() + self.dp)
 
     def __str__(self):
         return "Wiberg Forward Compositional Algorithm"
@@ -1618,6 +1753,7 @@ class WibergInverseCompositional(Wiberg):
     r"""
     Wiberg Inverse Compositional (WIC) Gauss-Newton algorithm.
     """
+
     def _compute_jacobian(self):
         # compute warped appearance model gradient
         nabla_a = self.interface.gradient(self.a)
@@ -1626,8 +1762,7 @@ class WibergInverseCompositional(Wiberg):
 
     def _update_warp(self):
         # update warp based on inverse composition
-        self.transform._from_vector_inplace(
-            self.transform.as_vector() - self.dp)
+        self.transform._from_vector_inplace(self.transform.as_vector() - self.dp)
 
     def __str__(self):
         return "Wiberg Inverse Compositional Algorithm"

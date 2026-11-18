@@ -1067,7 +1067,7 @@ def _atm_str(atm):
         diagonal = atm.diagonal
     else:
         y, x = atm.reference_shape.range()
-        diagonal = np.sqrt(x ** 2 + y ** 2)
+        diagonal = np.sqrt(x**2 + y**2)
 
     # Compute scale info strings
     scales_info = []

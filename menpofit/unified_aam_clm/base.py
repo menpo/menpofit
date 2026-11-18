@@ -491,7 +491,7 @@ class UnifiedAAMCLM(object):
             diagonal = self.diagonal
         else:
             y, x = self.reference_shape.range()
-            diagonal = np.sqrt(x ** 2 + y ** 2)
+            diagonal = np.sqrt(x**2 + y**2)
 
         # Compute scale info strings
         scales_info = []

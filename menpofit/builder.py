@@ -17,6 +17,7 @@ class MenpoFitModelBuilderWarning(Warning):
     A warning that the parameters chosen to build a given model may cause
     unexpected behaviour.
     """
+
     pass
 
 
@@ -43,21 +44,19 @@ def compute_reference_shape(shapes, diagonal, verbose=False):
     """
     # the reference_shape is the mean shape of the images' landmarks
     if verbose:
-        print_dynamic('- Computing reference shape')
+        print_dynamic("- Computing reference shape")
     reference_shape = mean_pointcloud(shapes)
 
     # fix the reference_shape's diagonal length if asked
     if diagonal:
         x, y = reference_shape.range()
-        scale = diagonal / np.sqrt(x ** 2 + y ** 2)
-        reference_shape = Scale(scale, reference_shape.n_dims).apply(
-            reference_shape)
+        scale = diagonal / np.sqrt(x**2 + y**2)
+        reference_shape = Scale(scale, reference_shape.n_dims).apply(reference_shape)
 
     return reference_shape
 
 
-def rescale_images_to_reference_shape(images, group, reference_shape,
-                                      verbose=False):
+def rescale_images_to_reference_shape(images, group, reference_shape, verbose=False):
     r"""
     Function that normalizes the images' sizes with respect to the size of the
     provided reference shape. In other words, the function rescales the provided
@@ -81,12 +80,17 @@ def rescale_images_to_reference_shape(images, group, reference_shape,
     normalized_images : `list` of `menpo.image.Image`
         The rescaled images.
     """
-    wrap = partial(print_progress, prefix='- Normalizing images size',
-                   end_with_newline=False, verbose=verbose)
+    wrap = partial(
+        print_progress,
+        prefix="- Normalizing images size",
+        end_with_newline=False,
+        verbose=verbose,
+    )
 
     # Normalize the scaling of all images wrt the reference_shape size
-    normalized_images = [i.rescale_to_pointcloud(reference_shape, group=group)
-                         for i in wrap(images)]
+    normalized_images = [
+        i.rescale_to_pointcloud(reference_shape, group=group) for i in wrap(images)
+    ]
     return normalized_images
 
 
@@ -132,11 +136,12 @@ def normalization_wrt_reference_shape(images, group, diagonal, verbose=False):
 
     # normalize the scaling of all images wrt the reference_shape size
     normalized_images = rescale_images_to_reference_shape(
-        images, group, reference_shape, verbose=verbose)
+        images, group, reference_shape, verbose=verbose
+    )
     return reference_shape, normalized_images
 
 
-def compute_features(images, features, prefix='', verbose=False):
+def compute_features(images, features, prefix="", verbose=False):
     r"""
     Function that extracts features from a list of images.
 
@@ -157,15 +162,17 @@ def compute_features(images, features, prefix='', verbose=False):
     feature_images : `list` of `menpo.image.Image`
         The list of feature images.
     """
-    wrap = partial(print_progress,
-                   prefix='{}Computing feature space'.format(prefix),
-                   end_with_newline=not prefix, verbose=verbose)
+    wrap = partial(
+        print_progress,
+        prefix="{}Computing feature space".format(prefix),
+        end_with_newline=not prefix,
+        verbose=verbose,
+    )
 
     return [features(i) for i in wrap(images)]
 
 
-def scale_images(images, scale, prefix='', return_transforms=False,
-                 verbose=False):
+def scale_images(images, scale, prefix="", return_transforms=False, verbose=False):
     r"""
     Function that rescales a list of images and optionally returns the scale
     transforms.
@@ -194,9 +201,12 @@ def scale_images(images, scale, prefix='', return_transforms=False,
         The list of scale transforms that were used. It is returned only if
         `return_transforms` is ``True``.
     """
-    wrap = partial(print_progress,
-                   prefix='{}Scaling images'.format(prefix),
-                   end_with_newline=not prefix, verbose=verbose)
+    wrap = partial(
+        print_progress,
+        prefix="{}Scaling images".format(prefix),
+        end_with_newline=not prefix,
+        verbose=verbose,
+    )
     if not np.allclose(scale, 1):
         # initialise scaled images and transforms lists
         scaled_images = []
@@ -217,14 +227,13 @@ def scale_images(images, scale, prefix='', return_transforms=False,
             return scaled_images
     else:
         if return_transforms:
-            scale_transforms = [Scale(1., images[0].n_dims)] * len(images)
+            scale_transforms = [Scale(1.0, images[0].n_dims)] * len(images)
             return images, scale_transforms
         else:
             return images
 
 
-def warp_images(images, shapes, reference_frame, transform, prefix='',
-                verbose=None):
+def warp_images(images, shapes, reference_frame, transform, prefix="", verbose=None):
     r"""
     Function that warps a list of images into the provided reference frame.
 
@@ -250,28 +259,34 @@ def warp_images(images, shapes, reference_frame, transform, prefix='',
     warped_images : `list` of `menpo.image.MaskedImage`
         The list of warped images.
     """
-    wrap = partial(print_progress,
-                   prefix='{}Warping images'.format(prefix),
-                   end_with_newline=not prefix, verbose=verbose)
+    wrap = partial(
+        print_progress,
+        prefix="{}Warping images".format(prefix),
+        end_with_newline=not prefix,
+        verbose=verbose,
+    )
 
     warped_images = []
     # Build a dummy transform, use set_target for efficiency
-    warp_transform = transform(reference_frame.landmarks['source'],
-                               reference_frame.landmarks['source'])
+    warp_transform = transform(
+        reference_frame.landmarks["source"], reference_frame.landmarks["source"]
+    )
     for i, s in wrap(list(zip(images, shapes))):
         # Update Transform Target
         warp_transform.set_target(s)
         # warp images
-        warped_i = i.warp_to_mask(reference_frame.mask, warp_transform,
-                                  warp_landmarks=False)
+        warped_i = i.warp_to_mask(
+            reference_frame.mask, warp_transform, warp_landmarks=False
+        )
         # attach reference frame landmarks to images
-        warped_i.landmarks['source'] = reference_frame.landmarks['source']
+        warped_i.landmarks["source"] = reference_frame.landmarks["source"]
         warped_images.append(warped_i)
     return warped_images
 
 
-def extract_patches(images, shapes, patch_shape, normalise_function=no_op,
-                    prefix='', verbose=False):
+def extract_patches(
+    images, shapes, patch_shape, normalise_function=no_op, prefix="", verbose=False
+):
     r"""
     Function that extracts patches around the landmarks of the provided images.
 
@@ -296,20 +311,22 @@ def extract_patches(images, shapes, patch_shape, normalise_function=no_op,
         The list of images with the patches per image. Each output image has
         shape ``(n_center, n_offset, n_channels, patch_shape)``.
     """
-    wrap = partial(print_progress,
-                   prefix='{}Extracting patches'.format(prefix),
-                   end_with_newline=not prefix, verbose=verbose)
+    wrap = partial(
+        print_progress,
+        prefix="{}Extracting patches".format(prefix),
+        end_with_newline=not prefix,
+        verbose=verbose,
+    )
 
     parts_images = []
     for i, s in wrap(list(zip(images, shapes))):
-        parts = i.extract_patches(s, patch_shape=patch_shape,
-                                  as_single_array=True)
+        parts = i.extract_patches(s, patch_shape=patch_shape, as_single_array=True)
         parts = normalise_function(parts)
         parts_images.append(Image(parts, copy=False))
     return parts_images
 
 
-def build_reference_frame(landmarks, boundary=3, group='source'):
+def build_reference_frame(landmarks, boundary=3, group="source"):
     r"""
     Builds a reference frame from a particular set of landmarks.
 
@@ -331,17 +348,21 @@ def build_reference_frame(landmarks, boundary=3, group='source'):
         The reference frame.
     """
     if not isinstance(landmarks, TriMesh):
-        warnings.warn('The reference shape passed is not a TriMesh or '
-                      'subclass and therefore the reference frame (mask) will '
-                      'be calculated via a Delaunay triangulation. This may '
-                      'cause small triangles and thus suboptimal warps.',
-                      MenpoFitModelBuilderWarning)
-    return MaskedImage.init_from_pointcloud(landmarks, boundary=boundary,
-                                            group=group, constrain_mask=True)
+        warnings.warn(
+            "The reference shape passed is not a TriMesh or "
+            "subclass and therefore the reference frame (mask) will "
+            "be calculated via a Delaunay triangulation. This may "
+            "cause small triangles and thus suboptimal warps.",
+            MenpoFitModelBuilderWarning,
+        )
+    return MaskedImage.init_from_pointcloud(
+        landmarks, boundary=boundary, group=group, constrain_mask=True
+    )
 
 
-def build_patch_reference_frame(landmarks, boundary=3, group='source',
-                                patch_shape=(17, 17)):
+def build_patch_reference_frame(
+    landmarks, boundary=3, group="source", patch_shape=(17, 17)
+):
     r"""
     Builds a patch-based reference frame from a particular set of landmarks.
 
@@ -366,11 +387,13 @@ def build_patch_reference_frame(landmarks, boundary=3, group='source',
     """
     boundary = np.max(patch_shape) + boundary
     reference_frame = MaskedImage.init_from_pointcloud(
-        landmarks, group=group, boundary=boundary, constrain_mask=False)
+        landmarks, group=group, boundary=boundary, constrain_mask=False
+    )
 
     # mask reference frame
     return reference_frame.constrain_mask_to_patches_around_landmarks(
-        patch_shape, group=group)
+        patch_shape, group=group
+    )
 
 
 def densify_shapes(shapes, reference_frame, transform):
@@ -392,11 +415,10 @@ def densify_shapes(shapes, reference_frame, transform):
         The list of dense shapes.
     """
     # compute non-linear transforms
-    transforms = [transform(reference_frame.landmarks['source'], s)
-                  for s in shapes]
+    transforms = [transform(reference_frame.landmarks["source"], s) for s in shapes]
     # build dense shapes
     dense_shapes = []
-    for (t, s) in zip(transforms, shapes):
+    for t, s in zip(transforms, shapes):
         warped_points = t.apply(reference_frame.mask.true_indices())
         dense_shape = PointCloud(np.vstack((s.points, warped_points)))
         dense_shapes.append(dense_shape)
@@ -430,4 +452,5 @@ class MenpoFitBuilderWarning(Warning):
     r"""
     A warning that some part of building the model may cause issues.
     """
+
     pass

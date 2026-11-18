@@ -26,8 +26,9 @@ def probability_map(x, axes=(-2, -1)):
     total = np.sum(x, axis=axes, keepdims=True)
     nonzero = total > 0
     if np.any(~nonzero):
-        warnings.warn('some of x axes have 0 variance - uniform probability '
-                      'maps are used them.')
+        warnings.warn(
+            "some of x axes have 0 variance - uniform probability maps are used them."
+        )
         x[nonzero] /= total[nonzero]
         x[~nonzero] = 1 / np.prod(axes)
     else:
@@ -60,6 +61,7 @@ class IncrementalCorrelationFilterThinWrapper(object):
         :map:`imosse` Incremental Minimum Output Sum of Squared Errors Filter
         ============= =======================================================
     """
+
     def __init__(self, cf_callable=mccf, icf_callable=imccf):
         self.cf_callable = cf_callable
         self.icf_callable = icf_callable

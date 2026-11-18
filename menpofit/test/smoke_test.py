@@ -62,7 +62,9 @@ def test_aam_trains_and_fits():
 
     image = mio.import_builtin_asset("takeo.ppm")
     group = "PTS"
-    training = [image.rotate_ccw_about_centre(a).rescale(0.5) for a in (-6, -3, 0, 3, 6, 9)]
+    training = [
+        image.rotate_ccw_about_centre(a).rescale(0.5) for a in (-6, -3, 0, 3, 6, 9)
+    ]
     aam = HolisticAAM(
         training,
         group=group,
@@ -78,6 +80,8 @@ def test_aam_trains_and_fits():
     rng = np.random.RandomState(0)
     initial = PointCloud(ground_truth.points + rng.randn(*ground_truth.points.shape))
     result = fitter.fit_from_shape(target, initial, max_iters=5)
-    error = np.sqrt(((result.final_shape.points - ground_truth.points) ** 2).sum(1)).mean()
+    error = np.sqrt(
+        ((result.final_shape.points - ground_truth.points) ** 2).sum(1)
+    ).mean()
     assert result.final_shape.n_points == ground_truth.n_points
     assert error < 1.0

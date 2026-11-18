@@ -48,4 +48,4 @@ def load_balanced_frontal_face_fitter():
         A pre-trained :map:`LucasKanadeAAMFitter` based on a :map:`PatchAAM`
         that performs facial landmark localization returning 68 points (iBUG68).
     """
-    return load_fitter('balanced_frontal_face_aam')
+    return load_fitter("balanced_frontal_face_aam")
