@@ -111,7 +111,7 @@ class ForwardAdditive(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Forward Compositional Algorithm
         while k < max_iters and eps > self.eps:
@@ -244,7 +244,7 @@ class ForwardCompositional(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Forward Compositional Algorithm
         while k < max_iters and eps > self.eps:
@@ -375,7 +375,7 @@ class InverseCompositional(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Baker-Matthews, Inverse Compositional Algorithm
         while k < max_iters and eps > self.eps:

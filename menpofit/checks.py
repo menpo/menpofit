@@ -190,9 +190,9 @@ def check_callable(callables, n_scales):
     """
     if callable(callables):
         return [callables] * n_scales
-    elif len(callables) == 1 and np.alltrue([callable(f) for f in callables]):
+    elif len(callables) == 1 and np.all([callable(f) for f in callables]):
         return list(callables) * n_scales
-    elif len(callables) == n_scales and np.alltrue([callable(f)
+    elif len(callables) == n_scales and np.all([callable(f)
                                                     for f in callables]):
         return list(callables)
     else:
@@ -344,7 +344,7 @@ def check_sampling(sampling, n_scales):
         containing 1 or {n_scales} elements or None
     """
     if (isinstance(sampling, (list, tuple)) and
-        np.alltrue([isinstance(s, (np.ndarray, np.int64)) or sampling is None
+        np.all([isinstance(s, (np.ndarray, np.int64)) or sampling is None
                     for s in sampling])):
         if len(sampling) == 1:
             return sampling * n_scales

@@ -265,7 +265,7 @@ class Compositional(LucasKanade):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # Compositional Gauss-Newton loop -------------------------------------
 

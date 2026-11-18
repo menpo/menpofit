@@ -2,10 +2,7 @@ from __future__ import absolute_import  # or menpofit.math causes trouble!
 from math import ceil
 import sys
 
-try:
-    from urllib2 import urlopen  # Py2
-except ImportError:
-    from urllib.request import urlopen  # Py3
+from urllib.request import urlopen
 
 from menpo.io import import_pickle
 

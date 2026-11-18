@@ -213,7 +213,7 @@ class ProjectOutRegularisedLandmarkMeanShift(UnifiedAlgorithm):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # AAM part --------------------------------------------------------
         # warp image
@@ -358,7 +358,7 @@ class AlternatingRegularisedLandmarkMeanShift(UnifiedAlgorithm):
 
         # initialize iteration counter and epsilon
         k = 0
-        eps = np.Inf
+        eps = np.inf
 
         # AAM part --------------------------------------------------------
 

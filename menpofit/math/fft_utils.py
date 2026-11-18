@@ -152,11 +152,11 @@ def fft_convolve2d(x, f, mode='same', boundary='constant', fft_filter=False):
     # compute ifft of extended convolution
     ext_c = np.real(ifftshift(ifft2(fft_ext_c), axes=(-2, -1)))
 
-    if mode is 'full':
+    if mode == 'full':
         return ext_c
-    elif mode is 'same':
+    elif mode == 'same':
         return crop(ext_c, x_shape)
-    elif mode is 'valid':
+    elif mode == 'valid':
         return crop(ext_c, x_shape - f_half_shape + 1)
     else:
         raise ValueError(
@@ -234,11 +234,11 @@ def fft_convolve2d_sum(x, f, mode='same', boundary='constant',
     # compute ifft of extended convolution
     ext_c = np.real(ifftshift(ifft2(fft_ext_c), axes=(-2, -1)))
 
-    if mode is 'full':
+    if mode == 'full':
         return ext_c
-    elif mode is 'same':
+    elif mode == 'same':
         return crop(ext_c, x_shape)
-    elif mode is 'valid':
+    elif mode == 'valid':
         return crop(ext_c, x_shape - f_half_shape + 1)
     else:
         raise ValueError(
