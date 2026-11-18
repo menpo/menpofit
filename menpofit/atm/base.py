@@ -119,8 +119,8 @@ class ATM(object):
     ):
         # Check arguments
         checks.check_diagonal(diagonal)
-        n_scales = len(scales)
         scales = checks.check_scales(scales)
+        n_scales = len(scales)
         holistic_features = checks.check_callable(holistic_features, n_scales)
         max_shape_components = checks.check_max_components(
             max_shape_components, n_scales, "max_shape_components"
@@ -537,7 +537,9 @@ class MaskedATM(ATM):
         batch_size=None,
     ):
         # Check arguments
-        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        self.patch_shape = checks.check_patch_shape(
+            patch_shape, len(checks.check_scales(scales))
+        )
         # Call superclass
         super(MaskedATM, self).__init__(
             template,
@@ -821,7 +823,9 @@ class LinearMaskedATM(ATM):
         batch_size=None,
     ):
         # Check arguments
-        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        self.patch_shape = checks.check_patch_shape(
+            patch_shape, len(checks.check_scales(scales))
+        )
         # Call superclass
         super(LinearMaskedATM, self).__init__(
             template,
@@ -986,7 +990,9 @@ class PatchATM(ATM):
         batch_size=None,
     ):
         # Check arguments
-        self.patch_shape = checks.check_patch_shape(patch_shape, len(scales))
+        self.patch_shape = checks.check_patch_shape(
+            patch_shape, len(checks.check_scales(scales))
+        )
         self.patch_normalisation = patch_normalisation
         # Call superclass
         super(PatchATM, self).__init__(
