@@ -164,9 +164,11 @@ class LucasKanadeAAMFitter(AAMFitter):
         n_appearance=None,
         sampling=None,
     ):
-        # Check parameters
-        checks.set_models_components(aam.shape_models, n_shape)
-        checks.set_models_components(aam.appearance_models, n_appearance)
+        # Check parameters. The fitter works on its own trimmed copy of the AAM:
+        # the one that was given is not changed
+        aam = checks.trimmed_copy(
+            aam, shape_models=n_shape, appearance_models=n_appearance
+        )
         self._sampling = checks.check_sampling(sampling, aam.n_scales)
 
         # Get list of algorithm objects per scale
@@ -237,9 +239,9 @@ class LucasKanadeAAMFitter(AAMFitter):
             scales_info.append(
                 lvl_str_tmplt.format(
                     s,
-                    self.aam.shape_models[k].n_active_components,
+                    self.aam.shape_models[k].n_components,
                     self.aam.shape_models[k].n_global_parameters,
-                    self.aam.appearance_models[k].n_active_components,
+                    self.aam.appearance_models[k].n_components,
                 )
             )
         scales_info = "\n".join(scales_info)
@@ -346,10 +348,11 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
         batch_size=None,
         verbose=False,
     ):
-        self.aam = aam
-        # Check parameters
-        checks.set_models_components(aam.shape_models, n_shape)
-        checks.set_models_components(aam.appearance_models, n_appearance)
+        # The fitter works on its own trimmed copy of the AAM: the one that was
+        # given is not changed
+        self.aam = checks.trimmed_copy(
+            aam, shape_models=n_shape, appearance_models=n_appearance
+        )
         self._sampling = checks.check_sampling(sampling, aam.n_scales)
 
         # patch_feature and patch_shape are not actually

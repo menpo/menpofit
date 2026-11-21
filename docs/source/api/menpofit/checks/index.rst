@@ -28,7 +28,7 @@ Multi-Scale Parameters Check Functions
     check_patch_shape
     check_max_iters
     check_max_components
-    set_models_components
+    trimmed_copy
     check_algorithm_cls
     check_sampling
     check_graph

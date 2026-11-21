@@ -109,7 +109,7 @@ class GenerativeAPS(object):
         the number of scales. If a single `int`, then this is the one applied
         to all scales. If ``None``, the covariance matrix of each edge is
         inverted using `np.linalg.inv`. If `int`, it is inverted using
-        truncated SVD using the specified number of components.
+        trimmed SVD using the specified number of components.
     can_be_incremented : `bool`, optional
         In case you intend to incrementally update the model in the future,
         then this flag must be set to ``True`` from the first place. Note
@@ -534,9 +534,7 @@ class GenerativeAPS(object):
             `menpo.shape.PointTree` or a `menpo.shape.PointDirectedGraph`,
             depending on the type of the deformation graph.
         """
-        shape_weights = np.random.randn(
-            self.shape_models[scale_index].n_active_components
-        )
+        shape_weights = np.random.randn(self.shape_models[scale_index].n_components)
         return self.instance(shape_weights, scale_index=scale_index, as_graph=as_graph)
 
     def view_deformation_model(

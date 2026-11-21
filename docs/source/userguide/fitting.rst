@@ -25,9 +25,12 @@ have trained an AAM model (assume the `aam` we trained in the
                                   lk_algorithm_cls=WibergInverseCompositional,
                                   n_shape=[5, 10, 15], n_appearance=150)
 
-The constructor of the `Fitter` will set the active shape and appearance
-components based on `n_shape` and `n_appearance` respectively, and will also
-perform all the necessary pre-computations based on the selected algorithm.
+The constructor of the `Fitter` will use `n_shape` and `n_appearance` shape and
+appearance components respectively, and will also perform all the necessary
+pre-computations based on the selected algorithm. The `Fitter` works on its own
+trimmed copy of the model (it shares the memory of the original, so nothing
+large is copied): the `aam` that you pass in is not changed, and you can make
+any number of fitters from it, each with its own numbers of components.
 
 However, there are deformable models that are directly defined through a
 `Fitter` object, which is responsible for training the model as well.

@@ -67,10 +67,12 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
         n_appearance=None,
         sampling=None,
     ):
+        # Check parameters. The fitter works on its own trimmed copy of the
+        # model: the one that was given is not changed
+        unified_aam_clm = checks.trimmed_copy(
+            unified_aam_clm, shape_models=n_shape, appearance_models=n_appearance
+        )
         self._model = unified_aam_clm
-        # Check parameters
-        checks.set_models_components(self._model.shape_models, n_shape)
-        checks.set_models_components(self._model.appearance_models, n_appearance)
         self._sampling = checks.check_sampling(sampling, self._model.n_scales)
 
         # Get list of algorithm objects per scale
@@ -214,9 +216,9 @@ class UnifiedAAMCLMFitter(MultiScaleParametricFitter):
             scales_info.append(
                 lvl_str_tmplt.format(
                     s,
-                    self._model.shape_models[k].model.n_active_components,
+                    self._model.shape_models[k].model.n_components,
                     self._model.shape_models[k].n_global_parameters,
-                    self._model.appearance_models[k].n_active_components,
+                    self._model.appearance_models[k].n_components,
                 )
             )
         scales_info = "\n".join(scales_info)
