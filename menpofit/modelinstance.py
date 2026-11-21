@@ -307,7 +307,7 @@ class PDM(ModelInstance):
             shape_model = PCAModel(aligned_shapes)
 
         if max_n_components is not None:
-            shape_model.trim_components(max_n_components)
+            shape_model.trim_components_inplace(max_n_components)
         super(PDM, self).__init__(shape_model)
         # Default target is the mean
         self._target = self.model.mean()
@@ -328,7 +328,7 @@ class PDM(ModelInstance):
         of active components represents the number of principal components
         that will be used for generative purposes. Note that this therefore
         makes the model stateful. Also note that setting the number of
-        components will not affect memory unless `trim_components` is called.
+        components will not affect memory unless `trim_components_inplace` is called.
 
         Parameters
         ----------
@@ -410,14 +410,14 @@ class PDM(ModelInstance):
         """
         old_target = self.target
         aligned_shapes = align_shapes(shapes)
-        self.model.increment(
+        self.model.increment_inplace(
             aligned_shapes,
             n_samples=n_shapes,
             forgetting_factor=forgetting_factor,
             verbose=verbose,
         )
         if max_n_components is not None:
-            self.model.trim_components(max_n_components)
+            self.model.trim_components_inplace(max_n_components)
         # Reset the target given the new model
         self.set_target(old_target)
 
@@ -714,14 +714,14 @@ class OrthoPDM(GlobalPDM):
         """
         old_target = self.target
         aligned_shapes = align_shapes(shapes)
-        self.model.increment(
+        self.model.increment_inplace(
             aligned_shapes,
             n_samples=n_shapes,
             forgetting_factor=forgetting_factor,
             verbose=verbose,
         )
         if max_n_components is not None:
-            self.model.trim_components(max_n_components)
+            self.model.trim_components_inplace(max_n_components)
         # Re-orthonormalize
         self._construct_similarity_model()
         # Reset the target given the new models

@@ -12,7 +12,7 @@ license-files = ["LICENSE.txt", "AUTHORS.txt"]
 authors = [{ name = "The Menpo Development Team", email = "hello@menpo.org" }]
 requires-python = ">=3.10"
 dependencies = [
-    "menpo>=0.12",
+    "menpo>=0.13",
     "numpy>=1.23",
     "scipy>=1.6",
     "pandas>=1.5",
