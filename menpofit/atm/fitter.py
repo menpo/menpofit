@@ -43,11 +43,10 @@ class LucasKanadeATMFitter(MultiScaleParametricFitter):
     def __init__(
         self, atm, lk_algorithm_cls=InverseCompositional, n_shape=None, sampling=None
     ):
-        # Store model
+        # Check parameters. The fitter works on its own trimmed copy of the ATM:
+        # the one that was given is not changed
+        atm = checks.trimmed_copy(atm, shape_models=n_shape)
         self._model = atm
-
-        # Check parameters
-        checks.set_models_components(atm.shape_models, n_shape)
         self._sampling = checks.check_sampling(sampling, atm.n_scales)
 
         # Get list of algorithm objects per scale
@@ -103,7 +102,7 @@ class LucasKanadeATMFitter(MultiScaleParametricFitter):
             scales_info.append(
                 lvl_str_tmplt.format(
                     s,
-                    self.atm.shape_models[k].n_active_components,
+                    self.atm.shape_models[k].n_components,
                     self.atm.shape_models[k].n_global_parameters,
                 )
             )

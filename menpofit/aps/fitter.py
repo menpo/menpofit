@@ -157,8 +157,9 @@ class GaussNewtonAPSFitter(APSFitter):
     def __init__(
         self, aps, gn_algorithm_cls=Inverse, n_shape=None, weight=200.0, sampling=None
     ):
-        # Check parameters
-        checks.set_models_components(aps.shape_models, n_shape)
+        # Check parameters. The fitter works on its own trimmed copy of the APS:
+        # the one that was given is not changed
+        aps = checks.trimmed_copy(aps, shape_models=n_shape)
         self._sampling = checks.check_sampling(sampling, aps.n_scales)
         self.weight = checks.check_multi_scale_param(
             aps.n_scales, (float, int), "weight", weight
@@ -197,7 +198,7 @@ class GaussNewtonAPSFitter(APSFitter):
             scales_info.append(
                 lvl_str_tmplt.format(
                     s,
-                    self.aps.shape_models[k].n_active_components,
+                    self.aps.shape_models[k].n_components,
                     self.aps.shape_models[k].n_global_parameters,
                     self.weight[k],
                 )

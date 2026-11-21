@@ -419,7 +419,7 @@ class ATM(object):
         template = self.warped_templates[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
-        shape_weights = np.random.randn(sm.n_active_components)
+        shape_weights = np.random.randn(sm.n_components)
         shape_instance = sm.instance(shape_weights, normalized_weights=True)
 
         return self._instance(shape_instance, template)

@@ -77,11 +77,10 @@ class GradientDescentCLMFitter(CLMFitter):
     def __init__(
         self, clm, gd_algorithm_cls=RegularisedLandmarkMeanShift, n_shape=None
     ):
-        # Store CLM trained model
+        # Check parameter. The fitter works on its own trimmed copy of the CLM:
+        # the one that was given is not changed
+        clm = checks.trimmed_copy(clm, shape_models=n_shape)
         self._model = clm
-
-        # Check parameter
-        checks.set_models_components(clm.shape_models, n_shape)
 
         # Get list of algorithm objects per scale
         algorithms = [
@@ -102,7 +101,7 @@ class GradientDescentCLMFitter(CLMFitter):
             scales_info.append(
                 lvl_str_tmplt.format(
                     s,
-                    self.clm.shape_models[k].n_active_components,
+                    self.clm.shape_models[k].n_components,
                     self.clm.shape_models[k].n_global_parameters,
                 )
             )

@@ -87,7 +87,7 @@ class ModelInstance(Targetable, Vectorizable, DP):
         self._target = None
         # set all weights to 0 (yielding the mean, first call to
         # from_vector_inplace() or set_target() will update this)
-        self._weights = np.zeros(self.model.n_active_components)
+        self._weights = np.zeros(self.model.n_components)
 
     @property
     def n_weights(self):
@@ -96,7 +96,7 @@ class ModelInstance(Targetable, Vectorizable, DP):
 
         :type: `int`
         """
-        return self.model.n_active_components
+        return self.model.n_components
 
     @property
     def weights(self):
@@ -313,37 +313,48 @@ class PDM(ModelInstance):
         self._target = self.model.mean()
 
     @property
-    def n_active_components(self):
+    def n_components(self):
         r"""
-        The number of components currently in use on this model.
+        The number of components of the model.
 
         :type: `int`
         """
-        return self.model.n_active_components
+        return self.model.n_components
 
-    @n_active_components.setter
-    def n_active_components(self, value):
+    def trim_components(self, n_components):
         r"""
-        Sets an updated number of active components on this model. The number
-        of active components represents the number of principal components
-        that will be used for generative purposes. Note that this therefore
-        makes the model stateful. Also note that setting the number of
-        components will not affect memory unless `trim_components_inplace` is called.
+        Returns a new instance that uses only the first ``n_components``
+        components of the model, and leaves this one as it is. Its model is
+        the trimmed model (see `menpo.model.PCAVectorModel.trim_components`): it
+        shares the arrays of this one, so nothing large is copied, and the two
+        can not change each other. It is a new instance, made from that model:
+        its target is the mean, as for any new instance. (An `OrthoPDM`
+        orthonormalizes the components of its model against the similarity
+        model, so it has arrays of its own, the size of what it keeps.)
 
         Parameters
         ----------
-        value : `int`
-            The new number of active components.
+        n_components : `int` or `float`
+            The number of components to keep, or the ratio of the variance to
+            keep.
+
+        Returns
+        -------
+        pdm : `type(self)`
+            The new instance.
 
         Raises
         ------
         ValueError
-            Tried setting n_active_components to {value} - value needs to be a
+            Tried to use {value} as a number of components - value needs to be a
             float 0.0 < n_components < self._total_kept_variance_ratio ({}) or
             an integer 1 < n_components < self.n_components ({})
         """
-        self.model.n_active_components = value
-        self._sync_state_from_target()
+        return self._from_model(self.model.trim_components(n_components))
+
+    def _from_model(self, model):
+        # A new instance of this class, made from `model`
+        return type(self)(model)
 
     @property
     def n_dims(self):
@@ -365,9 +376,7 @@ class PDM(ModelInstance):
         jacobian : ``(n_features, n_components, n_dims)`` `ndarray`
             The Jacobian of the model in the standard Jacobian shape.
         """
-        d_dp = self.model.components.reshape(
-            self.model.n_active_components, -1, self.n_dims
-        )
+        d_dp = self.model.components.reshape(self.model.n_components, -1, self.n_dims)
         return d_dp.swapaxes(0, 1)
 
     def increment(
@@ -433,7 +442,7 @@ class PDM(ModelInstance):
             " - components shape:     {}\n".format(
                 self.model.centred,
                 self.model.n_features,
-                self.n_active_components,
+                self.n_components,
                 self.model.variance(),
                 self.model.variance_ratio(),
                 self.model.noise_variance(),
@@ -473,6 +482,9 @@ class GlobalPDM(PDM):
         # from_vector_inplace() or set_target() will update this)
         mean = self.model.mean()
         self.global_transform = global_transform_cls(mean, mean)
+
+    def _from_model(self, model):
+        return type(self)(model, type(self.global_transform))
 
     @property
     def n_global_parameters(self):
@@ -640,6 +652,9 @@ class OrthoPDM(GlobalPDM):
         # Set target from state (after orthonormalizing)
         self._sync_target_from_state()
 
+    def _from_model(self, model):
+        return type(self)(model)
+
     def _construct_similarity_model(self):
         # 1. Construct similarity model from the mean of the model
         model_mean = self.model.mean()
@@ -648,7 +663,7 @@ class OrthoPDM(GlobalPDM):
         self.model.orthonormalize_against_inplace(self.similarity_model)
         # The number of components may have changed. So re-create the weights
         # from the new number of active components
-        self._weights = np.zeros(self.model.n_active_components)
+        self._weights = np.zeros(self.model.n_components)
         self.similarity_weights = self.similarity_model.project(model_mean)
 
     @property
@@ -743,7 +758,7 @@ class OrthoPDM(GlobalPDM):
                 self.similarity_model.n_components,
                 self.model.n_components,
                 self.similarity_model.n_components,
-                self.n_active_components,
+                self.n_components,
                 self.n_parameters,
                 self.model.centred,
                 self.model.n_features,

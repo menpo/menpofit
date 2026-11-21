@@ -1,3 +1,4 @@
+import copy
 import warnings
 import collections
 from functools import partial
@@ -373,16 +374,52 @@ def check_sampling(sampling, n_scales):
         )
 
 
-def set_models_components(models, n_components):
+def _n_components_per_scale(n_scales, n_components):
+    # None, or a list with the number of components of each scale (a None in
+    # it leaves that scale alone)
+    if n_components is None:
+        return None
+    if type(n_components) is int or type(n_components) is float:
+        return [n_components] * n_scales
+    if len(n_components) == 1 and n_scales > 1:
+        return [n_components[0]] * n_scales
+    if len(n_components) == n_scales:
+        return list(n_components)
+    raise ValueError(
+        "n_components can be an integer or a float "
+        "or None or a list containing 1 or {} of "
+        "those".format(n_scales)
+    )
+
+
+def trimmed_copy(model, **n_components):
     r"""
-    Function that sets the number of active components to a list of models.
+    Returns a copy of a trained model (an AAM, ATM, CLM, ...) whose lists of
+    models per scale are trimmed to a number of components, and leaves the
+    model it was given as it is: this is how a fitter gets the models it
+    works on, with the number of shape / appearance components that it was
+    asked for. They are new models (also for ``None``), so nothing the fitter
+    does to them changes the model it was given.
+
+    Nothing large is copied: the models of the new object are trimmed views of
+    the memory of the original ones (see `menpo.model.PCAVectorModel.trim_components`),
+    and everything else is shared with the original.
 
     Parameters
     ----------
-    models : `list` or `class`
-        The list of models per scale.
-    n_components : `int` or `float` or ``None`` or `list` of those
-        The number of components per model.
+    model : `class`
+        The trained model.
+    **n_components
+        For each attribute of `model` that is a list of models per scale
+        (e.g. ``shape_models=3``, ``appearance_models=[0.9, 0.95]``), the number
+        of components of each: an `int` is the exact number, a `float` the
+        ratio of the variance to keep, a `list` has a value per scale (or one
+        value for all of them) and ``None`` keeps all the components.
+
+    Returns
+    -------
+    model : `type(model)`
+        The copy.
 
     Raises
     ------
@@ -390,23 +427,19 @@ def set_models_components(models, n_components):
         n_components can be an integer or a float or None or a list containing 1
         or {n_scales} of those
     """
-    if n_components is not None:
-        n_scales = len(models)
-        if type(n_components) is int or type(n_components) is float:
-            for am in models:
-                am.n_active_components = n_components
-        elif len(n_components) == 1 and n_scales > 1:
-            for am in models:
-                am.n_active_components = n_components[0]
-        elif len(n_components) == n_scales:
-            for am, n in zip(models, n_components):
-                am.n_active_components = n
-        else:
-            raise ValueError(
-                "n_components can be an integer or a float "
-                "or None or a list containing 1 or {} of "
-                "those".format(n_scales)
-            )
+    new = copy.copy(model)
+    for attribute, n in n_components.items():
+        models = getattr(model, attribute)
+        per_scale = _n_components_per_scale(len(models), n) or [None] * len(models)
+        setattr(
+            new,
+            attribute,
+            [
+                m.trim_components(m.n_components if n_scale is None else n_scale)
+                for m, n_scale in zip(models, per_scale)
+            ],
+        )
+    return new
 
 
 def check_model(model, cls):

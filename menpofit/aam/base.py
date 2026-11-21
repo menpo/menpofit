@@ -479,9 +479,9 @@ class AAM(object):
         am = self.appearance_models[scale_index]
 
         # TODO: this bit of logic should to be transferred down to PCAModel
-        shape_weights = np.random.randn(sm.n_active_components)
+        shape_weights = np.random.randn(sm.n_components)
         shape_instance = sm.instance(shape_weights, normalized_weights=True)
-        appearance_weights = np.random.randn(sm.n_active_components)
+        appearance_weights = np.random.randn(am.n_components)
         appearance_instance = am.instance(appearance_weights, normalized_weights=True)
 
         return self._instance(scale_index, shape_instance, appearance_instance)

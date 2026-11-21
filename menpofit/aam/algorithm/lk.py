@@ -345,7 +345,7 @@ class LucasKanadeStandardInterface(LucasKanadeBaseInterface):
 
         :type: `int`
         """
-        return self.appearance_model.n_active_components
+        return self.appearance_model.n_components
 
     def solve_all_map(self, H, J, e, Ja_prior, c, Js_prior, p):
         r"""
@@ -688,7 +688,7 @@ class LucasKanadePatchInterface(LucasKanadePatchBaseInterface):
 
         :type: `int`
         """
-        return self.appearance_model.n_active_components
+        return self.appearance_model.n_components
 
     def solve_all_map(self, H, J, e, Ja_prior, c, Js_prior, p):
         r"""
@@ -800,7 +800,7 @@ class LucasKanade(object):
     def _precompute(self):
         # grab number of shape and appearance parameters
         self.n = self.transform.n_parameters
-        self.m = self.appearance_model.n_active_components
+        self.m = self.appearance_model.n_components
 
         # grab appearance model components
         self.A = self.appearance_model.components
