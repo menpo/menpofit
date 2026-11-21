@@ -287,7 +287,9 @@ class UnifiedAAMCLM(object):
             appearance_model = PCAModel(warped_images)
             # trim appearance model if required
             if self.max_appearance_components[j] is not None:
-                appearance_model.trim_components(self.max_appearance_components[j])
+                appearance_model.trim_components_inplace(
+                    self.max_appearance_components[j]
+                )
             # add appearance model to the list
             self.appearance_models.append(appearance_model)
 

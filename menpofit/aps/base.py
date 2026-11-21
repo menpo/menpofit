@@ -339,7 +339,7 @@ class GenerativeAPS(object):
                     )
                 )
             else:
-                self.deformation_models[j].increment(
+                self.deformation_models[j].increment_inplace(
                     deformation_shapes, verbose=verbose
                 )
 
@@ -452,7 +452,7 @@ class GenerativeAPS(object):
         self, images, appearance_graph, appearance_model, verbose=False
     ):
         if appearance_graph is not None:
-            appearance_model.increment(images, verbose=verbose)
+            appearance_model.increment_inplace(images, verbose=verbose)
         else:
             raise NotImplementedError(
                 "The full appearance model is not implemented yet."
