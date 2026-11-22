@@ -100,5 +100,8 @@ methods of **menpodetect**. The rest of the options are:
 **kwargs** (`dict`)
   Additional keyword arguments that can be passed to specific models.
 
+:ref:`Every model, built and fitted <ug-models>` has an example for each of the
+models and their fitters.
+
 The next section (:ref:`Result <ug-result>`) presents the basics of the
 fitting `result`.
