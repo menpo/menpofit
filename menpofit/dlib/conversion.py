@@ -4,7 +4,9 @@ import numpy as np
 from menpo.shape import PointCloud, bounding_box
 
 
-all_parts = lambda det: ((p.y, p.x) for p in det.parts())
+def all_parts(det):
+    # a list: np.vstack does not take a generator any more
+    return [(p.y, p.x) for p in det.parts()]
 
 
 def pointcloud_to_dlib_parts(pcloud):
