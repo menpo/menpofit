@@ -32,6 +32,11 @@ of this documentation is reflected in the API Documentation.
 If any functions or classes are missing, please bring it to the attention
 of the developers on `Github <https://github.com/menpo/menpofit>`_.
 
+Examples
+--------
+:ref:`Every model, built and fitted <ug-models>`: a short example of how to
+build and fit each of the models. They are run by the tests.
+
 Notebooks
 ---------
 `Explore the Menpo and MenpoFit Notebooks <http://www.menpo.org/notebooks

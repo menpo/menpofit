@@ -14,6 +14,7 @@ building, fitting and analysing deformable models.
   introduction
   building
   fitting
+  models
   result
   visualization
   references
