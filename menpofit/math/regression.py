@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import cho_factor, cho_solve
 
 from menpo.math import pca
 
@@ -49,6 +50,52 @@ class IRLRegression(object):
         if self.incrementable:
             self.V = np.linalg.inv(XX)
         self.W = np.linalg.solve(XX, X.T.dot(Y))
+
+
+    # ``accumulate`` and ``solve`` train the model on batches of samples
+    _supports_batches = True
+
+    def accumulate(self, X, Y):
+        r"""
+        Add a batch of samples to the model, which is trained with `solve`.
+
+        The solution of ridge regression only depends on ``X^T X`` and
+        ``X^T Y``, which are sums over the samples. Accumulating them over
+        batches and solving once gives exactly the model of `train` on all the
+        samples, while only one batch of samples is in memory at a time. The
+        memory is that of the ``(n_features, n_features)`` matrix ``X^T X``.
+
+        Parameters
+        ----------
+        X : ``(n_samples, n_features)`` `ndarray`
+            The batch of feature vectors.
+        Y : ``(n_samples, n_dims)`` `ndarray`
+            The batch of target vectors.
+        """
+        if self.incrementable:
+            raise ValueError("A model that is trained in batches cannot be incremented")
+        if self.bias:
+            X = np.hstack((X, np.ones((X.shape[0], 1))))
+        if getattr(self, "_XX", None) is None:
+            self._XX = np.zeros((X.shape[1], X.shape[1]))
+            self._XY = np.zeros((X.shape[1], Y.shape[1]))
+        self._XX += X.T.dot(X)
+        self._XY += X.T.dot(Y)
+
+    def solve(self):
+        r"""
+        Solve the regression for all the batches that were added with
+        `accumulate`. The Cholesky factorisation is done in place, so that the
+        memory needed is that of one ``(n_features, n_features)`` matrix.
+        """
+        if getattr(self, "_XX", None) is None:
+            raise ValueError("No samples were accumulated")
+        XX, XY = self._XX, self._XY
+        self._XX = self._XY = None
+        if self.alpha:
+            XX[np.diag_indices_from(XX)] += self.alpha
+        factor = cho_factor(XX, lower=True, overwrite_a=True, check_finite=False)
+        self.W = cho_solve(factor, XY, check_finite=False)
 
     def increment(self, X, Y):
         r"""
@@ -118,6 +165,9 @@ class IIRLRegression(IRLRegression):
     alpha2 : `float`, optional
         The regularization parameter of the Hessian.
     """
+
+    # trains with a different cost: no accumulate and solve
+    _supports_batches = False
 
     def __init__(self, alpha=0, bias=False, alpha2=0):
         # TODO: Can we model the bias? May need to slice off of prediction?

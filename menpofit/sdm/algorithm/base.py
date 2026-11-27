@@ -143,6 +143,51 @@ class BaseSupervisedDescentAlgorithm(object):
 
         return current_shapes
 
+    @property
+    def supports_batches(self):
+        r"""
+        Whether the regressors of this algorithm can be trained on batches of
+        images, with `new_regressor`, `accumulate_level` and `update_level`.
+        """
+        return getattr(self._regressor_cls(), "_supports_batches", False)
+
+    def new_regressor(self):
+        r"""
+        A new regressor, to be trained with `accumulate_level` and then
+        ``solve()``, and appended to ``regressors``.
+        """
+        return self._regressor_cls()
+
+    def accumulate_level(self, regressor, images, gt_shapes, current_shapes):
+        r"""
+        Add a batch of images to the regressor of a level of the cascade. See
+        `update_level` for the arguments.
+        """
+        delta_x, _ = self._compute_delta_x(gt_shapes, current_shapes)
+        features = self._compute_training_features(images, gt_shapes, current_shapes)
+        regressor.accumulate(features, delta_x)
+
+    def update_level(self, level, images, gt_shapes, current_shapes):
+        r"""
+        Update the current shapes of a batch of images with the (solved)
+        regressor of a level of the cascade.
+
+        Parameters
+        ----------
+        level : `int`
+            The index of the cascade level, in ``regressors``.
+        images : `list` of `menpo.image.Image`
+            The batch of training images.
+        gt_shapes : `list` of `menpo.shape.PointCloud`
+            The ground truth shapes of the images.
+        current_shapes : `list` of `list` of `menpo.shape.PointCloud`
+            The current shapes of every image. They are updated inplace.
+        """
+        delta_x, gt_x = self._compute_delta_x(gt_shapes, current_shapes)
+        features = self._compute_training_features(images, gt_shapes, current_shapes)
+        estimated_delta_x = self.regressors[level].predict(features)
+        self._update_estimates(estimated_delta_x, delta_x, gt_x, current_shapes)
+
     def _compute_delta_x(self, gt_shapes, current_shapes):
         raise NotImplementedError()
 
