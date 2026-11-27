@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg.blas import dsyrk
 
 from menpo.math import pca
 
@@ -63,7 +64,9 @@ class IRLRegression(object):
         ``X^T Y``, which are sums over the samples. Accumulating them over
         batches and solving once gives exactly the model of `train` on all the
         samples, while only one batch of samples is in memory at a time. The
-        memory is that of the ``(n_features, n_features)`` matrix ``X^T X``.
+        memory is that of the ``(n_features, n_features)`` matrix ``X^T X``, of
+        which only the lower triangle is computed (a symmetric rank-k update,
+        half the arithmetic of the full product).
 
         Parameters
         ----------
@@ -74,28 +77,50 @@ class IRLRegression(object):
         """
         if self.incrementable:
             raise ValueError("A model that is trained in batches cannot be incremented")
-        if self.bias:
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
+        X = np.ascontiguousarray(X, dtype=np.float64)
+        Y = np.asarray(Y, dtype=np.float64)
         if getattr(self, "_XX", None) is None:
-            self._XX = np.zeros((X.shape[1], X.shape[1]))
-            self._XY = np.zeros((X.shape[1], Y.shape[1]))
-        self._XX += X.T.dot(X)
+            n_features = X.shape[1]
+            self._XX = np.zeros((n_features, n_features), order="F")
+            self._XY = np.zeros((n_features, Y.shape[1]))
+            self._x_sum = np.zeros(n_features)
+            self._y_sum = np.zeros(Y.shape[1])
+            self._n_samples = 0
+        # X.T is Fortran ordered, so BLAS does not need a copy of the batch
+        self._XX = dsyrk(1.0, X.T, beta=1.0, c=self._XX, lower=1, overwrite_c=1)
         self._XY += X.T.dot(Y)
+        if self.bias:
+            # the column of ones is not appended to X: it only adds these sums
+            self._x_sum += X.sum(axis=0)
+            self._y_sum += Y.sum(axis=0)
+            self._n_samples += X.shape[0]
 
     def solve(self):
         r"""
         Solve the regression for all the batches that were added with
         `accumulate`. The Cholesky factorisation is done in place, so that the
-        memory needed is that of one ``(n_features, n_features)`` matrix.
+        memory needed is that of one ``(n_features, n_features)`` matrix. The
+        bias is solved for with the Schur complement, so that this matrix is
+        not extended by a row and a column.
         """
         if getattr(self, "_XX", None) is None:
             raise ValueError("No samples were accumulated")
         XX, XY = self._XX, self._XY
-        self._XX = self._XY = None
+        x_sum, y_sum, n_samples = self._x_sum, self._y_sum, self._n_samples
+        self._XX = self._XY = self._x_sum = self._y_sum = None
         if self.alpha:
             XX[np.diag_indices_from(XX)] += self.alpha
+        right_hand_side = np.hstack((XY, x_sum[:, None])) if self.bias else XY
         factor = cho_factor(XX, lower=True, overwrite_a=True, check_finite=False)
-        self.W = cho_solve(factor, XY, check_finite=False)
+        solution = cho_solve(factor, right_hand_side, check_finite=False)
+        if not self.bias:
+            self.W = solution
+            return
+        weights, from_ones = solution[:, :-1], solution[:, -1]
+        # [[XX, s], [s^T, n + alpha]] [W; w0] = [XY; y_sum]
+        schur = n_samples + self.alpha - x_sum.dot(from_ones)
+        w0 = (y_sum - x_sum.dot(weights)) / schur
+        self.W = np.vstack((weights - np.outer(from_ones, w0), w0))
 
     def increment(self, X, Y):
         r"""

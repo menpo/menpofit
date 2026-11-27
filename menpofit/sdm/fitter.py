@@ -136,14 +136,16 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         The function that will be used to generate the perturbations from each
         of the bounding boxes.
     batch_size : `int` or ``None``, optional
-        If an `int` is provided, then only that many images are in memory at a
-        time while training, which saves the memory of the training samples.
+        If an `int` is provided, then the training samples (the features of the
+        patches of the perturbed shapes, which are far larger than the images)
+        are computed for that many images at a time, which saves their memory.
+        The feature images of the current scale are kept in memory.
         The model is the same as the one trained on all the images at once: the
         ridge regression of every level is accumulated over the batches and
         solved once, and the images are visited once per level, so training
         takes longer. The memory of the ``(n_features, n_features)`` matrix of
-        the regression is the same. The images must be a `list` or a `LazyList`,
-        which can be iterated over many times. It is available when the
+        the regression is the same. The images must be a `list` or a `LazyList`.
+        It is available when the
         regression is ridge regression (`NonParametricNewton`, and so `SDM` and
         `RegularizedSDM`). If ``None``, then the training is performed directly
         on all the images.
@@ -477,9 +479,10 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         are the current shapes, which the previous levels have updated, so the
         images are visited once per level: the visit updates the shapes with the
         regressor that was just solved and adds the samples of the next level.
-        Only the current shapes of all the images are kept, not their features.
-        The images must be a `list` or a `LazyList` that can be iterated over
-        many times.
+        The feature images of the current scale are kept in memory, but not the
+        features of the samples, which are far larger: only the current shapes
+        of the images are kept for them. The images must be a `list` or a
+        `LazyList`.
         """
         images = images if hasattr(images, "__len__") else list(images)
 
@@ -496,46 +499,59 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                 gt_shapes, self.diagonal, verbose=verbose
             )
 
+        n_batches = -(-len(images) // batch_size)
+
+        def get_batch(b):
+            return list(images[b * batch_size : (b + 1) * batch_size])
+
         # the shapes that every image is at, in the frame of the image once it is
         # rescaled to the reference shape (None until the perturbations are made)
-        shapes = [None] * (-(-len(images) // batch_size))
+        shapes = [None] * n_batches
+        # the images of the current scale after their features are computed and
+        # they are rescaled, kept in memory for all the visits of the scale: only
+        # the samples are not kept, and they are far larger
+        cache = {}
 
-        def prepare(b, image_batch, j, prefix):
-            """The images of scale j, and their transforms and ground truth."""
-            image_batch = rescale_images_to_reference_shape(
-                image_batch, group, self.reference_shape
-            )
-            if shapes[b] is None:
-                generated_bb_func = generate_perturbations_from_gt(
-                    image_batch,
-                    self.n_perturbations,
-                    self._perturb_from_gt_bounding_box,
-                    gt_group=group,
-                    bb_group_glob=bounding_box_group_glob,
+        def prepare(b, j):
+            """The images of scale j, their transforms and ground truth."""
+            if b not in cache:
+                image_batch = rescale_images_to_reference_shape(
+                    get_batch(b), group, self.reference_shape
                 )
-            else:
                 generated_bb_func = None
-            if self.holistic_features[j] == no_op:
-                feature_images = image_batch
-            else:
-                feature_images = compute_features(image_batch, self.holistic_features[j])
-            scaled_images, transforms = scale_images(
-                feature_images, self.scales[j], return_transforms=True
-            )
-            gt_shapes = [i.landmarks[group] for i in scaled_images]
-            if shapes[b] is None:
-                # the first scale: the reference shape aligned to the boxes
-                current = [
-                    [
-                        align_shape_with_bounding_box(self.reference_shape, bbox)
-                        for bbox in generated_bb_func(i)
+                if shapes[b] is None:
+                    generated_bb_func = generate_perturbations_from_gt(
+                        image_batch,
+                        self.n_perturbations,
+                        self._perturb_from_gt_bounding_box,
+                        gt_group=group,
+                        bb_group_glob=bounding_box_group_glob,
+                    )
+                if self.holistic_features[j] == no_op:
+                    feature_images = image_batch
+                else:
+                    feature_images = compute_features(
+                        image_batch, self.holistic_features[j]
+                    )
+                scaled_images, transforms = scale_images(
+                    feature_images, self.scales[j], return_transforms=True
+                )
+                if shapes[b] is None:
+                    # the first scale: the reference shape aligned to the boxes
+                    current = [
+                        [
+                            align_shape_with_bounding_box(self.reference_shape, bbox)
+                            for bbox in generated_bb_func(i)
+                        ]
+                        for i in scaled_images
                     ]
-                    for i in scaled_images
-                ]
-                shapes[b] = [
-                    [t.apply(s) for s in image_shapes]
-                    for t, image_shapes in zip(transforms, current)
-                ]
+                    shapes[b] = [
+                        [t.apply(s) for s in image_shapes]
+                        for t, image_shapes in zip(transforms, current)
+                    ]
+                gt_shapes = [i.landmarks[group] for i in scaled_images]
+                cache[b] = (scaled_images, transforms, gt_shapes)
+            scaled_images, transforms, gt_shapes = cache[b]
             current = [
                 [t.pseudoinverse().apply(s) for s in image_shapes]
                 for t, image_shapes in zip(transforms, shapes[b])
@@ -543,6 +559,7 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             return scaled_images, transforms, gt_shapes, current
 
         for j in range(self.n_scales):
+            cache.clear()
             algorithm = self.algorithms[j]
             algorithm.regressors = []
             n_levels = algorithm.n_iterations
@@ -554,10 +571,8 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                     print_dynamic(
                         "  - Scale {}: (Iteration {}) - visiting the images".format(j, k)
                     )
-                for b, image_batch in enumerate(batches()):
-                    scaled_images, transforms, gt_shapes, current = prepare(
-                        b, image_batch, j, ""
-                    )
+                for b in range(n_batches):
+                    scaled_images, transforms, gt_shapes, current = prepare(b, j)
                     if k > 0:
                         algorithm.update_level(k - 1, scaled_images, gt_shapes, current)
                         shapes[b] = [
@@ -572,6 +587,7 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
                     regressor.solve()
                     algorithm.regressors.append(regressor)
                     regressor = algorithm.new_regressor() if k + 1 < n_levels else None
+        cache.clear()
         if verbose:
             print_dynamic("  - Trained in batches of {} images".format(batch_size))
 
@@ -771,14 +787,16 @@ class SDM(SupervisedDescentFitter):
         The function that will be used to generate the perturbations from each
         of the bounding boxes.
     batch_size : `int` or ``None``, optional
-        If an `int` is provided, then only that many images are in memory at a
-        time while training, which saves the memory of the training samples.
+        If an `int` is provided, then the training samples (the features of the
+        patches of the perturbed shapes, which are far larger than the images)
+        are computed for that many images at a time, which saves their memory.
+        The feature images of the current scale are kept in memory.
         The model is the same as the one trained on all the images at once: the
         ridge regression of every level is accumulated over the batches and
         solved once, and the images are visited once per level, so training
         takes longer. The memory of the ``(n_features, n_features)`` matrix of
-        the regression is the same. The images must be a `list` or a `LazyList`,
-        which can be iterated over many times. It is available when the
+        the regression is the same. The images must be a `list` or a `LazyList`.
+        It is available when the
         regression is ridge regression (`NonParametricNewton`, and so `SDM` and
         `RegularizedSDM`). If ``None``, then the training is performed directly
         on all the images.
@@ -888,14 +906,16 @@ class RegularizedSDM(SupervisedDescentFitter):
         The function that will be used to generate the perturbations from each
         of the bounding boxes.
     batch_size : `int` or ``None``, optional
-        If an `int` is provided, then only that many images are in memory at a
-        time while training, which saves the memory of the training samples.
+        If an `int` is provided, then the training samples (the features of the
+        patches of the perturbed shapes, which are far larger than the images)
+        are computed for that many images at a time, which saves their memory.
+        The feature images of the current scale are kept in memory.
         The model is the same as the one trained on all the images at once: the
         ridge regression of every level is accumulated over the batches and
         solved once, and the images are visited once per level, so training
         takes longer. The memory of the ``(n_features, n_features)`` matrix of
-        the regression is the same. The images must be a `list` or a `LazyList`,
-        which can be iterated over many times. It is available when the
+        the regression is the same. The images must be a `list` or a `LazyList`.
+        It is available when the
         regression is ridge regression (`NonParametricNewton`, and so `SDM` and
         `RegularizedSDM`). If ``None``, then the training is performed directly
         on all the images.
