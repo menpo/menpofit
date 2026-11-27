@@ -73,7 +73,9 @@ def test_incrementable_regression_is_unchanged():
     X, Y = regression_data()
     regression = IRLRegression(alpha=3.0, incrementable=True)
     regression.train(X, Y)
-    np.testing.assert_allclose(regression.W, normal_equations(X, Y, 3.0, True), atol=1e-10)
+    np.testing.assert_allclose(
+        regression.W, normal_equations(X, Y, 3.0, True), atol=1e-10
+    )
     assert regression.V.shape == (41, 41)
 
 
@@ -96,7 +98,9 @@ def test_only_ridge_regression_trains_in_batches():
 @pytest.fixture(scope="module")
 def training():
     image = mio.import_builtin_asset("takeo.ppm").as_greyscale()
-    return [image.rotate_ccw_about_centre(a).rescale(0.5) for a in (-8, -6, -3, 0, 3, 6, 9)]
+    return [
+        image.rotate_ccw_about_centre(a).rescale(0.5) for a in (-8, -6, -3, 0, 3, 6, 9)
+    ]
 
 
 def build(images, batch_size, **kwargs):
@@ -127,7 +131,9 @@ def test_batches_give_the_same_model(training, kwargs):
     full = build(training, None, **kwargs)
     # a batch size that does not divide the images: the last batch has two
     batched = build(training, 5, **kwargs)
-    np.testing.assert_allclose(batched.reference_shape.points, full.reference_shape.points)
+    np.testing.assert_allclose(
+        batched.reference_shape.points, full.reference_shape.points
+    )
     for a, b in zip(full.algorithms, batched.algorithms):
         assert len(a.regressors) == len(b.regressors)
         for ra, rb in zip(a.regressors, b.regressors):
@@ -145,7 +151,9 @@ def test_batch_size_of_a_whole_set_or_more(training):
     for batch_size in (len(training), 100):
         batched = build(training, batch_size, scales=(1.0,))
         np.testing.assert_allclose(
-            batched.algorithms[0].regressors[0].W, full.algorithms[0].regressors[0].W, atol=1e-10
+            batched.algorithms[0].regressors[0].W,
+            full.algorithms[0].regressors[0].W,
+            atol=1e-10,
         )
 
 

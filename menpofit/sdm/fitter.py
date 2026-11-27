@@ -569,7 +569,9 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             for k in range(n_levels + 1):
                 if verbose:
                     print_dynamic(
-                        "  - Scale {}: (Iteration {}) - visiting the images".format(j, k)
+                        "  - Scale {}: (Iteration {}) - visiting the images".format(
+                            j, k
+                        )
                     )
                 for b in range(n_batches):
                     scaled_images, transforms, gt_shapes, current = prepare(b, j)

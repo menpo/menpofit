@@ -65,7 +65,6 @@ class IRLRegression(object):
             self.V = np.linalg.inv(XX)
         self.W = np.linalg.solve(XX, X.T.dot(Y))
 
-
     # ``accumulate`` and ``solve`` train the model on batches of samples
     _supports_batches = True
 
@@ -141,7 +140,9 @@ class IRLRegression(object):
         # [[XX, s], [s^T, n + alpha]] [W; w0] = [XY; y_sum]
         schur = n_samples + self.alpha - x_sum.dot(from_ones)
         w0 = (y_sum - x_sum.dot(weights)) / schur
-        self.W = np.vstack((weights - np.outer(from_ones, w0), w0)).astype(weights.dtype, copy=False)
+        self.W = np.vstack((weights - np.outer(from_ones, w0), w0)).astype(
+            weights.dtype, copy=False
+        )
 
     def increment(self, X, Y):
         r"""
