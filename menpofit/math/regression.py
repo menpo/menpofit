@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
-from scipy.linalg.blas import dsyrk
+from scipy.linalg.blas import get_blas_funcs
 
 from menpo.math import pca
 
@@ -38,6 +38,19 @@ class IRLRegression(object):
         Y : ``(n_dims, n_samples)`` `ndarray`
             The array of target vectors.
         """
+        self._XX = self._XY = None
+        if not self.incrementable:
+            # Cholesky solve of the (symmetric) normal equations: half the
+            # arithmetic of the LU solve, in place, and no copy of X for the bias
+            try:
+                self.accumulate(X, Y)
+                self.solve()
+                return
+            except np.linalg.LinAlgError:
+                # the matrix is not positive definite (for example, no
+                # regularization and fewer samples than features)
+                self._XX = self._XY = None
+
         if self.bias:
             # add bias
             X = np.hstack((X, np.ones((X.shape[0], 1))))
@@ -77,22 +90,28 @@ class IRLRegression(object):
         """
         if self.incrementable:
             raise ValueError("A model that is trained in batches cannot be incremented")
-        X = np.ascontiguousarray(X, dtype=np.float64)
-        Y = np.asarray(Y, dtype=np.float64)
+        # the matrix is of the precision of the features: float32 features
+        # (half the memory of float64) give a float32 matrix
+        X = np.asarray(X)
+        if X.dtype not in (np.float32, np.float64):
+            X = X.astype(np.float64)
+        X = np.ascontiguousarray(X)
+        Y = np.asarray(Y).astype(X.dtype, copy=False)
         if getattr(self, "_XX", None) is None:
             n_features = X.shape[1]
-            self._XX = np.zeros((n_features, n_features), order="F")
-            self._XY = np.zeros((n_features, Y.shape[1]))
-            self._x_sum = np.zeros(n_features)
-            self._y_sum = np.zeros(Y.shape[1])
+            self._XX = np.zeros((n_features, n_features), dtype=X.dtype, order="F")
+            self._XY = np.zeros((n_features, Y.shape[1]), dtype=X.dtype)
+            self._x_sum = np.zeros(n_features, dtype=np.float64)
+            self._y_sum = np.zeros(Y.shape[1], dtype=np.float64)
             self._n_samples = 0
         # X.T is Fortran ordered, so BLAS does not need a copy of the batch
-        self._XX = dsyrk(1.0, X.T, beta=1.0, c=self._XX, lower=1, overwrite_c=1)
+        syrk = get_blas_funcs("syrk", (X,))
+        self._XX = syrk(1.0, X.T, beta=1.0, c=self._XX, lower=1, overwrite_c=1)
         self._XY += X.T.dot(Y)
         if self.bias:
             # the column of ones is not appended to X: it only adds these sums
-            self._x_sum += X.sum(axis=0)
-            self._y_sum += Y.sum(axis=0)
+            self._x_sum += X.sum(axis=0, dtype=np.float64)
+            self._y_sum += Y.sum(axis=0, dtype=np.float64)
             self._n_samples += X.shape[0]
 
     def solve(self):
@@ -110,7 +129,9 @@ class IRLRegression(object):
         self._XX = self._XY = self._x_sum = self._y_sum = None
         if self.alpha:
             XX[np.diag_indices_from(XX)] += self.alpha
-        right_hand_side = np.hstack((XY, x_sum[:, None])) if self.bias else XY
+        right_hand_side = XY
+        if self.bias:
+            right_hand_side = np.hstack((XY, x_sum[:, None].astype(XY.dtype)))
         factor = cho_factor(XX, lower=True, overwrite_a=True, check_finite=False)
         solution = cho_solve(factor, right_hand_side, check_finite=False)
         if not self.bias:
@@ -120,7 +141,7 @@ class IRLRegression(object):
         # [[XX, s], [s^T, n + alpha]] [W; w0] = [XY; y_sum]
         schur = n_samples + self.alpha - x_sum.dot(from_ones)
         w0 = (y_sum - x_sum.dot(weights)) / schur
-        self.W = np.vstack((weights - np.outer(from_ones, w0), w0))
+        self.W = np.vstack((weights - np.outer(from_ones, w0), w0)).astype(weights.dtype, copy=False)
 
     def increment(self, X, Y):
         r"""

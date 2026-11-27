@@ -17,19 +17,64 @@ from menpofit.math import IIRLRegression, IRLRegression
 RIDGE = 5.0
 
 
-def test_accumulate_and_solve_equal_train():
+def normal_equations(X, Y, alpha, bias):
+    """The ridge solution from the normal equations, with a general solver."""
+    if bias:
+        X = np.hstack((X, np.ones((X.shape[0], 1))))
+    A = X.T.dot(X)
+    A[np.diag_indices_from(A)] += alpha
+    return np.linalg.solve(A, X.T.dot(Y))
+
+
+def regression_data():
     rng = np.random.RandomState(0)
     X = rng.randn(500, 40)
-    Y = X.dot(rng.randn(40, 6)) + 0.1 * rng.randn(500, 6)
-    for bias in (True, False):
-        full = IRLRegression(alpha=3.0, bias=bias)
-        full.train(X, Y)
-        batched = IRLRegression(alpha=3.0, bias=bias)
-        for start in range(0, 500, 70):  # the last batch is smaller
-            batched.accumulate(X[start : start + 70], Y[start : start + 70])
-        batched.solve()
-        np.testing.assert_allclose(batched.W, full.W, atol=1e-10)
-        np.testing.assert_allclose(batched.predict(X), full.predict(X), atol=1e-9)
+    return X, X.dot(rng.randn(40, 6)) + 0.1 * rng.randn(500, 6)
+
+
+@pytest.mark.parametrize("bias", [True, False])
+def test_train_and_batches_equal_the_normal_equations(bias):
+    X, Y = regression_data()
+    expected = normal_equations(X, Y, 3.0, bias)
+    full = IRLRegression(alpha=3.0, bias=bias)
+    full.train(X, Y)
+    batched = IRLRegression(alpha=3.0, bias=bias)
+    for start in range(0, 500, 70):  # the last batch is smaller
+        batched.accumulate(X[start : start + 70], Y[start : start + 70])
+    batched.solve()
+    np.testing.assert_allclose(full.W, expected, atol=1e-10)
+    np.testing.assert_allclose(batched.W, expected, atol=1e-10)
+    np.testing.assert_allclose(batched.predict(X), full.predict(X), atol=1e-9)
+
+
+def test_float32_features_give_a_float32_model():
+    X, Y = regression_data()
+    X32 = X.astype(np.float32)
+    regression = IRLRegression(alpha=3.0)
+    regression.train(X32, Y)
+    assert regression.W.dtype == np.float32
+    expected = normal_equations(X32.astype(np.float64), Y, 3.0, True)
+    np.testing.assert_allclose(regression.W, expected, atol=1e-4)
+
+
+def test_train_without_ridge_on_a_singular_problem_still_solves():
+    # fewer samples than features, and no regularization: the matrix is not
+    # positive definite, which the Cholesky solve refuses, and the LU solve is
+    # the fallback
+    rng = np.random.RandomState(0)
+    X, Y = rng.randn(10, 30), rng.randn(10, 2)
+    regression = IRLRegression(alpha=0.0)
+    regression.train(X, Y)
+    assert regression.W.shape == (31, 2)
+    assert np.isfinite(regression.W).all()
+
+
+def test_incrementable_regression_is_unchanged():
+    X, Y = regression_data()
+    regression = IRLRegression(alpha=3.0, incrementable=True)
+    regression.train(X, Y)
+    np.testing.assert_allclose(regression.W, normal_equations(X, Y, 3.0, True), atol=1e-10)
+    assert regression.V.shape == (41, 41)
 
 
 def test_solve_needs_samples_and_frees_the_matrix():
