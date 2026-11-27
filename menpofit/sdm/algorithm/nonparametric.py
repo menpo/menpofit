@@ -134,6 +134,9 @@ class NonParametricNewton(NonParametricSDAlgorithm):
         The regularization parameter.
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
+    incrementable : `bool`, optional
+        Flag that controls whether the regressors can be incremented, which is
+        what training on batches of images does.
     """
 
     def __init__(
@@ -144,10 +147,13 @@ class NonParametricNewton(NonParametricSDAlgorithm):
         compute_error=euclidean_bb_normalised_error,
         alpha=0,
         bias=True,
+        incrementable=False,
     ):
         super(NonParametricNewton, self).__init__()
 
-        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
+        self._regressor_cls = partial(
+            IRLRegression, alpha=alpha, bias=bias, incrementable=incrementable
+        )
         self.patch_shape = patch_shape
         self.patch_features = patch_features
         self.n_iterations = n_iterations

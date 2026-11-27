@@ -376,10 +376,21 @@ class SupervisedDescentAAMFitter(SupervisedDescentFitter):
 
     def _setup_algorithms(self):
         interfaces = self.aam.build_fitter_interfaces(self._sampling)
-        self.algorithms = [
-            self._sd_algorithm_cls[j](interface, n_iterations=self.n_iterations[j])
-            for j, interface in enumerate(interfaces)
-        ]
+        # training on batches of images increments the regressors
+        options = {"incrementable": True} if self._batch_size is not None else {}
+        try:
+            self.algorithms = [
+                self._sd_algorithm_cls[j](
+                    interface, n_iterations=self.n_iterations[j], **options
+                )
+                for j, interface in enumerate(interfaces)
+            ]
+        except TypeError as error:
+            if not options:
+                raise
+            raise NotImplementedError(
+                "batch_size is not available for this sd_algorithm_cls"
+            ) from error
 
     def _fitter_result(
         self,

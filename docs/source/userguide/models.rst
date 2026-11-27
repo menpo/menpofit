@@ -63,11 +63,13 @@ which case the fitter is trained on the images as well:
 
 .. code-block:: python
 
-    from menpofit.aam import HolisticAAM, SupervisedDescentAAMFitter
+    from functools import partial
+    from menpofit.aam import HolisticAAM, ProjectOutNewton, SupervisedDescentAAMFitter
 
     aam = HolisticAAM(training_images, group='PTS', diagonal=100,
                       scales=(0.5, 1.0))
     fitter = SupervisedDescentAAMFitter(training_images, aam, group='PTS',
+                                        sd_algorithm_cls=partial(ProjectOutNewton, alpha=100),
                                         n_shape=10, n_appearance=50,
                                         n_iterations=3, n_perturbations=5)
     result = fitter.fit_from_bb(image, bounding_box)
@@ -148,14 +150,18 @@ Supervised Descent
 ------------------
 A cascade of regressors from features at the current shape to the update of the
 shape. The model *is* the fitter: it is trained when it is built. ``SDM`` and
-``RegularizedSDM`` are ready-made choices of the algorithm.
+``RegularizedSDM`` are ready-made choices of the algorithm. The regression has a
+weight for every feature, so it needs many more samples than features, or a ridge
+penalty (``alpha``, which ``RegularizedSDM`` takes): without one, ``SDM`` fails on a
+system that is not positive definite and asks for it.
 
 .. code-block:: python
 
+    from functools import partial
     from menpofit.sdm import SupervisedDescentFitter, NonParametricNewton
 
     fitter = SupervisedDescentFitter(training_images, group='PTS',
-                                     sd_algorithm_cls=NonParametricNewton,
+                                     sd_algorithm_cls=partial(NonParametricNewton, alpha=100),
                                      diagonal=100, scales=(0.5, 1.0),
                                      patch_shape=(9, 9), n_iterations=3,
                                      n_perturbations=5)
@@ -163,10 +169,11 @@ shape. The model *is* the fitter: it is trained when it is built. ``SDM`` and
 
 .. code-block:: python
 
-    from menpofit.sdm import SDM
+    from menpofit.sdm import RegularizedSDM
 
-    fitter = SDM(training_images, group='PTS', diagonal=100, scales=(0.5, 1.0),
-                 patch_shape=(9, 9), n_iterations=3, n_perturbations=5)
+    fitter = RegularizedSDM(training_images, group='PTS', alpha=100,
+                            diagonal=100, scales=(0.5, 1.0),
+                            patch_shape=(9, 9), n_iterations=3, n_perturbations=5)
     result = fitter.fit_from_bb(image, bounding_box)
 
 Training takes the bounding boxes it perturbs from the ground truth landmarks

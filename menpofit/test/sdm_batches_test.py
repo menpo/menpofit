@@ -1,9 +1,9 @@
-"""Training SDM in batches of images gives the model of training on all of them at once.
+"""Training SDM on batches of images increments its ridge regressions.
 
-A level of the cascade is a ridge regression, whose solution only depends on ``X^T X`` and
-``X^T Y``. They are sums over the samples, so they are accumulated over the batches and solved
-once (`IRLRegression.accumulate` and `solve`); the images are visited once per level, because the
-samples of a level are the shapes that the previous levels have updated.
+The solution of ridge regression only depends on ``X^T X`` and ``X^T Y``, which are sums over
+the samples, so incrementing a regression with new samples gives exactly the model of training
+on all of them. Training an SDM on batches of images increments the regressors of every level
+with the samples of each batch.
 """
 
 import numpy as np
@@ -12,9 +12,7 @@ import pytest
 import menpo.io as mio
 from menpo.feature import fast_dsift
 from menpofit import sdm
-from menpofit.math import IIRLRegression, IRLRegression
-
-RIDGE = 5.0
+from menpofit.math import IRLRegression
 
 
 def normal_equations(X, Y, alpha, bias):
@@ -33,18 +31,18 @@ def regression_data():
 
 
 @pytest.mark.parametrize("bias", [True, False])
-def test_train_and_batches_equal_the_normal_equations(bias):
+def test_train_and_increment_equal_the_normal_equations(bias):
     X, Y = regression_data()
     expected = normal_equations(X, Y, 3.0, bias)
     full = IRLRegression(alpha=3.0, bias=bias)
     full.train(X, Y)
-    batched = IRLRegression(alpha=3.0, bias=bias)
-    for start in range(0, 500, 70):  # the last batch is smaller
-        batched.accumulate(X[start : start + 70], Y[start : start + 70])
-    batched.solve()
+    incremented = IRLRegression(alpha=3.0, bias=bias, incrementable=True)
+    incremented.train(X[:100], Y[:100])
+    for start in range(100, 500, 70):  # the last batch is smaller
+        incremented.increment(X[start : start + 70], Y[start : start + 70])
     np.testing.assert_allclose(full.W, expected, atol=1e-10)
-    np.testing.assert_allclose(batched.W, expected, atol=1e-10)
-    np.testing.assert_allclose(batched.predict(X), full.predict(X), atol=1e-9)
+    np.testing.assert_allclose(incremented.W, expected, atol=1e-10)
+    np.testing.assert_allclose(incremented.predict(X), full.predict(X), atol=1e-9)
 
 
 def test_float32_features_give_a_float32_model():
@@ -57,42 +55,20 @@ def test_float32_features_give_a_float32_model():
     np.testing.assert_allclose(regression.W, expected, atol=1e-4)
 
 
-def test_train_without_ridge_on_a_singular_problem_still_solves():
-    # fewer samples than features, and no regularization: the matrix is not
-    # positive definite, which the Cholesky solve refuses, and the LU solve is
-    # the fallback
-    rng = np.random.RandomState(0)
-    X, Y = rng.randn(10, 30), rng.randn(10, 2)
-    regression = IRLRegression(alpha=0.0)
-    regression.train(X, Y)
-    assert regression.W.shape == (31, 2)
-    assert np.isfinite(regression.W).all()
-
-
-def test_incrementable_regression_is_unchanged():
+def test_only_an_incrementable_regression_is_incremented():
     X, Y = regression_data()
-    regression = IRLRegression(alpha=3.0, incrementable=True)
+    regression = IRLRegression(alpha=3.0)
     regression.train(X, Y)
-    np.testing.assert_allclose(
-        regression.W, normal_equations(X, Y, 3.0, True), atol=1e-10
-    )
-    assert regression.V.shape == (41, 41)
+    with pytest.raises(ValueError, match="not incrementable"):
+        regression.increment(X, Y)
 
 
-def test_solve_needs_samples_and_frees_the_matrix():
-    regression = IRLRegression(alpha=1.0)
-    with pytest.raises(ValueError):
-        regression.solve()
-    regression.accumulate(np.random.RandomState(0).randn(20, 5), np.ones((20, 2)))
-    regression.solve()
-    assert regression._XX is None and regression._XY is None
-
-
-def test_only_ridge_regression_trains_in_batches():
-    assert IRLRegression._supports_batches
-    assert not IIRLRegression._supports_batches
-    with pytest.raises(ValueError):
-        IRLRegression(incrementable=True).accumulate(np.ones((3, 2)), np.ones((3, 1)))
+def test_a_singular_problem_asks_for_a_ridge_penalty():
+    rng = np.random.RandomState(0)
+    X, Y = rng.randn(10, 30), rng.randn(10, 2)  # fewer samples than features
+    with pytest.raises(np.linalg.LinAlgError, match="ridge"):
+        IRLRegression(alpha=0.0).train(X, Y)
+    IRLRegression(alpha=1.0).train(X, Y)
 
 
 @pytest.fixture(scope="module")
@@ -108,7 +84,7 @@ def build(images, batch_size, **kwargs):
     return sdm.RegularizedSDM(
         images,
         group="PTS",
-        alpha=RIDGE,
+        alpha=5.0,
         diagonal=50,
         patch_shape=(5, 5),
         n_iterations=3,
@@ -127,38 +103,43 @@ def build(images, batch_size, **kwargs):
     ],
     ids=["one scale", "two scales", "dense sift"],
 )
-def test_batches_give_the_same_model(training, kwargs):
+@pytest.mark.parametrize("batch_size", [3, 5, 100])
+def test_batches_give_the_model_of_training_on_all_the_images(
+    training, kwargs, batch_size
+):
+    # the 7 images in batches of 3 (the last has one image), of 5 and in one batch
     full = build(training, None, **kwargs)
-    # a batch size that does not divide the images: the last batch has two
-    batched = build(training, 5, **kwargs)
+    batched = build(training, batch_size, **kwargs)
     np.testing.assert_allclose(
         batched.reference_shape.points, full.reference_shape.points
     )
     for a, b in zip(full.algorithms, batched.algorithms):
         assert len(a.regressors) == len(b.regressors)
         for ra, rb in zip(a.regressors, b.regressors):
-            scale = np.abs(ra.W).max()
-            np.testing.assert_allclose(rb.W, ra.W, atol=1e-8 * max(scale, 1e-3))
+            np.testing.assert_allclose(
+                rb.W, ra.W, atol=1e-8 * max(np.abs(ra.W).max(), 1e-3)
+            )
     ground_truth = training[0].landmarks["PTS"]
     args = (training[0], ground_truth.bounding_box())
-    error_full = full.fit_from_bb(*args, gt_shape=ground_truth).final_error()
-    error_batched = batched.fit_from_bb(*args, gt_shape=ground_truth).final_error()
-    assert error_batched == pytest.approx(error_full, abs=1e-6)
+    assert batched.fit_from_bb(
+        *args, gt_shape=ground_truth
+    ).final_error() == pytest.approx(
+        full.fit_from_bb(*args, gt_shape=ground_truth).final_error(), abs=1e-6
+    )
 
 
-def test_batch_size_of_a_whole_set_or_more(training):
+def test_a_generator_of_images_can_be_trained_in_batches(training):
     full = build(training, None, scales=(1.0,))
-    for batch_size in (len(training), 100):
-        batched = build(training, batch_size, scales=(1.0,))
-        np.testing.assert_allclose(
-            batched.algorithms[0].regressors[0].W,
-            full.algorithms[0].regressors[0].W,
-            atol=1e-10,
-        )
+    batched = build((image for image in training), 3, scales=(1.0,))
+    np.testing.assert_allclose(
+        batched.algorithms[0].regressors[0].W,
+        full.algorithms[0].regressors[0].W,
+        atol=1e-10,
+    )
 
 
 def test_batches_with_other_regressions_are_refused(training):
-    with pytest.raises(NotImplementedError, match="ridge"):
+    with pytest.raises(NotImplementedError, match="batch_size"):
         sdm.SupervisedDescentFitter(
             training,
             group="PTS",
@@ -166,6 +147,49 @@ def test_batches_with_other_regressions_are_refused(training):
             diagonal=50,
             scales=(1.0,),
             patch_shape=(5, 5),
+            n_iterations=2,
+            n_perturbations=2,
+            batch_size=3,
+        )
+
+
+def test_the_supervised_descent_of_an_aam_trains_in_batches(training):
+    from functools import partial
+
+    from menpofit import aam
+
+    model = aam.HolisticAAM(
+        training,
+        group="PTS",
+        scales=(1.0,),
+        diagonal=50,
+        max_shape_components=3,
+        max_appearance_components=3,
+    )
+
+    def build_aam_fitter(batch_size):
+        np.random.seed(0)
+        return aam.SupervisedDescentAAMFitter(
+            training,
+            model,
+            group="PTS",
+            sd_algorithm_cls=partial(aam.ProjectOutNewton, alpha=5.0),
+            n_iterations=2,
+            n_perturbations=3,
+            batch_size=batch_size,
+        )
+
+    full, batched = build_aam_fitter(None), build_aam_fitter(3)
+    for ra, rb in zip(full.algorithms[0].regressors, batched.algorithms[0].regressors):
+        np.testing.assert_allclose(
+            rb.W, ra.W, atol=1e-8 * max(np.abs(ra.W).max(), 1e-3)
+        )
+    with pytest.raises(NotImplementedError, match="batch_size"):
+        aam.SupervisedDescentAAMFitter(
+            training,
+            model,
+            group="PTS",
+            sd_algorithm_cls=aam.ProjectOutGaussNewton,
             n_iterations=2,
             n_perturbations=2,
             batch_size=3,
