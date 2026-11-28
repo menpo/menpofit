@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 import menpo.io as mio
-from menpo.feature import fast_dsift
+from menpo.feature import igo
 from menpofit import sdm
 from menpofit.math import IRLRegression
 
@@ -99,9 +99,9 @@ def build(images, batch_size, **kwargs):
     [
         dict(scales=(1.0,)),
         dict(scales=(0.5, 1.0)),
-        dict(scales=(0.5, 1.0), holistic_features=fast_dsift),
+        dict(scales=(0.5, 1.0), holistic_features=igo),
     ],
-    ids=["one scale", "two scales", "dense sift"],
+    ids=["one scale", "two scales", "multi-channel features"],
 )
 @pytest.mark.parametrize("batch_size", [3, 5, 100])
 def test_batches_give_the_model_of_training_on_all_the_images(
