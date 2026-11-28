@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg.blas import get_blas_funcs
 
 from menpo.math import pca
 
@@ -6,6 +8,13 @@ from menpo.math import pca
 class IRLRegression(object):
     r"""
     Class for training and applying Incremental Regularized Linear Regression.
+
+    The solution of ridge regression only depends on the products ``X^T X`` and
+    ``X^T Y``, which are sums over the samples. They are accumulated (so
+    incrementing adds the new samples to them) and the normal equations are
+    solved with a Cholesky factorisation, which needs ``X^T X`` to be positive
+    definite: use a ridge penalty (``alpha > 0``) when there are fewer samples
+    than features.
 
     Parameters
     ----------
@@ -15,15 +24,32 @@ class IRLRegression(object):
         If ``True``, a bias term is used.
     incrementable : `bool`, optional
         If ``True``, then the regression model will have the ability to get
-        incremented.
+        incremented: ``X^T X`` is kept (``n_features ** 2`` values, twice that
+        while solving).
     """
 
     def __init__(self, alpha=0, bias=True, incrementable=False):
         self.alpha = alpha
         self.bias = bias
         self.incrementable = incrementable
-        self.V = None
-        self.W = None
+        self._W = None
+        self._XX = None
+
+    @property
+    def W(self):
+        # an incrementable model is solved when its weights are needed, after
+        # all the batches that were added
+        if self._W is None and self._XX is not None:
+            self._solve()
+        return self._W
+
+    @W.setter
+    def W(self, value):
+        self._W = value
+
+    def __getstate__(self):
+        self.W  # a model is saved solved
+        return self.__dict__
 
     def train(self, X, Y):
         r"""
@@ -31,24 +57,15 @@ class IRLRegression(object):
 
         Parameters
         ----------
-        X : ``(n_features, n_samples)`` `ndarray`
+        X : ``(n_samples, n_features)`` `ndarray`
             The array of feature vectors.
-        Y : ``(n_dims, n_samples)`` `ndarray`
+        Y : ``(n_samples, n_dims)`` `ndarray`
             The array of target vectors.
         """
-        if self.bias:
-            # add bias
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
-
-        # regularized linear regression
-        XX = X.T.dot(X)
-        # ensure covariance is perfectly symmetric for inversion
-        XX = (XX + XX.T) / 2.0
-        if self.alpha:
-            np.fill_diagonal(XX, self.alpha + np.diag(XX))
-        if self.incrementable:
-            self.V = np.linalg.inv(XX)
-        self.W = np.linalg.solve(XX, X.T.dot(Y))
+        self._XX = self._W = None
+        self._accumulate(X, Y)
+        if not self.incrementable:
+            self._solve()
 
     def increment(self, X, Y):
         r"""
@@ -56,9 +73,9 @@ class IRLRegression(object):
 
         Parameters
         ----------
-        X : ``(n_features, n_samples)`` `ndarray`
+        X : ``(n_samples, n_features)`` `ndarray`
             The array of feature vectors.
-        Y : ``(n_dims, n_samples)`` `ndarray`
+        Y : ``(n_samples, n_dims)`` `ndarray`
             The array of target vectors.
 
         Raises
@@ -68,19 +85,77 @@ class IRLRegression(object):
         """
         if not self.incrementable:
             raise ValueError("Model is not incrementable")
+        self._accumulate(X, Y)
+        self._W = None
 
+    def _accumulate(self, X, Y):
+        # Ridge regression is W = (X^T X + alpha I)^-1 X^T Y, with X the features
+        # (n_samples x n_features) and Y the targets (n_samples x n_dims). Both
+        # products are sums over the samples, so they are accumulated over batches:
+        #   _XX = sum of X^T X  (n_features x n_features, symmetric: only its lower
+        #                        triangle is computed)
+        #   _XY = sum of X^T Y  (n_features x n_dims)
+        # With a bias, X has a column of ones appended, which is not built (it would
+        # copy X): the entries of the products that it adds are
+        #   _x_sum = sum of X^T 1 (n_features), _y_sum = sum of Y^T 1 (n_dims) and
+        #   _n_samples = 1^T 1.
+        # The matrix has the precision of the features: float32 features give a
+        # float32 matrix, half the memory of float64.
+        X = np.asarray(X)
+        if X.dtype not in (np.float32, np.float64):
+            X = X.astype(np.float64)
+        X = np.ascontiguousarray(X)
+        Y = np.asarray(Y).astype(X.dtype, copy=False)
+        if self._XX is None:
+            n_features = X.shape[1]
+            self._XX = np.zeros((n_features, n_features), dtype=X.dtype, order="F")
+            self._XY = np.zeros((n_features, Y.shape[1]), dtype=X.dtype)
+            self._x_sum = np.zeros(n_features, dtype=np.float64)
+            self._y_sum = np.zeros(Y.shape[1], dtype=np.float64)
+            self._n_samples = 0
+        # X.T is Fortran ordered, so BLAS needs no copy of X
+        syrk = get_blas_funcs("syrk", (X,))
+        self._XX = syrk(1.0, X.T, beta=1.0, c=self._XX, lower=1, overwrite_c=1)
+        self._XY += X.T.dot(Y)
         if self.bias:
-            # add bias
-            X = np.hstack((X, np.ones((X.shape[0], 1))))
+            self._x_sum += X.sum(axis=0, dtype=np.float64)
+            self._y_sum += Y.sum(axis=0, dtype=np.float64)
+            self._n_samples += X.shape[0]
 
-        # incremental regularized linear regression
-        U = X.dot(self.V).dot(X.T)
+    def _solve(self):
+        # The factorisation overwrites its matrix: when the model can be
+        # incremented, the sums are kept and a copy is factorised.
+        XX, XY = self._XX, self._XY
+        if self.incrementable:
+            XX = XX.copy(order="F")
+        else:
+            self._XX = self._XY = None
         if self.alpha:
-            np.fill_diagonal(U, self.alpha + np.diag(U))
-        U = np.linalg.inv(U)
-        Q = self.V.dot(X.T).dot(U).dot(X)
-        self.V = self.V - Q.dot(self.V)
-        self.W = self.W - Q.dot(self.W) + self.V.dot(X.T.dot(Y))
+            XX[np.diag_indices_from(XX)] += self.alpha
+        right_hand_side = XY
+        if self.bias:
+            right_hand_side = np.hstack((XY, self._x_sum[:, None].astype(XY.dtype)))
+        try:
+            factor = cho_factor(XX, lower=True, overwrite_a=True, check_finite=False)
+        except np.linalg.LinAlgError as error:
+            raise np.linalg.LinAlgError(
+                "The normal equations of the regression are not positive "
+                "definite (for example, with fewer samples than features): "
+                "use a ridge penalty (alpha > 0)."
+            ) from error
+        solution = cho_solve(factor, right_hand_side, check_finite=False)
+        if not self.bias:
+            self._W = solution
+            return
+        # With the column of ones, the system is
+        #   [[XX + alpha I, x_sum], [x_sum^T, n + alpha]] [W; w0] = [XY; y_sum]
+        # and its Schur complement for w0 is n + alpha - x_sum^T (XX + alpha I)^-1 x_sum
+        weights, from_ones = solution[:, :-1], solution[:, -1]
+        schur = self._n_samples + self.alpha - self._x_sum.dot(from_ones)
+        w0 = (self._y_sum - self._x_sum.dot(weights)) / schur
+        self._W = np.vstack((weights - np.outer(from_ones, w0), w0)).astype(
+            weights.dtype, copy=False
+        )
 
     def predict(self, x):
         r"""

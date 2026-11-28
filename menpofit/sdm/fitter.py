@@ -1,7 +1,6 @@
 from __future__ import division
 import numpy as np
 from functools import partial
-import warnings
 
 from menpo.feature import no_op
 from menpo.base import name_of_callable
@@ -12,7 +11,6 @@ from menpofit.builder import (
     scale_images,
     rescale_images_to_reference_shape,
     compute_reference_shape,
-    MenpoFitBuilderWarning,
     compute_features,
 )
 from menpofit.fitter import (
@@ -171,11 +169,6 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         batch_size=None,
         verbose=False,
     ):
-        if batch_size is not None:
-            raise NotImplementedError(
-                "Training an SDM with a batch size "
-                "(incrementally) is not implemented yet."
-            )
         # Check parameters
         checks.check_diagonal(diagonal)
         scales = checks.check_scales(scales)
@@ -201,6 +194,7 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         self.n_perturbations = n_perturbations
         self.n_iterations = checks.check_max_iters(n_iterations, n_scales)
         self._perturb_from_gt_bounding_box = perturb_from_gt_bounding_box
+        self._batch_size = batch_size
 
         # Set up algorithms
         self._setup_algorithms()
@@ -216,14 +210,24 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         )
 
     def _setup_algorithms(self):
-        self.algorithms = [
-            self._sd_algorithm_cls[j](
-                patch_features=self.patch_features[j],
-                patch_shape=self.patch_shape[j],
-                n_iterations=self.n_iterations[j],
-            )
-            for j in range(self.n_scales)
-        ]
+        # training on batches of images increments the regressors
+        options = {"incrementable": True} if self._batch_size is not None else {}
+        try:
+            self.algorithms = [
+                self._sd_algorithm_cls[j](
+                    patch_features=self.patch_features[j],
+                    patch_shape=self.patch_shape[j],
+                    n_iterations=self.n_iterations[j],
+                    **options,
+                )
+                for j in range(self.n_scales)
+            ]
+        except TypeError as error:
+            if not options:
+                raise
+            raise NotImplementedError(
+                "batch_size is not available for this sd_algorithm_cls"
+            ) from error
 
     def _train(
         self,
@@ -234,80 +238,56 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
         verbose=False,
         batch_size=None,
     ):
-        # If batch_size is not None, then we may have a generator, else we
-        # assume we have a list.
-        if batch_size is not None:
-            # Create a generator of fixed sized batches. Will still work even
-            # on an infinite list.
-            image_batches = batch(images, batch_size)
-        else:
-            image_batches = [list(images)]
+        # With batches, the images are visited more than once: they must not be
+        # a generator.
+        if iter(images) is images:
+            images = list(images)
 
-        for k, image_batch in enumerate(image_batches):
-            if k == 0:
-                if self.reference_shape is None:
-                    # If no reference shape was given, use the mean of the first
-                    # batch
-                    if batch_size is not None:
-                        warnings.warn(
-                            "No reference shape was provided. The "
-                            "mean of the first batch will be the "
-                            "reference shape. If the batch mean is "
-                            "not representative of the true mean, "
-                            "this may cause issues.",
-                            MenpoFitBuilderWarning,
-                        )
-                    self._reference_shape = compute_reference_shape(
-                        [i.landmarks[group] for i in image_batch],
-                        self.diagonal,
-                        verbose=verbose,
-                    )
-            # We set landmarks on the images to archive the perturbations, so
-            # when the default 'None' is used, we need to grab the actual
-            # label to sort out the ambiguity
-            if group is None:
-                group = image_batch[0].landmarks.group_labels[0]
+        def image_batches():
+            if batch_size is None:
+                return [list(images)]
+            return batch(images, batch_size)
 
-            # After the first batch, we are incrementing the model
-            if k > 0:
-                increment = True
-
-            if verbose:
-                print("Computing batch {}".format(k))
-
-            # Train each batch
-            self._train_batch(
-                image_batch,
-                increment=increment,
-                group=group,
-                bounding_box_group_glob=bounding_box_group_glob,
+        # We set landmarks on the images to archive the perturbations, so
+        # when the default 'None' is used, we need to grab the actual
+        # label to sort out the ambiguity
+        if group is None:
+            group = next(iter(image_batches()))[0].landmarks.group_labels[0]
+        if self.reference_shape is None:
+            # The mean of the shapes of all the images, of which only the shapes
+            # are kept
+            self._reference_shape = compute_reference_shape(
+                [i.landmarks[group] for b in image_batches() for i in b],
+                self.diagonal,
                 verbose=verbose,
             )
 
-    def _train_batch(
-        self,
-        image_batch,
-        increment=False,
-        group=None,
-        bounding_box_group_glob=None,
-        verbose=False,
-    ):
-        # Rescale images wrt the scale factor between the existing
-        # reference_shape and their ground truth (group) shapes
-        image_batch = rescale_images_to_reference_shape(
-            image_batch, group, self.reference_shape, verbose=verbose
-        )
+        # Rescale the images wrt the scale factor between the existing
+        # reference_shape and their ground truth (group) shapes, and attach the
+        # perturbations of their bounding boxes
+        rescaled_batches = []
+        generated_bb_funcs = []
+        for k, image_batch in enumerate(image_batches()):
+            if verbose and batch_size is not None:
+                print("Computing batch {}".format(k))
+            image_batch = rescale_images_to_reference_shape(
+                image_batch, group, self.reference_shape, verbose=verbose
+            )
+            generated_bb_funcs.append(
+                generate_perturbations_from_gt(
+                    image_batch,
+                    self.n_perturbations,
+                    self._perturb_from_gt_bounding_box,
+                    gt_group=group,
+                    bb_group_glob=bounding_box_group_glob,
+                    verbose=verbose,
+                )
+            )
+            rescaled_batches.append(image_batch)
 
-        # Create a callable that generates perturbations of the bounding boxes
-        # of the provided images.
-        generated_bb_func = generate_perturbations_from_gt(
-            image_batch,
-            self.n_perturbations,
-            self._perturb_from_gt_bounding_box,
-            gt_group=group,
-            bb_group_glob=bounding_box_group_glob,
-            verbose=verbose,
-        )
+        # Every level of a scale goes through all the batches, so the feature
+        # images of the batches are kept (in memory) while the scale is trained
+        feature_images = [None] * len(rescaled_batches)
 
         # For each scale (low --> high)
         for j in range(self.n_scales):
@@ -320,125 +300,121 @@ class SupervisedDescentFitter(MultiScaleNonParametricFitter):
             else:
                 scale_prefix = None
 
-            # Extract features. Features are extracted only if we are at the
-            # first scale or if the features of the current scale are different
-            # than the ones extracted at the previous scale.
-            if j == 0 and self.holistic_features[j] == no_op:
-                # Saves a lot of memory
-                feature_images = image_batch
-            elif j == 0 or self.holistic_features[j] != self.holistic_features[j - 1]:
-                # Compute features only if this is the first pass through
-                # the loop or the features at this scale are different from
-                # the features at the previous scale
-                feature_images = compute_features(
-                    image_batch,
-                    self.holistic_features[j],
+            scaled = []
+            for k, image_batch in enumerate(rescaled_batches):
+                # Extract features. Features are extracted only if we are at the
+                # first scale or if the features of the current scale are different
+                # than the ones extracted at the previous scale.
+                if j == 0 and self.holistic_features[j] == no_op:
+                    # Saves a lot of memory
+                    feature_images[k] = image_batch
+                elif (
+                    j == 0 or self.holistic_features[j] != self.holistic_features[j - 1]
+                ):
+                    feature_images[k] = compute_features(
+                        image_batch,
+                        self.holistic_features[j],
+                        prefix=scale_prefix,
+                        verbose=verbose,
+                    )
+
+                # Rescale images according to scales. Note that scale_images is
+                # smart enough in order not to rescale the images if the current
+                # scale factor equals to 1.
+                scaled_images, scale_transforms = scale_images(
+                    feature_images[k],
+                    self.scales[j],
                     prefix=scale_prefix,
+                    return_transforms=True,
                     verbose=verbose,
                 )
 
-            # Rescale images according to scales. Note that scale_images is smart
-            # enough in order not to rescale the images if the current scale
-            # factor equals to 1.
-            scaled_images, scale_transforms = scale_images(
-                feature_images,
-                self.scales[j],
-                prefix=scale_prefix,
-                return_transforms=True,
-                verbose=verbose,
-            )
+                # Extract scaled ground truth shapes for current scale
+                scaled_shapes = [i.landmarks[group] for i in scaled_images]
 
-            # Extract scaled ground truth shapes for current scale
-            scaled_shapes = [i.landmarks[group] for i in scaled_images]
+                # Get shape estimations of current scale. If we are at the first
+                # scale, this is done by aligning the reference shape with the
+                # perturbed bounding boxes. If we are at the rest of the scales,
+                # then the current shapes are attached on the scaled_images with
+                # key '__sdm_current_shape_{}'.
+                current_shapes = []
+                if j == 0:
+                    msg = "{}Aligning reference shape with bounding boxes.".format(
+                        scale_prefix
+                    )
+                    wrap = partial(
+                        print_progress,
+                        prefix=msg,
+                        end_with_newline=False,
+                        verbose=verbose,
+                    )
+                    for ii in wrap(scaled_images):
+                        c_shapes = []
+                        for bbox in generated_bb_funcs[k](ii):
+                            c_shapes.append(
+                                align_shape_with_bounding_box(
+                                    self.reference_shape, bbox
+                                )
+                            )
+                        current_shapes.append(c_shapes)
+                else:
+                    msg = "{}Extracting shape estimations from previous scale.".format(
+                        scale_prefix
+                    )
+                    wrap = partial(
+                        print_progress,
+                        prefix=msg,
+                        end_with_newline=False,
+                        verbose=verbose,
+                    )
+                    for ii in wrap(scaled_images):
+                        c_shapes = []
+                        for p in range(self.n_perturbations):
+                            c_key = "__sdm_current_shape_{}".format(p)
+                            c_shapes.append(ii.landmarks[c_key])
+                        current_shapes.append(c_shapes)
+                scaled.append(
+                    (scaled_images, scaled_shapes, current_shapes, scale_transforms)
+                )
 
-            # Get shape estimations of current scale. If we are at the first
-            # scale, this is done by aligning the reference shape with the
-            # perturbed bounding boxes. If we are at the rest of the scales,
-            # then the current shapes are attached on the scaled_images with
-            # key '__sdm_current_shape_{}'.
-            current_shapes = []
-            if j == 0:
-                # At the first scale, the current shapes are created by aligning
-                # the reference shape to the perturbed bounding boxes.
-                msg = "{}Aligning reference shape with bounding boxes.".format(
-                    scale_prefix
-                )
-                wrap = partial(
-                    print_progress, prefix=msg, end_with_newline=False, verbose=verbose
-                )
-                # Extract perturbations at the very bottom level
-                for ii in wrap(scaled_images):
-                    c_shapes = []
-                    for bbox in generated_bb_func(ii):
-                        c_s = align_shape_with_bounding_box(self.reference_shape, bbox)
-                        c_shapes.append(c_s)
-                    current_shapes.append(c_shapes)
-            else:
-                # At the rest of the scales, extract the current shapes that
-                # were attached to the images
-                msg = "{}Extracting shape estimations from previous scale.".format(
-                    scale_prefix
-                )
-                wrap = partial(
-                    print_progress, prefix=msg, end_with_newline=False, verbose=verbose
-                )
-                for ii in wrap(scaled_images):
-                    c_shapes = []
-                    for k in list(range(self.n_perturbations)):
-                        c_key = "__sdm_current_shape_{}".format(k)
-                        c_shapes.append(ii.landmarks[c_key])
-                    current_shapes.append(c_shapes)
-
-            # Train supervised descent algorithm. This returns the shape
-            # estimations for the next scale.
+            # Train supervised descent algorithm. The shape estimations for the
+            # next scale are the current shapes, which it updates.
+            batches = [(images_, gts, shapes) for images_, gts, shapes, _ in scaled]
             if not increment:
-                current_shapes = self.algorithms[j].train(
-                    scaled_images,
-                    scaled_shapes,
-                    current_shapes,
-                    prefix=scale_prefix,
-                    verbose=verbose,
-                )
+                self.algorithms[j].train(batches, prefix=scale_prefix, verbose=verbose)
             else:
-                current_shapes = self.algorithms[j].increment(
-                    scaled_images,
-                    scaled_shapes,
-                    current_shapes,
-                    prefix=scale_prefix,
-                    verbose=verbose,
+                self.algorithms[j].increment(
+                    batches, prefix=scale_prefix, verbose=verbose
                 )
 
             # Scale the current shape estimations for the next level. This
             # doesn't have to be done for the last scale. The only thing we need
             # to do at the last scale is to remove any attached landmarks from
             # the training images.
-            if j < (self.n_scales - 1):
-                if self.holistic_features[j + 1] != self.holistic_features[j]:
-                    # Features will be extracted, thus attach current_shapes on
-                    # the training images (image_batch)
+            for k, (_, _, current_shapes, scale_transforms) in enumerate(scaled):
+                image_batch = rescaled_batches[k]
+                if j < (self.n_scales - 1):
+                    if self.holistic_features[j + 1] != self.holistic_features[j]:
+                        # Features will be extracted, thus attach current_shapes on
+                        # the training images (image_batch)
+                        attach_to = image_batch
+                    else:
+                        # Features won't be extracted; the same feature_images will
+                        # be used for the next scale, thus attach current_shapes on
+                        # them.
+                        attach_to = feature_images[k]
                     for jj, image_shapes in enumerate(current_shapes):
-                        for k, shape in enumerate(image_shapes):
-                            c_key = "__sdm_current_shape_{}".format(k)
-                            image_batch[jj].landmarks[c_key] = scale_transforms[
-                                jj
-                            ].apply(shape)
-                else:
-                    # Features won't be extracted;. the same feature_images will
-                    # be used for the next scale, thus attach current_shapes on
-                    # them.
-                    for jj, image_shapes in enumerate(current_shapes):
-                        for k, shape in enumerate(image_shapes):
-                            c_key = "__sdm_current_shape_{}".format(k)
-                            feature_images[jj].landmarks[c_key] = scale_transforms[
-                                jj
-                            ].apply(shape)
-            else:
-                # Check if original training image (image_batch) got some current
-                # shape estimations attached. If yes, delete them.
-                if "__sdm_current_shape_0" in image_batch[0].landmarks:
+                        for p, shape in enumerate(image_shapes):
+                            c_key = "__sdm_current_shape_{}".format(p)
+                            attach_to[jj].landmarks[c_key] = scale_transforms[jj].apply(
+                                shape
+                            )
+                elif "__sdm_current_shape_0" in image_batch[0].landmarks:
+                    # Check if original training image (image_batch) got some
+                    # current shape estimations attached. If yes, delete them.
                     for image in image_batch:
-                        for k in list(range(self.n_perturbations)):
-                            c_key = "__sdm_current_shape_{}".format(k)
+                        for p in range(self.n_perturbations):
+                            c_key = "__sdm_current_shape_{}".format(p)
                             del image.landmarks[c_key]
 
     def increment(

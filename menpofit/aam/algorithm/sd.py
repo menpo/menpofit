@@ -230,6 +230,9 @@ class MeanTemplateNewton(MeanTemplate):
         The regularization parameter.
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
+    incrementable : `bool`, optional
+        Flag that controls whether the regressors can be incremented, which is
+        what training on batches of images does.
     """
 
     def __init__(
@@ -239,12 +242,15 @@ class MeanTemplateNewton(MeanTemplate):
         compute_error=euclidean_bb_normalised_error,
         alpha=0,
         bias=True,
+        incrementable=False,
     ):
         super(MeanTemplateNewton, self).__init__(
             aam_interface, n_iterations=n_iterations, compute_error=compute_error
         )
 
-        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
+        self._regressor_cls = partial(
+            IRLRegression, alpha=alpha, bias=bias, incrementable=incrementable
+        )
 
 
 class MeanTemplateGaussNewton(MeanTemplate):
@@ -359,6 +365,9 @@ class ProjectOutNewton(ProjectOut):
         The regularization parameter.
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
+    incrementable : `bool`, optional
+        Flag that controls whether the regressors can be incremented, which is
+        what training on batches of images does.
     """
 
     def __init__(
@@ -368,12 +377,15 @@ class ProjectOutNewton(ProjectOut):
         compute_error=euclidean_bb_normalised_error,
         alpha=0,
         bias=True,
+        incrementable=False,
     ):
         super(ProjectOutNewton, self).__init__(
             aam_interface, n_iterations=n_iterations, compute_error=compute_error
         )
 
-        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
+        self._regressor_cls = partial(
+            IRLRegression, alpha=alpha, bias=bias, incrementable=incrementable
+        )
 
 
 class ProjectOutGaussNewton(ProjectOut):
@@ -483,6 +495,9 @@ class AppearanceWeightsNewton(AppearanceWeights):
         The regularization parameter.
     bias : `bool`, optional
         Flag that controls whether to use a bias term.
+    incrementable : `bool`, optional
+        Flag that controls whether the regressors can be incremented, which is
+        what training on batches of images does.
     """
 
     def __init__(
@@ -492,12 +507,15 @@ class AppearanceWeightsNewton(AppearanceWeights):
         compute_error=euclidean_bb_normalised_error,
         alpha=0,
         bias=True,
+        incrementable=False,
     ):
         super(AppearanceWeightsNewton, self).__init__(
             aam_interface, n_iterations=n_iterations, compute_error=compute_error
         )
 
-        self._regressor_cls = partial(IRLRegression, alpha=alpha, bias=bias)
+        self._regressor_cls = partial(
+            IRLRegression, alpha=alpha, bias=bias, incrementable=incrementable
+        )
 
 
 class AppearanceWeightsGaussNewton(AppearanceWeights):

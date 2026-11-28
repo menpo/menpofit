@@ -43,7 +43,8 @@ RUNNABLE = [b for b in BLOCKS if SKIP_MARKER not in b]
 
 def block_id(block):
     # what the example builds, named by its first import: from menpofit.x import A, B
-    line = next(l for l in block.splitlines() if l.startswith(("from", "import")))
+    imports = [l for l in block.splitlines() if l.startswith(("from", "import"))]
+    line = next((l for l in imports if "menpofit" in l), imports[0])
     return re.sub(
         r"[^A-Za-z0-9_.]+", "_", line.replace("from ", "").replace(" import ", ".")
     )[:50]

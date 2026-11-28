@@ -18,130 +18,102 @@ class BaseSupervisedDescentAlgorithm(object):
     def _multi_scale_fitter_result(self):
         raise NotImplementedError()
 
-    def train(self, images, gt_shapes, current_shapes, prefix="", verbose=False):
+    def train(self, batches, prefix="", verbose=False):
         r"""
         Method to train the model given a set of initial shapes.
 
         Parameters
         ----------
-        images : `list` of `menpo.image.Image`
-            The `list` of training images.
-        gt_shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of ground truth shapes that correspond to the images.
-        current_shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of current shapes that correspond to the images,
-            which will be used as initial shapes.
+        batches : `list` of `(images, gt_shapes, current_shapes)`
+            The training images in one or more batches. For every batch,
+            `images` is the `list` of `menpo.image.Image`, `gt_shapes` the
+            `list` of ground truth `menpo.shape.PointCloud` of the images and
+            `current_shapes` the `list` of `list` of `menpo.shape.PointCloud`
+            that every image starts from. The current shapes are updated
+            inplace.
         prefix : `str`, optional
             The prefix to use when printing information.
         verbose : `bool`, optional
             If ``True``, then information is printed during training.
-
-        Returns
-        -------
-        current_shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of current shapes that correspond to the images.
         """
-        return self._train(
-            images,
-            gt_shapes,
-            current_shapes,
-            increment=False,
-            prefix=prefix,
-            verbose=verbose,
-        )
+        self._train(batches, increment=False, prefix=prefix, verbose=verbose)
 
-    def increment(self, images, gt_shapes, current_shapes, prefix="", verbose=False):
+    def increment(self, batches, prefix="", verbose=False):
         r"""
         Method to increment the model with the set of current shapes.
 
         Parameters
         ----------
-        images : `list` of `menpo.image.Image`
-            The `list` of training images.
-        gt_shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of ground truth shapes that correspond to the images.
-        current_shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of current shapes that correspond to the images.
+        batches : `list` of `(images, gt_shapes, current_shapes)`
+            The training images in one or more batches, see `train`.
         prefix : `str`, optional
             The prefix to use when printing information.
         verbose : `bool`, optional
             If ``True``, then information is printed during training.
-
-        Returns
-        -------
-        current_shapes : `list` of `menpo.shape.PointCloud`
-            The `list` of current shapes that correspond to the images.
         """
-        return self._train(
-            images,
-            gt_shapes,
-            current_shapes,
-            increment=True,
-            prefix=prefix,
-            verbose=verbose,
-        )
+        self._train(batches, increment=True, prefix=prefix, verbose=verbose)
 
-    def _train(
-        self,
-        images,
-        gt_shapes,
-        current_shapes,
-        increment=False,
-        prefix="",
-        verbose=False,
-    ):
+    def _train(self, batches, increment=False, prefix="", verbose=False):
         if not increment:
             # Reset the regressors
             self.regressors = []
         elif increment and not (hasattr(self, "regressors") and self.regressors):
             raise ValueError("Algorithm must be trained before it can be incremented.")
 
-        n_perturbations = len(current_shapes[0])
-        template_shape = gt_shapes[0]
+        n_perturbations = len(batches[0][2][0])
+        template_shape = batches[0][1][0]
 
-        # obtain delta_x and gt_x
-        delta_x, gt_x = self._compute_delta_x(gt_shapes, current_shapes)
-
-        # Cascaded Regression loop
+        # Cascaded Regression loop. The samples of a level are the shapes that
+        # the previous levels have updated, so every level goes through all the
+        # batches to train its regressor, and then once more to update the shapes.
+        # With only one batch, the samples are kept for the update.
         for k in range(self.n_iterations):
-            # generate regression data
             features_prefix = "{}(Iteration {}) - ".format(prefix, k)
-            features = self._compute_training_features(
-                images,
-                gt_shapes,
-                current_shapes,
-                prefix=features_prefix,
-                verbose=verbose,
-            )
+
+            def samples(images, gt_shapes, current_shapes):
+                delta_x, gt_x = self._compute_delta_x(gt_shapes, current_shapes)
+                features = self._compute_training_features(
+                    images,
+                    gt_shapes,
+                    current_shapes,
+                    prefix=features_prefix,
+                    verbose=verbose,
+                )
+                return features, delta_x, gt_x
+
+            regressor = self.regressors[k] if increment else self._regressor_cls()
+            kept = []
+            for b, (images, gt_shapes, current_shapes) in enumerate(batches):
+                features, delta_x, gt_x = samples(images, gt_shapes, current_shapes)
+                if increment or b > 0:
+                    regressor.increment(features, delta_x)
+                else:
+                    regressor.train(features, delta_x)
+                if len(batches) == 1:
+                    kept = [(features, delta_x, gt_x)]
+            if not increment:
+                self.regressors.append(regressor)
 
             if verbose:
                 print_dynamic(
                     "{}(Iteration {}) - Performing regression".format(prefix, k)
                 )
-
-            if not increment:
-                r = self._regressor_cls()
-                r.train(features, delta_x)
-                self.regressors.append(r)
-            else:
-                self.regressors[k].increment(features, delta_x)
-
-            # Estimate delta_points
-            estimated_delta_x = self.regressors[k].predict(features)
-            if verbose:
-                self._print_regression_info(
-                    template_shape,
-                    gt_shapes,
-                    n_perturbations,
-                    delta_x,
-                    estimated_delta_x,
-                    k,
-                    prefix=prefix,
+            for b, (images, gt_shapes, current_shapes) in enumerate(batches):
+                features, delta_x, gt_x = (
+                    kept[0] if kept else samples(images, gt_shapes, current_shapes)
                 )
-
-            self._update_estimates(estimated_delta_x, delta_x, gt_x, current_shapes)
-
-        return current_shapes
+                estimated_delta_x = regressor.predict(features)
+                if verbose:
+                    self._print_regression_info(
+                        template_shape,
+                        gt_shapes,
+                        n_perturbations,
+                        delta_x,
+                        estimated_delta_x,
+                        k,
+                        prefix=prefix,
+                    )
+                self._update_estimates(estimated_delta_x, delta_x, gt_x, current_shapes)
 
     def _compute_delta_x(self, gt_shapes, current_shapes):
         raise NotImplementedError()
